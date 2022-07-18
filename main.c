@@ -1,20 +1,25 @@
 #include<stdio.h>
 #include<math.h>
 
-struct Vessel init_vessel();
-struct Flight init_flight(struct Body *body);
-struct Body init_body();
-double get_pitch(double t);
-void print_vessel_info(struct Vessel *v);
-void print_flight_info(struct Flight *f);
-void calculate_flight(struct Vessel *v, struct Flight *f, double t);
-void update_vessel(struct Vessel *v, double t);
-double get_ship_mass(struct Vessel *v, double t);
-double get_ship_acceleration(struct Vessel *v, double t);
-double get_ship_hacceleration(struct Vessel *v, double t);
-double get_ship_vacceleration(struct Vessel *v, double t);
-void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t);
-double get_flight_hvelocity(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double step);
+struct  Vessel init_vessel();
+struct  Flight init_flight(struct Body *body);
+struct  Body init_body();
+double  get_pitch(double t);
+void    print_vessel_info(struct Vessel *v);
+void    print_flight_info(struct Flight *f);
+void    calculate_flight(struct Vessel *v, struct Flight *f, double t);
+void    update_vessel(struct Vessel *v, double t);
+double  get_ship_mass(struct Vessel *v, double t);
+double  get_ship_acceleration(struct Vessel *v, double t);
+double  get_ship_hacceleration(struct Vessel *v, double t);
+double  get_ship_vacceleration(struct Vessel *v, double t);
+void    update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t);
+double  integrate_flight_hvelocity(struct Vessel *v, struct Vessel *last_v, double step);
+double  integrate_flight_vvelocity(struct Flight *f, struct Flight *last_f, double step);
+double  calc_centrifugal_acceleration(struct Flight *f);
+double  calc_grav_acceleration(struct Flight *f);
+double  calc_balanced_acceleration(struct Flight *f);
+double  calc_vertical_acceleration(struct Vessel *v, struct Flight *f);
 
 double deg_to_rad(double deg);
 
@@ -30,6 +35,7 @@ struct Vessel {
 } vessel;
 
 struct Flight {
+    struct Body *body;
     double g;       // gravitational acceleration [m/s²]
     double ac;      // negative centripetal force due to horizontal velocity [m/s²]
     double ab;      // gravitational a subtracted by cetrifucal a [m/s²]
@@ -70,7 +76,7 @@ int main() {
 
 struct Vessel init_vessel() {
     struct Vessel new_vessel;
-    new_vessel.F = 50;
+    new_vessel.F = 6e3;
     new_vessel.mass = 0;
     new_vessel.m0 = 500;
     new_vessel.burn_rate = 2;
@@ -83,6 +89,7 @@ struct Vessel init_vessel() {
 
 struct Flight init_flight(struct Body *body) {
     struct Flight new_flight;
+    new_flight.body = body;
     new_flight.g = body -> mu / pow(body -> radius, 2);
     new_flight.ac = 0;
     new_flight.ab = 0;
@@ -91,7 +98,7 @@ struct Flight init_flight(struct Body *body) {
     new_flight.vv = 0;
     new_flight.v = 0;
     new_flight.h = 0;
-    new_flight.r = body -> radius;
+    new_flight.r = body -> radius + 80000;      // currently hard coded to altitude of 80km
     new_flight.Ap = 0;
     return new_flight;
 }
@@ -145,9 +152,10 @@ void calculate_flight(struct Vessel *v, struct Flight *f, double t) {
     struct Flight f_last;
 
     update_vessel(v, start);
-
     v_last = *v;
     f_last = *f;
+    update_flight(v,&v_last, f, &f_last, 0);
+
     double x;
 
     for(x = start+step; x <= end-step; x += step) {
@@ -207,13 +215,45 @@ double get_ship_vacceleration(struct Vessel *v, double t) {
 
 // update parameters of the flight for the point in time t of the flight
 void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double step) {
-    f -> vh += get_flight_hvelocity(v,last_v,f,last_f,step);
+    f -> vh += integrate_flight_hvelocity(v,last_v,step);
+    f -> ac  = calc_centrifugal_acceleration(f);
+    f -> g   = calc_grav_acceleration(f);
+    f -> ab  = calc_balanced_acceleration(f);
+    f -> av  = calc_vertical_acceleration(v,f);
+    f -> vv += integrate_flight_vvelocity(f, last_f, step);
 }
 
 // integrate horizontal acceleration over time for a given interval (numerical integration, midpoint/rectangle rule)
-double get_flight_hvelocity(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double step) {
+double integrate_flight_hvelocity(struct Vessel *v, struct Vessel *last_v, double step) {
     return ( (v->ah + last_v->ah)/2 )*step;
 }
+
+// calculate centrifugal acceleration due to the vessel's horizontal velocity
+double calc_centrifugal_acceleration(struct Flight *f) {
+    return pow(f->vh, 2) / f->r;
+}
+
+// calculate gravitational acceleration at a given distance to the center of the body
+double calc_grav_acceleration(struct Flight *f) {
+    return f->body->mu / pow(f->r,2);
+}
+
+// calculate acceleration towards body without the vessel's thrust (g-ac)
+double calc_balanced_acceleration(struct Flight *f) {
+    return f->g - f->ac;
+}
+
+// calculate acceleration towards body with vessel's thrust
+double calc_vertical_acceleration(struct Vessel *v, struct Flight *f) {
+    return v->a * sin(deg_to_rad(v->pitch)) - f->ab;
+}
+
+// integrate vertical acceleration over time for a given interval (numerical integration, midpoint/rectangle rule)
+double integrate_flight_vvelocity(struct Flight *f, struct Flight *last_f, double step) {
+    return ( (f->av + last_f->av)/2 )*step;
+}
+
+
 
 
 // transforms degrees to radiens
