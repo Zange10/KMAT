@@ -14,12 +14,13 @@ double  get_ship_acceleration(struct Vessel *v, double t);
 double  get_ship_hacceleration(struct Vessel *v, double t);
 double  get_ship_vacceleration(struct Vessel *v, double t);
 void    update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t);
-double  integrate_flight_hvelocity(struct Vessel *v, struct Vessel *last_v, double step);
-double  integrate_flight_vvelocity(struct Flight *f, struct Flight *last_f, double step);
+double  integrate(double fa, double fb, double step);
+double  calc_velocity(double vh, double vv);
 double  calc_centrifugal_acceleration(struct Flight *f);
 double  calc_grav_acceleration(struct Flight *f);
 double  calc_balanced_acceleration(struct Flight *f);
 double  calc_vertical_acceleration(struct Vessel *v, struct Flight *f);
+double  calc_Apoapsis(struct Flight *f);
 
 double deg_to_rad(double deg);
 
@@ -64,7 +65,6 @@ int main() {
     print_flight_info(&flight);
 
     calculate_flight(&vessel, &flight, 100);
-
 
     print_vessel_info(&vessel);
     print_flight_info(&flight);
@@ -215,17 +215,15 @@ double get_ship_vacceleration(struct Vessel *v, double t) {
 
 // update parameters of the flight for the point in time t of the flight
 void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double step) {
-    f -> vh += integrate_flight_hvelocity(v,last_v,step);
+    f -> vh += integrate(v->ah,last_v->ah,step);    // integrate horizontal acceleration
     f -> ac  = calc_centrifugal_acceleration(f);
     f -> g   = calc_grav_acceleration(f);
     f -> ab  = calc_balanced_acceleration(f);
     f -> av  = calc_vertical_acceleration(v,f);
-    f -> vv += integrate_flight_vvelocity(f, last_f, step);
-}
-
-// integrate horizontal acceleration over time for a given interval (numerical integration, midpoint/rectangle rule)
-double integrate_flight_hvelocity(struct Vessel *v, struct Vessel *last_v, double step) {
-    return ( (v->ah + last_v->ah)/2 )*step;
+    f -> vv += integrate(f->av,last_f->av,step);    // integrate vertical acceleration
+    f -> v   = calc_velocity(f->vh,f->vv);
+    f -> h  += integrate(f->vv,last_f->vv,step);    // integrate vertical velocity
+    f -> Ap  = calc_Apoapsis(f);
 }
 
 // calculate centrifugal acceleration due to the vessel's horizontal velocity
@@ -248,13 +246,23 @@ double calc_vertical_acceleration(struct Vessel *v, struct Flight *f) {
     return v->a * sin(deg_to_rad(v->pitch)) - f->ab;
 }
 
-// integrate vertical acceleration over time for a given interval (numerical integration, midpoint/rectangle rule)
-double integrate_flight_vvelocity(struct Flight *f, struct Flight *last_f, double step) {
-    return ( (f->av + last_f->av)/2 )*step;
+// calculate overall velocity with given vertical and horizontal velocity (pythagoras)
+double calc_velocity(double vh, double vv) {
+    return sqrt(vv*vv+vh*vh);
+}
+
+double calc_Apoapsis(struct Flight *f) {
+    return (pow(f->vv,2) / (2*f->ab)) + f->h;
 }
 
 
 
+
+// integration for a fiven interval (numerical integration, midpoint/rectangle rule)
+// I = ( (f(a)+f(b))/2 ) * step
+double integrate(double fa, double fb, double step) {
+    return ( (fa+fb)/2 ) * step;
+}
 
 // transforms degrees to radiens
 double deg_to_rad(double deg) {
