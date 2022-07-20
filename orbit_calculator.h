@@ -7,6 +7,9 @@ void print_orbit_info(struct Orbit o);
 // user chooses, which calculation should be performed
 void choose_calculation();
 
+// needed dV to change one apsis of the orbit from a circular orbit
+double change_apsis_circ();
+
 // needed dV to change one apsis of the orbit
 double change_apsis();
 
