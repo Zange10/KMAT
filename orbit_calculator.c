@@ -16,7 +16,7 @@ struct Orbit {
 struct ManeuverPlan {
     double dV1;
     double dV2;
-    bool firstApo;
+    bool first_raise_Apo;
 };
 
 struct Orbit construct_orbit(double apsis1, double apsis2, double inclination) {
@@ -56,7 +56,7 @@ void choose_calculation() {
         change_apsis();
         break;
     case 3:
-        change_apsis();
+        calc_hohmann_transfer();
         break;
     default:
         break;
@@ -67,7 +67,7 @@ void change_apsis_circ() {
     double initial_apsis = 0;
     double new_apsis = 0;
 
-    printf("Enter parameters (static Apsis, initial value of apsis, new value of apsis): ");
+    printf("Enter parameters (altitude of initial circular orbit, new value of apsis): ");
     scanf("%lf %lf", &initial_apsis, &new_apsis);
 
     initial_apsis = initial_apsis*1000+EARTHRADIUS;
@@ -99,45 +99,49 @@ void change_apsis() {
     return;
 }
 
-// void calc_hohmann_transfer() {
-//     double initial_apsis = 0;
-//     double new_apsis = 0;
+void calc_hohmann_transfer() {
+    double initial_apsis = 0;
+    double new_apsis = 0;
 
-//     printf("Enter parameters (altitude of circular orbit, new value of apsis): ");
-//     scanf("%lf %lf", &initial_apsis, &new_apsis);
+    printf("Enter parameters (altitude of initial circular orbit, altitude of planned circular orbit): ");
+    scanf("%lf %lf", &initial_apsis, &new_apsis);
     
-//     initial_apsis = initial_apsis*1000+EARTHRADIUS;
-//     new_apsis = new_apsis*1000+EARTHRADIUS;
+    initial_apsis = initial_apsis*1000+EARTHRADIUS;
+    new_apsis = new_apsis*1000+EARTHRADIUS;
 
-//     struct Orbit initial_orbit;
-//     struct Orbit new_orbit;
+    struct Orbit initial_orbit;
+    struct Orbit new_orbit;
 
-//     initial_orbit = construct_orbit(initial_apsis, initial_apsis, 0);
-//     new_orbit = construct_orbit(initial_apsis, new_apsis, 0);
+    initial_orbit = construct_orbit(initial_apsis, initial_apsis, 0);
+    new_orbit = construct_orbit(new_apsis, new_apsis, 0);
 
-//     print_orbit_info(initial_orbit);
-//     print_orbit_info(new_orbit);
+    print_orbit_info(initial_orbit);
+    print_orbit_info(new_orbit);
 
-//     struct ManeuverPlan mp = calc_change_orbit_dV(initial_orbit, new_orbit);
+    struct ManeuverPlan mp = calc_change_orbit_dV(initial_orbit, new_orbit);
 
-//     double dV;
-//     if(mp.dV1 != 0) dV = mp.dV1;
-//     else dV = mp.dV2;
+    if(mp.first_raise_Apo) {
+        printf("\n____________\n\nNeeded Delta-V to raise Apoapsis: \t%g m/s\n", mp.dV1);
+        printf("Needed Delta-V to raise Periapsis: \t%g m/s\n", mp.dV2);
+        printf("Total Delta-V for Hohmann transfer: \t%g m/s\n____________\n\n", mp.dV1+mp.dV2);
+    } else {
+        printf("\n____________\n\nNeeded Delta-V to lower Periapsis: \t%g m/s\n", mp.dV1);
+        printf("Needed Delta-V to lower Apoapsis: \t%g m/s\n", mp.dV2);
+        printf("Total Delta-V for Hohmann transfer: \t%g m/s\n____________\n\n", mp.dV1+mp.dV2);
+    }
 
-//     printf("\n____________\nNeeded dV: %g m/s\n____________", dV);
-
-//     return;
-// }
+    return;
+}
 
 
 struct ManeuverPlan calc_change_orbit_dV(struct Orbit initial_orbit, struct Orbit planned_orbit) {
     struct ManeuverPlan mp;
     if(planned_orbit.apoapsis > initial_orbit.apoapsis) {
-        mp.firstApo = true;
+        mp.first_raise_Apo = true;
         mp.dV1 = calc_maneuver_dV(initial_orbit.periapsis, initial_orbit.apoapsis, planned_orbit.apoapsis);
         mp.dV2 = calc_maneuver_dV(planned_orbit.apoapsis, initial_orbit.periapsis, planned_orbit.periapsis);
     } else {
-        mp.firstApo = false;
+        mp.first_raise_Apo = false;
         mp.dV1 = calc_maneuver_dV(initial_orbit.apoapsis, initial_orbit.periapsis, planned_orbit.periapsis);
         mp.dV2 = calc_maneuver_dV(planned_orbit.periapsis, initial_orbit.apoapsis, planned_orbit.apoapsis);
     }
@@ -151,9 +155,6 @@ double calc_maneuver_dV(double static_apsis, double initial_apsis, double new_ap
 
     initial_orbit = construct_orbit(static_apsis, initial_apsis, 0);
     new_orbit = construct_orbit(static_apsis, new_apsis, 0);
-
-    print_orbit_info(initial_orbit);
-    print_orbit_info(new_orbit);
 
     double v0 = calc_orbital_speed(static_apsis, initial_orbit.a);
     double v1 = calc_orbital_speed(static_apsis, new_orbit.a);

@@ -16,6 +16,9 @@ void change_apsis_circ();
 // needed dV to change one apsis of the orbit
 void change_apsis();
 
+// calculate Delta-V to execute a Hohmann transfer between two circular orbits
+void calc_hohmann_transfer();
+
 // create a plan of one or more maneuvers to reach the planned orbit from the initial orbit
 struct ManeuverPlan calc_change_orbit_dV(struct Orbit initial_orbit, struct Orbit planned_orbit);
 
