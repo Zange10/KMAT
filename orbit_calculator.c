@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <math.h>
+#include <stdbool.h>
 #include "orbit_calculator.h"
 
 #define MU_EARTH 3.986e14
@@ -9,106 +10,147 @@ struct Orbit {
     double apoapsis;
     double periapsis;
     double a;
+    double inclination;
 };
 
-void print_orbit_info(struct Orbit o) {
+struct ManeuverPlan {
+    double dV1;
+    double dV2;
+    bool firstApo;
+};
+
+struct Orbit construct_orbit(double apsis1, double apsis2, double inclination) {
+    struct Orbit new_orbit;
+    if(apsis1 > apsis2) {
+        new_orbit.apoapsis = apsis1;
+        new_orbit.periapsis = apsis2;
+    } else {
+        new_orbit.apoapsis = apsis2;
+        new_orbit.periapsis = apsis1;
+    }
+    new_orbit.a = (new_orbit.apoapsis+new_orbit.periapsis)/2;
+    new_orbit.inclination = inclination;
+    return new_orbit;
+}
+
+void print_orbit_info(struct Orbit orbit) {
     printf("\n______________________\nORBIT:\n\n");
-    printf("Apoapsis:\t\t%g km\n", (o.apoapsis-EARTHRADIUS)/1000);
-    printf("Periapsis:\t\t%g km\n", (o.periapsis-EARTHRADIUS)/1000);
-    printf("Semi-major axis:\t%g km\n", o.a /1000);
+    printf("Apoapsis:\t\t%g km\n", (orbit.apoapsis-EARTHRADIUS)/1000);
+    printf("Periapsis:\t\t%g km\n", (orbit.periapsis-EARTHRADIUS)/1000);
+    printf("Semi-major axis:\t%g km\n", orbit.a /1000);
+    printf("Inclination:\t\t%g°\n", orbit.inclination);
     printf("______________________\n\n");
 }
 
 void choose_calculation() {
     int selection = 0;
-    printf("Choose Calculation (1=change Apsis from circular orbit; 2=change Apsis): ");
+    printf("Choose Calculation (1=change Apsis from circular orbit; 2=change Apsis, 3=Hohmann transfer): ");
     scanf("%d", &selection);
-
-    double dV = 0;
 
     switch (selection)
     {
     case 1:
-        dV = change_apsis_circ();
+        change_apsis_circ();
         break;
     case 2:
-        dV = change_apsis();
+        change_apsis();
+        break;
+    case 3:
+        change_apsis();
         break;
     default:
         break;
     }
-
-    printf("\n________\n\nNeeded Delta-V: %g\n__________\n\n\n", dV);
 }
 
-double change_apsis_circ() {
+void change_apsis_circ() {
     double initial_apsis = 0;
     double new_apsis = 0;
 
-    printf("Set parameters (altitude of circular orbit, new value of apsis): ");
+    printf("Enter parameters (static Apsis, initial value of apsis, new value of apsis): ");
     scanf("%lf %lf", &initial_apsis, &new_apsis);
-    
+
     initial_apsis = initial_apsis*1000+EARTHRADIUS;
     new_apsis = new_apsis*1000+EARTHRADIUS;
 
+    double dV = calc_maneuver_dV(initial_apsis, initial_apsis, new_apsis);
 
-    struct Orbit initial_orbit;
-    struct Orbit new_orbit;
+    printf("\n____________________\n\nNeeded dV: %g m/s\n____________________\n\n", dV);
 
-    initial_orbit.apoapsis = initial_apsis;
-    initial_orbit.periapsis = initial_apsis;
-    initial_orbit.a = calc_semimajor_axis(initial_orbit);
-
-    if(new_apsis > initial_apsis) {
-        new_orbit.apoapsis = new_apsis;
-        new_orbit.periapsis = initial_apsis;
-    } else {
-        new_orbit.apoapsis = initial_apsis;
-        new_orbit.periapsis = new_apsis;
-    }
-    new_orbit.a = calc_semimajor_axis(new_orbit);
-
-    print_orbit_info(initial_orbit);
-    print_orbit_info(new_orbit);
-
-    double v0 = calc_orbital_speed(initial_apsis, initial_orbit.a);
-    double v1 = calc_orbital_speed(initial_apsis, new_orbit.a);
-
-    return fabs(v1-v0);
+    return;
 }
 
-double change_apsis() {
+void change_apsis() {
     double initial_apsis = 0;
     double new_apsis = 0;
     double static_apsis = 0;
 
-    printf("Set parameters (opposing Apsis, initial value of apsis, new value of apsis): ");
+    printf("Enter parameters (static Apsis, initial value of apsis, new value of apsis): ");
     scanf("%lf %lf %lf", &static_apsis, &initial_apsis, &new_apsis);
 
     static_apsis = static_apsis*1000+EARTHRADIUS;
     initial_apsis = initial_apsis*1000+EARTHRADIUS;
     new_apsis = new_apsis*1000+EARTHRADIUS;
 
+    double dV = calc_maneuver_dV(static_apsis, initial_apsis, new_apsis);
+
+    printf("\n____________\n\nNeeded dV: %g m/s\n____________\n\n", dV);
+
+    return;
+}
+
+// void calc_hohmann_transfer() {
+//     double initial_apsis = 0;
+//     double new_apsis = 0;
+
+//     printf("Enter parameters (altitude of circular orbit, new value of apsis): ");
+//     scanf("%lf %lf", &initial_apsis, &new_apsis);
+    
+//     initial_apsis = initial_apsis*1000+EARTHRADIUS;
+//     new_apsis = new_apsis*1000+EARTHRADIUS;
+
+//     struct Orbit initial_orbit;
+//     struct Orbit new_orbit;
+
+//     initial_orbit = construct_orbit(initial_apsis, initial_apsis, 0);
+//     new_orbit = construct_orbit(initial_apsis, new_apsis, 0);
+
+//     print_orbit_info(initial_orbit);
+//     print_orbit_info(new_orbit);
+
+//     struct ManeuverPlan mp = calc_change_orbit_dV(initial_orbit, new_orbit);
+
+//     double dV;
+//     if(mp.dV1 != 0) dV = mp.dV1;
+//     else dV = mp.dV2;
+
+//     printf("\n____________\nNeeded dV: %g m/s\n____________", dV);
+
+//     return;
+// }
+
+
+struct ManeuverPlan calc_change_orbit_dV(struct Orbit initial_orbit, struct Orbit planned_orbit) {
+    struct ManeuverPlan mp;
+    if(planned_orbit.apoapsis > initial_orbit.apoapsis) {
+        mp.firstApo = true;
+        mp.dV1 = calc_maneuver_dV(initial_orbit.periapsis, initial_orbit.apoapsis, planned_orbit.apoapsis);
+        mp.dV2 = calc_maneuver_dV(planned_orbit.apoapsis, initial_orbit.periapsis, planned_orbit.periapsis);
+    } else {
+        mp.firstApo = false;
+        mp.dV1 = calc_maneuver_dV(initial_orbit.apoapsis, initial_orbit.periapsis, planned_orbit.periapsis);
+        mp.dV2 = calc_maneuver_dV(planned_orbit.periapsis, initial_orbit.apoapsis, planned_orbit.apoapsis);
+    }
+
+    return mp;
+}
+
+double calc_maneuver_dV(double static_apsis, double initial_apsis, double new_apsis) {
     struct Orbit initial_orbit;
     struct Orbit new_orbit;
 
-    if(static_apsis > initial_apsis) {
-        initial_orbit.apoapsis = static_apsis;
-        initial_orbit.periapsis = initial_apsis;
-    } else {
-        initial_orbit.apoapsis = initial_apsis;
-        initial_orbit.periapsis = static_apsis;
-    }
-    initial_orbit.a = calc_semimajor_axis(initial_orbit);
-
-    if(static_apsis > new_apsis) {
-        new_orbit.apoapsis = static_apsis;
-        new_orbit.periapsis = new_apsis;
-    } else {
-        new_orbit.apoapsis = new_apsis;
-        new_orbit.periapsis = static_apsis;
-    }
-    new_orbit.a = calc_semimajor_axis(new_orbit);
+    initial_orbit = construct_orbit(static_apsis, initial_apsis, 0);
+    new_orbit = construct_orbit(static_apsis, new_apsis, 0);
 
     print_orbit_info(initial_orbit);
     print_orbit_info(new_orbit);
@@ -117,10 +159,6 @@ double change_apsis() {
     double v1 = calc_orbital_speed(static_apsis, new_orbit.a);
 
     return fabs(v1-v0);
-}
-
-double calc_semimajor_axis(struct Orbit o) {
-    return (o.apoapsis+o.periapsis)/2;
 }
 
 double calc_orbital_speed(double r, double a) {
