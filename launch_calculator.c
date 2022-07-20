@@ -17,11 +17,11 @@ struct Vessel {
 struct Flight {
     struct Body *body;
     double g;       // gravitational acceleration [m/s²]
-    double ac;      // negative centripetal force due to horizontal velocity [m/s²]
+    double ac;      // negative centripetal force due to horizontal speed [m/s²]
     double ab;      // gravitational a subtracted by cetrifucal a [m/s²]
     double av;      // current vertical acceleration due to Thrust, pitch, gravity and velocity [m/s²]
-    double vh;      // horizontal velocity [m/s]
-    double vv;      // vertical velocity [m/s]
+    double vh;      // horizontal speed [m/s]
+    double vv;      // vertical speed [m/s]
     double v;       // overall velocity [m/s]
     double h;       // altitude above sea level [m]
     double r;       // distance to center of body [m]
@@ -184,7 +184,7 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
     f -> av  = calc_vertical_acceleration(v,f);
     f -> vv += integrate(f->av,last_f->av,step);    // integrate vertical acceleration
     f -> v   = calc_velocity(f->vh,f->vv);
-    f -> h  += integrate(f->vv,last_f->vv,step);    // integrate vertical velocity
+    f -> h  += integrate(f->vv,last_f->vv,step);    // integrate vertical speed
     f -> Ap  = calc_Apoapsis(f);
 }
 

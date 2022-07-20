@@ -33,7 +33,7 @@ double  get_ship_hacceleration(struct Vessel *v, double t);
 // get vessels's vertical acceleration (Thrust) after time t
 double  get_ship_vacceleration(struct Vessel *v, double t);
 
-// calculate centrifugal acceleration due to the vessel's horizontal velocity
+// calculate centrifugal acceleration due to the vessel's horizontal speed
 double  calc_centrifugal_acceleration(struct Flight *f);
 // calculate gravitational acceleration at a given distance to the center of the body
 double  calc_grav_acceleration(struct Flight *f);
@@ -41,7 +41,7 @@ double  calc_grav_acceleration(struct Flight *f);
 double  calc_balanced_acceleration(struct Flight *f);
 // calculate acceleration towards body with vessel's thrust
 double  calc_vertical_acceleration(struct Vessel *v, struct Flight *f);
-// calculate overall velocity with given vertical and horizontal velocity (pythagoras)
+// calculate overall velocity with given vertical and horizontal speed (pythagoras)
 double  calc_velocity(double vh, double vv);
 
 // calculate current Apoapsis of flight/orbit
