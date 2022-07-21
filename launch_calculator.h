@@ -12,15 +12,17 @@ void    print_vessel_info(struct Vessel *v);
 // Prints parameters specific to the flight
 void    print_flight_info(struct Flight *f);
 
-// calculate parameters after launch
-void calculate_launch();
+// calculate parameters during launch
+void    calculate_launch();
 
 // Calculates vessel and flight parameters over time
 void    calculate_flight(struct Vessel *v, struct Flight *f, double t);
+// set starting parameters for flight
+void    start_flight(struct Vessel *v, struct Flight *f);
 // update parameters of vessel for the point in time t of the flight
 void    update_vessel(struct Vessel *v, double t);
 // update parameters of the flight for the point in time t of the flight
-void    update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t);
+void    update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t, double step);
 
 // get vessel's pitch after time t
 double  get_pitch(double t);

@@ -12,10 +12,11 @@ struct Vessel {
     double a;           // acceleration due to Thrust [m/s²]
     double ah;          // horizontal acceleration due to Thrust and pitch [m/s²]
     double av;          // vertical acceleration due to Thrust and pitch [m/s²]
-} vessel;
+};
 
 struct Flight {
     struct Body *body;
+    double t;       // time passed since t0
     double g;       // gravitational acceleration [m/s²]
     double ac;      // negative centripetal force due to horizontal speed [m/s²]
     double ab;      // gravitational a subtracted by cetrifucal a [m/s²]
@@ -26,12 +27,12 @@ struct Flight {
     double h;       // altitude above sea level [m]
     double r;       // distance to center of body [m]
     double Ap;      // highest point of orbit in reference to h [m]
-} flight;
+};
 
 struct Body {
     double mu;      // gravitational parameter of body [m³/s²]
     double radius;  // radius of body [m]
-} earth;
+};
 
 
 struct Vessel init_vessel(double F, double m0, double br) {
@@ -50,6 +51,7 @@ struct Vessel init_vessel(double F, double m0, double br) {
 struct Flight init_flight(struct Body *body) {
     struct Flight new_flight;
     new_flight.body = body;
+    new_flight.t = 0;
     new_flight.g = body -> mu / pow(body -> radius, 2);
     new_flight.ac = 0;
     new_flight.ab = 0;
@@ -58,7 +60,7 @@ struct Flight init_flight(struct Body *body) {
     new_flight.vv = 0;
     new_flight.v = 0;
     new_flight.h = 0;
-    new_flight.r = body -> radius + 80000;      // currently hard coded to altitude of 80km
+    new_flight.r = body -> radius;      // currently hard coded to altitude of 80km
     new_flight.Ap = 0;
     return new_flight;
 }
@@ -92,57 +94,84 @@ void print_flight_info(struct Flight *f) {
     printf("Horizontal v:\t\t%g m/s\n", f -> vh);
     printf("Vertical v:\t\t%g m/s\n", f -> vv);
     printf("Velocity:\t\t%g m/s\n", f -> v);
-    printf("Altitude:\t\t%g m\n", f -> h);
-    printf("Radius:\t\t%g m\n", f -> r);
-    printf("Apoapsis:\t\t%g m\n", f -> Ap);
+    printf("Altitude:\t\t%g km\n", f -> h/1000);
+    printf("Radius:\t\t\t%g km\n", f -> r/1000);
+    printf("Apoapsis:\t\t%g km\n", f -> Ap/1000);
     printf("______________________\n\n");
 }
 
 // ------------------------------------------------------------
 
 void calculate_launch() {
-    vessel = init_vessel(600, 50, 200);
-    earth = init_body();
-    flight = init_flight(&earth);
+    struct Vessel vessel = init_vessel(650, 50, 260);
+    struct Body earth = init_body();
+    struct Flight flight = init_flight(&earth);
 
     print_vessel_info(&vessel);
     print_flight_info(&flight);
 
-    calculate_flight(&vessel, &flight, 100);
+    calculate_flight(&vessel, &flight, 175);
 
     print_vessel_info(&vessel);
     print_flight_info(&flight);
 }
 
 
-void calculate_flight(struct Vessel *v, struct Flight *f, double t) {
+void calculate_flight(struct Vessel *v, struct Flight *f, double T) {
     double start = 0;
-    double end = t;
+    double end = T;
     double step = 0.01;
 
     struct Vessel v_last;
     struct Flight f_last;
 
-    update_vessel(v, start);
+    start_flight(v, f);
     v_last = *v;
     f_last = *f;
-    update_flight(v,&v_last, f, &f_last, 0);
 
-    double x;
+    double t;
 
-    for(x = start+step; x <= end-step; x += step) {
-        update_vessel(&vessel, x);
-
-        update_flight(v,&v_last, f, &f_last, step);
-
+    for(t = start+step; t <= end-step; t += step) {
+        update_flight(v,&v_last, f, &f_last, t, step);
         v_last = *v;
         f_last = *f;
     }
-
-    update_vessel(&vessel, end);
-    update_flight(v,&v_last, f, &f_last, end-x);
+    update_flight(v,&v_last, f, &f_last, end, end-t);
 }
 
+
+
+
+
+void start_flight(struct Vessel *v, struct Flight *f) {
+    update_vessel(v, 0);
+    f -> t   = 0;
+    f -> vh  = 0;
+    f -> vv  = 0;
+    f -> h   = 0;
+    f -> r   = f->h + f->body->radius;
+    f -> ac  = calc_centrifugal_acceleration(f);
+    f -> g   = calc_grav_acceleration(f);
+    f -> ab  = calc_balanced_acceleration(f);
+    f -> av  = calc_vertical_acceleration(v,f);
+    f -> v   = calc_velocity(f->vh,f->vv);
+    f -> Ap  = calc_Apoapsis(f);
+}
+
+
+void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t, double step) {
+    update_vessel(v, t);
+    f -> vh += integrate(v->ah,last_v->ah,step);    // integrate horizontal acceleration
+    f -> ac  = calc_centrifugal_acceleration(f);
+    f -> g   = calc_grav_acceleration(f);
+    f -> ab  = calc_balanced_acceleration(f);
+    f -> av  = calc_vertical_acceleration(v,f);
+    f -> vv += integrate(f->av,last_f->av,step);    // integrate vertical acceleration
+    f -> v   = calc_velocity(f->vh,f->vv);
+    f -> h  += integrate(f->vv,last_f->vv,step);    // integrate vertical speed
+    f -> r   = f->h + f->body->radius;
+    f -> Ap  = calc_Apoapsis(f);
+}
 
 
 void update_vessel(struct Vessel *v, double t) {
@@ -155,7 +184,8 @@ void update_vessel(struct Vessel *v, double t) {
 }
 
 double get_pitch(double t) {
-    return (9.0/4000.0)*pow(t,2) - 0.9*t + 90.0;
+    //return (9.0/4000.0)*pow(t,2) - 0.9*t + 90.0;
+    return 90.0-(90.0/200.0)*t;
 }
 
 double get_ship_mass(struct Vessel *v, double t) {
@@ -175,18 +205,6 @@ double get_ship_vacceleration(struct Vessel *v, double t) {
 }
 
 
-
-void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double step) {
-    f -> vh += integrate(v->ah,last_v->ah,step);    // integrate horizontal acceleration
-    f -> ac  = calc_centrifugal_acceleration(f);
-    f -> g   = calc_grav_acceleration(f);
-    f -> ab  = calc_balanced_acceleration(f);
-    f -> av  = calc_vertical_acceleration(v,f);
-    f -> vv += integrate(f->av,last_f->av,step);    // integrate vertical acceleration
-    f -> v   = calc_velocity(f->vh,f->vv);
-    f -> h  += integrate(f->vv,last_f->vv,step);    // integrate vertical speed
-    f -> Ap  = calc_Apoapsis(f);
-}
 
 double calc_centrifugal_acceleration(struct Flight *f) {
     return pow(f->vh, 2) / f->r;
