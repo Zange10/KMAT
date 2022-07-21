@@ -2,7 +2,7 @@
 #define LAUNCH_CALCULATOR
 
 // initialize vessel (Thrust: F[kN], initial mass: m0[t], burn rate: br[kg/s])
-struct  Vessel init_vessel(double F, double m0, double br);
+struct  Vessel init_vessel(double F_vac, double F_sl, double m0, double br);
 // initialize flight
 struct  Flight init_flight(struct Body *body);
 // initialize body
@@ -20,10 +20,14 @@ void    calculate_flight(struct Vessel *v, struct Flight *f, double t);
 // set starting parameters for flight
 void    start_flight(struct Vessel *v, struct Flight *f);
 // update parameters of vessel for the point in time t of the flight
-void    update_vessel(struct Vessel *v, double t);
+void    update_vessel(struct Vessel *v, double t, double p);
 // update parameters of the flight for the point in time t of the flight
 void    update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t, double step);
 
+// get atmospheric pressure p at height h
+double get_atmo_press(double h);
+// get thrust at current atmosperic pressure
+double get_thrust(struct Vessel *v, double p);
 // get vessel's pitch after time t
 double  get_pitch(double t);
 // get vessel's mass after time t

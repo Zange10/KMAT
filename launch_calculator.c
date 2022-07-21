@@ -4,7 +4,9 @@
 #include "launch_calculator.h"
 
 struct Vessel {
-    double F;           // Thrust produced by the engines [N]
+    double F_vac;       // Thrust produced by the engines in a vacuum [N]
+    double F_sl;        // Thrust produced by the engines at sea level [N]
+    double F;           // current Thrust produced by the engines [N]
     double mass;        // vessel mass [kg]
     double m0;          // initial mass (mass at t0) [kg]
     double burn_rate;   // burn rate of all running engines combined [kg/s]
@@ -17,6 +19,7 @@ struct Vessel {
 struct Flight {
     struct Body *body;
     double t;       // time passed since t0
+    double p;       // atmospheric pressure
     double g;       // gravitational acceleration [m/s²]
     double ac;      // negative centripetal force due to horizontal speed [m/s²]
     double ab;      // gravitational a subtracted by cetrifucal a [m/s²]
@@ -35,11 +38,13 @@ struct Body {
 };
 
 
-struct Vessel init_vessel(double F, double m0, double br) {
+struct Vessel init_vessel(double F_sl, double F_vac, double m0, double br) {
     struct Vessel new_vessel;
-    new_vessel.F = F*1000;  // kN to N
+    new_vessel.F_vac = F_vac*1000;   // kN to N
+    new_vessel.F_sl = F_sl*1000;     // kN to N
+    new_vessel.F = 0;
     new_vessel.m0 = m0*1000;    // t to kg
-    new_vessel.mass = m0*1000;  // t to kg
+    new_vessel.mass = 0;  // t to kg
     new_vessel.burn_rate = br;
     new_vessel.pitch = 0;
     new_vessel.a = 0;
@@ -52,6 +57,7 @@ struct Flight init_flight(struct Body *body) {
     struct Flight new_flight;
     new_flight.body = body;
     new_flight.t = 0;
+    new_flight.p = 0;
     new_flight.g = body -> mu / pow(body -> radius, 2);
     new_flight.ac = 0;
     new_flight.ab = 0;
@@ -103,14 +109,14 @@ void print_flight_info(struct Flight *f) {
 // ------------------------------------------------------------
 
 void calculate_launch() {
-    struct Vessel vessel = init_vessel(650, 50, 260);
+    struct Vessel vessel = init_vessel(550, 650, 50, 260);
     struct Body earth = init_body();
     struct Flight flight = init_flight(&earth);
 
     print_vessel_info(&vessel);
     print_flight_info(&flight);
 
-    calculate_flight(&vessel, &flight, 175);
+    calculate_flight(&vessel, &flight, 170);
 
     print_vessel_info(&vessel);
     print_flight_info(&flight);
@@ -144,8 +150,9 @@ void calculate_flight(struct Vessel *v, struct Flight *f, double T) {
 
 
 void start_flight(struct Vessel *v, struct Flight *f) {
-    update_vessel(v, 0);
+    update_vessel(v, 0, 1);
     f -> t   = 0;
+    f -> p   = 1;
     f -> vh  = 0;
     f -> vv  = 0;
     f -> h   = 0;
@@ -160,7 +167,8 @@ void start_flight(struct Vessel *v, struct Flight *f) {
 
 
 void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t, double step) {
-    update_vessel(v, t);
+    f -> p   = get_atmo_press(f->h);
+    update_vessel(v, t, f->p);
     f -> vh += integrate(v->ah,last_v->ah,step);    // integrate horizontal acceleration
     f -> ac  = calc_centrifugal_acceleration(f);
     f -> g   = calc_grav_acceleration(f);
@@ -174,13 +182,22 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
 }
 
 
-void update_vessel(struct Vessel *v, double t) {
+void update_vessel(struct Vessel *v, double t, double p) {
+    v -> F = get_thrust(v, p);
     v -> mass = get_ship_mass(v, t);
     v -> pitch = get_pitch(t);
     v -> a = get_ship_acceleration(v,t);
     v -> ah = get_ship_hacceleration(v,t);
     v -> av = get_ship_vacceleration(v,t);
     return;
+}
+
+double get_atmo_press(double h) {
+    return exp(-1.4347e-4 * h);
+}
+
+double get_thrust(struct Vessel *v, double p) {
+    return v->F_vac + p*( v->F_sl - v->F_vac );
 }
 
 double get_pitch(double t) {
@@ -237,5 +254,5 @@ double integrate(double fa, double fb, double step) {
 }
 
 double deg_to_rad(double deg) {
-    return deg*(3.14159265/180);
+    return deg*(M_PI/180);
 }
