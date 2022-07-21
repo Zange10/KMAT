@@ -20,12 +20,14 @@ void    calculate_flight(struct Vessel *v, struct Flight *f, double t);
 // set starting parameters for flight
 void    start_flight(struct Vessel *v, struct Flight *f);
 // update parameters of vessel for the point in time t of the flight
-void    update_vessel(struct Vessel *v, double t, double p);
+void    update_vessel(struct Vessel *v, double t, double p, double h);
 // update parameters of the flight for the point in time t of the flight
 void    update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t, double step);
 
 // get atmospheric pressure p at height h
 double get_atmo_press(double h);
+// calculate acceleration due to aerodynamic drag with given velocity and atmospheric pressure
+double calc_aerodynamic_drag(double p, double v);
 // get thrust at current atmosperic pressure
 double get_thrust(struct Vessel *v, double p);
 // get vessel's pitch after time t

@@ -20,6 +20,9 @@ struct Flight {
     struct Body *body;
     double t;       // time passed since t0
     double p;       // atmospheric pressure
+    double D;
+    double ad;      // acceleration due to aerodynamic drag
+    double ah;      // current horizontal acceleration due to thrust and with drag [m/s²]
     double g;       // gravitational acceleration [m/s²]
     double ac;      // negative centripetal force due to horizontal speed [m/s²]
     double ab;      // gravitational a subtracted by cetrifucal a [m/s²]
@@ -58,6 +61,9 @@ struct Flight init_flight(struct Body *body) {
     new_flight.body = body;
     new_flight.t = 0;
     new_flight.p = 0;
+    new_flight.D = 0;
+    new_flight.ad = 0;
+    new_flight.ah = 0;
     new_flight.g = body -> mu / pow(body -> radius, 2);
     new_flight.ac = 0;
     new_flight.ab = 0;
@@ -93,14 +99,19 @@ void print_vessel_info(struct Vessel *v) {
 
 void print_flight_info(struct Flight *f) {
     printf("\n______________________\nFLIGHT:\n\n");
+    printf("Altitude:\t\t%g km\n", f -> h/1000);
+    printf("Vertical v:\t\t%g m/s\n", f -> vv);
+    printf("Horizontal v:\t\t%g m/s\n", f -> vh);
+    printf("Velocity:\t\t%g m/s\n", f -> v);
+    printf("\n");
+    printf("Atmo press:\t\t%g bar\n", f -> p);
+    printf("Drag:\t\t\t%g N\n", f -> D);
+    printf("Drag a:\t\t\t%g m/s²\n", f -> ad);
     printf("Gravity:\t\t%g m/s²\n", f -> g);
     printf("Centrifugal a:\t\t%g m/s²\n", f -> ac);
     printf("Balanced a:\t\t%g m/s²\n", f -> ab);
     printf("Vertical a:\t\t%g m/s²\n", f -> av);
-    printf("Horizontal v:\t\t%g m/s\n", f -> vh);
-    printf("Vertical v:\t\t%g m/s\n", f -> vv);
-    printf("Velocity:\t\t%g m/s\n", f -> v);
-    printf("Altitude:\t\t%g km\n", f -> h/1000);
+    printf("Horizontal a:\t\t%g m/s²\n", f -> ah);
     printf("Radius:\t\t\t%g km\n", f -> r/1000);
     printf("Apoapsis:\t\t%g km\n", f -> Ap/1000);
     printf("______________________\n\n");
@@ -109,14 +120,14 @@ void print_flight_info(struct Flight *f) {
 // ------------------------------------------------------------
 
 void calculate_launch() {
-    struct Vessel vessel = init_vessel(550, 650, 50, 260);
+    struct Vessel vessel = init_vessel(610, 700, 50.908, 246.6);
     struct Body earth = init_body();
     struct Flight flight = init_flight(&earth);
 
     print_vessel_info(&vessel);
     print_flight_info(&flight);
 
-    calculate_flight(&vessel, &flight, 170);
+    calculate_flight(&vessel, &flight, 193.835);
 
     print_vessel_info(&vessel);
     print_flight_info(&flight);
@@ -126,7 +137,7 @@ void calculate_launch() {
 void calculate_flight(struct Vessel *v, struct Flight *f, double T) {
     double start = 0;
     double end = T;
-    double step = 0.01;
+    double step = 0.0001;
 
     struct Vessel v_last;
     struct Flight f_last;
@@ -139,6 +150,7 @@ void calculate_flight(struct Vessel *v, struct Flight *f, double T) {
 
     for(t = start+step; t <= end-step; t += step) {
         update_flight(v,&v_last, f, &f_last, t, step);
+
         v_last = *v;
         f_last = *f;
     }
@@ -150,26 +162,32 @@ void calculate_flight(struct Vessel *v, struct Flight *f, double T) {
 
 
 void start_flight(struct Vessel *v, struct Flight *f) {
-    update_vessel(v, 0, 1);
+    update_vessel(v, 0, 1, 0);
     f -> t   = 0;
     f -> p   = 1;
     f -> vh  = 0;
     f -> vv  = 0;
-    f -> h   = 0;
+    f -> h   = 100;
     f -> r   = f->h + f->body->radius;
+    f -> v   = calc_velocity(f->vh,f->vv);
+    f -> D   = calc_aerodynamic_drag(f->p, f->v);
+    f -> ad  = f->D/v->mass;
+    f -> ah  = v->ah-f->ad*sin(deg_to_rad(v->pitch));
     f -> ac  = calc_centrifugal_acceleration(f);
     f -> g   = calc_grav_acceleration(f);
     f -> ab  = calc_balanced_acceleration(f);
     f -> av  = calc_vertical_acceleration(v,f);
-    f -> v   = calc_velocity(f->vh,f->vv);
     f -> Ap  = calc_Apoapsis(f);
 }
 
 
 void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t, double step) {
     f -> p   = get_atmo_press(f->h);
-    update_vessel(v, t, f->p);
-    f -> vh += integrate(v->ah,last_v->ah,step);    // integrate horizontal acceleration
+    update_vessel(v, t, f->p, f->h);
+    f -> D  = calc_aerodynamic_drag(f->p, f->v);
+    f -> ad  = f->D/v->mass;
+    f -> ah  = v->ah-f->ad*sin(deg_to_rad(v->pitch));
+    f -> vh += integrate(f->ah,last_f->ah,step);    // integrate horizontal acceleration
     f -> ac  = calc_centrifugal_acceleration(f);
     f -> g   = calc_grav_acceleration(f);
     f -> ab  = calc_balanced_acceleration(f);
@@ -182,10 +200,10 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
 }
 
 
-void update_vessel(struct Vessel *v, double t, double p) {
+void update_vessel(struct Vessel *v, double t, double p, double h) {
     v -> F = get_thrust(v, p);
     v -> mass = get_ship_mass(v, t);
-    v -> pitch = get_pitch(t);
+    v -> pitch = get_pitch(h);
     v -> a = get_ship_acceleration(v,t);
     v -> ah = get_ship_hacceleration(v,t);
     v -> av = get_ship_vacceleration(v,t);
@@ -193,16 +211,22 @@ void update_vessel(struct Vessel *v, double t, double p) {
 }
 
 double get_atmo_press(double h) {
-    return exp(-1.4347e-4 * h);
+    if(h<140e3) return exp(-1.4347e-4 * h);
+}
+
+double calc_aerodynamic_drag(double p, double v) {
+    return 0.5*(p*101325)*pow(v,2) * 7e-5;    // p: bar to Pa; constant by good guess
 }
 
 double get_thrust(struct Vessel *v, double p) {
     return v->F_vac + p*( v->F_sl - v->F_vac );
 }
 
-double get_pitch(double t) {
+double get_pitch(double h) {
     //return (9.0/4000.0)*pow(t,2) - 0.9*t + 90.0;
-    return 90.0-(90.0/200.0)*t;
+    //return 90.0-(90.0/200.0)*t;
+    if(h < 38108) return 90.0*exp(-0.00003*h);
+    else return 42.0*exp(-0.00001*h);
 }
 
 double get_ship_mass(struct Vessel *v, double t) {
@@ -236,7 +260,7 @@ double calc_balanced_acceleration(struct Flight *f) {
 }
 
 double calc_vertical_acceleration(struct Vessel *v, struct Flight *f) {
-    return v->a * sin(deg_to_rad(v->pitch)) - f->ab;
+    return v->av - f->ab - f->ad*cos(deg_to_rad(v->pitch));
 }
 
 double calc_velocity(double vh, double vv) {
