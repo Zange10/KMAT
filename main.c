@@ -11,8 +11,7 @@ int main() {
     printf("\n\nCHOOSE PROGRAM:\n _______________________________\n\n| - 0 = Exit\t\t\t|\n| - 1 = Launch Calculator\t|\n| - 2 = Orbit Calculator\t|\n _______________________________\n\nProgram: ");
     scanf("%d", &selection);
 
-    switch (selection)
-    {
+    switch (selection) {
     case 1:
         // Launch Calculator
         calculate_launch();
