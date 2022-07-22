@@ -34,6 +34,6 @@ int amt_of_fields(char *header) {
     do {
         if(header[i] == ',') c++;
         i++;
-    } while(header[i] != '_');
+    } while(header[i] != 0);    // 0 = NULL Terminator for strings
     return c;
 }

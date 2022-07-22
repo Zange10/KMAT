@@ -141,7 +141,7 @@ void calculate_flight(struct Vessel *v, struct Flight *f, double T) {
     double end = T;
     double step = 0.001;
 
-    char flight_data_fields[] = "Time,Thrust,Mass,Pitch,VessAcceleration,AtmoPress,Drag,DragA,HorizontalA,Gravity,CentrifugalA,BalancedA,VerticalA,HorizontalV,VerticalV,Velocity,Altitude,Apoapsis_";
+    char flight_data_fields[] = "Time,Thrust,Mass,Pitch,VessAcceleration,AtmoPress,Drag,DragA,HorizontalA,Gravity,CentrifugalA,BalancedA,VerticalA,HorizontalV,VerticalV,Velocity,Altitude,Apoapsis";
     double *flight_data = (double*) calloc(1, sizeof(double));
     flight_data[0] = 1;    // amount of data points
     struct Vessel v_last;
@@ -163,9 +163,9 @@ void calculate_flight(struct Vessel *v, struct Flight *f, double T) {
     update_flight(v,&v_last, f, &f_last, f->t, end-f->t);
     f->t = end;
     store_flight_data(v, f, flight_data);
-    char pcsv = 'y';
-    //printf("Write data to .csv? (y/Y=yes) ");
-    //scanf("%c", &pcsv);
+    char pcsv;
+    printf("Write data to .csv (y/Y=yes)? ");
+    scanf(" %c", &pcsv);
     if(pcsv == 'y' || pcsv == 'Y') {
         write_csv(flight_data_fields, flight_data);
     }
@@ -304,11 +304,8 @@ double deg_to_rad(double deg) {
 
 
 void store_flight_data(struct Vessel *v, struct Flight *f, double *data) {
-        printf("JOJO\n");
     int initial_length = (int)data[0];
-        printf("JOJO325\n");
     data = (double*) realloc(data, (initial_length+18)*sizeof(double));
-        printf("WUPP\n");
     data[initial_length+0] = f->t;
     data[initial_length+1] = v->F;
     data[initial_length+2] = v->mass;
@@ -327,7 +324,6 @@ void store_flight_data(struct Vessel *v, struct Flight *f, double *data) {
     data[initial_length+15]= f->v;
     data[initial_length+16]= f->h;
     data[initial_length+17]= f->Ap;
-    //printf("%d\t \t %g\n", (int)data[0]+18,data[(int)data[0]]);
     data[0] += 18;
     return;
 }

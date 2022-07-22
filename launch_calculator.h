@@ -24,8 +24,6 @@ void    update_vessel(struct Vessel *v, double t, double p, double h);
 // update parameters of the flight for the point in time t of the flight
 void    update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t, double step);
 
-void store_flight_data(struct Vessel *v, struct Flight *f, double *data);
-
 // get atmospheric pressure p at height h
 double get_atmo_press(double h);
 // calculate acceleration due to aerodynamic drag with given velocity and atmospheric pressure
@@ -62,5 +60,8 @@ double  calc_Apoapsis(struct Flight *f);
 double  integrate(double fa, double fb, double step);
 // transforms degrees to radians
 double  deg_to_rad(double deg);
+
+// store current flight parameters in addition to the already stored flight parameters
+void    store_flight_data(struct Vessel *v, struct Flight *f, double *data);
 
 #endif
