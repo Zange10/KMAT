@@ -212,6 +212,7 @@ void update_vessel(struct Vessel *v, double t, double p, double h) {
 
 double get_atmo_press(double h) {
     if(h<140e3) return exp(-1.4347e-4 * h);
+    else return 0;
 }
 
 double calc_aerodynamic_drag(double p, double v) {

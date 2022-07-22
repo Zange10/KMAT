@@ -59,21 +59,21 @@ void print_orbit_apsides(double apsis1, double apsis2) {
 
 void choose_calculation() {
     int selection = 0;
-    printf("Choose Calculation (0=get orbit info; 1=change Apsis from circular orbit; 2=change Apsis, 3=Hohmann transfer): ");
+    printf("Choose Calculation (0=go back; 1=get orbit info; 2=change Apsis from circular orbit; 3=change Apsis, 4=Hohmann transfer): ");
     scanf("%d", &selection);
 
     switch (selection)
     {
-    case 0:
+    case 1:
         calc_orbital_parameters();
         break;
-    case 1:
+    case 2:
         change_apsis_circ();
         break;
-    case 2:
+    case 3:
         change_apsis();
         break;
-    case 3:
+    case 4:
         calc_hohmann_transfer();
         break;
     default:
