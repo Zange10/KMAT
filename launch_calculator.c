@@ -1,7 +1,9 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 
 #include "launch_calculator.h"
+#include "csv_writer.h"
 
 struct Vessel {
     double F_vac;       // Thrust produced by the engines in a vacuum [N]
@@ -20,7 +22,7 @@ struct Flight {
     struct Body *body;
     double t;       // time passed since t0
     double p;       // atmospheric pressure
-    double D;
+    double D;       // atmospheric Drag
     double ad;      // acceleration due to aerodynamic drag
     double ah;      // current horizontal acceleration due to thrust and with drag [m/s²]
     double g;       // gravitational acceleration [m/s²]
@@ -137,24 +139,38 @@ void calculate_launch() {
 void calculate_flight(struct Vessel *v, struct Flight *f, double T) {
     double start = 0;
     double end = T;
-    double step = 0.0001;
+    double step = 0.001;
 
+    char flight_data_fields[] = "Time,Thrust,Mass,Pitch,VessAcceleration,AtmoPress,Drag,DragA,HorizontalA,Gravity,CentrifugalA,BalancedA,VerticalA,HorizontalV,VerticalV,Velocity,Altitude,Apoapsis_";
+    double *flight_data = (double*) calloc(1, sizeof(double));
+    flight_data[0] = 1;    // amount of data points
     struct Vessel v_last;
     struct Flight f_last;
 
     start_flight(v, f);
     v_last = *v;
     f_last = *f;
+    store_flight_data(v, f, flight_data);
 
-    double t;
-
-    for(t = start+step; t <= end-step; t += step) {
-        update_flight(v,&v_last, f, &f_last, t, step);
-
+    for(f->t = start+step; f->t <= end; f->t += step) {
+        update_flight(v,&v_last, f, &f_last, f->t, step);
+        double x = remainder(f->t,((end-start)/888));   // only store 890 (888 in this loop) data points
+        if(x <= step && x >=0) store_flight_data(v, f, flight_data);
         v_last = *v;
         f_last = *f;
     }
-    update_flight(v,&v_last, f, &f_last, end, end-t);
+    f->t -= step;
+    update_flight(v,&v_last, f, &f_last, f->t, end-f->t);
+    f->t = end;
+    store_flight_data(v, f, flight_data);
+    char pcsv = 'y';
+    //printf("Write data to .csv? (y/Y=yes) ");
+    //scanf("%c", &pcsv);
+    if(pcsv == 'y' || pcsv == 'Y') {
+        write_csv(flight_data_fields, flight_data);
+    }
+
+    free(flight_data);
 }
 
 
@@ -211,7 +227,9 @@ void update_vessel(struct Vessel *v, double t, double p, double h) {
 }
 
 double get_atmo_press(double h) {
-    if(h<140e3) return exp(-1.4347e-4 * h);
+    double p = 0;
+    if(h<140e3) p = exp(-1.4347e-4 * h);
+    return p;
 }
 
 double calc_aerodynamic_drag(double p, double v) {
@@ -279,4 +297,37 @@ double integrate(double fa, double fb, double step) {
 
 double deg_to_rad(double deg) {
     return deg*(M_PI/180);
+}
+
+
+
+
+
+void store_flight_data(struct Vessel *v, struct Flight *f, double *data) {
+        printf("JOJO\n");
+    int initial_length = (int)data[0];
+        printf("JOJO325\n");
+    data = (double*) realloc(data, (initial_length+18)*sizeof(double));
+        printf("WUPP\n");
+    data[initial_length+0] = f->t;
+    data[initial_length+1] = v->F;
+    data[initial_length+2] = v->mass;
+    data[initial_length+3] = v->pitch;
+    data[initial_length+4] = v->a;
+    data[initial_length+5] = f->p;
+    data[initial_length+6] = f->D;
+    data[initial_length+7] = f->ad;
+    data[initial_length+8] = f->ah;
+    data[initial_length+9] = f->g;
+    data[initial_length+10]= f->ac;
+    data[initial_length+11]= f->ab;
+    data[initial_length+12]= f->av;
+    data[initial_length+13]= f->vh;
+    data[initial_length+14]= f->vv;
+    data[initial_length+15]= f->v;
+    data[initial_length+16]= f->h;
+    data[initial_length+17]= f->Ap;
+    //printf("%d\t \t %g\n", (int)data[0]+18,data[(int)data[0]]);
+    data[0] += 18;
+    return;
 }
