@@ -7,10 +7,12 @@
 #define EARTHRADIUS 6371000
 
 struct Orbit {
-    double apoapsis;
-    double periapsis;
-    double a;
-    double inclination;
+    double apoapsis;    // highest point in orbit
+    double periapsis;   // lowest point in orbit
+    double a;           // semi-major axis
+    double inclination; // inclination
+    double e;           // eccentricity
+    double period;      // orbital period
 };
 
 struct ManeuverPlan {
@@ -30,6 +32,8 @@ struct Orbit construct_orbit(double apsis1, double apsis2, double inclination) {
     }
     new_orbit.a = (new_orbit.apoapsis+new_orbit.periapsis)/2;
     new_orbit.inclination = inclination;
+    new_orbit.e = (new_orbit.apoapsis-new_orbit.periapsis)/(new_orbit.apoapsis+new_orbit.periapsis);
+    new_orbit.period = 2*M_PI*sqrt(pow(new_orbit.a,3)/MU_EARTH);
     return new_orbit;
 }
 
@@ -39,16 +43,30 @@ void print_orbit_info(struct Orbit orbit) {
     printf("Periapsis:\t\t%g km\n", (orbit.periapsis-EARTHRADIUS)/1000);
     printf("Semi-major axis:\t%g km\n", orbit.a /1000);
     printf("Inclination:\t\t%g°\n", orbit.inclination);
+    printf("Eccentricity:\t\t%g\n", orbit.e);
+    printf("Orbital Period:\t\t%gs\n", orbit.period);
     printf("______________________\n\n");
+}
+
+void print_orbit_apsides(double apsis1, double apsis2) {
+    apsis1 -= EARTHRADIUS;
+    apsis2 -= EARTHRADIUS;
+    apsis1 /= 1000;
+    apsis2 /= 1000;
+    if(apsis1 > apsis2) printf("%gkm - %gkm", apsis1, apsis2);
+    else printf("%gkm - %gkm", apsis2, apsis1);
 }
 
 void choose_calculation() {
     int selection = 0;
-    printf("Choose Calculation (1=change Apsis from circular orbit; 2=change Apsis, 3=Hohmann transfer): ");
+    printf("Choose Calculation (0=get orbit info; 1=change Apsis from circular orbit; 2=change Apsis, 3=Hohmann transfer): ");
     scanf("%d", &selection);
 
     switch (selection)
     {
+    case 0:
+        calc_orbital_parameters();
+        break;
     case 1:
         change_apsis_circ();
         break;
@@ -63,6 +81,23 @@ void choose_calculation() {
     }
 }
 
+void calc_orbital_parameters() {
+    double apsis1 = 0;
+    double apsis2 = 0;
+    double inclination = 0;
+
+    printf("Enter apsis1, apsis2 and inclination: ");
+    scanf("%lf %lf %lf", &apsis1, &apsis2, &inclination);
+
+    apsis1 = apsis1*1000+EARTHRADIUS;
+    apsis2 = apsis2*1000+EARTHRADIUS;
+
+    struct Orbit orbit = construct_orbit(apsis1, apsis2, inclination);
+    print_orbit_info(orbit);
+
+    return;
+}
+
 void change_apsis_circ() {
     double initial_apsis = 0;
     double new_apsis = 0;
@@ -75,7 +110,8 @@ void change_apsis_circ() {
 
     double dV = calc_maneuver_dV(initial_apsis, initial_apsis, new_apsis);
 
-    printf("\n____________________\n\nNeeded dV: %g m/s\n____________________\n\n", dV);
+    printf("\n____________\n\nOrbit1: "); print_orbit_apsides(initial_apsis,initial_apsis); printf("   -->   Orbit2: "); print_orbit_apsides(new_apsis,initial_apsis);
+    printf("\nNeeded dV: %g m/s\n____________\n\n", dV);
 
     return;
 }
@@ -94,7 +130,8 @@ void change_apsis() {
 
     double dV = calc_maneuver_dV(static_apsis, initial_apsis, new_apsis);
 
-    printf("\n____________\n\nNeeded dV: %g m/s\n____________\n\n", dV);
+    printf("\n____________\n\nOrbit1: "); print_orbit_apsides(initial_apsis,static_apsis); printf("   -->   Orbit2: "); print_orbit_apsides(new_apsis,static_apsis);
+    printf("\nNeeded dV: %g m/s\n____________\n\n", dV);
 
     return;
 }
@@ -115,11 +152,9 @@ void calc_hohmann_transfer() {
     initial_orbit = construct_orbit(initial_apsis, initial_apsis, 0);
     new_orbit = construct_orbit(new_apsis, new_apsis, 0);
 
-    print_orbit_info(initial_orbit);
-    print_orbit_info(new_orbit);
-
     struct ManeuverPlan mp = calc_change_orbit_dV(initial_orbit, new_orbit);
 
+    printf("\n____________\n\nOrbit1: "); print_orbit_apsides(initial_apsis,initial_apsis); printf("   -->   Orbit2: "); print_orbit_apsides(new_apsis,new_apsis);
     if(mp.first_raise_Apo) {
         printf("\n____________\n\nNeeded Delta-V to raise Apoapsis: \t%g m/s\n", mp.dV1);
         printf("Needed Delta-V to raise Periapsis: \t%g m/s\n", mp.dV2);
