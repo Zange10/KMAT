@@ -3,7 +3,7 @@
 
 #include "csv_writer.h"
 
-void write_csv(char header[], double data[]) {
+void write_csv(char fields[], double data[]) {
 
     time_t currtime;
     time(&currtime);
@@ -13,12 +13,12 @@ void write_csv(char header[], double data[]) {
 
     // -------------------
 
-    int n_fields = amt_of_fields(header);
+    int n_fields = amt_of_fields(fields);
 
     FILE *file;
     file = fopen(filename,"w");
 
-    fprintf(file,"%s\n", header);
+    fprintf(file,"%s\n", fields);
 
     for(int i = 1; i < data[0]; i+=n_fields) {   // data[0] amount of data points in data
         for(int j = 0; j < n_fields-1; j++) fprintf(file, "%G,",data[i+j]);
@@ -28,12 +28,12 @@ void write_csv(char header[], double data[]) {
     fclose(file);
 }
 
-int amt_of_fields(char *header) {
+int amt_of_fields(char *fields) {
     int c = 1;
     int i = 0;
     do {
-        if(header[i] == ',') c++;
+        if(fields[i] == ',') c++;
         i++;
-    } while(header[i] != 0);    // 0 = NULL Terminator for strings
+    } while(fields[i] != 0);    // 0 = NULL Terminator for strings
     return c;
 }

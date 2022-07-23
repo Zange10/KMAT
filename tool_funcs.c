@@ -12,7 +12,7 @@ int user_selection(char *title, char *options, char *question) {
 
         while(options[i] != 0 && options[i] != ';') i++;
 
-        printf("| - %d = %.*s", j, i, options);
+        printf("| - % 2d: %.*s", j, i, options);
         for(int k = 0; k < (47-(i+8))/8; k++) printf("\t");     // for a max line length of 32 (next line for initial \t)
         printf("\t|\n");
 

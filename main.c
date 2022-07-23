@@ -13,20 +13,18 @@ int main() {
     char question[] = "Program: ";
 
     do {
-    selection = user_selection(title, options, question);
+        selection = user_selection(title, options, question);
 
-    switch (selection) {
-    case 1:
-        // Launch Calculator
-        calculate_launch();
-        break;
-    case 2:
-        // Orbit Calculator
-        choose_calculation();
-        break;
-    default:
-        break;
-    }
+        switch (selection) {
+        case 1:
+            launch_calculator();
+            break;
+        case 2:
+            orbit_calculator();
+            break;
+        default:
+            break;
+        }
     } while(selection != 0);
     return 0;
 }

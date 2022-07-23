@@ -4,6 +4,7 @@
 
 #include "launch_calculator.h"
 #include "csv_writer.h"
+#include "tool_funcs.h"
 
 struct Vessel {
     double F_vac;       // Thrust produced by the engines in a vacuum [N]
@@ -121,18 +122,30 @@ void print_flight_info(struct Flight *f) {
 
 // ------------------------------------------------------------
 
-void calculate_launch() {
-    struct Vessel vessel = init_vessel(610, 700, 50.908, 246.6);
-    struct Body earth = init_body();
-    struct Flight flight = init_flight(&earth);
+void launch_calculator() {
+    int selection = 0;
+    char title[] = "LAUNCH CALCULATOR:";
+    char options[] = "Go Back; Calculate";
+    char question[] = "Program: ";
+    do {
+        selection = user_selection(title, options, question);
 
-    print_vessel_info(&vessel);
-    print_flight_info(&flight);
+        switch(selection) {
+            case 1:
+                struct Vessel vessel = init_vessel(610, 700, 50.908, 246.6);
+                struct Body earth = init_body();
+                struct Flight flight = init_flight(&earth);
 
-    calculate_flight(&vessel, &flight, 193.835);
+                print_vessel_info(&vessel);
+                print_flight_info(&flight);
 
-    print_vessel_info(&vessel);
-    print_flight_info(&flight);
+                calculate_flight(&vessel, &flight, 193.835);
+
+                print_vessel_info(&vessel);
+                print_flight_info(&flight);
+                break;
+        }
+    } while(selection != 0);
 }
 
 

@@ -58,31 +58,31 @@ void print_orbit_apsides(double apsis1, double apsis2) {
     else printf("%gkm - %gkm", apsis2, apsis1);
 }
 
-void choose_calculation() {
+void orbit_calculator() {
     char title[] = "CHOOSE CALCULATION:";
     char options[] = "Go Back; Get orbit info; Change Apsis from circular orbit; change Apsis; Hohmann Transfer";
     char question[] = "Calculation: ";
     int selection = 0;
 
     do {
-    selection = user_selection(title, options, question);
-    switch (selection)
-    {
-    case 1:
-        calc_orbital_parameters();
-        break;
-    case 2:
-        change_apsis_circ();
-        break;
-    case 3:
-        change_apsis();
-        break;
-    case 4:
-        calc_hohmann_transfer();
-        break;
-    default:
-        break;
-    }
+        selection = user_selection(title, options, question);
+        switch (selection)
+        {
+        case 1:
+            calc_orbital_parameters();
+            break;
+        case 2:
+            change_apsis_circ();
+            break;
+        case 3:
+            change_apsis();
+            break;
+        case 4:
+            calc_hohmann_transfer();
+            break;
+        default:
+            break;
+        }
     } while(selection != 0);
 }
 
