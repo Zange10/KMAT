@@ -2,14 +2,18 @@
 
 #include "launch_calculator.h"
 #include "orbit_calculator.h"
+#include "tool_funcs.h"
 
 // ------------------------------------------------------------
 
 int main() {
     int selection = 0;
+    char title[] = "CHOOSE PROGRAM:";
+    char options[] = "Exit; Launch Calculator; Orbit Calculator";
+    char question[] = "Program: ";
+
     do {
-    printf("\n\nCHOOSE PROGRAM:\n _______________________________\n\n| - 0 = Exit\t\t\t|\n| - 1 = Launch Calculator\t|\n| - 2 = Orbit Calculator\t|\n _______________________________\n\nProgram: ");
-    scanf("%d", &selection);
+    selection = user_selection(title, options, question);
 
     switch (selection) {
     case 1:

@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include "orbit_calculator.h"
+#include "tool_funcs.h"
 
 #define MU_EARTH 3.986e14
 #define EARTHRADIUS 6371000
@@ -58,10 +59,13 @@ void print_orbit_apsides(double apsis1, double apsis2) {
 }
 
 void choose_calculation() {
+    char title[] = "CHOOSE CALCULATION:";
+    char options[] = "Go Back; Get orbit info; Change Apsis from circular orbit; change Apsis; Hohmann Transfer";
+    char question[] = "Calculation: ";
     int selection = 0;
-    printf("Choose Calculation (0=go back; 1=get orbit info; 2=change Apsis from circular orbit; 3=change Apsis, 4=Hohmann transfer): ");
-    scanf("%d", &selection);
 
+    do {
+    selection = user_selection(title, options, question);
     switch (selection)
     {
     case 1:
@@ -79,6 +83,7 @@ void choose_calculation() {
     default:
         break;
     }
+    } while(selection != 0);
 }
 
 void calc_orbital_parameters() {
@@ -110,7 +115,7 @@ void change_apsis_circ() {
 
     double dV = calc_maneuver_dV(initial_apsis, initial_apsis, new_apsis);
 
-    printf("\n____________\n\nOrbit1: "); print_orbit_apsides(initial_apsis,initial_apsis); printf("   -->   Orbit2: "); print_orbit_apsides(new_apsis,initial_apsis);
+    printf("\n____________\n\nOrbit 1: "); print_orbit_apsides(initial_apsis,initial_apsis); printf("   -->   Orbit 2: "); print_orbit_apsides(new_apsis,initial_apsis);
     printf("\nNeeded dV: %g m/s\n____________\n\n", dV);
 
     return;
@@ -130,7 +135,7 @@ void change_apsis() {
 
     double dV = calc_maneuver_dV(static_apsis, initial_apsis, new_apsis);
 
-    printf("\n____________\n\nOrbit1: "); print_orbit_apsides(initial_apsis,static_apsis); printf("   -->   Orbit2: "); print_orbit_apsides(new_apsis,static_apsis);
+    printf("\n____________\n\nOrbit 1: "); print_orbit_apsides(initial_apsis,static_apsis); printf("   -->   Orbit 2: "); print_orbit_apsides(new_apsis,static_apsis);
     printf("\nNeeded dV: %g m/s\n____________\n\n", dV);
 
     return;
@@ -154,7 +159,7 @@ void calc_hohmann_transfer() {
 
     struct ManeuverPlan mp = calc_change_orbit_dV(initial_orbit, new_orbit);
 
-    printf("\n____________\n\nOrbit1: "); print_orbit_apsides(initial_apsis,initial_apsis); printf("   -->   Orbit2: "); print_orbit_apsides(new_apsis,new_apsis);
+    printf("\n____________\n\nOrbit 1: "); print_orbit_apsides(initial_apsis,initial_apsis); printf("   -->   Orbit 2: "); print_orbit_apsides(new_apsis,new_apsis);
     if(mp.first_raise_Apo) {
         printf("\n____________\n\nNeeded Delta-V to raise Apoapsis: \t%g m/s\n", mp.dV1);
         printf("Needed Delta-V to raise Periapsis: \t%g m/s\n", mp.dV2);
