@@ -44,13 +44,34 @@ struct Body {
 };
 
 
+
+struct Stage {
+    double F_vac;       // Thrust produced by the engines in a vacuum [N]
+    double F_sl;        // Thrust produced by the engines at sea level [N]
+    double m0;          // initial mass (mass at t0) [kg]
+    double me;          // vessel mass without fuel [kg]
+    double burn_rate;   // burn rate of all running engines combined [kg/s]
+};
+
+
+struct LV {
+    int stage_n;            // amount of stages of the launch vehicle
+    double payload;         // payload mass [kg]
+    struct Stage *stages;   // the stages of the launch vehicle
+};
+
+
+
+
+
+
 struct Vessel init_vessel(double F_sl, double F_vac, double m0, double br) {
     struct Vessel new_vessel;
-    new_vessel.F_vac = F_vac*1000;   // kN to N
-    new_vessel.F_sl = F_sl*1000;     // kN to N
+    new_vessel.F_vac = F_vac;
+    new_vessel.F_sl = F_sl;
     new_vessel.F = 0;
-    new_vessel.m0 = m0*1000;    // t to kg
-    new_vessel.mass = 0;  // t to kg
+    new_vessel.m0 = m0;
+    new_vessel.mass = 0;
     new_vessel.burn_rate = br;
     new_vessel.pitch = 0;
     new_vessel.a = 0;
@@ -87,6 +108,25 @@ struct Body init_body() {
     return new_body;
 }
 
+struct Stage init_stage(double F_sl, double F_vac, double m0, double me, double br) {
+    struct Stage new_stage;
+    new_stage.F_vac = F_vac*1000;   // kN to N
+    new_stage.F_sl = F_sl*1000;     // kN to N
+    new_stage.m0 = m0*1000;         // t to kg
+    new_stage.me = me*1000;         // t to kg
+    new_stage.burn_rate = br;
+    return new_stage;
+}
+
+struct LV init_LV(int amt_of_stages, struct Stage *stages, int payload_mass) {
+    struct LV new_lv;
+    new_lv.stage_n = amt_of_stages;
+    new_lv.stages = stages;
+    new_lv.payload = payload_mass;
+    return new_lv;
+}
+
+
 void print_vessel_info(struct Vessel *v) {
     printf("\n______________________\nVESSEL:\n\n");
     printf("Thrust:\t\t%g N\n", v -> F);
@@ -102,6 +142,7 @@ void print_vessel_info(struct Vessel *v) {
 
 void print_flight_info(struct Flight *f) {
     printf("\n______________________\nFLIGHT:\n\n");
+    printf("Time:\t\t\t%.2f s\n", f -> t);
     printf("Altitude:\t\t%g km\n", f -> h/1000);
     printf("Vertical v:\t\t%g m/s\n", f -> vv);
     printf("Horizontal v:\t\t%g m/s\n", f -> vh);
@@ -123,6 +164,10 @@ void print_flight_info(struct Flight *f) {
 // ------------------------------------------------------------
 
 void launch_calculator() {
+    struct LV lv;
+    int stage_count;
+    struct Stage stage;
+
     int selection = 0;
     char title[] = "LAUNCH CALCULATOR:";
     char options[] = "Go Back; Calculate";
@@ -132,24 +177,33 @@ void launch_calculator() {
 
         switch(selection) {
             case 1:
-                struct Vessel vessel = init_vessel(610, 700, 50.908, 246.6);
-                struct Body earth = init_body();
-                struct Flight flight = init_flight(&earth);
-
-                print_vessel_info(&vessel);
-                print_flight_info(&flight);
-
-                calculate_flight(&vessel, &flight, 193.835);
-
-                print_vessel_info(&vessel);
-                print_flight_info(&flight);
+                struct Stage stage = init_stage(610, 700, 50.908, 3.308, 246.6);
+                lv = init_LV(1,&stage, 0);
+                calculate_launch(lv);
                 break;
         }
     } while(selection != 0);
 }
 
+void calculate_launch(struct LV lv) {
+    struct Vessel vessel;
+    struct Body earth = init_body();
+    struct Flight flight = init_flight(&earth);
 
-void calculate_flight(struct Vessel *v, struct Flight *f, double T) {
+    print_vessel_info(&vessel);
+    print_flight_info(&flight);
+
+    for(int i = 0; i < lv.stage_n; i++) {
+        vessel = init_vessel(lv.stages[i].F_sl, lv.stages[i].F_vac, lv.stages[i].m0, lv.stages[i].burn_rate);
+        int burn_duration = (lv.stages[i].m0-lv.stages[i].me) / lv.stages[i].burn_rate;
+        calculate_stage_flight(&vessel, &flight, burn_duration);
+    }
+
+    print_vessel_info(&vessel);
+    print_flight_info(&flight);
+}
+
+void calculate_stage_flight(struct Vessel *v, struct Flight *f, double T) {
     double start = 0;
     double end = T;
     double step = 0.001;
@@ -160,7 +214,7 @@ void calculate_flight(struct Vessel *v, struct Flight *f, double T) {
     struct Vessel v_last;
     struct Flight f_last;
 
-    start_flight(v, f);
+    start_stage(v, f);
     v_last = *v;
     f_last = *f;
     store_flight_data(v, f, flight_data);
@@ -188,15 +242,9 @@ void calculate_flight(struct Vessel *v, struct Flight *f, double T) {
 
 
 
-
-
-void start_flight(struct Vessel *v, struct Flight *f) {
+void start_stage(struct Vessel *v, struct Flight *f) {
     update_vessel(v, 0, 1, 0);
-    f -> t   = 0;
-    f -> p   = 1;
-    f -> vh  = 0;
-    f -> vv  = 0;
-    f -> h   = 100;
+    f -> p   = get_atmo_press(f->h);
     f -> r   = f->h + f->body->radius;
     f -> v   = calc_velocity(f->vh,f->vv);
     f -> D   = calc_aerodynamic_drag(f->p, f->v);
