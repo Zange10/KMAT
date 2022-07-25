@@ -84,20 +84,11 @@ struct Flight init_flight(struct Body *body) {
     struct Flight new_flight;
     new_flight.body = body;
     new_flight.t = 0;
-    new_flight.p = 0;
-    new_flight.D = 0;
-    new_flight.ad = 0;
-    new_flight.ah = 0;
-    new_flight.g = body -> mu / pow(body -> radius, 2);
-    new_flight.ac = 0;
-    new_flight.ab = 0;
-    new_flight.av = 0;
     new_flight.vh = 0;
     new_flight.vv = 0;
     new_flight.v = 0;
     new_flight.h = 0;
-    new_flight.r = body -> radius;      // currently hard coded to altitude of 80km
-    new_flight.Ap = 0;
+    new_flight.r = new_flight.h + new_flight.body->radius;
     return new_flight;
 }
 
@@ -178,7 +169,9 @@ void launch_calculator() {
         switch(selection) {
             case 1:
                 struct Stage stage = init_stage(610, 700, 50.908, 3.308, 246.6);
-                lv = init_LV(1,&stage, 0);
+                struct Stage stage2 = init_stage(2, 5, 3.308, 1.2, 20);
+                struct Stage stages[] = {stage,stage2};
+                lv = init_LV(2,stages, 0);
                 calculate_launch(lv);
                 break;
         }
@@ -195,7 +188,7 @@ void calculate_launch(struct LV lv) {
 
     for(int i = 0; i < lv.stage_n; i++) {
         vessel = init_vessel(lv.stages[i].F_sl, lv.stages[i].F_vac, lv.stages[i].m0, lv.stages[i].burn_rate);
-        int burn_duration = (lv.stages[i].m0-lv.stages[i].me) / lv.stages[i].burn_rate;
+        double burn_duration = (lv.stages[i].m0-lv.stages[i].me) / lv.stages[i].burn_rate;
         calculate_stage_flight(&vessel, &flight, burn_duration);
     }
 
@@ -204,9 +197,8 @@ void calculate_launch(struct LV lv) {
 }
 
 void calculate_stage_flight(struct Vessel *v, struct Flight *f, double T) {
-    double start = 0;
-    double end = T;
-    double step = 0.001;
+    double t;
+    double step = 1;
 
     char flight_data_fields[] = "Time,Thrust,Mass,Pitch,VessAcceleration,AtmoPress,Drag,DragA,HorizontalA,Gravity,CentrifugalA,BalancedA,VerticalA,HorizontalV,VerticalV,Velocity,Altitude,Apoapsis";
     double *flight_data = (double*) calloc(1, sizeof(double));
@@ -219,16 +211,15 @@ void calculate_stage_flight(struct Vessel *v, struct Flight *f, double T) {
     f_last = *f;
     store_flight_data(v, f, flight_data);
 
-    for(f->t = start+step; f->t <= end; f->t += step) {
-        update_flight(v,&v_last, f, &f_last, f->t, step);
-        double x = remainder(f->t,((end-start)/888));   // only store 890 (888 in this loop) data points
-        if(x <= step && x >=0) store_flight_data(v, f, flight_data);
+    for(t = 0; t <= T-step; t += step) {
+        update_flight(v,&v_last, f, &f_last, t, step);
+        double x = remainder(t,(T/400));   // only store 890 (888 in this loop) data points
+        if(x < step || x >=0) store_flight_data(v, f, flight_data);
         v_last = *v;
         f_last = *f;
     }
-    f->t -= step;
-    update_flight(v,&v_last, f, &f_last, f->t, end-f->t);
-    f->t = end;
+    update_flight(v,&v_last, f, &f_last, t, T-t);
+    t = T;
     store_flight_data(v, f, flight_data);
     char pcsv;
     printf("Write data to .csv (y/Y=yes)? ");
@@ -243,8 +234,8 @@ void calculate_stage_flight(struct Vessel *v, struct Flight *f, double T) {
 
 
 void start_stage(struct Vessel *v, struct Flight *f) {
-    update_vessel(v, 0, 1, 0);
     f -> p   = get_atmo_press(f->h);
+    update_vessel(v, 0, f->p, f->h);
     f -> r   = f->h + f->body->radius;
     f -> v   = calc_velocity(f->vh,f->vv);
     f -> D   = calc_aerodynamic_drag(f->p, f->v);
@@ -259,6 +250,7 @@ void start_stage(struct Vessel *v, struct Flight *f) {
 
 
 void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t, double step) {
+    f -> t  += step;
     f -> p   = get_atmo_press(f->h);
     update_vessel(v, t, f->p, f->h);
     f -> D  = calc_aerodynamic_drag(f->p, f->v);

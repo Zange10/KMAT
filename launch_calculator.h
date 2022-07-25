@@ -1,13 +1,13 @@
 #ifndef LAUNCH_CALCULATOR
 #define LAUNCH_CALCULATOR
 
-// initialize vessel (Thrust: F[kN], initial mass: m0[t], burn rate: br[kg/s])
+// initialize vessel (F_sl [N], F_vac [N], m0 [kg], me [kg], br [kg/s])
 struct  Vessel init_vessel(double F_vac, double F_sl, double m0, double br);
 // initialize flight
 struct  Flight init_flight(struct Body *body);
 // initialize body
 struct  Body init_body();
-// initialize stage
+// initialize stage (F_sl [kN], F_vac [kN], m0 [t], me [t], br [kg/s])
 struct  Stage init_stage(double F_sl, double F_vac, double m0, double me, double br);
 // initialize launch vehicle with its stages and payload mass
 struct  LV init_LV(int amt_of_stages, struct Stage *stages, int payload_mass);
