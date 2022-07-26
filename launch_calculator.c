@@ -21,10 +21,10 @@ struct Vessel {
 
 struct Flight {
     struct Body *body;
-    double t;       // time passed since t0
-    double p;       // atmospheric pressure
-    double D;       // atmospheric Drag
-    double ad;      // acceleration due to aerodynamic drag
+    double t;       // time passed since t0 [s]
+    double p;       // atmospheric pressure [Pa]
+    double D;       // atmospheric Drag [N]
+    double ad;      // acceleration due to aerodynamic drag [m/s²]
     double ah;      // current horizontal acceleration due to thrust and with drag [m/s²]
     double g;       // gravitational acceleration [m/s²]
     double ac;      // negative centripetal force due to horizontal speed [m/s²]
@@ -139,7 +139,7 @@ void print_flight_info(struct Flight *f) {
     printf("Horizontal v:\t\t%g m/s\n", f -> vh);
     printf("Velocity:\t\t%g m/s\n", f -> v);
     printf("\n");
-    printf("Atmo press:\t\t%g bar\n", f -> p);
+    printf("Atmo press:\t\t%g kPa\n", f -> p/1000);
     printf("Drag:\t\t\t%g N\n", f -> D);
     printf("Drag a:\t\t\t%g m/s²\n", f -> ad);
     printf("Gravity:\t\t%g m/s²\n", f -> g);
@@ -280,16 +280,16 @@ void update_vessel(struct Vessel *v, double t, double p, double h) {
 }
 
 double get_atmo_press(double h) {
-    if(h<140e3) return exp(-1.4347e-4 * h);
+    if(h<140e3) return 101325*exp(-1.4347e-4 * h);
     else return 0;
 }
 
 double calc_aerodynamic_drag(double p, double v) {
-    return 0.5*(p*101325)*pow(v,2) * 7e-5;    // p: bar to Pa; constant by good guess
+    return 0.5*(p)*pow(v,2) * 7e-5;    // constant by good guess
 }
 
 double get_thrust(struct Vessel *v, double p) {
-    return v->F_vac + p*( v->F_sl - v->F_vac );
+    return v->F_vac + (p/101325)*( v->F_sl - v->F_vac );    // sea level pressure ~= 101325 Pa
 }
 
 double get_pitch(double h) {
