@@ -120,7 +120,7 @@ struct LV init_LV(int amt_of_stages, struct Stage *stages, int payload_mass) {
 
 void print_vessel_info(struct Vessel *v) {
     printf("\n______________________\nVESSEL:\n\n");
-    printf("Thrust:\t\t%g N\n", v -> F);
+    printf("Thrust:\t\t%g kN\n", v -> F/1000);
     printf("Mass:\t\t%g kg\n", v -> mass);
     printf("Initial mass:\t%g kg\n", v -> m0);
     printf("Burn rate:\t%g kg/s\n", v -> burn_rate);
@@ -168,10 +168,11 @@ void launch_calculator() {
 
         switch(selection) {
             case 1:
-                struct Stage stage = init_stage(610, 700, 50.908, 3.308, 246.6);
-                struct Stage stage2 = init_stage(2, 5, 3.308, 1.2, 20);
-                struct Stage stages[] = {stage,stage2};
-                lv = init_LV(2,stages, 0);
+                struct Stage stage = init_stage(610, 700, 50.908, 31.8, 246.6);
+                struct Stage stage1 = init_stage(410, 620, 30.908, 5.308, 200.6);
+                struct Stage stage2 = init_stage(2, 5, 4.308, 1.2, 20);
+                struct Stage stages[] = {stage,stage1,stage2};
+                lv = init_LV(3,stages, 0);
                 calculate_launch(lv);
                 break;
         }
@@ -183,26 +184,36 @@ void calculate_launch(struct LV lv) {
     struct Body earth = init_body();
     struct Flight flight = init_flight(&earth);
 
-    print_vessel_info(&vessel);
-    print_flight_info(&flight);
+    double *flight_data = (double*) calloc(1, sizeof(double));
+    flight_data[0] = 1;    // amount of data points
 
     for(int i = 0; i < lv.stage_n; i++) {
+        printf("STAGE %d\n", i+1);
         vessel = init_vessel(lv.stages[i].F_sl, lv.stages[i].F_vac, lv.stages[i].m0, lv.stages[i].burn_rate);
         double burn_duration = (lv.stages[i].m0-lv.stages[i].me) / lv.stages[i].burn_rate;
-        calculate_stage_flight(&vessel, &flight, burn_duration);
+        calculate_stage_flight(&vessel, &flight, burn_duration, lv.stage_n, flight_data);
     }
+
+
+
+    char pcsv;
+    printf("Write data to .csv (y/Y=yes)? ");
+    scanf(" %c", &pcsv);
+    if(pcsv == 'y' || pcsv == 'Y') {
+        char flight_data_fields[] = "Time,Thrust,Mass,Pitch,VessAcceleration,AtmoPress,Drag,DragA,HorizontalA,Gravity,CentrifugalA,BalancedA,VerticalA,HorizontalV,VerticalV,Velocity,Altitude,Apoapsis";
+        write_csv(flight_data_fields, flight_data);
+    }
+
+    free(flight_data);
 
     print_vessel_info(&vessel);
     print_flight_info(&flight);
 }
 
-void calculate_stage_flight(struct Vessel *v, struct Flight *f, double T) {
+void calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data) {
     double t;
-    double step = 1;
+    double step = 0.0001;
 
-    char flight_data_fields[] = "Time,Thrust,Mass,Pitch,VessAcceleration,AtmoPress,Drag,DragA,HorizontalA,Gravity,CentrifugalA,BalancedA,VerticalA,HorizontalV,VerticalV,Velocity,Altitude,Apoapsis";
-    double *flight_data = (double*) calloc(1, sizeof(double));
-    flight_data[0] = 1;    // amount of data points
     struct Vessel v_last;
     struct Flight f_last;
 
@@ -213,22 +224,13 @@ void calculate_stage_flight(struct Vessel *v, struct Flight *f, double T) {
 
     for(t = 0; t <= T-step; t += step) {
         update_flight(v,&v_last, f, &f_last, t, step);
-        double x = remainder(t,(T/400));   // only store 890 (888 in this loop) data points
-        if(x < step || x >=0) store_flight_data(v, f, flight_data);
+        double x = remainder(t,(T/(888/number_of_stages)));   // only store 890 (888 in this loop) data points overall
+        if(x < step && x >=0) store_flight_data(v, f, flight_data);
         v_last = *v;
         f_last = *f;
     }
     update_flight(v,&v_last, f, &f_last, t, T-t);
-    t = T;
     store_flight_data(v, f, flight_data);
-    char pcsv;
-    printf("Write data to .csv (y/Y=yes)? ");
-    scanf(" %c", &pcsv);
-    if(pcsv == 'y' || pcsv == 'Y') {
-        write_csv(flight_data_fields, flight_data);
-    }
-
-    free(flight_data);
 }
 
 
