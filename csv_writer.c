@@ -1,14 +1,15 @@
 #include <stdio.h>
 #include <time.h>
+#include <stdlib.h>
 
 #include "csv_writer.h"
 
 void write_csv(char fields[], double data[]) {
-
+    
     time_t currtime;
     time(&currtime);
     struct tm now = *gmtime(&currtime);
-    char filename[19];  // 14 for date + 4 for .csv + 1 for sprintf terminator
+    char filename[19];  // 14 for date + 4 for .csv + 1 for string terminator
     sprintf(filename, "%04d%02d%02d%02d%02d%02d.csv", now.tm_year+1900, now.tm_mon, now.tm_mday,now.tm_hour, now.tm_min, now.tm_sec);
 
     // -------------------

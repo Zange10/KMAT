@@ -1,24 +1,30 @@
 #ifndef LAUNCH_CALCULATOR
 #define LAUNCH_CALCULATOR
 
-// initialize vessel (Thrust: F[kN], initial mass: m0[t], burn rate: br[kg/s])
+// initialize vessel (F_sl [N], F_vac [N], m0 [kg], me [kg], br [kg/s])
 struct  Vessel init_vessel(double F_vac, double F_sl, double m0, double br);
 // initialize flight
 struct  Flight init_flight(struct Body *body);
 // initialize body
 struct  Body init_body();
+// initialize stage (F_sl [kN], F_vac [kN], m0 [t], me [t], br [kg/s])
+struct  Stage init_stage(double F_sl, double F_vac, double m0, double me, double br);
+// initialize launch vehicle with its stages and payload mass
+struct  LV init_LV(int amt_of_stages, struct Stage *stages, int payload_mass);
 // Prints parameters specific to the vessel
 void    print_vessel_info(struct Vessel *v);
 // Prints parameters specific to the flight
 void    print_flight_info(struct Flight *f);
 
-// calculate parameters during launch
+// start launch calculations
 void    launch_calculator();
+// calculate parameters during launch 
+void    calculate_launch(struct LV lv);
 
 // Calculates vessel and flight parameters over time (end is defined by T)
-void    calculate_flight(struct Vessel *v, struct Flight *f, double T);
+void    calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data);
 // set starting parameters for flight
-void    start_flight(struct Vessel *v, struct Flight *f);
+void    start_stage(struct Vessel *v, struct Flight *f);
 // update parameters of vessel for the point in time t of the flight
 void    update_vessel(struct Vessel *v, double t, double p, double h);
 // update parameters of the flight for the point in time t of the flight
