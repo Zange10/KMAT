@@ -188,7 +188,7 @@ void calculate_launch(struct LV lv) {
     flight_data[0] = 1;    // amount of data points
 
     for(int i = 0; i < lv.stage_n; i++) {
-        printf("STAGE %d\n", i+1);
+        printf("STAGE %d:\t", i+1);
         vessel = init_vessel(lv.stages[i].F_sl, lv.stages[i].F_vac, lv.stages[i].m0, lv.stages[i].burn_rate);
         double burn_duration = (lv.stages[i].m0-lv.stages[i].me) / lv.stages[i].burn_rate;
         calculate_stage_flight(&vessel, &flight, burn_duration, lv.stage_n, flight_data);
@@ -212,7 +212,7 @@ void calculate_launch(struct LV lv) {
 
 void calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data) {
     double t;
-    double step = 0.0001;
+    double step = 0.001;
 
     struct Vessel v_last;
     struct Flight f_last;
@@ -221,6 +221,8 @@ void calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int nu
     v_last = *v;
     f_last = *f;
     store_flight_data(v, f, flight_data);
+    
+    printf("% 3d%%", 0);
 
     for(t = 0; t <= T-step; t += step) {
         update_flight(v,&v_last, f, &f_last, t, step);
@@ -228,9 +230,15 @@ void calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int nu
         if(x < step && x >=0) store_flight_data(v, f, flight_data);
         v_last = *v;
         f_last = *f;
+
+        printf("\b\b\b\b");
+        printf("% 3d%%", (int)(t*100/T));
     }
     update_flight(v,&v_last, f, &f_last, t, T-t);
     store_flight_data(v, f, flight_data);
+
+    printf("\b\b\b\b\b");
+    printf("% 3d%%\n", 100);
 }
 
 
