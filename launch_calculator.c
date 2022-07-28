@@ -5,6 +5,7 @@
 #include "launch_calculator.h"
 #include "csv_writer.h"
 #include "tool_funcs.h"
+#include "lv_profile.h"
 
 struct Vessel {
     double F_vac;       // Thrust produced by the engines in a vacuum [N]
@@ -42,24 +43,6 @@ struct Body {
     double mu;      // gravitational parameter of body [m³/s²]
     double radius;  // radius of body [m]
 };
-
-
-
-struct Stage {
-    double F_vac;       // Thrust produced by the engines in a vacuum [N]
-    double F_sl;        // Thrust produced by the engines at sea level [N]
-    double m0;          // initial mass (mass at t0) [kg]
-    double me;          // vessel mass without fuel [kg]
-    double burn_rate;   // burn rate of all running engines combined [kg/s]
-};
-
-
-struct LV {
-    int stage_n;            // amount of stages of the launch vehicle
-    double payload;         // payload mass [kg]
-    struct Stage *stages;   // the stages of the launch vehicle
-};
-
 
 
 
@@ -109,8 +92,9 @@ struct Stage init_stage(double F_sl, double F_vac, double m0, double me, double 
     return new_stage;
 }
 
-struct LV init_LV(int amt_of_stages, struct Stage *stages, int payload_mass) {
+struct LV init_LV(char * name, int amt_of_stages, struct Stage *stages, int payload_mass) {
     struct LV new_lv;
+    new_lv.name = name;
     new_lv.stage_n = amt_of_stages;
     new_lv.stages = stages;
     new_lv.payload = payload_mass;
@@ -161,7 +145,7 @@ void launch_calculator() {
 
     int selection = 0;
     char title[] = "LAUNCH CALCULATOR:";
-    char options[] = "Go Back; Calculate";
+    char options[] = "Go Back; Calculate; Testing";
     char question[] = "Program: ";
     do {
         selection = user_selection(title, options, question);
@@ -172,8 +156,9 @@ void launch_calculator() {
                 struct Stage stage1 = init_stage(410, 620, 30.908, 5.308, 200.6);
                 struct Stage stage2 = init_stage(2, 5, 4.308, 1.2, 20);
                 struct Stage stages[] = {stage,stage1,stage2};
-                lv = init_LV(3,stages, 0);
-                calculate_launch(lv);
+                lv = init_LV("Test", 3,stages, 0);
+                write_LV_to_file(lv);
+                //calculate_launch(lv);
                 break;
         }
     } while(selection != 0);
