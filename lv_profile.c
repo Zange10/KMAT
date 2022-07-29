@@ -28,7 +28,7 @@ struct LV create_new_LV() {
 }
 
 void write_LV_to_file(struct LV lv) {
-    char *filename;
+    char filename[42];  // 30 for the name, 9 for the diractory and 3 for .lv
     sprintf(filename, "Profiles/%s.lv", lv.name);
 
     // -------------------
