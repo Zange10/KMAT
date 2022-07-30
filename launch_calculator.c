@@ -133,16 +133,16 @@ void launch_calculator() {
 
         switch(selection) {
             case 1:
-                struct Stage stage = init_stage(610, 700, 50.908, 31.8, 246.6);
+                /*struct Stage stage = init_stage(610, 700, 50.908, 31.8, 246.6);
                 struct Stage stage1 = init_stage(410, 620, 30.908, 5.308, 200.6);
                 struct Stage stage2 = init_stage(2, 5, 4.308, 1.2, 20);
                 struct Stage stages[] = {stage,stage1,stage2};
-                char name[30] = "Test";
-                lv = init_LV(name, 3,stages, 0);
-                write_LV_to_file(lv);
+                char name[30] = "Test";*/
+                create_new_Profile();
+                //write_LV_to_file(lv1);
                 //calculate_launch(lv);
-                struct LV lv2 = read_LV_from_file(name);
-                printf("%g %d %g\n", lv2.stages[0].F_vac, lv2.stage_n, lv2.stages[0].m0);
+                //struct LV lv2 = read_LV_from_file(name);
+                //printf("%g %d %g\n", lv2.stages[0].F_vac, lv2.stage_n, lv2.stages[0].m0);
                 break;
         }
     } while(selection != 0);

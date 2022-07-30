@@ -2,50 +2,41 @@
 
 #include "lv_profile.h"
 
-
-struct Stage init_stage(double F_sl, double F_vac, double m0, double me, double br) {
-    struct Stage new_stage;
-    new_stage.F_vac = F_vac*1000;   // kN to N
-    new_stage.F_sl = F_sl*1000;     // kN to N
-    new_stage.m0 = m0*1000;         // t to kg
-    new_stage.me = me*1000;         // t to kg
-    new_stage.burn_rate = br;
-    return new_stage;
-}
-
-struct LV init_LV(char * name, int amt_of_stages, struct Stage *stages, int payload_mass) {
+struct LV init_LV(char * name, int amt_of_stages, struct Stage *stages) {
     struct LV new_lv;
     new_lv.name = name;
     new_lv.stage_n = amt_of_stages;
     new_lv.stages = stages;
-    new_lv.payload = payload_mass;
     return new_lv;
 }
 
-struct LV create_new_LV() {
-    struct LV new_lv;
+void create_new_Profile() {
+    char name[30];
+    int amt_of_stages;
+
     printf("Name of Launcher: ");
-    scanf(" %s", &new_lv.name);
-    
+    scanf("%s", name);
 
     printf("Number of Stages: ");
-    scanf(" %d", &new_lv.stage_n);
+    scanf("%d", &amt_of_stages);
 
-    for(int i = 0; i < new_lv.stage_n; i++) {
+    struct Stage stages[amt_of_stages];
+
+    for(int i = 0; i < amt_of_stages; i++) {
         printf("Stage %d:\n", i+1);
         printf("F_vac: ");
-        scanf(" %lg", &new_lv.stages[i].F_vac);
+        scanf("%lg", &stages[i].F_vac);
         printf("F_sl: ");
-        scanf(" %lg", &new_lv.stages[i].F_sl);
+        scanf("%lg", &stages[i].F_sl);
         printf("m0: ");
-        scanf(" %lg", &new_lv.stages[i].m0);
+        scanf("%lg", &stages[i].m0);
         printf("me: ");
-        scanf(" %lg", &new_lv.stages[i].me);
+        scanf("%lg", &stages[i].me);
         printf("burn rate: ");
-        scanf(" %lg", &new_lv.stages[i].burn_rate);
+        scanf("%lg", &stages[i].burn_rate);
     }
-
-    return new_lv;
+    struct LV lv = init_LV(name, amt_of_stages, stages);
+    write_LV_to_file(lv);
 }
 
 void write_LV_to_file(struct LV lv) {
@@ -57,15 +48,15 @@ void write_LV_to_file(struct LV lv) {
     FILE *file;
     file = fopen(filename,"w");
 
-    fprintf(file,"Stages: %d\n\n", lv.stage_n);
+    fprintf(file,"Stages: %d\n", lv.stage_n);
 
     for(int i = 0; i < lv.stage_n; i++) {
-        fprintf(file,"Stage: %d:\n", i+1);
+        fprintf(file,"\nStage: %d:\n", i+1);
         fprintf(file,"\tF_vac: %g\n", lv.stages[i].F_vac);
         fprintf(file,"\tF_sl: %g\n", lv.stages[i].F_sl);
         fprintf(file,"\tm0: %g\n", lv.stages[i].m0);
         fprintf(file,"\tme: %g\n", lv.stages[i].me);
-        fprintf(file,"\tburn rate: %g\n", lv.stages[i].burn_rate);
+        fprintf(file,"\tburn rate: %g", lv.stages[i].burn_rate);
     }
 
     fclose(file);
