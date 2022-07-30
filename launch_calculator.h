@@ -7,10 +7,6 @@ struct  Vessel init_vessel(double F_vac, double F_sl, double m0, double br);
 struct  Flight init_flight(struct Body *body);
 // initialize body
 struct  Body init_body();
-// initialize stage (F_sl [kN], F_vac [kN], m0 [t], me [t], br [kg/s])
-struct  Stage init_stage(double F_sl, double F_vac, double m0, double me, double br);
-// initialize launch vehicle with its stages and payload mass
-struct  LV init_LV(int amt_of_stages, struct Stage *stages, int payload_mass);
 // Prints parameters specific to the vessel
 void    print_vessel_info(struct Vessel *v);
 // Prints parameters specific to the flight

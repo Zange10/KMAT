@@ -82,25 +82,6 @@ struct Body init_body() {
     return new_body;
 }
 
-struct Stage init_stage(double F_sl, double F_vac, double m0, double me, double br) {
-    struct Stage new_stage;
-    new_stage.F_vac = F_vac*1000;   // kN to N
-    new_stage.F_sl = F_sl*1000;     // kN to N
-    new_stage.m0 = m0*1000;         // t to kg
-    new_stage.me = me*1000;         // t to kg
-    new_stage.burn_rate = br;
-    return new_stage;
-}
-
-struct LV init_LV(char * name, int amt_of_stages, struct Stage *stages, int payload_mass) {
-    struct LV new_lv;
-    new_lv.name = name;
-    new_lv.stage_n = amt_of_stages;
-    new_lv.stages = stages;
-    new_lv.payload = payload_mass;
-    return new_lv;
-}
-
 
 void print_vessel_info(struct Vessel *v) {
     printf("\n______________________\nVESSEL:\n\n");
@@ -156,9 +137,12 @@ void launch_calculator() {
                 struct Stage stage1 = init_stage(410, 620, 30.908, 5.308, 200.6);
                 struct Stage stage2 = init_stage(2, 5, 4.308, 1.2, 20);
                 struct Stage stages[] = {stage,stage1,stage2};
-                lv = init_LV("Test", 3,stages, 0);
+                char name[30] = "Test";
+                lv = init_LV(name, 3,stages, 0);
                 write_LV_to_file(lv);
                 //calculate_launch(lv);
+                struct LV lv2 = read_LV_from_file(name);
+                printf("%g %d %g\n", lv2.stages[0].F_vac, lv2.stage_n, lv2.stages[0].m0);
                 break;
         }
     } while(selection != 0);

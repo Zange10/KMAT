@@ -14,6 +14,13 @@ struct LV {
     struct Stage *stages;   // the stages of the launch vehicle
 };
 
-struct LV create_new_LV();
-
-void write_LV_to_file(struct LV lv);
+// initialize stage (F_sl [kN], F_vac [kN], m0 [t], me [t], br [kg/s])
+struct  Stage init_stage(double F_sl, double F_vac, double m0, double me, double br);
+// initialize launch vehicle with its stages and payload mass
+struct  LV init_LV(char * name, int amt_of_stages, struct Stage *stages, int payload_mass);
+// user creates new LV by being asked the parameters
+struct  LV create_new_LV();
+// write LV parameters to file
+void    write_LV_to_file(struct LV lv);
+// read LV parameters from file
+struct LV read_LV_from_file(char * lv_name);
