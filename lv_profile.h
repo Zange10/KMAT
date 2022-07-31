@@ -21,4 +21,4 @@ void    create_new_Profile();
 // write LV parameters to file
 void    write_LV_to_file(struct LV lv);
 // read LV parameters from file
-void    read_LV_from_file(char * lv_name, struct LV * lv);
+void    read_LV_from_file(struct LV * lv);

@@ -109,17 +109,22 @@ void launch_calculator() {
     struct LV lv;
 
     int selection = 0;
+    char name[30] = "Test";
     char title[] = "LAUNCH CALCULATOR:";
-    char options[] = "Go Back; Calculate; Testing";
+    char options[] = "Go Back; Calculate; Choose Profile; Create new Profile";
     char question[] = "Program: ";
     do {
         selection = user_selection(title, options, question);
 
         switch(selection) {
             case 1:
-                char name[30] = "Test";
-                read_LV_from_file(name, &lv);
-                calculate_launch(lv);
+                if(lv.stages != NULL) calculate_launch(lv); // if lv initialized
+                break;
+            case 2:
+                read_LV_from_file(&lv);
+                break;
+            case 3:
+                create_new_Profile();
                 break;
         }
     } while(selection != 0);

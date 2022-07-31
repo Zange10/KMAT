@@ -63,11 +63,14 @@ void write_LV_to_file(struct LV lv) {
     fclose(file);
 }
 
-void read_LV_from_file(char * lv_name, struct LV * lv) {
-    lv -> name = lv_name;
+void read_LV_from_file(struct LV * lv) {
+    char profile_name[30];
+    printf("Profile: ");
+    scanf("%s", profile_name);
+    lv -> name = profile_name;
 
     char filename[42];  // 30 for the name, 9 for the diractory and 3 for .lv
-    sprintf(filename, "Profiles/%s.lv", lv_name);
+    sprintf(filename, "Profiles/%s.lv", profile_name);
 
     // -------------------
 

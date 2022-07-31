@@ -26,6 +26,7 @@ int user_selection(char *title, char *options, char *question) {
 
     int sel;
     scanf(" %d", &sel);
+    if(sel < 0 || sel >= j) sel = 0;    // if sel is not one of the options, set to 0
     printf("\n");
     print_separator(49);
     print_separator(49);
