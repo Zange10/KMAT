@@ -18,7 +18,7 @@ void    launch_calculator();
 void    calculate_launch(struct LV lv);
 
 // Calculates vessel and flight parameters over time (end is defined by T)
-void    calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data);
+double* calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data);
 // set starting parameters for flight
 void    start_stage(struct Vessel *v, struct Flight *f);
 // update parameters of vessel for the point in time t of the flight
@@ -64,6 +64,6 @@ double  integrate(double fa, double fb, double step);
 double  deg_to_rad(double deg);
 
 // store current flight parameters in addition to the already stored flight parameters
-void    store_flight_data(struct Vessel *v, struct Flight *f, double *data);
+void    store_flight_data(struct Vessel *v, struct Flight *f, double **data);
 
 #endif

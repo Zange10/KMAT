@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "lv_profile.h"
 
@@ -62,9 +63,8 @@ void write_LV_to_file(struct LV lv) {
     fclose(file);
 }
 
-struct LV read_LV_from_file(char * lv_name) {
-    struct LV new_lv;
-    new_lv.name = lv_name;
+void read_LV_from_file(char * lv_name, struct LV * lv) {
+    lv -> name = lv_name;
 
     char filename[42];  // 30 for the name, 9 for the diractory and 3 for .lv
     sprintf(filename, "Profiles/%s.lv", lv_name);
@@ -74,18 +74,19 @@ struct LV read_LV_from_file(char * lv_name) {
     FILE *file;
     file = fopen(filename,"r");
 
-    fscanf(file,"Stages: %d\n\n", &new_lv.stage_n);
-    for(int i = 0; i < new_lv.stage_n; i++) {
+
+    fscanf(file,"Stages: %d\n\n", &lv->stage_n);
+    lv->stages = (struct Stage*) calloc(lv->stage_n,sizeof(struct Stage));
+
+    for(int i = 0; i < lv->stage_n; i++) {
         int temp;
         fscanf(file,"Stage: %d:\n", &temp);
-        fscanf(file,"\tF_vac: %lg\n", &new_lv.stages[i].F_vac);
-        fscanf(file,"\tF_sl: %lg\n", &new_lv.stages[i].F_sl);
-        fscanf(file,"\tm0: %lg\n", &new_lv.stages[i].m0);
-        fscanf(file,"\tme: %lg\n", &new_lv.stages[i].me);
-        fscanf(file,"\tburn rate: %lg\n", &new_lv.stages[i].burn_rate);
+        fscanf(file,"\tF_vac: %lg\n", &lv->stages[i].F_vac);
+        fscanf(file,"\tF_sl: %lg\n", &lv->stages[i].F_sl);
+        fscanf(file,"\tm0: %lg\n", &lv->stages[i].m0);
+        fscanf(file,"\tme: %lg\n", &lv->stages[i].me);
+        fscanf(file,"\tburn rate: %lg\n", &lv->stages[i].burn_rate);
     }
 
     fclose(file);
-
-    return new_lv;
 }
