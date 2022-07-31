@@ -5,8 +5,6 @@
 struct  Vessel init_vessel(double F_vac, double F_sl, double m0, double br);
 // initialize flight
 struct  Flight init_flight(struct Body *body);
-// initialize body
-struct  Body init_body();
 // Prints parameters specific to the vessel
 void    print_vessel_info(struct Vessel *v);
 // Prints parameters specific to the flight

@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <unistd.h>
 
 #include "launch_calculator.h"
 #include "csv_writer.h"
 #include "tool_funcs.h"
 #include "lv_profile.h"
+#include "celestial_bodies.h"
 
 struct Vessel {
     double F_vac;       // Thrust produced by the engines in a vacuum [N]
@@ -40,14 +40,6 @@ struct Flight {
     double Ap;      // highest point of orbit in reference to h [m]
 };
 
-struct Body {
-    double mu;      // gravitational parameter of body [m³/s²]
-    double radius;  // radius of body [m]
-};
-
-
-
-
 
 struct Vessel init_vessel(double F_sl, double F_vac, double m0, double br) {
     struct Vessel new_vessel;
@@ -74,13 +66,6 @@ struct Flight init_flight(struct Body *body) {
     new_flight.h = 0;
     new_flight.r = new_flight.h + new_flight.body->radius;
     return new_flight;
-}
-
-struct Body init_body() {
-    struct Body new_body;
-    new_body.mu = 3.98574405e14;
-    new_body.radius = 6371000;
-    return new_body;
 }
 
 
@@ -142,7 +127,7 @@ void launch_calculator() {
 
 void calculate_launch(struct LV lv) {
     struct Vessel vessel;
-    struct Body earth = init_body();
+    struct Body earth = EARTH();
     struct Flight flight = init_flight(&earth);
 
     double *flight_data = (double*) calloc(1, sizeof(double));
