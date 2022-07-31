@@ -58,3 +58,4 @@ dkms.conf
 # Data files
 *.csv
 *.csv#
+*.lv

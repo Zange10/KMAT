@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <unistd.h>
 
 #include "launch_calculator.h"
 #include "csv_writer.h"
 #include "tool_funcs.h"
+#include "lv_profile.h"
 
 struct Vessel {
     double F_vac;       // Thrust produced by the engines in a vacuum [N]
@@ -45,24 +47,6 @@ struct Body {
 
 
 
-struct Stage {
-    double F_vac;       // Thrust produced by the engines in a vacuum [N]
-    double F_sl;        // Thrust produced by the engines at sea level [N]
-    double m0;          // initial mass (mass at t0) [kg]
-    double me;          // vessel mass without fuel [kg]
-    double burn_rate;   // burn rate of all running engines combined [kg/s]
-};
-
-
-struct LV {
-    int stage_n;            // amount of stages of the launch vehicle
-    double payload;         // payload mass [kg]
-    struct Stage *stages;   // the stages of the launch vehicle
-};
-
-
-
-
 
 
 struct Vessel init_vessel(double F_sl, double F_vac, double m0, double br) {
@@ -97,24 +81,6 @@ struct Body init_body() {
     new_body.mu = 3.98574405e14;
     new_body.radius = 6371000;
     return new_body;
-}
-
-struct Stage init_stage(double F_sl, double F_vac, double m0, double me, double br) {
-    struct Stage new_stage;
-    new_stage.F_vac = F_vac*1000;   // kN to N
-    new_stage.F_sl = F_sl*1000;     // kN to N
-    new_stage.m0 = m0*1000;         // t to kg
-    new_stage.me = me*1000;         // t to kg
-    new_stage.burn_rate = br;
-    return new_stage;
-}
-
-struct LV init_LV(int amt_of_stages, struct Stage *stages, int payload_mass) {
-    struct LV new_lv;
-    new_lv.stage_n = amt_of_stages;
-    new_lv.stages = stages;
-    new_lv.payload = payload_mass;
-    return new_lv;
 }
 
 
@@ -156,23 +122,18 @@ void print_flight_info(struct Flight *f) {
 
 void launch_calculator() {
     struct LV lv;
-    int stage_count;
-    struct Stage stage;
 
     int selection = 0;
     char title[] = "LAUNCH CALCULATOR:";
-    char options[] = "Go Back; Calculate";
+    char options[] = "Go Back; Calculate; Testing";
     char question[] = "Program: ";
     do {
         selection = user_selection(title, options, question);
 
         switch(selection) {
             case 1:
-                struct Stage stage = init_stage(610, 700, 50.908, 31.8, 246.6);
-                struct Stage stage1 = init_stage(410, 620, 30.908, 5.308, 200.6);
-                struct Stage stage2 = init_stage(2, 5, 4.308, 1.2, 20);
-                struct Stage stages[] = {stage,stage1,stage2};
-                lv = init_LV(3,stages, 0);
+                char name[30] = "Test";
+                read_LV_from_file(name, &lv);
                 calculate_launch(lv);
                 break;
         }
@@ -191,7 +152,7 @@ void calculate_launch(struct LV lv) {
         printf("STAGE %d:\t", i+1);
         vessel = init_vessel(lv.stages[i].F_sl, lv.stages[i].F_vac, lv.stages[i].m0, lv.stages[i].burn_rate);
         double burn_duration = (lv.stages[i].m0-lv.stages[i].me) / lv.stages[i].burn_rate;
-        calculate_stage_flight(&vessel, &flight, burn_duration, lv.stage_n, flight_data);
+        flight_data = calculate_stage_flight(&vessel, &flight, burn_duration, lv.stage_n, flight_data);
     }
 
 
@@ -210,7 +171,7 @@ void calculate_launch(struct LV lv) {
     print_flight_info(&flight);
 }
 
-void calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data) {
+double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data) {
     double t;
     double step = 0.001;
 
@@ -220,14 +181,16 @@ void calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int nu
     start_stage(v, f);
     v_last = *v;
     f_last = *f;
-    store_flight_data(v, f, flight_data);
+    store_flight_data(v, f, &flight_data);
     
     printf("% 3d%%", 0);
 
     for(t = 0; t <= T-step; t += step) {
         update_flight(v,&v_last, f, &f_last, t, step);
         double x = remainder(t,(T/(888/number_of_stages)));   // only store 890 (888 in this loop) data points overall
-        if(x < step && x >=0) store_flight_data(v, f, flight_data);
+        if(x < step && x >=0) {
+            store_flight_data(v, f, &flight_data);
+        }
         v_last = *v;
         f_last = *f;
 
@@ -235,10 +198,11 @@ void calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int nu
         printf("% 3d%%", (int)(t*100/T));
     }
     update_flight(v,&v_last, f, &f_last, t, T-t);
-    store_flight_data(v, f, flight_data);
+    store_flight_data(v, f, &flight_data);
 
     printf("\b\b\b\b\b");
     printf("% 3d%%\n", 100);
+    return flight_data;
 }
 
 
@@ -365,27 +329,27 @@ double deg_to_rad(double deg) {
 
 
 
-void store_flight_data(struct Vessel *v, struct Flight *f, double *data) {
-    int initial_length = (int)data[0];
-    data = (double*) realloc(data, (initial_length+18)*sizeof(double));
-    data[initial_length+0] = f->t;
-    data[initial_length+1] = v->F;
-    data[initial_length+2] = v->mass;
-    data[initial_length+3] = v->pitch;
-    data[initial_length+4] = v->a;
-    data[initial_length+5] = f->p;
-    data[initial_length+6] = f->D;
-    data[initial_length+7] = f->ad;
-    data[initial_length+8] = f->ah;
-    data[initial_length+9] = f->g;
-    data[initial_length+10]= f->ac;
-    data[initial_length+11]= f->ab;
-    data[initial_length+12]= f->av;
-    data[initial_length+13]= f->vh;
-    data[initial_length+14]= f->vv;
-    data[initial_length+15]= f->v;
-    data[initial_length+16]= f->h;
-    data[initial_length+17]= f->Ap;
-    data[0] += 18;
+void store_flight_data(struct Vessel *v, struct Flight *f, double **data) {
+    int initial_length = (int)*data[0];
+    data[0] = (double*) realloc(*data, (initial_length+18)*sizeof(double));
+    data[0][initial_length+0] = f->t;
+    data[0][initial_length+1] = v->F;
+    data[0][initial_length+2] = v->mass;
+    data[0][initial_length+3] = v->pitch;
+    data[0][initial_length+4] = v->a;
+    data[0][initial_length+5] = f->p;
+    data[0][initial_length+6] = f->D;
+    data[0][initial_length+7] = f->ad;
+    data[0][initial_length+8] = f->ah;
+    data[0][initial_length+9] = f->g;
+    data[0][initial_length+10]= f->ac;
+    data[0][initial_length+11]= f->ab;
+    data[0][initial_length+12]= f->av;
+    data[0][initial_length+13]= f->vh;
+    data[0][initial_length+14]= f->vv;
+    data[0][initial_length+15]= f->v;
+    data[0][initial_length+16]= f->h;
+    data[0][initial_length+17]= f->Ap;
+    data[0][0] += 18;
     return;
 }
