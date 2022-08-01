@@ -1,8 +1,10 @@
 #ifndef LAUNCH_CALCULATOR
 #define LAUNCH_CALCULATOR
 
-// initialize vessel (F_sl [N], F_vac [N], m0 [kg], me [kg], br [kg/s])
-struct  Vessel init_vessel(double F_vac, double F_sl, double m0, double br);
+// return new instance of struct vessel with selected parameters set to 0
+struct  Vessel init_vessel();
+// modify vessel with parameters of next stage (F_sl [N], F_vac [N], m0 [kg], me [kg], br [kg/s])
+void    init_vessel_next_stage(struct Vessel *vessel, double F_sl, double F_vac, double m0, double br);
 // initialize flight
 struct  Flight init_flight(struct Body *body, double latitude);
 // Prints parameters specific to the vessel
@@ -15,7 +17,8 @@ void    launch_calculator();
 // calculate parameters during launch 
 void    calculate_launch(struct LV lv);
 
-double calculate_dV(double F, double m0, double t, double burn_rate);
+// calculate expended Delta-V after t with initial mass m0, static thrust F and burn rate (integral of a=F/m(t))
+double  calculate_dV(double F, double m0, double t, double burn_rate);
 
 // Calculates vessel and flight parameters over time (end is defined by T)
 double* calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data);
@@ -31,26 +34,20 @@ double  get_atmo_press(double h);
 // calculate acceleration due to aerodynamic drag with given velocity and atmospheric pressure
 double  calc_aerodynamic_drag(double p, double v);
 // get thrust at current atmosperic pressure
-double  get_thrust(struct Vessel *v, double p);
+double  get_thrust(double F_vac, double F_sl, double p);
 // get vessel's pitch after time t
 double  get_pitch(double t);
-// get vessel's mass after time t
-double  get_ship_mass(struct Vessel *v, double t);
-// get vessel's acceleration (Thrust) after time  t
-double  get_ship_acceleration(struct Vessel *v, double t);
-// get vessel's horizontal acceleration (Thrust) after time t
-double  get_ship_hacceleration(struct Vessel *v, double t);
-// get vessels's vertical acceleration (Thrust) after time t
-double  get_ship_vacceleration(struct Vessel *v, double t);
 
 // calculate centrifugal acceleration due to the vessel's horizontal speed
 double  calc_centrifugal_acceleration(struct Flight *f);
 // calculate gravitational acceleration at a given distance to the center of the body
 double  calc_grav_acceleration(struct Flight *f);
+// calculate acceleration towards body with vessel's thrust and pitch
+double calc_vertical_acceleration(double vertical_a_thrust, double balanced_a, double drag_a, double pitch);
 // calculate acceleration towards body without the vessel's thrust (g-ac)
-double  calc_balanced_acceleration(struct Flight *f);
-// calculate acceleration towards body with vessel's thrust
-double  calc_vertical_acceleration(struct Vessel *v, struct Flight *f);
+double  calc_balanced_acceleration(double g, double centri_a);
+// calculate horizontal acceleration with vessel's thrust and pitch
+double calc_horizontal_acceleration(double horizontal_a_thrust, double drag_a, double pitch);
 // calculate overall velocity with given vertical and horizontal speed (pythagoras)
 double  calc_velocity(double vh, double vv);
 

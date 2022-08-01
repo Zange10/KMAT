@@ -56,13 +56,11 @@ struct Vessel init_vessel() {
     return new_vessel;
 }
 
-struct Vessel init_vessel_next_stage(struct Vessel *vessel, double F_sl, double F_vac, double m0, double br) {
-    struct Vessel new_vessel;
+void init_vessel_next_stage(struct Vessel *vessel, double F_sl, double F_vac, double m0, double br) {
     vessel -> F_vac = F_vac;
     vessel -> F_sl = F_sl;
     vessel -> m0 = m0;
     vessel -> burn_rate = br;
-    return new_vessel;
 }
 
 struct Flight init_flight(struct Body *body, double latitude) {
@@ -70,7 +68,8 @@ struct Flight init_flight(struct Body *body, double latitude) {
     new_flight.body = body;
     new_flight.t = 0;
     new_flight.vh_s = 0;
-    double vh_at_equator = (2*body->radius*M_PI) / body->rotation_period;   // circumference devided by rotational period [m/s]
+    // horizontal surface speed of body at equator -> circumference devided by rotational period [m/s]
+    double vh_at_equator = (2*body->radius*M_PI) / body->rotation_period;
     new_flight.vh = vh_at_equator*cos(deg_to_rad(latitude));
     new_flight.vv = 0;
     new_flight.v_s = 0;
@@ -231,11 +230,11 @@ void start_stage(struct Vessel *v, struct Flight *f) {
     f -> v_s = calc_velocity(f->vh_s, f->vv);
     f -> D   = calc_aerodynamic_drag(f->p, f->v);
     f -> ad  = f->D/v->mass;
-    f -> ah  = v->ah-f->ad*sin(deg_to_rad(v->pitch));
+    f -> ah  = calc_horizontal_acceleration(v->ah, f->ad, v->pitch);
     f -> ac  = calc_centrifugal_acceleration(f);
     f -> g   = calc_grav_acceleration(f);
-    f -> ab  = calc_balanced_acceleration(f);
-    f -> av  = calc_vertical_acceleration(v,f);
+    f -> ab  = calc_balanced_acceleration(f->g, f->ac);
+    f -> av  = calc_vertical_acceleration(v->av, f->ab, f->ad, v->pitch);
     f -> Ap  = calc_Apoapsis(f);
 }
 
@@ -246,13 +245,13 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
     update_vessel(v, t, f->p, f->h);
     f -> D    = calc_aerodynamic_drag(f->p, f->v_s);
     f -> ad   = f->D/v->mass;
-    f -> ah   = v->ah-f->ad*sin(deg_to_rad(v->pitch));
+    f -> ah   = calc_horizontal_acceleration(v->ah, f->ad, v->pitch);
     f -> vh  += integrate(f->ah,last_f->ah,step);    // integrate horizontal acceleration
     f -> vh_s+= integrate(f->ah,last_f->ah,step);    // integrate horizontal acceleration
     f -> ac   = calc_centrifugal_acceleration(f);
     f -> g    = calc_grav_acceleration(f);
-    f -> ab   = calc_balanced_acceleration(f);
-    f -> av   = calc_vertical_acceleration(v,f);
+    f -> ab   = calc_balanced_acceleration(f->g, f->ac);
+    f -> av   = calc_vertical_acceleration(v->av, f->ab, f->ad, v->pitch);
     f -> vv  += integrate(f->av,last_f->av,step);    // integrate vertical acceleration
     f -> v    = calc_velocity(f->vh,f->vv);
     f -> v_s  = calc_velocity(f->vh_s, f->vv);
@@ -264,14 +263,16 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
 
 
 void update_vessel(struct Vessel *v, double t, double p, double h) {
-    v -> F = get_thrust(v, p);
-    v -> mass = get_ship_mass(v, t);
+    v -> F = get_thrust(v->F_vac, v->F_sl, p);
+    v -> mass = v->m0 - v->burn_rate*t;     // m(t) = m0 - br*t
     v -> pitch = get_pitch(h);
-    v -> a = get_ship_acceleration(v,t);
-    v -> ah = get_ship_hacceleration(v,t);
-    v -> av = get_ship_vacceleration(v,t);
+    v -> a  = v->F / v->mass;       // a = F/m
+    v -> ah = v->a * cos(deg_to_rad(v->pitch));
+    v -> av = v->a * sin(deg_to_rad(v->pitch));
     return;
 }
+
+
 
 double get_atmo_press(double h) {
     if(h<140e3) return 101325*exp(-1.4347e-4 * h);
@@ -282,8 +283,8 @@ double calc_aerodynamic_drag(double p, double v) {
     return 0.5*(p)*pow(v,2) * 7e-5;    // constant by good guess
 }
 
-double get_thrust(struct Vessel *v, double p) {
-    return v->F_vac + (p/101325)*( v->F_sl - v->F_vac );    // sea level pressure ~= 101325 Pa
+double get_thrust(double F_vac, double F_sl, double p) {
+    return F_vac + (p/101325)*(F_sl-F_vac);    // sea level pressure ~= 101325 Pa
 }
 
 double get_pitch(double h) {
@@ -291,22 +292,6 @@ double get_pitch(double h) {
     //return 90.0-(90.0/200.0)*t;
     if(h < 38108) return 90.0*exp(-0.00003*h);
     else return 42.0*exp(-0.00001*h);
-}
-
-double get_ship_mass(struct Vessel *v, double t) {
-    return v->m0 - v->burn_rate*t;
-}
-
-double get_ship_acceleration(struct Vessel *v, double t) {
-    return v->F / v->mass;
-}
-
-double get_ship_hacceleration(struct Vessel *v, double t) {
-    return v->a * cos(deg_to_rad(v -> pitch));
-}
-
-double get_ship_vacceleration(struct Vessel *v, double t) {
-    return v->a * sin(deg_to_rad(v -> pitch));
 }
 
 
@@ -319,12 +304,16 @@ double calc_grav_acceleration(struct Flight *f) {
     return f->body->mu / pow(f->r,2);
 }
 
-double calc_balanced_acceleration(struct Flight *f) {
-    return f->g - f->ac;
+double calc_balanced_acceleration(double g, double centri_a) {
+    return g - centri_a;
 }
 
-double calc_vertical_acceleration(struct Vessel *v, struct Flight *f) {
-    return v->av - f->ab - f->ad*cos(deg_to_rad(v->pitch));
+double calc_vertical_acceleration(double vertical_a_thrust, double balanced_a, double drag_a, double pitch) {
+    return vertical_a_thrust - balanced_a - drag_a*cos(deg_to_rad(pitch));
+}
+
+double calc_horizontal_acceleration(double horizontal_a_thrust, double drag_a, double pitch) {
+    return horizontal_a_thrust - drag_a*sin(deg_to_rad(pitch));
 }
 
 double calc_velocity(double vh, double vv) {
