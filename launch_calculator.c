@@ -32,9 +32,11 @@ struct Flight {
     double ac;      // negative centripetal force due to horizontal speed [m/s²]
     double ab;      // gravitational a subtracted by cetrifucal a [m/s²]
     double av;      // current vertical acceleration due to Thrust, pitch, gravity and velocity [m/s²]
-    double vh;      // horizontal speed [m/s]
+    double vh_s;    // horizontal surface speed [m/s]
+    double vh;      // horizontal orbital speed [m/s]
     double vv;      // vertical speed [m/s]
-    double v;       // overall velocity [m/s]
+    double v_s;     // overall surface velocity [m/s]
+    double v;       // overall orbital velocity [m/s]
     double h;       // altitude above sea level [m]
     double r;       // distance to center of body [m]
     double Ap;      // highest point of orbit in reference to h [m]
@@ -60,8 +62,10 @@ struct Flight init_flight(struct Body *body) {
     struct Flight new_flight;
     new_flight.body = body;
     new_flight.t = 0;
+    new_flight.vh_s = 0;
     new_flight.vh = 0;
     new_flight.vv = 0;
+    new_flight.v_s = 0;
     new_flight.v = 0;
     new_flight.h = 0;
     new_flight.r = new_flight.h + new_flight.body->radius;
@@ -87,6 +91,8 @@ void print_flight_info(struct Flight *f) {
     printf("Time:\t\t\t%.2f s\n", f -> t);
     printf("Altitude:\t\t%g km\n", f -> h/1000);
     printf("Vertical v:\t\t%g m/s\n", f -> vv);
+    printf("Horizontal surfV:\t%g m/s\n", f -> vh_s);
+    printf("surfVelocity:\t\t%g m/s\n", f -> v_s);
     printf("Horizontal v:\t\t%g m/s\n", f -> vh);
     printf("Velocity:\t\t%g m/s\n", f -> v);
     printf("\n");
@@ -163,7 +169,7 @@ void calculate_launch(struct LV lv) {
 
 double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data) {
     double t;
-    double step = 0.001;
+    double step = 0.0001;
 
     struct Vessel v_last;
     struct Flight f_last;
@@ -202,6 +208,7 @@ void start_stage(struct Vessel *v, struct Flight *f) {
     update_vessel(v, 0, f->p, f->h);
     f -> r   = f->h + f->body->radius;
     f -> v   = calc_velocity(f->vh,f->vv);
+    f -> v_s = calc_velocity(f->vh_s, f->vv);
     f -> D   = calc_aerodynamic_drag(f->p, f->v);
     f -> ad  = f->D/v->mass;
     f -> ah  = v->ah-f->ad*sin(deg_to_rad(v->pitch));
@@ -214,22 +221,24 @@ void start_stage(struct Vessel *v, struct Flight *f) {
 
 
 void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t, double step) {
-    f -> t  += step;
-    f -> p   = get_atmo_press(f->h);
+    f -> t   += step;
+    f -> p    = get_atmo_press(f->h);
     update_vessel(v, t, f->p, f->h);
-    f -> D  = calc_aerodynamic_drag(f->p, f->v);
-    f -> ad  = f->D/v->mass;
-    f -> ah  = v->ah-f->ad*sin(deg_to_rad(v->pitch));
-    f -> vh += integrate(f->ah,last_f->ah,step);    // integrate horizontal acceleration
-    f -> ac  = calc_centrifugal_acceleration(f);
-    f -> g   = calc_grav_acceleration(f);
-    f -> ab  = calc_balanced_acceleration(f);
-    f -> av  = calc_vertical_acceleration(v,f);
-    f -> vv += integrate(f->av,last_f->av,step);    // integrate vertical acceleration
-    f -> v   = calc_velocity(f->vh,f->vv);
-    f -> h  += integrate(f->vv,last_f->vv,step);    // integrate vertical speed
-    f -> r   = f->h + f->body->radius;
-    f -> Ap  = calc_Apoapsis(f);
+    f -> D    = calc_aerodynamic_drag(f->p, f->v_s);
+    f -> ad   = f->D/v->mass;
+    f -> ah   = v->ah-f->ad*sin(deg_to_rad(v->pitch));
+    f -> vh  += integrate(f->ah,last_f->ah,step);    // integrate horizontal acceleration
+    f -> vh_s+= integrate(f->ah,last_f->ah,step);    // integrate horizontal acceleration
+    f -> ac   = calc_centrifugal_acceleration(f);
+    f -> g    = calc_grav_acceleration(f);
+    f -> ab   = calc_balanced_acceleration(f);
+    f -> av   = calc_vertical_acceleration(v,f);
+    f -> vv  += integrate(f->av,last_f->av,step);    // integrate vertical acceleration
+    f -> v    = calc_velocity(f->vh,f->vv);
+    f -> v_s  = calc_velocity(f->vh_s, f->vv);
+    f -> h   += integrate(f->vv,last_f->vv,step);    // integrate vertical speed
+    f -> r    = f->h + f->body->radius;
+    f -> Ap   = calc_Apoapsis(f);
 }
 
 
@@ -321,7 +330,8 @@ double deg_to_rad(double deg) {
 
 void store_flight_data(struct Vessel *v, struct Flight *f, double **data) {
     int initial_length = (int)*data[0];
-    data[0] = (double*) realloc(*data, (initial_length+18)*sizeof(double));
+    int n_param = 18;   // number of saved parameters
+    data[0] = (double*) realloc(*data, (initial_length+n_param)*sizeof(double));
     data[0][initial_length+0] = f->t;
     data[0][initial_length+1] = v->F;
     data[0][initial_length+2] = v->mass;
@@ -340,6 +350,6 @@ void store_flight_data(struct Vessel *v, struct Flight *f, double **data) {
     data[0][initial_length+15]= f->v;
     data[0][initial_length+16]= f->h;
     data[0][initial_length+17]= f->Ap;
-    data[0][0] += 18;
+    data[0][0] += n_param;
     return;
 }
