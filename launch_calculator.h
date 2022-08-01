@@ -15,6 +15,8 @@ void    launch_calculator();
 // calculate parameters during launch 
 void    calculate_launch(struct LV lv);
 
+double calculate_dV(double F, double m0, double t, double burn_rate);
+
 // Calculates vessel and flight parameters over time (end is defined by T)
 double* calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data);
 // set starting parameters for flight

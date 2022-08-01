@@ -8,10 +8,10 @@ struct Stage {
 
 
 struct LV {
-    char * name;             // name of the launch vehicle
+    char * name;            // name of the launch vehicle
     int stage_n;            // amount of stages of the launch vehicle
     double payload;         // payload mass [kg]
-    struct Stage * stages;   // the stages of the launch vehicle
+    struct Stage * stages;  // the stages of the launch vehicle
 };
 
 // initialize launch vehicle with its stages (without payload mass)
@@ -22,3 +22,5 @@ void    create_new_Profile();
 void    write_LV_to_file(struct LV lv);
 // read LV parameters from file
 void    read_LV_from_file(struct LV * lv);
+// read LV parameters from file for Test.lv
+void    get_test_LV(struct LV * lv);

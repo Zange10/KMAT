@@ -93,3 +93,32 @@ void read_LV_from_file(struct LV * lv) {
 
     fclose(file);
 }
+
+void get_test_LV(struct LV * lv) {
+    char profile_name[] = "Test";
+    lv -> name = profile_name;
+
+    char filename[42];  // 30 for the name, 9 for the diractory and 3 for .lv
+    sprintf(filename, "Profiles/%s.lv", profile_name);
+
+    // -------------------
+
+    FILE *file;
+    file = fopen(filename,"r");
+
+
+    fscanf(file,"Stages: %d\n\n", &lv->stage_n);
+    lv->stages = (struct Stage*) calloc(lv->stage_n,sizeof(struct Stage));
+
+    for(int i = 0; i < lv->stage_n; i++) {
+        int temp;
+        fscanf(file,"Stage: %d:\n", &temp);
+        fscanf(file,"\tF_vac: %lg\n", &lv->stages[i].F_vac);
+        fscanf(file,"\tF_sl: %lg\n", &lv->stages[i].F_sl);
+        fscanf(file,"\tm0: %lg\n", &lv->stages[i].m0);
+        fscanf(file,"\tme: %lg\n", &lv->stages[i].me);
+        fscanf(file,"\tburn rate: %lg\n", &lv->stages[i].burn_rate);
+    }
+
+    fclose(file);
+}

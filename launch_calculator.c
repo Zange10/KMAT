@@ -19,6 +19,7 @@ struct Vessel {
     double a;           // acceleration due to Thrust [m/s²]
     double ah;          // horizontal acceleration due to Thrust and pitch [m/s²]
     double av;          // vertical acceleration due to Thrust and pitch [m/s²]
+    double dV;          // spent delta-V [m/s]
 };
 
 struct Flight {
@@ -44,18 +45,23 @@ struct Flight {
 };
 
 
-struct Vessel init_vessel(double F_sl, double F_vac, double m0, double br) {
+struct Vessel init_vessel() {
     struct Vessel new_vessel;
-    new_vessel.F_vac = F_vac;
-    new_vessel.F_sl = F_sl;
-    new_vessel.F = 0;
-    new_vessel.m0 = m0;
     new_vessel.mass = 0;
-    new_vessel.burn_rate = br;
     new_vessel.pitch = 0;
     new_vessel.a = 0;
     new_vessel.ah = 0;
     new_vessel.av = 0;
+    new_vessel.dV = 0;
+    return new_vessel;
+}
+
+struct Vessel init_vessel_next_stage(struct Vessel *vessel, double F_sl, double F_vac, double m0, double br) {
+    struct Vessel new_vessel;
+    vessel -> F_vac = F_vac;
+    vessel -> F_sl = F_sl;
+    vessel -> m0 = m0;
+    vessel -> burn_rate = br;
     return new_vessel;
 }
 
@@ -86,6 +92,7 @@ void print_vessel_info(struct Vessel *v) {
     printf("Acceleration:\t%g m/s²\n", v -> a);
     printf("Horizontal a:\t%g m/s²\n", v -> ah);
     printf("Vertical a:\t%g m/s²\n", v -> av);
+    printf("Used Delta-V:\t%g m/s\n", v -> dV);
     printf("______________________\n\n");
 }
 
@@ -121,7 +128,7 @@ void launch_calculator() {
     int selection = 0;
     char name[30] = "Test";
     char title[] = "LAUNCH CALCULATOR:";
-    char options[] = "Go Back; Calculate; Choose Profile; Create new Profile";
+    char options[] = "Go Back; Calculate; Choose Profile; Create new Profile; Testing";
     char question[] = "Program: ";
     do {
         selection = user_selection(title, options, question);
@@ -136,12 +143,16 @@ void launch_calculator() {
             case 3:
                 create_new_Profile();
                 break;
+            case 4:
+                get_test_LV(&lv);
+                calculate_launch(lv);
+                break;
         }
     } while(selection != 0);
 }
 
 void calculate_launch(struct LV lv) {
-    struct Vessel vessel;
+    struct Vessel vessel = init_vessel();
     struct Body earth = EARTH();
     struct Flight flight = init_flight(&earth, 28.6);
 
@@ -150,9 +161,10 @@ void calculate_launch(struct LV lv) {
 
     for(int i = 0; i < lv.stage_n; i++) {
         printf("STAGE %d:\t", i+1);
-        vessel = init_vessel(lv.stages[i].F_sl, lv.stages[i].F_vac, lv.stages[i].m0, lv.stages[i].burn_rate);
+        init_vessel_next_stage(&vessel, lv.stages[i].F_sl, lv.stages[i].F_vac, lv.stages[i].m0, lv.stages[i].burn_rate);
         double burn_duration = (lv.stages[i].m0-lv.stages[i].me) / lv.stages[i].burn_rate;
         flight_data = calculate_stage_flight(&vessel, &flight, burn_duration, lv.stage_n, flight_data);
+        vessel.dV += calculate_dV(vessel.F, vessel.m0, burn_duration, vessel.burn_rate);
     }
 
 
@@ -169,6 +181,10 @@ void calculate_launch(struct LV lv) {
 
     print_vessel_info(&vessel);
     print_flight_info(&flight);
+}
+
+double calculate_dV(double F, double m0, double t, double burn_rate) {
+    return -(F*log(m0-burn_rate*t))/burn_rate + (F*log(m0))/burn_rate;
 }
 
 double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data) {
