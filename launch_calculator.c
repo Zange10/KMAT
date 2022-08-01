@@ -58,12 +58,13 @@ struct Vessel init_vessel(double F_sl, double F_vac, double m0, double br) {
     return new_vessel;
 }
 
-struct Flight init_flight(struct Body *body) {
+struct Flight init_flight(struct Body *body, double latitude) {
     struct Flight new_flight;
     new_flight.body = body;
     new_flight.t = 0;
     new_flight.vh_s = 0;
-    new_flight.vh = 0;
+    double vh_at_equator = (2*body->radius*M_PI) / body->rotation_period;   // circumference devided by rotational period [m/s]
+    new_flight.vh = vh_at_equator*cos(deg_to_rad(latitude));
     new_flight.vv = 0;
     new_flight.v_s = 0;
     new_flight.v = 0;
@@ -139,7 +140,7 @@ void launch_calculator() {
 void calculate_launch(struct LV lv) {
     struct Vessel vessel;
     struct Body earth = EARTH();
-    struct Flight flight = init_flight(&earth);
+    struct Flight flight = init_flight(&earth, 28.6);
 
     double *flight_data = (double*) calloc(1, sizeof(double));
     flight_data[0] = 1;    // amount of data points
