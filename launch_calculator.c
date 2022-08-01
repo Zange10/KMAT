@@ -40,6 +40,7 @@ struct Flight {
     double h;       // altitude above sea level [m]
     double r;       // distance to center of body [m]
     double Ap;      // highest point of orbit in reference to h [m]
+    double s;       // distance travelled downrange [m]
 };
 
 
@@ -70,6 +71,7 @@ struct Flight init_flight(struct Body *body, double latitude) {
     new_flight.v = 0;
     new_flight.h = 0;
     new_flight.r = new_flight.h + new_flight.body->radius;
+    new_flight.s = 0;
     return new_flight;
 }
 
@@ -107,6 +109,7 @@ void print_flight_info(struct Flight *f) {
     printf("Horizontal a:\t\t%g m/s²\n", f -> ah);
     printf("Radius:\t\t\t%g km\n", f -> r/1000);
     printf("Apoapsis:\t\t%g km\n", f -> Ap/1000);
+    printf("Distance Downrange\t%g km\n", f -> s/1000);
     printf("______________________\n\n");
 }
 
@@ -170,7 +173,7 @@ void calculate_launch(struct LV lv) {
 
 double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data) {
     double t;
-    double step = 0.0001;
+    double step = 0.001;
 
     struct Vessel v_last;
     struct Flight f_last;
@@ -240,6 +243,7 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
     f -> h   += integrate(f->vv,last_f->vv,step);    // integrate vertical speed
     f -> r    = f->h + f->body->radius;
     f -> Ap   = calc_Apoapsis(f);
+    f -> s   += integrate(f->vh_s, last_f->vh_s, step);
 }
 
 
