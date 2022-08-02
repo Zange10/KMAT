@@ -188,7 +188,7 @@ double calculate_dV(double F, double m0, double t, double burn_rate) {
 
 double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data) {
     double t;
-    double step = 0.001;
+    double step = 0.01;
 
     struct Vessel v_last;
     struct Flight f_last;
@@ -202,6 +202,7 @@ double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, in
 
     for(t = 0; t <= T-step; t += step) {
         update_flight(v,&v_last, f, &f_last, t, step);
+        f -> Ap   = calc_Apoapsis(*f, v->mass);
         double x = remainder(t,(T/(888/number_of_stages)));   // only store 890 (888 in this loop) data points overall
         if(x < step && x >=0) {
             store_flight_data(v, f, &flight_data);
@@ -213,6 +214,7 @@ double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, in
         printf("% 3d%%", (int)(t*100/T));
     }
     update_flight(v,&v_last, f, &f_last, t, T-t);
+    f -> Ap   = calc_Apoapsis(*f, v->mass);
     store_flight_data(v, f, &flight_data);
 
     printf("\b\b\b\b\b");
@@ -235,7 +237,7 @@ void start_stage(struct Vessel *v, struct Flight *f) {
     f -> g   = calc_grav_acceleration(f);
     f -> ab  = calc_balanced_acceleration(f->g, f->ac);
     f -> av  = calc_vertical_acceleration(v->av, f->ab, f->ad, v->pitch);
-    f -> Ap  = calc_Apoapsis(f);
+    f -> Ap  = 0;
 }
 
 
@@ -257,7 +259,6 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
     f -> v_s  = calc_velocity(f->vh_s, f->vv);
     f -> h   += integrate(f->vv,last_f->vv,step);    // integrate vertical speed
     f -> r    = f->h + f->body->radius;
-    f -> Ap   = calc_Apoapsis(f);
     f -> s   += integrate(f->vh_s, last_f->vh_s, step);
 }
 
@@ -320,10 +321,30 @@ double calc_velocity(double vh, double vv) {
     return sqrt(vv*vv+vh*vh);
 }
 
-double calc_Apoapsis(struct Flight *f) {
-    return (pow(f->vv,2) / (2*f->ab)) + f->h;
-}
+// double calc_Apoapsis(struct Flight f, double mass) {
+//     return (pow(f.vv,2) / (2*f.ab)) + f.h;
+// }
 
+double calc_Apoapsis(struct Flight f, double mass) {
+    double t = 0;
+    double step = 0.1;
+    if(f.vv < 0) f.vv *= (-1);
+
+    struct Vessel v = init_vessel();
+    init_vessel_next_stage(&v, 0,0,mass,0);    // 1 for mass because x/0 throws error
+    struct Flight f_last;
+
+    start_stage(&v, &f);
+    f_last = f;
+
+    for(t = 0; f.vv > 0; t += step) {
+        update_flight(&v,&v, &f, &f_last, t, step);
+        f_last = f;
+    }
+
+    
+    return f.h;
+}
 
 
 double integrate(double fa, double fb, double step) {

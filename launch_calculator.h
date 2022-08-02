@@ -52,7 +52,7 @@ double calc_horizontal_acceleration(double horizontal_a_thrust, double drag_a, d
 double  calc_velocity(double vh, double vv);
 
 // calculate current Apoapsis of flight/orbit
-double  calc_Apoapsis(struct Flight *f);
+double  calc_Apoapsis(struct Flight f, double mass);
 
 // integration for a given interval (numerical integration, midpoint/rectangle rule)
 // I = ( (f(a)+f(b))/2 ) * step
