@@ -223,7 +223,7 @@ double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, in
 
 
 void start_stage(struct Vessel *v, struct Flight *f) {
-    f -> p   = get_atmo_press(f->h);
+    f -> p   = get_atmo_press(f->h, f->body->scale_height);
     update_vessel(v, 0, f->p, f->h);
     f -> r   = f->h + f->body->radius;
     f -> v   = calc_velocity(f->vh,f->vv);
@@ -241,7 +241,7 @@ void start_stage(struct Vessel *v, struct Flight *f) {
 
 void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t, double step) {
     f -> t   += step;
-    f -> p    = get_atmo_press(f->h);
+    f -> p    = get_atmo_press(f->h, f->body->scale_height);
     update_vessel(v, t, f->p, f->h);
     f -> D    = calc_aerodynamic_drag(f->p, f->v_s);
     f -> ad   = f->D/v->mass;
@@ -274,8 +274,8 @@ void update_vessel(struct Vessel *v, double t, double p, double h) {
 
 
 
-double get_atmo_press(double h) {
-    if(h<140e3) return 101325*exp(-1.4347e-4 * h);
+double get_atmo_press(double h, double scale_height) {
+    if(h<140e3) return 101325*exp(-(1/scale_height) * h);
     else return 0;
 }
 

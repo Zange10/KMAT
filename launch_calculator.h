@@ -29,8 +29,8 @@ void    update_vessel(struct Vessel *v, double t, double p, double h);
 // update parameters of the flight for the point in time t of the flight
 void    update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t, double step);
 
-// get atmospheric pressure p at height h
-double  get_atmo_press(double h);
+// get atmospheric pressure p at height h with the scale height of the parent body
+double  get_atmo_press(double h, double scale_height);
 // calculate acceleration due to aerodynamic drag with given velocity and atmospheric pressure
 double  calc_aerodynamic_drag(double p, double v);
 // get thrust at current atmosperic pressure
