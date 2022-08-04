@@ -325,25 +325,58 @@ double calc_velocity(double vh, double vv) {
 //     return (pow(f.vv,2) / (2*f.ab)) + f.h;
 // }
 
-double calc_Apoapsis(struct Flight f, double mass) {
-    double t = 0;
-    double step = 0.1;
-    if(f.vv < 0) f.vv *= (-1);
+// double calc_Apoapsis(struct Flight f, double mass) {
+//     double t = 0;
+//     double step = 0.05;
+//     if(f.vv < 0) f.vv *= (-1);
 
-    struct Vessel v = init_vessel();
-    init_vessel_next_stage(&v, 0,0,mass,0);    // 1 for mass because x/0 throws error
-    struct Flight f_last;
+//     struct Vessel v = init_vessel();
+//     init_vessel_next_stage(&v, 0,0,mass,0);    // 1 for mass because x/0 throws error
+//     struct Flight f_last;
 
-    start_stage(&v, &f);
-    f_last = f;
+//     start_stage(&v, &f);
+//     f_last = f;
 
-    for(t = 0; f.vv > 0; t += step) {
-        update_flight(&v,&v, &f, &f_last, t, step);
-        f_last = f;
-    }
+//     for(t = 0; f.vv > 0; t += step) {
+//         update_flight(&v,&v, &f, &f_last, t, step);
+//         f_last = f;
+//     }
 
     
-    return f.h;
+//     return f.h;
+// }
+
+struct Vector {
+    double x;
+    double y;
+};
+
+double vector_magnitude(struct Vector v) {
+    return sqrt(v.x*v.x + v.y*v.y);
+}
+
+double cross_product(struct Vector v1, struct Vector v2) {
+    return v1.x*v2.y - v1.y*v2.x;
+}
+
+double calc_Apoapsis(struct Flight f, double mass) {
+    struct Vector f1 = {0,0};           // primary focus of ellipse is center of parent body
+    struct Vector r  = {0,f.r};         // current position of vessel
+    struct Vector v  = {f.vh, f.vv};    // velocity vector of vessel
+    double a = (f.body->mu*f.r) / (2*f.body->mu - f.r*pow(f.v,2));
+    double h = cross_product(r,v);  // angular momentum
+    printf("\n%g * %g - %g * %g = %g\n", r.x, v.y, r.y, v.x, h);
+    struct Vector e;                // eccentricity vector
+    e.x = r.x/vector_magnitude(r) - (h*v.y) / f.body->mu;
+    e.y = r.y/vector_magnitude(r) - (h*v.x) / f.body->mu;
+    struct Vector f2;               // empty focus
+    f2.x = -2*a*e.x;
+    f2.y = -2*a*e.y;
+    double Ap = 0.5* (2*a-vector_magnitude(f2));
+    printf("%g %g %g %g\n", h, v.x, r.y/vector_magnitude(r), f.body->mu);
+    printf("%g %g %g\n", a, e.x, e.y);
+    printf("%g %g %g %g\n", f2.x, f2.y, vector_magnitude(f2), Ap);
+    return Ap-f.body->radius;
 }
 
 
