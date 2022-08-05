@@ -365,18 +365,14 @@ double calc_Apoapsis(struct Flight f, double mass) {
     struct Vector v  = {f.vh, f.vv};    // velocity vector of vessel
     double a = (f.body->mu*f.r) / (2*f.body->mu - f.r*pow(f.v,2));
     double h = cross_product(r,v);  // angular momentum
-    printf("\n%g * %g - %g * %g = %g\n", r.x, v.y, r.y, v.x, h);
     struct Vector e;                // eccentricity vector
     e.x = r.x/vector_magnitude(r) - (h*v.y) / f.body->mu;
-    e.y = r.y/vector_magnitude(r) - (h*v.x) / f.body->mu;
+    e.y = r.y/vector_magnitude(r) + (h*v.x) / f.body->mu;
     struct Vector f2;               // empty focus
-    f2.x = -2*a*e.x;
-    f2.y = -2*a*e.y;
-    double Ap = 0.5* (2*a-vector_magnitude(f2));
-    printf("%g %g %g %g\n", h, v.x, r.y/vector_magnitude(r), f.body->mu);
-    printf("%g %g %g\n", a, e.x, e.y);
-    printf("%g %g %g %g\n", f2.x, f2.y, vector_magnitude(f2), Ap);
-    return Ap-f.body->radius;
+    f2.x = 2*a*e.x;
+    f2.y = 2*a*e.y;
+    double Ap = 0.5* (2*a+vector_magnitude(f2)) - f.body->radius;
+    return Ap;
 }
 
 
