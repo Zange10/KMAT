@@ -166,6 +166,11 @@ void calculate_launch(struct LV lv) {
         vessel.dV += calculate_dV(vessel.F, vessel.m0, burn_duration, vessel.burn_rate);
     }
 
+    printf("Coast:\t\t");
+    init_vessel_next_stage(&vessel, 0, 0, lv.stages[lv.stage_n-1].me, 0);
+    double duration = flight.vv/flight.ab + sqrt( pow(flight.vv/flight.ab,2) + 2*(flight.h-80e3)/flight.ab);
+    flight_data = calculate_stage_flight(&vessel, &flight, duration, lv.stage_n, flight_data);
+
 
 
     char pcsv;
@@ -202,8 +207,8 @@ double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, in
 
     for(t = 0; t <= T-step; t += step) {
         update_flight(v,&v_last, f, &f_last, t, step);
-        f -> Ap   = calc_Apoapsis(*f, v->mass);
-        double x = remainder(t,(T/(888/number_of_stages)));   // only store 890 (888 in this loop) data points overall
+        f -> Ap   = calc_Apoapsis(*f);
+        double x = remainder(t,(T/(888/number_of_stages+1)));   // only store 890 (888 in this loop) data points overall
         if(x < step && x >=0) {
             store_flight_data(v, f, &flight_data);
         }
@@ -214,7 +219,7 @@ double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, in
         printf("% 3d%%", (int)(t*100/T));
     }
     update_flight(v,&v_last, f, &f_last, t, T-t);
-    f -> Ap   = calc_Apoapsis(*f, v->mass);
+    f -> Ap   = calc_Apoapsis(*f);
     store_flight_data(v, f, &flight_data);
 
     printf("\b\b\b\b\b");
@@ -321,31 +326,6 @@ double calc_velocity(double vh, double vv) {
     return sqrt(vv*vv+vh*vh);
 }
 
-// double calc_Apoapsis(struct Flight f, double mass) {
-//     return (pow(f.vv,2) / (2*f.ab)) + f.h;
-// }
-
-// double calc_Apoapsis(struct Flight f, double mass) {
-//     double t = 0;
-//     double step = 0.05;
-//     if(f.vv < 0) f.vv *= (-1);
-
-//     struct Vessel v = init_vessel();
-//     init_vessel_next_stage(&v, 0,0,mass,0);    // 1 for mass because x/0 throws error
-//     struct Flight f_last;
-
-//     start_stage(&v, &f);
-//     f_last = f;
-
-//     for(t = 0; f.vv > 0; t += step) {
-//         update_flight(&v,&v, &f, &f_last, t, step);
-//         f_last = f;
-//     }
-
-    
-//     return f.h;
-// }
-
 struct Vector {
     double x;
     double y;
@@ -359,7 +339,7 @@ double cross_product(struct Vector v1, struct Vector v2) {
     return v1.x*v2.y - v1.y*v2.x;
 }
 
-double calc_Apoapsis(struct Flight f, double mass) {
+double calc_Apoapsis(struct Flight f) {
     struct Vector f1 = {0,0};           // primary focus of ellipse is center of parent body
     struct Vector r  = {0,f.r};         // current position of vessel
     struct Vector v  = {f.vh, f.vv};    // velocity vector of vessel
