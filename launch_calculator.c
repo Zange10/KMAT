@@ -237,11 +237,11 @@ void start_stage(struct Vessel *v, struct Flight *f) {
     f -> v_s = calc_velocity(f->vh_s, f->vv);
     f -> D   = calc_aerodynamic_drag(f->p, f->v);
     f -> ad  = f->D/v->mass;
-    f -> ah  = calc_horizontal_acceleration(v->ah, f->ad, v->pitch);
+    f -> ah  = calc_horizontal_acceleration(v->ah, f->ad, f->vh_s, f->v_s);
     f -> ac  = calc_centrifugal_acceleration(f);
     f -> g   = calc_grav_acceleration(f);
     f -> ab  = calc_balanced_acceleration(f->g, f->ac);
-    f -> av  = calc_vertical_acceleration(v->av, f->ab, f->ad, v->pitch);
+    f -> av  = calc_vertical_acceleration(v->av, f->ab, f->ad, f->vv, f->v_s);
     f -> Ap  = 0;
 }
 
@@ -252,13 +252,13 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
     update_vessel(v, t, f->p, f->h);
     f -> D    = calc_aerodynamic_drag(f->p, f->v_s);
     f -> ad   = f->D/v->mass;
-    f -> ah   = calc_horizontal_acceleration(v->ah, f->ad, v->pitch);
+    f -> ah   = calc_horizontal_acceleration(v->ah, f->ad, f->vh_s, f->v_s);
     f -> vh  += integrate(f->ah,last_f->ah,step);    // integrate horizontal acceleration
     f -> vh_s+= integrate(f->ah,last_f->ah,step);    // integrate horizontal acceleration
     f -> ac   = calc_centrifugal_acceleration(f);
     f -> g    = calc_grav_acceleration(f);
     f -> ab   = calc_balanced_acceleration(f->g, f->ac);
-    f -> av   = calc_vertical_acceleration(v->av, f->ab, f->ad, v->pitch);
+    f -> av   = calc_vertical_acceleration(v->av, f->ab, f->ad, f->vv, f->v_s);
     f -> vv  += integrate(f->av,last_f->av,step);    // integrate vertical acceleration
     f -> v    = calc_velocity(f->vh,f->vv);
     f -> v_s  = calc_velocity(f->vh_s, f->vv);
@@ -314,12 +314,16 @@ double calc_balanced_acceleration(double g, double centri_a) {
     return g - centri_a;
 }
 
-double calc_vertical_acceleration(double vertical_a_thrust, double balanced_a, double drag_a, double pitch) {
-    return vertical_a_thrust - balanced_a - drag_a*cos(deg_to_rad(pitch));
+double calc_vertical_acceleration(double vertical_a_thrust, double balanced_a, double drag_a, double vert_speed, double v) {
+    double vertical_drag_a = 0;
+    if(v!=0) vertical_drag_a = drag_a*(vert_speed/v);
+    return vertical_a_thrust - balanced_a - vertical_drag_a;
 }
 
-double calc_horizontal_acceleration(double horizontal_a_thrust, double drag_a, double pitch) {
-    return horizontal_a_thrust - drag_a*sin(deg_to_rad(pitch));
+double calc_horizontal_acceleration(double horizontal_a_thrust, double drag_a,  double hor_speed, double v) {
+    double horizontal_drag_a = 0;
+    if(v!=0) horizontal_drag_a = drag_a*(hor_speed/v);
+    return horizontal_a_thrust - horizontal_drag_a;
 }
 
 double calc_velocity(double vh, double vv) {
