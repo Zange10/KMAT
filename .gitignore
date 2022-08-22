@@ -59,3 +59,7 @@ dkms.conf
 *.csv
 *.csv#
 *.lv
+
+
+# VSCode
+.vscode/
