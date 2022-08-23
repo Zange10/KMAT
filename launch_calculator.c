@@ -344,7 +344,6 @@ double cross_product(struct Vector v1, struct Vector v2) {
 }
 
 double calc_Apoapsis(struct Flight f) {
-    struct Vector f1 = {0,0};           // primary focus of ellipse is center of parent body
     struct Vector r  = {0,f.r};         // current position of vessel
     struct Vector v  = {f.vh, f.vv};    // velocity vector of vessel
     double a = (f.body->mu*f.r) / (2*f.body->mu - f.r*pow(f.v,2));
@@ -352,10 +351,7 @@ double calc_Apoapsis(struct Flight f) {
     struct Vector e;                // eccentricity vector
     e.x = r.x/vector_magnitude(r) - (h*v.y) / f.body->mu;
     e.y = r.y/vector_magnitude(r) + (h*v.x) / f.body->mu;
-    struct Vector f2;               // empty focus
-    f2.x = 2*a*e.x;
-    f2.y = 2*a*e.y;
-    double Ap = 0.5* (2*a+vector_magnitude(f2)) - f.body->radius;
+    double Ap = a*(1+vector_magnitude(e)) - f.body->radius;
     return Ap;
 }
 
