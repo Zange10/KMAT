@@ -262,9 +262,17 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
     f -> vv  += integrate(f->av,last_f->av,step);    // integrate vertical acceleration
     f -> v    = calc_velocity(f->vh,f->vv);
     f -> v_s  = calc_velocity(f->vh_s, f->vv);
+    double theta = atan(integrate(f->vh, last_f->vh, step)/f->r);
     f -> h   += integrate(f->vv,last_f->vv,step);    // integrate vertical speed
     f -> r    = f->h + f->body->radius;
     f -> s   += integrate(f->vh_s, last_f->vh_s, step);
+    // change of frame of reference 
+    if(f->vv>0) printf("\n%g %g %g -- ", f->vh, f->vv, sqrt(f->vh*f->vh+f->vv*f->vv));
+    f -> vh   = calc_change_of_reference_frame(f, last_f, step);
+    //f -> vv   = sqrt(pow(f->v,2)-pow(f->vh,2));
+    //f -> vh   = cos(acos(f->vh/f->v)+theta)*f->v;
+    //f -> vv   = sin(asin(f->vv/f->v)+theta)*f->v;
+    if(f->vv>0)printf("%g %g  %g \n ", f->vh, f->vv, sqrt(f->vh*f->vh+f->vv*f->vv));
 }
 
 
@@ -341,6 +349,11 @@ double vector_magnitude(struct Vector v) {
 
 double cross_product(struct Vector v1, struct Vector v2) {
     return v1.x*v2.y - v1.y*v2.x;
+}
+
+double calc_change_of_reference_frame(struct Flight *f, struct Flight *last_f, double step) {
+    double dx = integrate(f->vh, last_f->vh, step);
+    return (-1/f->r)*(dx*f->vv-sqrt(pow(f->r,2)-dx*dx)*f->vh);
 }
 
 double calc_Apoapsis(struct Flight f) {
