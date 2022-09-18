@@ -42,17 +42,19 @@ double  get_pitch(double t);
 double  calc_centrifugal_acceleration(struct Flight *f);
 // calculate gravitational acceleration at a given distance to the center of the body
 double  calc_grav_acceleration(struct Flight *f);
-// calculate acceleration towards body with vessel's thrust and pitch
-double calc_vertical_acceleration(double vertical_a_thrust, double balanced_a, double drag_a, double pitch);
+// calculate acceleration towards body with vessel's thrust, pitch and drag
+double  calc_vertical_acceleration(double vertical_a_thrust, double balanced_a, double drag_a, double vert_speed, double v);
 // calculate acceleration towards body without the vessel's thrust (g-ac)
 double  calc_balanced_acceleration(double g, double centri_a);
-// calculate horizontal acceleration with vessel's thrust and pitch
-double calc_horizontal_acceleration(double horizontal_a_thrust, double drag_a, double pitch);
+// calculate horizontal acceleration with vessel's thrust, pitch and drag
+double  calc_horizontal_acceleration(double horizontal_a_thrust, double drag_a,  double hor_speed, double v);
 // calculate overall velocity with given vertical and horizontal speed (pythagoras)
 double  calc_velocity(double vh, double vv);
 
+// calculate horizontal speed in new frame of reference
+double  calc_change_of_reference_frame(struct Flight *f, struct Flight *last_f, double step);
 // calculate current Apoapsis of flight/orbit
-double  calc_Apoapsis(struct Flight *f);
+double  calc_Apoapsis(struct Flight f);
 
 // integration for a given interval (numerical integration, midpoint/rectangle rule)
 // I = ( (f(a)+f(b))/2 ) * step

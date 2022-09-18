@@ -166,6 +166,11 @@ void calculate_launch(struct LV lv) {
         vessel.dV += calculate_dV(vessel.F, vessel.m0, burn_duration, vessel.burn_rate);
     }
 
+    printf("Coast:\t\t");
+    init_vessel_next_stage(&vessel, 0, 0, lv.stages[lv.stage_n-1].me, 0);
+    double duration = flight.vv/flight.ab + sqrt( pow(flight.vv/flight.ab,2) + 2*(flight.h-80e3)/flight.ab);
+    flight_data = calculate_stage_flight(&vessel, &flight, duration, lv.stage_n, flight_data);
+
 
 
     char pcsv;
@@ -188,7 +193,7 @@ double calculate_dV(double F, double m0, double t, double burn_rate) {
 
 double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data) {
     double t;
-    double step = 0.001;
+    double step = 0.01;
 
     struct Vessel v_last;
     struct Flight f_last;
@@ -202,7 +207,8 @@ double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, in
 
     for(t = 0; t <= T-step; t += step) {
         update_flight(v,&v_last, f, &f_last, t, step);
-        double x = remainder(t,(T/(888/number_of_stages)));   // only store 890 (888 in this loop) data points overall
+        f -> Ap   = calc_Apoapsis(*f);
+        double x = remainder(t,(T/(888/number_of_stages+1)));   // only store 890 (888 in this loop) data points overall
         if(x < step && x >=0) {
             store_flight_data(v, f, &flight_data);
         }
@@ -213,6 +219,7 @@ double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, in
         printf("% 3d%%", (int)(t*100/T));
     }
     update_flight(v,&v_last, f, &f_last, t, T-t);
+    f -> Ap   = calc_Apoapsis(*f);
     store_flight_data(v, f, &flight_data);
 
     printf("\b\b\b\b\b");
@@ -230,12 +237,12 @@ void start_stage(struct Vessel *v, struct Flight *f) {
     f -> v_s = calc_velocity(f->vh_s, f->vv);
     f -> D   = calc_aerodynamic_drag(f->p, f->v);
     f -> ad  = f->D/v->mass;
-    f -> ah  = calc_horizontal_acceleration(v->ah, f->ad, v->pitch);
+    f -> ah  = calc_horizontal_acceleration(v->ah, f->ad, f->vh_s, f->v_s);
     f -> ac  = calc_centrifugal_acceleration(f);
     f -> g   = calc_grav_acceleration(f);
     f -> ab  = calc_balanced_acceleration(f->g, f->ac);
-    f -> av  = calc_vertical_acceleration(v->av, f->ab, f->ad, v->pitch);
-    f -> Ap  = calc_Apoapsis(f);
+    f -> av  = calc_vertical_acceleration(v->av, f->ab, f->ad, f->vv, f->v_s);
+    f -> Ap  = 0;
 }
 
 
@@ -245,20 +252,22 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
     update_vessel(v, t, f->p, f->h);
     f -> D    = calc_aerodynamic_drag(f->p, f->v_s);
     f -> ad   = f->D/v->mass;
-    f -> ah   = calc_horizontal_acceleration(v->ah, f->ad, v->pitch);
+    f -> ah   = calc_horizontal_acceleration(v->ah, f->ad, f->vh_s, f->v_s);
     f -> vh  += integrate(f->ah,last_f->ah,step);    // integrate horizontal acceleration
     f -> vh_s+= integrate(f->ah,last_f->ah,step);    // integrate horizontal acceleration
     f -> ac   = calc_centrifugal_acceleration(f);
     f -> g    = calc_grav_acceleration(f);
     f -> ab   = calc_balanced_acceleration(f->g, f->ac);
-    f -> av   = calc_vertical_acceleration(v->av, f->ab, f->ad, v->pitch);
+    f -> av   = calc_vertical_acceleration(v->av, f->ab, f->ad, f->vv, f->v_s);
     f -> vv  += integrate(f->av,last_f->av,step);    // integrate vertical acceleration
     f -> v    = calc_velocity(f->vh,f->vv);
     f -> v_s  = calc_velocity(f->vh_s, f->vv);
+    double theta = atan(integrate(f->vh, last_f->vh, step)/f->r);
     f -> h   += integrate(f->vv,last_f->vv,step);    // integrate vertical speed
     f -> r    = f->h + f->body->radius;
-    f -> Ap   = calc_Apoapsis(f);
     f -> s   += integrate(f->vh_s, last_f->vh_s, step);
+    // change of frame of reference (vv already changed due to ab)
+    f -> vh   = calc_change_of_reference_frame(f, last_f, step);
 }
 
 
@@ -308,22 +317,51 @@ double calc_balanced_acceleration(double g, double centri_a) {
     return g - centri_a;
 }
 
-double calc_vertical_acceleration(double vertical_a_thrust, double balanced_a, double drag_a, double pitch) {
-    return vertical_a_thrust - balanced_a - drag_a*cos(deg_to_rad(pitch));
+double calc_vertical_acceleration(double vertical_a_thrust, double balanced_a, double drag_a, double vert_speed, double v) {
+    double vertical_drag_a = 0;
+    if(v!=0) vertical_drag_a = drag_a*(vert_speed/v);
+    return vertical_a_thrust - balanced_a - vertical_drag_a;
 }
 
-double calc_horizontal_acceleration(double horizontal_a_thrust, double drag_a, double pitch) {
-    return horizontal_a_thrust - drag_a*sin(deg_to_rad(pitch));
+double calc_horizontal_acceleration(double horizontal_a_thrust, double drag_a,  double hor_speed, double v) {
+    double horizontal_drag_a = 0;
+    if(v!=0) horizontal_drag_a = drag_a*(hor_speed/v);
+    return horizontal_a_thrust - horizontal_drag_a;
 }
 
 double calc_velocity(double vh, double vv) {
     return sqrt(vv*vv+vh*vh);
 }
 
-double calc_Apoapsis(struct Flight *f) {
-    return (pow(f->vv,2) / (2*f->ab)) + f->h;
+struct Vector {
+    double x;
+    double y;
+};
+
+double vector_magnitude(struct Vector v) {
+    return sqrt(v.x*v.x + v.y*v.y);
 }
 
+double cross_product(struct Vector v1, struct Vector v2) {
+    return v1.x*v2.y - v1.y*v2.x;
+}
+
+double calc_change_of_reference_frame(struct Flight *f, struct Flight *last_f, double step) {
+    double dx = integrate(f->vh, last_f->vh, step);
+    return (-1/f->r)*(dx*f->vv-sqrt(pow(f->r,2)-dx*dx)*f->vh);
+}
+
+double calc_Apoapsis(struct Flight f) {
+    struct Vector r  = {0,f.r};         // current position of vessel
+    struct Vector v  = {f.vh, f.vv};    // velocity vector of vessel
+    double a = (f.body->mu*f.r) / (2*f.body->mu - f.r*pow(f.v,2));
+    double h = cross_product(r,v);  // angular momentum
+    struct Vector e;                // eccentricity vector
+    e.x = r.x/vector_magnitude(r) - (h*v.y) / f.body->mu;
+    e.y = r.y/vector_magnitude(r) + (h*v.x) / f.body->mu;
+    double Ap = a*(1+vector_magnitude(e)) - f.body->radius;
+    return Ap;
+}
 
 
 double integrate(double fa, double fb, double step) {
