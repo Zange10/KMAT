@@ -266,13 +266,8 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
     f -> h   += integrate(f->vv,last_f->vv,step);    // integrate vertical speed
     f -> r    = f->h + f->body->radius;
     f -> s   += integrate(f->vh_s, last_f->vh_s, step);
-    // change of frame of reference 
-    if(f->vv>0) printf("\n%g %g %g -- ", f->vh, f->vv, sqrt(f->vh*f->vh+f->vv*f->vv));
+    // change of frame of reference (vv already changed due to ab)
     f -> vh   = calc_change_of_reference_frame(f, last_f, step);
-    //f -> vv   = sqrt(pow(f->v,2)-pow(f->vh,2));
-    //f -> vh   = cos(acos(f->vh/f->v)+theta)*f->v;
-    //f -> vv   = sin(asin(f->vv/f->v)+theta)*f->v;
-    if(f->vv>0)printf("%g %g  %g \n ", f->vh, f->vv, sqrt(f->vh*f->vh+f->vv*f->vv));
 }
 
 
