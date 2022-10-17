@@ -61,6 +61,8 @@ double  calc_Apoapsis(struct Flight f);
 double  integrate(double fa, double fb, double step);
 // transforms degrees to radians
 double  deg_to_rad(double deg);
+// transforms radiens to degrees
+double  rad_to_deg(double rad);
 
 // store current flight parameters in addition to the already stored flight parameters
 void    store_flight_data(struct Vessel *v, struct Flight *f, double **data);

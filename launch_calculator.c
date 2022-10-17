@@ -121,13 +121,32 @@ void print_flight_info(struct Flight *f) {
 
 // ------------------------------------------------------------
 
+void calc_launch_azimuth(struct Body body) {
+    double lat = 0;
+    double incl = 0;
+
+    printf("Enter parameters (latitude, inclination): ");
+    scanf("%lf %lf", &lat, &incl);
+
+    // double surf_speed = cos(deg_to_rad(lat)) * body.radius*2*M_PI/body.rotation_period;
+
+    double azi = asin((cos(deg_to_rad(incl)))/cos(deg_to_rad(lat)));
+    azi = rad_to_deg(azi);
+
+    printf("\nNeeded launch Azimuth to target inclination %g° from %g° latitude: %g°\n____________\n\n", incl, lat, azi);
+
+    return;
+}
+
+// ------------------------------------------------------------
+
 void launch_calculator() {
     struct LV lv;
 
     int selection = 0;
     char name[30] = "Test";
     char title[] = "LAUNCH CALCULATOR:";
-    char options[] = "Go Back; Calculate; Choose Profile; Create new Profile; Testing";
+    char options[] = "Go Back; Calculate; Choose Profile; Create new Profile; Testing; Calculate Launch Azimuth";
     char question[] = "Program: ";
     do {
         selection = user_selection(title, options, question);
@@ -145,6 +164,9 @@ void launch_calculator() {
             case 4:
                 get_test_LV(&lv);
                 calculate_launch(lv);
+                break;
+            case 5:
+                calc_launch_azimuth(EARTH());
                 break;
         }
     } while(selection != 0);
@@ -370,6 +392,10 @@ double integrate(double fa, double fb, double step) {
 
 double deg_to_rad(double deg) {
     return deg*(M_PI/180);
+}
+
+double rad_to_deg(double rad) {
+    return rad/(M_PI/180);
 }
 
 
