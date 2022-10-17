@@ -58,7 +58,7 @@ void print_orbit_apsides(double apsis1, double apsis2, struct Body body) {
 
 void orbit_calculator() {
     char title[] = "CHOOSE CALCULATION:";
-    char options[] = "Go Back; Get orbit info; Change Apsis from circular orbit; change Apsis; Hohmann Transfer";
+    char options[] = "Go Back; Get orbit info; Change Apsis from circular orbit; Change Apsis; Hohmann Transfer; Inclination Change";
     char question[] = "Calculation: ";
     int selection = 0;
 
@@ -79,6 +79,9 @@ void orbit_calculator() {
             break;
         case 4:
             calc_hohmann_transfer(parent_body);
+            break;
+        case 5:
+            calc_inclination_change();
             break;
         default:
             break;
@@ -173,6 +176,20 @@ void calc_hohmann_transfer(struct Body body) {
     return;
 }
 
+void calc_inclination_change() {
+    double speed = 0;
+    double delta_i = 0;
+
+    printf("Enter parameters (orbital speed, amt of change of inclination): ");
+    scanf("%lf %lf", &speed, &delta_i);
+
+    double delta_v = sin(deg2rad(delta_i)) * speed;
+
+    printf("\n____________\n\nNeeded Delta-V to change %g° of inclination: \t%g m/s\n\n", delta_i, delta_v);
+
+    return;
+}
+
 
 struct ManeuverPlan calc_change_orbit_dV(struct Orbit initial_orbit, struct Orbit planned_orbit, struct Body body) {
     struct ManeuverPlan mp;
@@ -205,4 +222,8 @@ double calc_maneuver_dV(double static_apsis, double initial_apsis, double new_ap
 double calc_orbital_speed(double r, double a, struct Body body) {
     double v2 = body.mu * (2/r - 1/a);
     return sqrt(v2);
+}
+
+double deg2rad(double deg) {
+    return deg*(M_PI/180);
 }

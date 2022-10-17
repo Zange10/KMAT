@@ -51,7 +51,7 @@ struct Body JUPITER() {
     struct Body jupiter;
     jupiter.mu = 1266.86534e14;
     jupiter.radius = 69373e3;
-    jupiter.rotation_period = 35730
+    jupiter.rotation_period = 35730;
     jupiter.sl_atmo_p = 101325000;
     jupiter.scale_height = 27000;
     jupiter.atmo_alt = 1550e3;

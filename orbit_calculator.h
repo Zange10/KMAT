@@ -24,6 +24,9 @@ void change_apsis(struct Body body);
 // calculate Delta-V to execute a Hohmann transfer between two circular orbits
 void calc_hohmann_transfer(struct Body body);
 
+// calculate needed Delta-V for inclination change
+void calc_inclination_change();
+
 // create a plan of one or more maneuvers to reach the planned orbit from the initial orbit
 struct ManeuverPlan calc_change_orbit_dV(struct Orbit initial_orbit, struct Orbit planned_orbit, struct Body body);
 
@@ -32,5 +35,8 @@ double calc_maneuver_dV(double static_apsis, double initial_apsis, double new_ap
 
 // calculate the tangential speed at point in orbit
 double calc_orbital_speed(double altitude, double a, struct Body body);
+
+// transforms degrees to radians
+double deg2rad(double deg);
 
 #endif
