@@ -39,3 +39,13 @@ void print_separator(int x) {
     for(int i = 0; i < x; i++) printf("_");
     printf("\n\n");
 }
+
+
+int strcicmp(char const *a, char const *b)
+{
+    for (;; a++, b++) {
+        int d = tolower((unsigned char)*a) - tolower((unsigned char)*b);
+        if (d != 0 || !*a)
+            return d;
+    }
+}

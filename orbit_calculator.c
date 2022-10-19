@@ -58,23 +58,28 @@ void print_orbit_apsides(double apsis1, double apsis2, struct Body body) {
 
 void orbit_calculator() {
     char title[] = "CHOOSE CALCULATION:";
-    char options[] = "Go Back; Get orbit info; Calculate Delta-V Requirements; Calculate in-Orbit parameters";
+    char options[] = "Go Back; Choose Celestial Body; Get orbit info; Calculate Delta-V Requirements; Calculate in-Orbit parameters";
     char question[] = "Calculation: ";
     int selection = 0;
 
     struct Body parent_body = EARTH();
 
     do {
+        print_separator(49);
+        printf("Current Parent Body: %s\n", parent_body.name);
         selection = user_selection(title, options, question);
         switch (selection)
         {
         case 1:
-            calc_orbital_parameters(parent_body);
+            parent_body = choose_celestial_body(parent_body);
             break;
         case 2:
-            dv_req_calculator(parent_body);
+            calc_orbital_parameters(parent_body);
             break;
         case 3:
+            dv_req_calculator(parent_body);
+            break;
+        case 4:
             in_orbit_calculator(parent_body);
             break;
         default:
@@ -128,6 +133,23 @@ void in_orbit_calculator(struct Body parent_body) {
             break;
         }
     } while(selection != 0);
+}
+
+struct Body choose_celestial_body(struct Body parent_body) {
+    char input[20];
+
+    printf("Choose celestial body: ");
+    scanf("%s", input);
+    
+    struct Body* all_bodies = all_celest_bodies();
+    for(int i = 0; i < sizeof(all_bodies); i++) {
+        if(!strcicmp(input, all_bodies[i].name)) {
+            return all_bodies[i];
+        }
+    }
+    printf("\nNo such body\n\n");
+
+    return parent_body;
 }
 
 void calc_orbital_parameters(struct Body body) {

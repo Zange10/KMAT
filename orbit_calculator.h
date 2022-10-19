@@ -18,6 +18,9 @@ void dv_req_calculator(struct Body parent_body);
 // user chooses, which calculation should be performed for in-Orbit parameters
 void in_orbit_calculator(struct Body parent_body);
 
+// Choose celestial parent body
+struct Body choose_celestial_body(struct Body parent_body);
+
 // calculate and print orbital parameters with given apsides and inclination
 void calc_orbital_parameters(struct Body body);
 

@@ -1,5 +1,22 @@
 #include <math.h>
+#include <cstring>
 #include "celestial_bodies.h"
+
+
+
+struct Body all_celestial_bodies[] = {
+    VENUS(),
+    EARTH(),
+    MOON(),
+    MARS(),
+    JUPITER(),
+    SATURN(),
+    KERBIN()
+};
+
+struct Body * all_celest_bodies() {
+    return all_celestial_bodies;
+}
 
 // scale_heights are not ksp-ro-true, as it is handled with key points in the atmosphere to create pressure curve. Still used for easier calculations
 
@@ -7,6 +24,7 @@
 
 struct Body VENUS() {
     struct Body venus;
+    strcpy(venus.name, "VENUS");
     venus.mu = 3.24859e14;
     venus.radius = 6049e3;
     venus.rotation_period = -20996797.016381; // rotates in opposite direction
@@ -18,6 +36,7 @@ struct Body VENUS() {
 
 struct Body EARTH() {
     struct Body earth;
+    strcpy(earth.name, "EARTH");
     earth.mu = 3.986004418e14;
     earth.radius = 6371e3;
     earth.rotation_period = 86164.098903691;
@@ -29,6 +48,7 @@ struct Body EARTH() {
 
 struct Body MOON() {
     struct Body moon;
+    strcpy(moon.name, "MOON");
     moon.mu = 0.049038958e14;
     moon.radius = 1737.1e3;
     moon.rotation_period = 2360584.68479999;
@@ -40,6 +60,7 @@ struct Body MOON() {
 
 struct Body MARS() {
     struct Body mars;
+    strcpy(mars.name, "MARS");
     mars.mu = 0.4282831e14;
     mars.radius = 3375.8e3;
     mars.rotation_period = 88642.6848;
@@ -51,6 +72,7 @@ struct Body MARS() {
 
 struct Body JUPITER() {
     struct Body jupiter;
+    strcpy(jupiter.name, "JUPITER");
     jupiter.mu = 1266.86534e14;
     jupiter.radius = 69373e3;
     jupiter.rotation_period = 35730;
@@ -62,6 +84,7 @@ struct Body JUPITER() {
 
 struct Body SATURN() {
     struct Body saturn;
+    strcpy(saturn.name, "SATURN");
     saturn.mu = 379.31187e14;
     saturn.radius = 57216e3;
     saturn.rotation_period = 38052;
@@ -77,6 +100,7 @@ struct Body SATURN() {
 
 struct Body KERBIN() {
     struct Body kerbin;
+    strcpy(kerbin.name, "KERBIN");
     kerbin.mu = 3.5316e12;
     kerbin.radius = 600e3;
     kerbin.rotation_period = 21549.452;
