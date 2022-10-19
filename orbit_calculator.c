@@ -58,7 +58,7 @@ void print_orbit_apsides(double apsis1, double apsis2, struct Body body) {
 
 void orbit_calculator() {
     char title[] = "CHOOSE CALCULATION:";
-    char options[] = "Go Back; Get orbit info; Change Apsis from circular orbit; Change Apsis; Hohmann Transfer; Inclination Change";
+    char options[] = "Go Back; Get orbit info; Calculate Delta-V Requirements; Calculate in-Orbit parameters";
     char question[] = "Calculation: ";
     int selection = 0;
 
@@ -72,16 +72,57 @@ void orbit_calculator() {
             calc_orbital_parameters(parent_body);
             break;
         case 2:
-            change_apsis_circ(parent_body);
+            dv_req_calculator(parent_body);
             break;
         case 3:
+            in_orbit_calculator(parent_body);
+            break;
+        default:
+            break;
+        }
+    } while(selection != 0);
+}
+
+void dv_req_calculator(struct Body parent_body) {
+    char title[] = "CHOOSE CALCULATION:";
+    char options[] = "Go Back; Change Apsis from circular orbit; Change Apsis; Hohmann Transfer; Inclination Change";
+    char question[] = "Calculation: ";
+    int selection = 0;
+
+    do {
+        selection = user_selection(title, options, question);
+        switch (selection)
+        {
+        case 1:
+            change_apsis_circ(parent_body);
+            break;
+        case 2:
             change_apsis(parent_body);
             break;
-        case 4:
+        case 3:
             calc_hohmann_transfer(parent_body);
             break;
-        case 5:
+        case 4:
             calc_inclination_change();
+            break;
+        default:
+            break;
+        }
+    } while(selection != 0);
+}
+
+void in_orbit_calculator(struct Body parent_body) {
+    char title[] = "CHOOSE CALCULATION:";
+    char options[] = "Go Back; Speed in circular orbit";
+    char question[] = "Calculation: ";
+    int selection = 0;
+
+    do {
+        selection = user_selection(title, options, question);
+        switch (selection)
+        {
+        case 1:
+            calc_v_at_circ(parent_body);
             break;
         default:
             break;
@@ -217,6 +258,22 @@ double calc_maneuver_dV(double static_apsis, double initial_apsis, double new_ap
     double v1 = calc_orbital_speed(static_apsis, new_orbit.a, body);
 
     return fabs(v1-v0);
+}
+
+void calc_v_at_circ(struct Body body) {
+    double radius = 0;
+    double alt = 0;
+    double v = 0;
+
+    printf("Enter altitude of orbit: ");
+    scanf("%lf", &alt);
+
+    radius = alt*1000+body.radius;
+    v = calc_orbital_speed(radius, radius, body);
+    
+    printf("\n____________\n\nSpeed in orbit at an altitude of %gkm: \t%g m/s\n\n", alt, v);
+
+    return;
 }
 
 double calc_orbital_speed(double r, double a, struct Body body) {

@@ -12,6 +12,12 @@ void print_orbit_apsides(double apsis1, double apsis2, struct Body body);
 // user chooses, which calculation should be performed
 void orbit_calculator();
 
+// user chooses, which calculation should be performed for calculating delta-v requirements of changing orbit
+void dv_req_calculator(struct Body parent_body);
+
+// user chooses, which calculation should be performed for in-Orbit parameters
+void in_orbit_calculator(struct Body parent_body);
+
 // calculate and print orbital parameters with given apsides and inclination
 void calc_orbital_parameters(struct Body body);
 
@@ -32,6 +38,9 @@ struct ManeuverPlan calc_change_orbit_dV(struct Orbit initial_orbit, struct Orbi
 
 // calculate the needed Delta-V to execute the maneuver to change orbit
 double calc_maneuver_dV(double static_apsis, double initial_apsis, double new_apsis, struct Body body);
+
+// calculate speed in circular orbit
+void calc_v_at_circ(struct Body body);
 
 // calculate the tangential speed at point in orbit
 double calc_orbital_speed(double altitude, double a, struct Body body);
