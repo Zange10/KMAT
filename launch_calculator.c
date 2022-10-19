@@ -306,20 +306,17 @@ void update_vessel(struct Vessel *v, double t, double p, double h) {
 
 
 double get_atmo_press(double h, double scale_height) {
-    if(h<140e3) return 101325*exp(-(1/scale_height) * h);
+    if(h<140e3) return 101325*exp(-(1.2/scale_height) * h);
     else return 0;
 }
 
 double calc_aerodynamic_drag(double p, double v) {
     double c;   // constant by good guess
-    double c1 = 1e-10;
-    double c2 = 2e-5;
-    double c3 = 0.5e-5;
-    if(v < 230) c = c1;
-    else if (v < 280) c = (1.0-(1.0/50.0*(v-230.0)))*c1+(1.0/50.0*(v-230.0))*c2;
-    else if (v < 400) c = c2;
-    else if (v < 900) c = (1.0-(1.0/500.0*(v-400.0)))*c2+(1.0/500.0*(v-400.0))*c3;
-    else c = c3;
+    double c1 = 0.2e-5;
+    double c2 = 2.8e-5;
+    if(v < 250) c = c1;
+    else if (v < 330) c = (1.0-(1.0/80.0*(v-250.0)))*c1+(1.0/80.0*(v-250.0))*c2;
+    else  c = (exp(-(v-330.0)/2000.0))*c2+(1.0-(exp(-(v-330.0)/2000.0)))*c1;
     return 0.5*(p)*pow(v,2) * c;
 }
 
