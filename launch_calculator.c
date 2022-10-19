@@ -128,10 +128,13 @@ void calc_launch_azimuth(struct Body body) {
     printf("Enter parameters (latitude, inclination): ");
     scanf("%lf %lf", &lat, &incl);
 
-    // double surf_speed = cos(deg_to_rad(lat)) * body.radius*2*M_PI/body.rotation_period;
+    double surf_speed = cos(deg_to_rad(lat)) * body.radius*2*M_PI/body.rotation_period;
+    double end_speed = 7800;    // orbital speed hard coded
 
-    double azi = asin((cos(deg_to_rad(incl)))/cos(deg_to_rad(lat)));
-    azi = rad_to_deg(azi);
+
+    double azi1 = asin((cos(deg_to_rad(incl)))/cos(deg_to_rad(lat)));
+    double azi2 = asin(surf_speed/end_speed);
+    double azi = rad_to_deg(azi1)-rad_to_deg(azi2);
 
     printf("\nNeeded launch Azimuth to target inclination %g° from %g° latitude: %g°\n____________\n\n", incl, lat, azi);
 
