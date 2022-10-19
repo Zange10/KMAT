@@ -42,6 +42,12 @@ struct ManeuverPlan calc_change_orbit_dV(struct Orbit initial_orbit, struct Orbi
 // calculate the needed Delta-V to execute the maneuver to change orbit
 double calc_maneuver_dV(double static_apsis, double initial_apsis, double new_apsis, struct Body body);
 
+// calculate first cosmic speed of parent body
+void calc_first_cosmic_speed(struct Body body);
+
+// calculate second cosmic speed of parent body
+void calc_second_cosmic_speed(struct Body body);
+
 // calculate speed in circular orbit
 void calc_v_at_circ(struct Body body);
 

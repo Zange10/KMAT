@@ -118,7 +118,7 @@ void dv_req_calculator(struct Body parent_body) {
 
 void in_orbit_calculator(struct Body parent_body) {
     char title[] = "CHOOSE CALCULATION:";
-    char options[] = "Go Back; Speed in circular orbit";
+    char options[] = "Go Back; First Cosmic Speed; Second Cosmic Speed; Speed in circular orbit";
     char question[] = "Calculation: ";
     int selection = 0;
 
@@ -127,6 +127,12 @@ void in_orbit_calculator(struct Body parent_body) {
         switch (selection)
         {
         case 1:
+            calc_first_cosmic_speed(parent_body);
+            break;
+        case 2:
+            calc_second_cosmic_speed(parent_body);
+            break;
+        case 3:
             calc_v_at_circ(parent_body);
             break;
         default:
@@ -280,6 +286,16 @@ double calc_maneuver_dV(double static_apsis, double initial_apsis, double new_ap
     double v1 = calc_orbital_speed(static_apsis, new_orbit.a, body);
 
     return fabs(v1-v0);
+}
+
+void calc_first_cosmic_speed(struct Body body) {
+    double v = calc_orbital_speed(body.radius, body.radius, body);
+    printf("\n____________\n\nThe first cosmic speed of %s is: \t%g m/s\n\n", body.name, v);
+}
+
+void calc_second_cosmic_speed(struct Body body) {
+    double v = sqrt((2*body.mu)/body.radius);
+    printf("\n____________\n\nThe second cosmic speed of %s is: \t%g m/s\n\n", body.name, v);
 }
 
 void calc_v_at_circ(struct Body body) {
