@@ -95,7 +95,7 @@ void read_LV_from_file(struct LV * lv) {
 }
 
 void get_test_LV(struct LV * lv) {
-    char profile_name[] = "Test";
+    char profile_name[] = "tester";
     lv -> name = profile_name;
 
     char filename[42];  // 30 for the name, 9 for the diractory and 3 for .lv

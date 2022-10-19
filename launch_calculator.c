@@ -311,7 +311,16 @@ double get_atmo_press(double h, double scale_height) {
 }
 
 double calc_aerodynamic_drag(double p, double v) {
-    return 0.5*(p)*pow(v,2) * 7e-5;    // constant by good guess
+    double c;   // constant by good guess
+    double c1 = 1e-10;
+    double c2 = 2e-5;
+    double c3 = 0.5e-5;
+    if(v < 230) c = c1;
+    else if (v < 280) c = (1.0-(1.0/50.0*(v-230.0)))*c1+(1.0/50.0*(v-230.0))*c2;
+    else if (v < 400) c = c2;
+    else if (v < 900) c = (1.0-(1.0/500.0*(v-400.0)))*c2+(1.0/500.0*(v-400.0))*c3;
+    else c = c3;
+    return 0.5*(p)*pow(v,2) * c;
 }
 
 double get_thrust(double F_vac, double F_sl, double p) {
