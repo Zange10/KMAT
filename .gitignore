@@ -59,6 +59,8 @@ dkms.conf
 *.csv
 *.csv#
 *.lv
+*.ods
+*.ods#
 
 
 # VSCode

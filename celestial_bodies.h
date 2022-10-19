@@ -17,4 +17,6 @@ struct Body MARS();
 struct Body JUPITER();
 struct Body SATURN();
 
+struct Body KERBIN();
+
 #endif

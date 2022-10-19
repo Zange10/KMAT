@@ -3,6 +3,8 @@
 
 // scale_heights are not ksp-ro-true, as it is handled with key points in the atmosphere to create pressure curve. Still used for easier calculations
 
+// REAL SOLAR SYSTEM #########################################################################
+
 struct Body VENUS() {
     struct Body venus;
     venus.mu = 3.24859e14;
@@ -67,4 +69,19 @@ struct Body SATURN() {
     saturn.scale_height = 59500;
     saturn.atmo_alt = 2000e3;
     return saturn;
+}
+
+
+
+// KERBOL SYSTEM #########################################################################
+
+struct Body KERBIN() {
+    struct Body kerbin;
+    kerbin.mu = 3.5316e12;
+    kerbin.radius = 600e3;
+    kerbin.rotation_period = 21549.452;
+    kerbin.sl_atmo_p = 101325000;
+    kerbin.scale_height = 5600;
+    kerbin.atmo_alt = 70e3;
+    return kerbin;
 }
