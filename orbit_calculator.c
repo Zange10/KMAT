@@ -126,7 +126,7 @@ void calc_orbital_parameters(struct Body body) {
     apsis2 = apsis2*1000+body.radius;
 
     struct Orbit orbit = constr_orbit_w_apsides(apsis1, apsis2, inclination,body);
-    print_orbit_info(orbit,body);
+    print_orbit_info(orbit);
 
     return;
 }
@@ -143,7 +143,8 @@ void change_apsis_circ(struct Body body) {
 
     double dV = calc_maneuver_dV(initial_apsis, initial_apsis, new_apsis,body);
 
-    printf("\n____________\n\nOrbit 1: "); print_orbit_apsides(initial_apsis,initial_apsis,body); printf("   -->   Orbit 2: "); print_orbit_apsides(new_apsis,initial_apsis,body);
+    printf("\n____________\n\nOrbit 1: ");  print_orbit_apsides(constr_orbit_w_apsides(initial_apsis,initial_apsis,0,body));
+    printf("   -->   Orbit 2: ");           print_orbit_apsides(constr_orbit_w_apsides(new_apsis,initial_apsis,0,body));
     printf("\nNeeded dV: %g m/s\n____________\n\n", dV);
 
     return;
@@ -163,7 +164,8 @@ void change_apsis(struct Body body) {
 
     double dV = calc_maneuver_dV(static_apsis, initial_apsis, new_apsis,body);
 
-    printf("\n____________\n\nOrbit 1: "); print_orbit_apsides(initial_apsis,static_apsis,body); printf("   -->   Orbit 2: "); print_orbit_apsides(new_apsis,static_apsis,body);
+    printf("\n____________\n\nOrbit 1: ");  print_orbit_apsides(constr_orbit_w_apsides(initial_apsis,static_apsis,0,body)); 
+    printf("   -->   Orbit 2: ");           print_orbit_apsides(constr_orbit_w_apsides(new_apsis,static_apsis,0,body));
     printf("\nNeeded dV: %g m/s\n____________\n\n", dV);
 
     return;
@@ -187,7 +189,8 @@ void calc_hohmann_transfer(struct Body body) {
 
     struct ManeuverPlan mp = calc_change_orbit_dV(initial_orbit, new_orbit, body);
 
-    printf("\n____________\n\nOrbit 1: "); print_orbit_apsides(initial_apsis,initial_apsis, body); printf("   -->   Orbit 2: "); print_orbit_apsides(new_apsis,new_apsis, body);
+    printf("\n____________\n\nOrbit 1: ");  print_orbit_apsides(constr_orbit_w_apsides(initial_apsis,initial_apsis, 0, body));
+    printf("   -->   Orbit 2: ");           print_orbit_apsides(constr_orbit_w_apsides(new_apsis,new_apsis,0, body));
     if(mp.first_raise_Apo) {
         printf("\n____________\n\nNeeded Delta-V to raise Apoapsis: \t%g m/s\n", mp.dV1);
         printf("Needed Delta-V to raise Periapsis: \t%g m/s\n", mp.dV2);
@@ -238,14 +241,15 @@ double calc_maneuver_dV(double static_apsis, double initial_apsis, double new_ap
     initial_orbit = constr_orbit_w_apsides(static_apsis, initial_apsis, 0, body);
     new_orbit = constr_orbit_w_apsides(static_apsis, new_apsis, 0, body);
 
-    double v0 = calc_orbital_speed(static_apsis, initial_orbit.a, body);
-    double v1 = calc_orbital_speed(static_apsis, new_orbit.a, body);
+    double v0 = calc_orbital_speed(initial_orbit, static_apsis);
+    double v1 = calc_orbital_speed(new_orbit, static_apsis);
 
     return fabs(v1-v0);
 }
 
 void calc_first_cosmic_speed(struct Body body) {
-    double v = calc_orbital_speed(body.radius, body.radius, body);
+    double r = body.radius;
+    double v = calc_orbital_speed(constr_orbit_w_apsides(r,r,0,body), r);
     printf("\n____________\n\nThe first cosmic speed of %s is: \t%g m/s\n\n", body.name, v);
 }
 
@@ -255,15 +259,15 @@ void calc_second_cosmic_speed(struct Body body) {
 }
 
 void calc_v_at_circ(struct Body body) {
-    double radius = 0;
+    double r = 0;
     double alt = 0;
     double v = 0;
 
     printf("Enter altitude of orbit: ");
     scanf("%lf", &alt);
 
-    radius = alt*1000+body.radius;
-    v = calc_orbital_speed(radius, radius, body);
+    r = alt*1000+body.radius;
+    v = calc_orbital_speed(constr_orbit_w_apsides(r,r,0,body), r);
     
     printf("\n____________\n\nSpeed in orbit at an altitude of %gkm: \t%g m/s\n\n", alt, v);
 
