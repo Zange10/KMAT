@@ -4,37 +4,13 @@
 #include "orbit_calculator.h"
 #include "celestial_bodies.h"
 #include "tool_funcs.h"
-
-struct Orbit {
-    double apoapsis;    // highest point in orbit
-    double periapsis;   // lowest point in orbit
-    double a;           // semi-major axis
-    double inclination; // inclination
-    double e;           // eccentricity
-    double period;      // orbital period
-};
+#include "orbit.h"
 
 struct ManeuverPlan {
     double dV1;
     double dV2;
     bool first_raise_Apo;
 };
-
-struct Orbit construct_orbit(double apsis1, double apsis2, double inclination, struct Body body) {
-    struct Orbit new_orbit;
-    if(apsis1 > apsis2) {
-        new_orbit.apoapsis = apsis1;
-        new_orbit.periapsis = apsis2;
-    } else {
-        new_orbit.apoapsis = apsis2;
-        new_orbit.periapsis = apsis1;
-    }
-    new_orbit.a = (new_orbit.apoapsis+new_orbit.periapsis)/2;
-    new_orbit.inclination = inclination;
-    new_orbit.e = (new_orbit.apoapsis-new_orbit.periapsis)/(new_orbit.apoapsis+new_orbit.periapsis);
-    new_orbit.period = 2*M_PI*sqrt(pow(new_orbit.a,3)/body.mu);
-    return new_orbit;
-}
 
 void print_orbit_info(struct Orbit orbit, struct Body body) {
     printf("\n______________________\nORBIT:\n\n");
@@ -169,7 +145,7 @@ void calc_orbital_parameters(struct Body body) {
     apsis1 = apsis1*1000+body.radius;
     apsis2 = apsis2*1000+body.radius;
 
-    struct Orbit orbit = construct_orbit(apsis1, apsis2, inclination,body);
+    struct Orbit orbit = constr_orbit_w_apsides(apsis1, apsis2, inclination,body);
     print_orbit_info(orbit,body);
 
     return;
@@ -226,8 +202,8 @@ void calc_hohmann_transfer(struct Body body) {
     struct Orbit initial_orbit;
     struct Orbit new_orbit;
 
-    initial_orbit = construct_orbit(initial_apsis, initial_apsis, 0, body);
-    new_orbit = construct_orbit(new_apsis, new_apsis, 0, body);
+    initial_orbit = constr_orbit_w_apsides(initial_apsis, initial_apsis, 0, body);
+    new_orbit = constr_orbit_w_apsides(new_apsis, new_apsis, 0, body);
 
     struct ManeuverPlan mp = calc_change_orbit_dV(initial_orbit, new_orbit, body);
 
@@ -279,8 +255,8 @@ double calc_maneuver_dV(double static_apsis, double initial_apsis, double new_ap
     struct Orbit initial_orbit;
     struct Orbit new_orbit;
 
-    initial_orbit = construct_orbit(static_apsis, initial_apsis, 0, body);
-    new_orbit = construct_orbit(static_apsis, new_apsis, 0, body);
+    initial_orbit = constr_orbit_w_apsides(static_apsis, initial_apsis, 0, body);
+    new_orbit = constr_orbit_w_apsides(static_apsis, new_apsis, 0, body);
 
     double v0 = calc_orbital_speed(static_apsis, initial_orbit.a, body);
     double v1 = calc_orbital_speed(static_apsis, new_orbit.a, body);
