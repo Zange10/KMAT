@@ -1,14 +1,6 @@
 #ifndef ORBIT_CALCULATOR
 #define ORBIT_CALCULATOR
 
-// construct orbit with the two apsides and the inclination
-struct Orbit construct_orbit(double apsis1, double apsis2, double inclination, struct Body body);
-
-// Prints parameters specific to the orbit
-void print_orbit_info(struct Orbit o, struct Body body);
-// Prints apsides (no line-break): "Apoapsis - Periapsis"
-void print_orbit_apsides(double apsis1, double apsis2, struct Body body);
-
 // user chooses, which calculation should be performed
 void orbit_calculator();
 
@@ -50,9 +42,6 @@ void calc_second_cosmic_speed(struct Body body);
 
 // calculate speed in circular orbit
 void calc_v_at_circ(struct Body body);
-
-// calculate the tangential speed at point in orbit
-double calc_orbital_speed(double altitude, double a, struct Body body);
 
 // transforms degrees to radians
 double deg2rad(double deg);
