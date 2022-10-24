@@ -211,7 +211,7 @@ void calc_inclination_change() {
     printf("Enter parameters (orbital speed, amt of change of inclination): ");
     scanf("%lf %lf", &speed, &delta_i);
 
-    double delta_v = sin(deg2rad(delta_i)) * speed;
+    double delta_v = 2*sin(deg2rad(delta_i)/2) * speed;
 
     printf("\n____________\n\nNeeded Delta-V to change %g° of inclination: \t%g m/s\n\n", delta_i, delta_v);
 
