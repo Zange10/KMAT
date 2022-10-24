@@ -42,6 +42,7 @@ struct Flight {
     double r;       // distance to center of body [m]
     double Ap;      // highest point of orbit in reference to h [m]
     double s;       // distance travelled downrange [m]
+    double i;       // inclination during flight
 };
 
 
@@ -67,6 +68,7 @@ struct Flight init_flight(struct Body *body, double latitude) {
     struct Flight new_flight;
     new_flight.body = body;
     new_flight.t = 0;
+    new_flight.i = latitude;
     new_flight.vh_s = 0;
     // horizontal surface speed of body at equator -> circumference devided by rotational period [m/s]
     double vh_at_equator = (2*body->radius*M_PI) / body->rotation_period;
