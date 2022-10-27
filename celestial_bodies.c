@@ -22,6 +22,18 @@ struct Body * all_celest_bodies() {
 
 // REAL SOLAR SYSTEM #########################################################################
 
+struct Body Sun() {
+    struct Body sun;
+    strcpy(sun.name, "SUN");
+    sun.mu = 1327124.40042e14;
+    sun.radius = 695700e3;
+    sun.rotation_period = 2192832;
+    sun.sl_atmo_p = 0;
+    sun.scale_height = 0;
+    sun.atmo_alt = 0;
+    return sun;
+}
+
 struct Body VENUS() {
     struct Body venus;
     strcpy(venus.name, "VENUS");
