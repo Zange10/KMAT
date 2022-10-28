@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "celestial_bodies.h"
 #include "launch_calculator.h"
 #include "orbit_calculator.h"
 #include "tool_funcs.h"
@@ -7,6 +8,8 @@
 // ------------------------------------------------------------
 
 int main() {
+    init_celestial_bodies();
+
     int selection = 0;
     char title[] = "CHOOSE PROGRAM:";
     char options[] = "Exit; Launch Calculator; Orbit Calculator";

@@ -18,11 +18,11 @@ void orbit_calculator() {
     char question[] = "Calculation: ";
     int selection = 0;
 
-    struct Body parent_body = EARTH();
+    struct Body *parent_body = EARTH();
 
     do {
         print_separator(49);
-        printf("Current Parent Body: %s\n", parent_body.name);
+        printf("Current Parent Body: %s\n", parent_body->name);
         selection = user_selection(title, options, question);
         switch (selection)
         {
@@ -44,7 +44,7 @@ void orbit_calculator() {
     } while(selection != 0);
 }
 
-void dv_req_calculator(struct Body parent_body) {
+void dv_req_calculator(struct Body *parent_body) {
     char title[] = "CHOOSE CALCULATION:";
     char options[] = "Go Back; Change Apsis from circular orbit; Change Apsis; Hohmann Transfer; Inclination Change";
     char question[] = "Calculation: ";
@@ -72,7 +72,7 @@ void dv_req_calculator(struct Body parent_body) {
     } while(selection != 0);
 }
 
-void in_orbit_calculator(struct Body parent_body) {
+void in_orbit_calculator(struct Body *parent_body) {
     char title[] = "CHOOSE CALCULATION:";
     char options[] = "Go Back; First Cosmic Speed; Second Cosmic Speed; Speed in circular orbit";
     char question[] = "Calculation: ";
@@ -97,16 +97,16 @@ void in_orbit_calculator(struct Body parent_body) {
     } while(selection != 0);
 }
 
-struct Body choose_celestial_body(struct Body parent_body) {
+struct Body * choose_celestial_body(struct Body *parent_body) {
     char input[20];
 
     printf("Choose celestial body: ");
     scanf("%s", input);
     
-    struct Body* all_bodies = all_celest_bodies();
+    struct Body **all_bodies = all_celest_bodies();
     for(int i = 0; i < sizeof(all_bodies); i++) {
-        if(!strcicmp(input, all_bodies[i].name)) {
-            return all_bodies[i];
+        if(all_bodies[i] && !strcicmp(input, all_bodies[i]->name)) {
+                return all_bodies[i];
         }
     }
     printf("\nNo such body\n\n");
@@ -114,7 +114,7 @@ struct Body choose_celestial_body(struct Body parent_body) {
     return parent_body;
 }
 
-void calc_orbital_parameters(struct Body body) {
+void calc_orbital_parameters(struct Body *body) {
     double apsis1 = 0;
     double apsis2 = 0;
     double inclination = 0;
@@ -122,8 +122,8 @@ void calc_orbital_parameters(struct Body body) {
     printf("Enter apsis1, apsis2 and inclination: ");
     scanf("%lf %lf %lf", &apsis1, &apsis2, &inclination);
 
-    apsis1 = apsis1*1000+body.radius;
-    apsis2 = apsis2*1000+body.radius;
+    apsis1 = apsis1*1000+body->radius;
+    apsis2 = apsis2*1000+body->radius;
 
     struct Orbit orbit = constr_orbit_w_apsides(apsis1, apsis2, inclination,body);
     print_orbit_info(orbit);
@@ -131,15 +131,15 @@ void calc_orbital_parameters(struct Body body) {
     return;
 }
 
-void change_apsis_circ(struct Body body) {
+void change_apsis_circ(struct Body *body) {
     double initial_apsis = 0;
     double new_apsis = 0;
 
     printf("Enter parameters (altitude of initial circular orbit, new value of apsis): ");
     scanf("%lf %lf", &initial_apsis, &new_apsis);
 
-    initial_apsis = initial_apsis*1000+body.radius;
-    new_apsis = new_apsis*1000+body.radius;
+    initial_apsis = initial_apsis*1000+body->radius;
+    new_apsis = new_apsis*1000+body->radius;
 
     double dV = calc_maneuver_dV(initial_apsis, initial_apsis, new_apsis,body);
 
@@ -150,7 +150,7 @@ void change_apsis_circ(struct Body body) {
     return;
 }
 
-void change_apsis(struct Body body) {
+void change_apsis(struct Body *body) {
     double initial_apsis = 0;
     double new_apsis = 0;
     double static_apsis = 0;
@@ -158,9 +158,9 @@ void change_apsis(struct Body body) {
     printf("Enter parameters (static Apsis, initial value of apsis, new value of apsis): ");
     scanf("%lf %lf %lf", &static_apsis, &initial_apsis, &new_apsis);
 
-    static_apsis = static_apsis*1000+body.radius;
-    initial_apsis = initial_apsis*1000+body.radius;
-    new_apsis = new_apsis*1000+body.radius;
+    static_apsis = static_apsis*1000+body->radius;
+    initial_apsis = initial_apsis*1000+body->radius;
+    new_apsis = new_apsis*1000+body->radius;
 
     double dV = calc_maneuver_dV(static_apsis, initial_apsis, new_apsis,body);
 
@@ -171,15 +171,15 @@ void change_apsis(struct Body body) {
     return;
 }
 
-void calc_hohmann_transfer(struct Body body) {
+void calc_hohmann_transfer(struct Body *body) {
     double initial_apsis = 0;
     double new_apsis = 0;
 
     printf("Enter parameters (altitude of initial circular orbit, altitude of planned circular orbit): ");
     scanf("%lf %lf", &initial_apsis, &new_apsis);
     
-    initial_apsis = initial_apsis*1000+body.radius;
-    new_apsis = new_apsis*1000+body.radius;
+    initial_apsis = initial_apsis*1000+body->radius;
+    new_apsis = new_apsis*1000+body->radius;
 
     struct Orbit initial_orbit;
     struct Orbit new_orbit;
@@ -219,7 +219,7 @@ void calc_inclination_change() {
 }
 
 
-struct ManeuverPlan calc_change_orbit_dV(struct Orbit initial_orbit, struct Orbit planned_orbit, struct Body body) {
+struct ManeuverPlan calc_change_orbit_dV(struct Orbit initial_orbit, struct Orbit planned_orbit, struct Body *body) {
     struct ManeuverPlan mp;
     if(planned_orbit.apoapsis > initial_orbit.apoapsis) {
         mp.first_raise_Apo = true;
@@ -234,7 +234,7 @@ struct ManeuverPlan calc_change_orbit_dV(struct Orbit initial_orbit, struct Orbi
     return mp;
 }
 
-double calc_maneuver_dV(double static_apsis, double initial_apsis, double new_apsis, struct Body body) {
+double calc_maneuver_dV(double static_apsis, double initial_apsis, double new_apsis, struct Body *body) {
     struct Orbit initial_orbit;
     struct Orbit new_orbit;
 
@@ -247,18 +247,18 @@ double calc_maneuver_dV(double static_apsis, double initial_apsis, double new_ap
     return fabs(v1-v0);
 }
 
-void calc_first_cosmic_speed(struct Body body) {
-    double r = body.radius;
+void calc_first_cosmic_speed(struct Body *body) {
+    double r = body->radius;
     double v = calc_orbital_speed(constr_orbit_w_apsides(r,r,0,body), r);
-    printf("\n____________\n\nThe first cosmic speed of %s is: \t%g m/s\n\n", body.name, v);
+    printf("\n____________\n\nThe first cosmic speed of %s is: \t%g m/s\n\n", body->name, v);
 }
 
-void calc_second_cosmic_speed(struct Body body) {
-    double v = sqrt((2*body.mu)/body.radius);
-    printf("\n____________\n\nThe second cosmic speed of %s is: \t%g m/s\n\n", body.name, v);
+void calc_second_cosmic_speed(struct Body *body) {
+    double v = sqrt((2*body->mu)/body->radius);
+    printf("\n____________\n\nThe second cosmic speed of %s is: \t%g m/s\n\n", body->name, v);
 }
 
-void calc_v_at_circ(struct Body body) {
+void calc_v_at_circ(struct Body *body) {
     double r = 0;
     double alt = 0;
     double v = 0;
@@ -266,7 +266,7 @@ void calc_v_at_circ(struct Body body) {
     printf("Enter altitude of orbit: ");
     scanf("%lf", &alt);
 
-    r = alt*1000+body.radius;
+    r = alt*1000+body->radius;
     v = calc_orbital_speed(constr_orbit_w_apsides(r,r,0,body), r);
     
     printf("\n____________\n\nSpeed in orbit at an altitude of %gkm: \t%g m/s\n\n", alt, v);

@@ -123,14 +123,14 @@ void print_flight_info(struct Flight *f) {
 
 // ------------------------------------------------------------
 
-void calc_launch_azimuth(struct Body body) {
+void calc_launch_azimuth(struct Body *body) {
     double lat = 0;
     double incl = 0;
 
     printf("Enter parameters (latitude, inclination): ");
     scanf("%lf %lf", &lat, &incl);
 
-    double surf_speed = cos(deg_to_rad(lat)) * body.radius*2*M_PI/body.rotation_period;
+    double surf_speed = cos(deg_to_rad(lat)) * body->radius*2*M_PI/body->rotation_period;
     double end_speed = 7800;    // orbital speed hard coded
 
 
@@ -179,8 +179,8 @@ void launch_calculator() {
 
 void calculate_launch(struct LV lv) {
     struct Vessel vessel = init_vessel();
-    struct Body earth = EARTH();
-    struct Flight flight = init_flight(&earth, 28.6);
+    struct Body *earth = EARTH();
+    struct Flight flight = init_flight(earth, 28.6);
 
     double *flight_data = (double*) calloc(1, sizeof(double));
     flight_data[0] = 1;    // amount of data points
