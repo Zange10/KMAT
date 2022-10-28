@@ -4,6 +4,8 @@
 #include "orbit.h"
 
 
+// struct Body currently declared in orbit.h (needs to be declared after struct Orbit)
+
 // initialize all celestial bodies
 void init_celestial_bodies();
 

@@ -29,6 +29,9 @@ struct Body {
     struct Orbit orbit;     // orbit of body
 };
 
+// constructs orbit using orbital elements
+struct Orbit constr_orbit(double a, double e, double i, double lan, double arg_of_peri, struct Body *body);
+
 // constructs orbit using apsides and inclination
 struct Orbit constr_orbit_w_apsides(double apsis1, double apsis2, double inclination, struct Body * body);
 

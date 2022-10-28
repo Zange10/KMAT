@@ -37,6 +37,7 @@ void init_celestial_bodies() {
     sun->sl_atmo_p = 0;
     sun->scale_height = 0;
     sun->atmo_alt = 0;
+    // sun's orbit not declared as it should not be used and can't give any meaningful information
 
 
     venus = (struct Body*)malloc(sizeof(struct Body));
@@ -47,6 +48,14 @@ void init_celestial_bodies() {
     venus->sl_atmo_p = 10905200;
     venus->scale_height = 15900;
     venus->atmo_alt = 145e3;
+    venus->orbit = constr_orbit(
+        /*  a  */ 1,
+        /*  e  */ 2,
+        /*  i  */ 3,
+        /* lan */ 4,
+        /*  w  */ 5,
+        /*pbody*/ SUN()
+    );
 
 
     earth = (struct Body*)malloc(sizeof(struct Body));
@@ -57,6 +66,14 @@ void init_celestial_bodies() {
     earth->sl_atmo_p = 101325;
     earth->scale_height = 8500;
     earth->atmo_alt = 140e3;
+    earth->orbit = constr_orbit(
+        /*  a  */ 1,
+        /*  e  */ 2,
+        /*  i  */ 3,
+        /* lan */ 4,
+        /*  w  */ 5,
+        /*pbody*/ SUN()
+    );
 
 
     moon = (struct Body*)malloc(sizeof(struct Body));
@@ -67,6 +84,14 @@ void init_celestial_bodies() {
     moon->sl_atmo_p = 0;
     moon->scale_height = 0;
     moon->atmo_alt = 0;
+    moon->orbit = constr_orbit(
+        /*  a  */ 1,
+        /*  e  */ 2,
+        /*  i  */ 3,
+        /* lan */ 4,
+        /*  w  */ 5,
+        /*pbody*/ EARTH()
+    );
 
 
     mars = (struct Body*)malloc(sizeof(struct Body));
@@ -77,6 +102,14 @@ void init_celestial_bodies() {
     mars->sl_atmo_p = 1144.97;
     mars->scale_height = 11100;
     mars->atmo_alt = 125e3;
+    mars->orbit = constr_orbit(
+        /*  a  */ 1,
+        /*  e  */ 2,
+        /*  i  */ 3,
+        /* lan */ 4,
+        /*  w  */ 5,
+        /*pbody*/ SUN()
+    );
 
 
     jupiter = (struct Body*)malloc(sizeof(struct Body));
@@ -87,6 +120,14 @@ void init_celestial_bodies() {
     jupiter->sl_atmo_p = 101325000;
     jupiter->scale_height = 27000;
     jupiter->atmo_alt = 1550e3;
+    jupiter->orbit = constr_orbit(
+        /*  a  */ 1,
+        /*  e  */ 2,
+        /*  i  */ 3,
+        /* lan */ 4,
+        /*  w  */ 5,
+        /*pbody*/ SUN()
+    );
 
 
     saturn = (struct Body*)malloc(sizeof(struct Body));
@@ -97,6 +138,14 @@ void init_celestial_bodies() {
     saturn->sl_atmo_p = 101325000;
     saturn->scale_height = 59500;
     saturn->atmo_alt = 2000e3;
+    saturn->orbit = constr_orbit(
+        /*  a  */ 1,
+        /*  e  */ 2,
+        /*  i  */ 3,
+        /* lan */ 4,
+        /*  w  */ 5,
+        /*pbody*/ SUN()
+    );
 
 
     // Kerbol system
@@ -108,6 +157,14 @@ void init_celestial_bodies() {
     kerbin->sl_atmo_p = 101325000;
     kerbin->scale_height = 5600;
     kerbin->atmo_alt = 70e3;
+    kerbin->orbit = constr_orbit(
+        /*  a  */ 1,
+        /*  e  */ 2,
+        /*  i  */ 3,
+        /* lan */ 4,
+        /*  w  */ 5,
+        /*pbody*/ NULL // Kerbol tbd
+    );
 }
 
 

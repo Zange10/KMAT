@@ -4,8 +4,23 @@
 
 
 
+struct Orbit constr_orbit(double a, double e, double i, double lan, double arg_of_peri, struct Body *body) {
+    struct Orbit new_orbit;
+    new_orbit.body = body;
+    new_orbit.a = a;
+    new_orbit.e = e;
+    new_orbit.inclination = i;
+    new_orbit.lan = lan;
+    new_orbit.arg_of_peri = arg_of_peri;
+    new_orbit.true_anom = 0;
+    new_orbit.apoapsis  = a*(1+e);
+    new_orbit.periapsis = a*(1-e);
+    new_orbit.period = 2*M_PI*sqrt(pow(a,3)/body->mu);
+    return new_orbit;
+}
 
-struct Orbit constr_orbit_w_apsides(double apsis1, double apsis2, double inclination, struct Body * body) {
+
+struct Orbit constr_orbit_w_apsides(double apsis1, double apsis2, double inclination, struct Body *body) {
     struct Orbit new_orbit;
     new_orbit.body = body;
     if(apsis1 > apsis2) {
