@@ -49,11 +49,11 @@ void init_celestial_bodies() {
     venus->scale_height = 15900;
     venus->atmo_alt = 145e3;
     venus->orbit = constr_orbit(
-        /*  a  */ 1,
-        /*  e  */ 2,
-        /*  i  */ 3,
-        /* lan */ 4,
-        /*  w  */ 5,
+        /*  a  */ 108.2089255e+9,
+        /*  e  */ 0.00677323,
+        /*  i  */ 3.39471,
+        /* lan */ 76.68069,
+        /*  ω  */ 131.53298-76.68069,   // longitude of perihelion - longitude of ascending node
         /*pbody*/ SUN()
     );
 
@@ -67,11 +67,11 @@ void init_celestial_bodies() {
     earth->scale_height = 8500;
     earth->atmo_alt = 140e3;
     earth->orbit = constr_orbit(
-        /*  a  */ 1,
-        /*  e  */ 2,
-        /*  i  */ 3,
-        /* lan */ 4,
-        /*  w  */ 5,
+        /*  a  */ 149.5978872e+9,
+        /*  e  */ 0.01671022,
+        /*  i  */ 0.00005,
+        /* lan */ -11.26064,
+        /*  w  */ 102.94719-(-11.26064),
         /*pbody*/ SUN()
     );
 
@@ -85,11 +85,11 @@ void init_celestial_bodies() {
     moon->scale_height = 0;
     moon->atmo_alt = 0;
     moon->orbit = constr_orbit(
-        /*  a  */ 1,
-        /*  e  */ 2,
-        /*  i  */ 3,
-        /* lan */ 4,
-        /*  w  */ 5,
+        /*  a  */ 0.3844e9,
+        /*  e  */ 0.0549,
+        /*  i  */ 5.145,
+        /* lan */ 0,    // not static
+        /*  w  */ 0,    // not static
         /*pbody*/ EARTH()
     );
 
@@ -103,11 +103,11 @@ void init_celestial_bodies() {
     mars->scale_height = 11100;
     mars->atmo_alt = 125e3;
     mars->orbit = constr_orbit(
-        /*  a  */ 1,
-        /*  e  */ 2,
-        /*  i  */ 3,
-        /* lan */ 4,
-        /*  w  */ 5,
+        /*  a  */ 227.9366372e+9,
+        /*  e  */ 0.09341233,
+        /*  i  */ 1.85061,
+        /* lan */ 49.57854,
+        /*  w  */ 336.04084-49.57854,
         /*pbody*/ SUN()
     );
 
@@ -121,11 +121,11 @@ void init_celestial_bodies() {
     jupiter->scale_height = 27000;
     jupiter->atmo_alt = 1550e3;
     jupiter->orbit = constr_orbit(
-        /*  a  */ 1,
-        /*  e  */ 2,
-        /*  i  */ 3,
-        /* lan */ 4,
-        /*  w  */ 5,
+        /*  a  */ 778.4120268e+9,
+        /*  e  */ 0.04839266,
+        /*  i  */ 1.30530,
+        /* lan */ 100.55615,
+        /*  w  */ 14.75385-100.55615,
         /*pbody*/ SUN()
     );
 
@@ -139,11 +139,11 @@ void init_celestial_bodies() {
     saturn->scale_height = 59500;
     saturn->atmo_alt = 2000e3;
     saturn->orbit = constr_orbit(
-        /*  a  */ 1,
-        /*  e  */ 2,
-        /*  i  */ 3,
-        /* lan */ 4,
-        /*  w  */ 5,
+        /*  a  */ 1426.725413e+9,
+        /*  e  */ 0.05415060,
+        /*  i  */ 2.48446,
+        /* lan */ 113.71504,
+        /*  w  */ 92.43194-113.71504,
         /*pbody*/ SUN()
     );
 
@@ -158,11 +158,11 @@ void init_celestial_bodies() {
     kerbin->scale_height = 5600;
     kerbin->atmo_alt = 70e3;
     kerbin->orbit = constr_orbit(
-        /*  a  */ 1,
-        /*  e  */ 2,
-        /*  i  */ 3,
-        /* lan */ 4,
-        /*  w  */ 5,
+        /*  a  */ 13.599840256e9,
+        /*  e  */ 0,
+        /*  i  */ 0,
+        /* lan */ 0,
+        /*  w  */ 0,
         /*pbody*/ NULL // Kerbol tbd
     );
 }
