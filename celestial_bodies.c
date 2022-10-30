@@ -1,6 +1,7 @@
 #include <math.h>
 #include <cstring>
 #include "celestial_bodies.h"
+#include <stdio.h>
 
 struct Body *sun;
 struct Body *venus;
@@ -28,7 +29,7 @@ struct Body ** all_celest_bodies() {
     return all_celestial_bodies;
 }
 
-void init_celestial_bodies() {
+void init_SUN() {
     sun = (struct Body*)malloc(sizeof(struct Body));
     strcpy(sun->name, "SUN");
     sun->mu = 1327124.40042e14;
@@ -38,8 +39,9 @@ void init_celestial_bodies() {
     sun->scale_height = 0;
     sun->atmo_alt = 0;
     // sun's orbit not declared as it should not be used and can't give any meaningful information
+}
 
-
+void init_VENUS() {
     venus = (struct Body*)malloc(sizeof(struct Body));
     strcpy(venus->name, "VENUS");
     venus->mu = 3.24859e14;
@@ -56,8 +58,9 @@ void init_celestial_bodies() {
         /*  ω  */ 131.53298-76.68069,   // longitude of perihelion - longitude of ascending node
         /*pbody*/ SUN()
     );
+}
 
-
+void init_EARTH() {
     earth = (struct Body*)malloc(sizeof(struct Body));
     strcpy(earth->name, "EARTH");
     earth->mu = 3.986004418e14;
@@ -74,8 +77,9 @@ void init_celestial_bodies() {
         /*  w  */ 102.94719-(-11.26064),
         /*pbody*/ SUN()
     );
+}
 
-
+void init_MOON() {
     moon = (struct Body*)malloc(sizeof(struct Body));
     strcpy(moon->name, "MOON");
     moon->mu = 0.049038958e14;
@@ -92,8 +96,9 @@ void init_celestial_bodies() {
         /*  w  */ 0,    // not static
         /*pbody*/ EARTH()
     );
+}
 
-
+void init_MARS() {
     mars = (struct Body*)malloc(sizeof(struct Body));
     strcpy(mars->name, "MARS");
     mars->mu = 0.4282831e14;
@@ -110,8 +115,9 @@ void init_celestial_bodies() {
         /*  w  */ 336.04084-49.57854,
         /*pbody*/ SUN()
     );
+}
 
-
+void init_JUPITER() {
     jupiter = (struct Body*)malloc(sizeof(struct Body));
     strcpy(jupiter->name, "JUPITER");
     jupiter->mu = 1266.86534e14;
@@ -128,8 +134,9 @@ void init_celestial_bodies() {
         /*  w  */ 14.75385-100.55615,
         /*pbody*/ SUN()
     );
+}
 
-
+void init_SATURN() {
     saturn = (struct Body*)malloc(sizeof(struct Body));
     strcpy(saturn->name, "SATURN");
     saturn->mu = 379.31187e14;
@@ -146,9 +153,12 @@ void init_celestial_bodies() {
         /*  w  */ 92.43194-113.71504,
         /*pbody*/ SUN()
     );
+}
 
 
-    // Kerbol system
+// Kerbol system
+
+void init_KERBIN() {
     kerbin = (struct Body*)malloc(sizeof(struct Body));
     strcpy(kerbin->name, "KERBIN");
     kerbin->mu = 3.5316e12;
@@ -163,8 +173,26 @@ void init_celestial_bodies() {
         /*  i  */ 0,
         /* lan */ 0,
         /*  w  */ 0,
-        /*pbody*/ NULL // Kerbol tbd
+        /*pbody*/ SUN() // Kerbol tbd
     );
+}
+
+
+
+
+
+// ##############################################################################################
+
+void init_celestial_bodies() {
+    init_SUN();
+    init_VENUS();
+    init_EARTH();
+    init_MOON();
+    init_MARS();
+    init_JUPITER();
+    init_SATURN();
+    
+    init_KERBIN();
 }
 
 
