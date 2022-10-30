@@ -104,7 +104,7 @@ struct Body * choose_celestial_body(struct Body *parent_body) {
     scanf("%s", input);
     
     struct Body **all_bodies = all_celest_bodies();
-    for(int i = 0; i < sizeof(all_bodies); i++) {
+    for(int i = 0; i < 13; i++) {
         if(all_bodies[i] && !strcicmp(input, all_bodies[i]->name)) {
                 return all_bodies[i];
         }

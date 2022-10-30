@@ -1,16 +1,20 @@
 #include <math.h>
 #include <cstring>
 #include "celestial_bodies.h"
-#include <stdio.h>
 
 struct Body *sun;
+struct Body *mercury;
 struct Body *venus;
 struct Body *earth;
 struct Body *moon;
 struct Body *mars;
 struct Body *jupiter;
 struct Body *saturn;
+struct Body *uranus;
+struct Body *neptune;
+struct Body *pluto;
 
+struct Body *kerbol;
 struct Body *kerbin;
 
 
@@ -18,12 +22,17 @@ struct Body *kerbin;
 struct Body ** all_celest_bodies() {
     static struct Body * all_celestial_bodies[] = {
         SUN(),
+        MERCURY(),
         VENUS(),
         EARTH(),
         MOON(),
         MARS(),
         JUPITER(),
         SATURN(),
+        URANUS(),
+        NEPTUNE(),
+        PLUTO(),
+        KERBOL(),
         KERBIN()
     };
     return all_celestial_bodies;
@@ -39,6 +48,25 @@ void init_SUN() {
     sun->scale_height = 0;
     sun->atmo_alt = 0;
     // sun's orbit not declared as it should not be used and can't give any meaningful information
+}
+
+void init_MERCURY() {
+    mercury = (struct Body*)malloc(sizeof(struct Body));
+    strcpy(mercury->name, "MERCURY");
+    mercury->mu = 0.22032e14;
+    mercury->radius = 2439.7e3;
+    mercury->rotation_period = 5067360; // rotates in opposite direction
+    mercury->sl_atmo_p = 0;
+    mercury->scale_height = 0;
+    mercury->atmo_alt = 0;
+    mercury->orbit = constr_orbit(
+        /*  a  */ 57.90917568e+9,
+        /*  e  */ 0.20563069,
+        /*  i  */ 7.00487,
+        /* lan */ 48.33167,
+        /*  ω  */ 77.45645-48.33167,   // longitude of perihelion - longitude of ascending node
+        /*pbody*/ SUN()
+    );
 }
 
 void init_VENUS() {
@@ -155,8 +183,77 @@ void init_SATURN() {
     );
 }
 
+void init_URANUS() {
+    uranus = (struct Body*)malloc(sizeof(struct Body));
+    strcpy(uranus->name, "URANUS");
+    uranus->mu = 57.940e14;
+    uranus->radius = 25362e3;
+    uranus->rotation_period = -62064; // rotates in tilted direction
+    uranus->sl_atmo_p = 101325000;
+    uranus->scale_height = 27700;
+    uranus->atmo_alt = 1400e3;
+    uranus->orbit = constr_orbit(
+        /*  a  */ 2870.97222e+9,
+        /*  e  */ 0.04716771,
+        /*  i  */ 0.76986,
+        /* lan */ 74.22988,
+        /*  ω  */ 170.96424-74.22988,   // longitude of perihelion - longitude of ascending node
+        /*pbody*/ SUN()
+    );
+}
+
+void init_NEPTUNE() {
+    neptune = (struct Body*)malloc(sizeof(struct Body));
+    strcpy(neptune->name, "NEPTUNE");
+    neptune->mu = 68.351e14;
+    neptune->radius = 24622e3;
+    neptune->rotation_period = 57996;
+    neptune->sl_atmo_p = 101325000;
+    neptune->scale_height = 19700;
+    neptune->atmo_alt = 1250e3;
+    neptune->orbit = constr_orbit(
+        /*  a  */ 4498.2529108e+9,
+        /*  e  */ 0.00858587,
+        /*  i  */ 1.76917,
+        /* lan */ 131.72169,
+        /*  ω  */ 44.97135-131.72169,   // longitude of perihelion - longitude of ascending node
+        /*pbody*/ SUN()
+    );
+}
+
+void init_PLUTO() {
+    pluto = (struct Body*)malloc(sizeof(struct Body));
+    strcpy(pluto->name, "PLUTO");
+    pluto->mu = 0.00870e14;
+    pluto->radius = 1188e3;
+    pluto->rotation_period = -551854.08; // rotates in opposite direction
+    pluto->sl_atmo_p = 1320;
+    pluto->scale_height = 50000;
+    pluto->atmo_alt = 110e3;
+    pluto->orbit = constr_orbit(
+        /*  a  */ 5906.3762724e+9,
+        /*  e  */ 0.24880766,
+        /*  i  */ 17.14175,
+        /* lan */ 110.30347,
+        /*  ω  */ 224.06676-110.30347,   // longitude of perihelion - longitude of ascending node
+        /*pbody*/ SUN()
+    );
+}
+
 
 // Kerbol system
+
+void init_KERBOL() {
+    kerbol = (struct Body*)malloc(sizeof(struct Body));
+    strcpy(kerbol->name, "KERBOL");
+    kerbol->mu = 11723.328e14;
+    kerbol->radius = 261600e3;
+    kerbol->rotation_period = 432000;
+    kerbol->sl_atmo_p = 0;          // has atmosphere but not really interesting for this calculator
+    kerbol->scale_height = 0;
+    kerbol->atmo_alt = 0;
+    // kerbol's orbit not declared as it should not be used and can't give any meaningful information
+}
 
 void init_KERBIN() {
     kerbin = (struct Body*)malloc(sizeof(struct Body));
@@ -173,7 +270,7 @@ void init_KERBIN() {
         /*  i  */ 0,
         /* lan */ 0,
         /*  w  */ 0,
-        /*pbody*/ SUN() // Kerbol tbd
+        /*pbody*/ KERBOL()
     );
 }
 
@@ -185,13 +282,18 @@ void init_KERBIN() {
 
 void init_celestial_bodies() {
     init_SUN();
+    init_MERCURY();
     init_VENUS();
     init_EARTH();
     init_MOON();
     init_MARS();
     init_JUPITER();
     init_SATURN();
-    
+    init_URANUS();
+    init_NEPTUNE();
+    init_PLUTO();
+
+    init_KERBOL();
     init_KERBIN();
 }
 
@@ -204,6 +306,10 @@ void init_celestial_bodies() {
 
 struct Body * SUN() {
     return sun;
+}
+
+struct Body * MERCURY() {
+    return mercury;
 }
 
 struct Body * VENUS() {
@@ -230,9 +336,25 @@ struct Body * SATURN() {
     return saturn;
 }
 
+struct Body * URANUS() {
+    return uranus;
+}
+
+struct Body * NEPTUNE() {
+    return neptune;
+}
+
+struct Body * PLUTO() {
+    return pluto;
+}
+
 
 
 // KERBOL SYSTEM #########################################################################
+
+struct Body * KERBOL() {
+    return kerbol;
+}
 
 struct Body * KERBIN() {
     return kerbin;

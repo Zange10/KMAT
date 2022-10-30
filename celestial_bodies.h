@@ -13,13 +13,18 @@ void init_celestial_bodies();
 struct Body ** all_celest_bodies();
 
 struct Body * SUN();
+struct Body * MERCURY();
 struct Body * VENUS();
 struct Body * EARTH();
 struct Body * MOON();
 struct Body * MARS();
 struct Body * JUPITER();
 struct Body * SATURN();
+struct Body * URANUS();
+struct Body * NEPTUNE();
+struct Body * PLUTO();
 
+struct Body * KERBOL();
 struct Body * KERBIN();
 
 #endif
