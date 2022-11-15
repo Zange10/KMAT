@@ -28,6 +28,9 @@ void calc_hohmann_transfer(struct Body *body);
 // calculate needed Delta-V for inclination change
 void calc_inclination_change();
 
+// calculate needed Delta-V for combined maneuver
+void calc_combined_maneuver();
+
 // create a plan of one or more maneuvers to reach the planned orbit from the initial orbit
 struct ManeuverPlan calc_change_orbit_dV(struct Orbit initial_orbit, struct Orbit planned_orbit, struct Body *body);
 

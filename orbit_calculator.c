@@ -46,7 +46,7 @@ void orbit_calculator() {
 
 void dv_req_calculator(struct Body *parent_body) {
     char title[] = "CHOOSE CALCULATION:";
-    char options[] = "Go Back; Change Apsis from circular orbit; Change Apsis; Hohmann Transfer; Inclination Change";
+    char options[] = "Go Back; Change Apsis from circular orbit; Change Apsis; Hohmann Transfer; Inclination Change; Combined Maneuver";
     char question[] = "Calculation: ";
     int selection = 0;
 
@@ -65,6 +65,9 @@ void dv_req_calculator(struct Body *parent_body) {
             break;
         case 4:
             calc_inclination_change();
+            break;
+        case 5:
+            calc_combined_maneuver();
             break;
         default:
             break;
@@ -216,6 +219,16 @@ void calc_inclination_change() {
     printf("\n____________\n\nNeeded Delta-V to change %g° of inclination: \t%g m/s\n\n", delta_i, delta_v);
 
     return;
+}
+
+void calc_combined_maneuver() {
+    double v1 = 0, v2 = 0, delta_i = 0;
+    printf("Enter parameters (orbital speed 1, orbital speed 2, change of inclination): ");
+    scanf("%lf %lf %lf", &v1, &v2, &delta_i);
+
+    double delta_v = sqrt( v1*v1 + v2*v2 - 2*v1*v2*cos(deg2rad(delta_i)) );
+
+    printf("\n____________\n\nNeeded Delta-V to do specified maneuver: \t%g m/s\n\n", delta_v);
 }
 
 
