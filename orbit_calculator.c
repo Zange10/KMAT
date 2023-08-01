@@ -2,9 +2,6 @@
 #include <math.h>
 #include <stdbool.h>
 #include "orbit_calculator.h"
-#include "celestial_bodies.h"
-#include "tool_funcs.h"
-#include "orbit.h"
 
 struct ManeuverPlan {
     double dV1;
@@ -44,7 +41,7 @@ void orbit_calculator() {
     } while(selection != 0);
 }
 
-void dv_req_calculator(struct Body *parent_body) {
+void dv_req_calculator(struct Body * parent_body) {
     char title[] = "CHOOSE CALCULATION:";
     char options[] = "Go Back; Change Apsis from circular orbit; Change Apsis; Hohmann Transfer; Inclination Change; Combined Maneuver";
     char question[] = "Calculation: ";
@@ -75,7 +72,7 @@ void dv_req_calculator(struct Body *parent_body) {
     } while(selection != 0);
 }
 
-void in_orbit_calculator(struct Body *parent_body) {
+void in_orbit_calculator(struct Body * parent_body) {
     char title[] = "CHOOSE CALCULATION:";
     char options[] = "Go Back; First Cosmic Speed; Second Cosmic Speed; Speed in circular orbit";
     char question[] = "Calculation: ";

@@ -1,6 +1,12 @@
 #ifndef LAUNCH_CALCULATOR
 #define LAUNCH_CALCULATOR
 
+
+#include "csv_writer.h"
+#include "tool_funcs.h"
+#include "lv_profile.h"
+#include "celestial_bodies.h"
+
 // return new instance of struct vessel with selected parameters set to 0
 struct  Vessel init_vessel();
 // modify vessel with parameters of next stage (F_sl [N], F_vac [N], m0 [kg], me [kg], br [kg/s])

@@ -3,10 +3,6 @@
 #include <math.h>
 
 #include "launch_calculator.h"
-#include "csv_writer.h"
-#include "tool_funcs.h"
-#include "lv_profile.h"
-#include "celestial_bodies.h"
 
 struct Vessel {
     double F_vac;       // Thrust produced by the engines in a vacuum [N]
@@ -379,9 +375,11 @@ double cross_product(struct Vector v1, struct Vector v2) {
     return v1.x*v2.y - v1.y*v2.x;
 }
 
+// calculates new horizontal speed in new frame of reference (vertical speed not needed to be recalculated, as flat earth is assumed)
 double calc_change_of_reference_frame(struct Flight *f, struct Flight *last_f, double step) {
     double dx = integrate(f->vh, last_f->vh, step);
-    return (-1/f->r)*(dx*f->vv-sqrt(pow(f->r,2)-dx*dx)*f->vh);
+    double vh = (1/f->r)*(dx*f->vv-sqrt(pow(f->r,2)-dx*dx)*f->vh);
+    return abs(vh);
 }
 
 double calc_Apoapsis(struct Flight f) {

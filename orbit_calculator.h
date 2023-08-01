@@ -1,14 +1,18 @@
 #ifndef ORBIT_CALCULATOR
 #define ORBIT_CALCULATOR
 
+#include "celestial_bodies.h"
+#include "tool_funcs.h"
+#include "orbit.h"
+
 // user chooses, which calculation should be performed
 void orbit_calculator();
 
 // user chooses, which calculation should be performed for calculating delta-v requirements of changing orbit
-void dv_req_calculator(struct Body *parent_body);
+void dv_req_calculator(struct Body * parent_body);
 
 // user chooses, which calculation should be performed for in-Orbit parameters
-void in_orbit_calculator(struct Body *parent_body);
+void in_orbit_calculator(struct Body * parent_body);
 
 // Choose celestial parent body
 struct Body * choose_celestial_body(struct Body *parent_body);

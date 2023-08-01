@@ -1,5 +1,6 @@
 #include <math.h>
-#include <cstring>
+#include <string.h>
+#include <stdlib.h>
 #include "celestial_bodies.h"
 
 struct Body *sun;
@@ -17,24 +18,24 @@ struct Body *pluto;
 struct Body *kerbol;
 struct Body *kerbin;
 
+struct Body * all_celestial_bodies[];
+
 
 
 struct Body ** all_celest_bodies() {
-    static struct Body * all_celestial_bodies[] = {
-        SUN(),
-        MERCURY(),
-        VENUS(),
-        EARTH(),
-        MOON(),
-        MARS(),
-        JUPITER(),
-        SATURN(),
-        URANUS(),
-        NEPTUNE(),
-        PLUTO(),
-        KERBOL(),
-        KERBIN()
-    };
+    all_celestial_bodies[0] = SUN();
+    all_celestial_bodies[1] = MERCURY();
+    all_celestial_bodies[2] = VENUS();
+    all_celestial_bodies[3] = EARTH();
+    all_celestial_bodies[4] = MOON();
+    all_celestial_bodies[5] = MARS();
+    all_celestial_bodies[6] = JUPITER();
+    all_celestial_bodies[7] = SATURN();
+    all_celestial_bodies[8] = URANUS();
+    all_celestial_bodies[9] = NEPTUNE();
+    all_celestial_bodies[10] = PLUTO();
+    all_celestial_bodies[11] = KERBOL();
+    all_celestial_bodies[12] = KERBIN();
     return all_celestial_bodies;
 }
 
