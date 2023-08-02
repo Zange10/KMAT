@@ -178,20 +178,23 @@ void calculate_launch(struct LV lv) {
     struct Body *earth = EARTH();
     struct Flight flight = init_flight(earth, 28.6);
 
+    double payload_mass = 20000;
+
     double *flight_data = (double*) calloc(1, sizeof(double));
     flight_data[0] = 1;    // amount of data points
 
     for(int i = 0; i < lv.stage_n; i++) {
         printf("STAGE %d:\t", i+1);
-        init_vessel_next_stage(&vessel, lv.stages[i].F_sl, lv.stages[i].F_vac, lv.stages[i].m0, lv.stages[i].burn_rate);
+        init_vessel_next_stage(&vessel, lv.stages[i].F_sl, lv.stages[i].F_vac, lv.stages[i].m0 + payload_mass, lv.stages[i].burn_rate);
         double burn_duration = (lv.stages[i].m0-lv.stages[i].me) / lv.stages[i].burn_rate;
         flight_data = calculate_stage_flight(&vessel, &flight, burn_duration, lv.stage_n, flight_data);
         vessel.dV += calculate_dV(vessel.F, vessel.m0, burn_duration, vessel.burn_rate);
     }
 
     printf("Coast:\t\t");
-    init_vessel_next_stage(&vessel, 0, 0, lv.stages[lv.stage_n-1].me, 0);
-    double duration = flight.vv/flight.ab + sqrt( pow(flight.vv/flight.ab,2) + 2*(flight.h-80e3)/flight.ab);
+    init_vessel_next_stage(&vessel, 0, 0, lv.stages[lv.stage_n-1].me + payload_mass, 0);
+    double temp = flight.vv/flight.ab + sqrt( pow(flight.vv/flight.ab,2) + 2*(flight.h-80e3)/flight.ab);
+    double duration = temp > 0 ? temp : 300;
     flight_data = calculate_stage_flight(&vessel, &flight, duration, lv.stage_n, flight_data);
 
 
@@ -378,8 +381,7 @@ double cross_product(struct Vector v1, struct Vector v2) {
 // calculates new horizontal speed in new frame of reference (vertical speed not needed to be recalculated, as flat earth is assumed)
 double calc_change_of_reference_frame(struct Flight *f, struct Flight *last_f, double step) {
     double dx = integrate(f->vh, last_f->vh, step);
-    double vh = (1/f->r)*(dx*f->vv-sqrt(pow(f->r,2)-dx*dx)*f->vh);
-    return abs(vh);
+    return -(1/f->r)*(dx*f->vv-sqrt(pow(f->r,2)-dx*dx)*f->vh);
 }
 
 double calc_Apoapsis(struct Flight f) {

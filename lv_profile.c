@@ -42,14 +42,21 @@ void create_new_Profile() {
 
 void write_LV_to_file(struct LV lv) {
     char filename[42];  // 30 for the name, 9 for the diractory and 3 for .lv
-    sprintf(filename, "Profiles/%s.lv", lv.name);
+    sprintf(filename, "./Profiles/%s.lv", lv.name);
 
     // -------------------
-
+    printf("hallo %s\n", filename);
     FILE *file;
-    file = fopen(filename,"w");
+    file = fopen(filename,"w+");
+
+    if (file == NULL) {
+        printf("Failed to open the file.\n");
+        return;
+    }
+    printf("hallo %d\n", lv.stage_n);
 
     fprintf(file,"Stages: %d\n", lv.stage_n);
+    printf("hallo\n");
 
     for(int i = 0; i < lv.stage_n; i++) {
         fprintf(file,"\nStage: %d:\n", i+1);
@@ -58,7 +65,10 @@ void write_LV_to_file(struct LV lv) {
         fprintf(file,"\tm0: %g\n", lv.stages[i].m0);
         fprintf(file,"\tme: %g\n", lv.stages[i].me);
         fprintf(file,"\tburn rate: %g", lv.stages[i].burn_rate);
+
+        printf("hallo %d\n", i);
     }
+    printf("hallo\n");
 
     fclose(file);
 }
