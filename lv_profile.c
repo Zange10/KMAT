@@ -45,7 +45,7 @@ void write_LV_to_file(struct LV lv) {
     sprintf(filename, "./Profiles/%s.lv", lv.name);
 
     // -------------------
-    printf("hallo %s\n", filename);
+    printf("%s\n", filename);
     FILE *file;
     file = fopen(filename,"w+");
 
@@ -53,10 +53,8 @@ void write_LV_to_file(struct LV lv) {
         printf("Failed to open the file.\n");
         return;
     }
-    printf("hallo %d\n", lv.stage_n);
 
     fprintf(file,"Stages: %d\n", lv.stage_n);
-    printf("hallo\n");
 
     for(int i = 0; i < lv.stage_n; i++) {
         fprintf(file,"\nStage: %d:\n", i+1);
@@ -65,10 +63,7 @@ void write_LV_to_file(struct LV lv) {
         fprintf(file,"\tm0: %g\n", lv.stages[i].m0);
         fprintf(file,"\tme: %g\n", lv.stages[i].me);
         fprintf(file,"\tburn rate: %g", lv.stages[i].burn_rate);
-
-        printf("hallo %d\n", i);
     }
-    printf("hallo\n");
 
     fclose(file);
 }

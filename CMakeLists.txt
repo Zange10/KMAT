@@ -20,6 +20,8 @@ add_executable(KSP
         orbit_calculator.c
         orbit_calculator.h
         tool_funcs.c
-        tool_funcs.h)
+        tool_funcs.h
+        launch_circularization.c
+        launch_circularization.h)
 
 target_link_libraries(KSP m)

@@ -7,10 +7,13 @@
 #include "lv_profile.h"
 #include "celestial_bodies.h"
 
-// return new instance of struct vessel with selected parameters set to 0
+// ACS (Ascending stage), CIRC (Circularization stage), COAST (Coasting)
+enum STATUS{ASC, CIRC, COAST};
+
+// return new instance of struct vessel and set relevant parameters
 struct  Vessel init_vessel();
-// modify vessel with parameters of next stage (F_sl [N], F_vac [N], m0 [kg], me [kg], br [kg/s])
-void    init_vessel_next_stage(struct Vessel *vessel, double F_sl, double F_vac, double m0, double br);
+// modify vessel with parameters of next stage (F_sl [N], F_vac [N], m0 [kg], me [kg], br [kg/s] and the kind of stage)
+void    init_vessel_next_stage(struct Vessel *vessel, double F_sl, double F_vac, double m0, double br, enum STATUS status);
 // initialize flight
 struct  Flight init_flight(struct Body *body, double latitude);
 // Prints parameters specific to the vessel
@@ -23,8 +26,8 @@ void    launch_calculator();
 // calculate parameters during launch 
 void    calculate_launch(struct LV lv);
 
-// calculate expended Delta-V after t with initial mass m0, static thrust F and burn rate (integral of a=F/m(t))
-double  calculate_dV(double F, double m0, double t, double burn_rate);
+// calculate expended Delta-V after t with initial mass m0, final mass mf, static thrust F and burn rate (integral of a=F/m(t))
+double  calculate_dV(double F, double m0, double mf, double burn_rate);
 
 // Calculates vessel and flight parameters over time (end is defined by T)
 double* calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data);
@@ -39,10 +42,10 @@ void    update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f,
 double  get_atmo_press(double h, double scale_height);
 // calculate acceleration due to aerodynamic drag with given velocity and atmospheric pressure
 double  calc_aerodynamic_drag(double p, double v);
-// get thrust at current atmosperic pressure
+// get thrust at current atmospheric pressure
 double  get_thrust(double F_vac, double F_sl, double p);
-// get vessel's pitch after time t
-double  get_pitch(double t);
+// get vessel's pitch at altitude h
+double  get_pitch(struct Vessel v, struct Flight f);
 
 // calculate centrifugal acceleration due to the vessel's horizontal speed
 double  calc_centrifugal_acceleration(struct Flight *f);
@@ -65,6 +68,8 @@ double  calc_semi_major_axis(struct Flight f);
 double  calc_eccentricity(struct Flight f);
 // calculate current Apoapsis of flight/orbit
 double  calc_apoapsis(struct Flight f);
+// calculate current Periapsis of flight/orbit
+double  calc_periapsis(struct Flight f);
 
 // integration for a given interval (numerical integration, midpoint/rectangle rule)
 // I = ( (f(a)+f(b))/2 ) * step
