@@ -59,8 +59,12 @@ double  calc_velocity(double vh, double vv);
 
 // calculate horizontal speed in new frame of reference
 double  calc_change_of_reference_frame(struct Flight *f, struct Flight *last_f, double step);
+// calculate current semi-major axis of flight/orbit
+double  calc_semi_major_axis(struct Flight f);
+// calculate current Eccentricity of flight/orbit
+double  calc_eccentricity(struct Flight f);
 // calculate current Apoapsis of flight/orbit
-double  calc_Apoapsis(struct Flight f);
+double  calc_apoapsis(struct Flight f);
 
 // integration for a given interval (numerical integration, midpoint/rectangle rule)
 // I = ( (f(a)+f(b))/2 ) * step

@@ -36,7 +36,8 @@ struct Flight {
     double v;       // overall orbital velocity [m/s]
     double h;       // altitude above sea level [m]
     double r;       // distance to center of body [m]
-    double Ap;      // highest point of orbit in reference to h [m]
+    double a;       // semi-major axis of orbit [m]
+    double e;       // eccentricity of orbit
     double s;       // distance travelled downrange [m]
     double i;       // inclination during flight
 };
@@ -112,7 +113,7 @@ void print_flight_info(struct Flight *f) {
     printf("Vertical a:\t\t%g m/s²\n", f -> av);
     printf("Horizontal a:\t\t%g m/s²\n", f -> ah);
     printf("Radius:\t\t\t%g km\n", f -> r/1000);
-    printf("Apoapsis:\t\t%g km\n", f -> Ap/1000);
+    printf("Apoapsis:\t\t%g km\n", calc_apoapsis(*f) / 1000);
     printf("Distance Downrange\t%g km\n", f -> s/1000);
     printf("______________________\n\n");
 }
@@ -203,7 +204,7 @@ void calculate_launch(struct LV lv) {
     printf("Write data to .csv (y/Y=yes)? ");
     scanf(" %c", &pcsv);
     if(pcsv == 'y' || pcsv == 'Y') {
-        char flight_data_fields[] = "Time,Thrust,Mass,Pitch,VessAcceleration,AtmoPress,Drag,DragA,HorizontalA,Gravity,CentrifugalA,BalancedA,VerticalA,HorizontalV,VerticalV,Velocity,Altitude,Apoapsis";
+        char flight_data_fields[] = "Time,Thrust,Mass,Pitch,VessAcceleration,AtmoPress,Drag,DragA,HorizontalA,Gravity,CentrifugalA,BalancedA,VerticalA,HorizontalV,VerticalV,Velocity,Altitude,Semi-MajorAxis,Eccentricity";
         write_csv(flight_data_fields, flight_data);
     }
 
@@ -233,7 +234,8 @@ double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, in
 
     for(t = 0; t <= T-step; t += step) {
         update_flight(v,&v_last, f, &f_last, t, step);
-        f -> Ap   = calc_Apoapsis(*f);
+        f -> a = calc_semi_major_axis(*f);
+        f -> e = calc_eccentricity(*f);
         double x = remainder(t,(T/(888/number_of_stages+1)));   // only store 890 (888 in this loop) data points overall
         if(x < step && x >=0) {
             store_flight_data(v, f, &flight_data);
@@ -245,7 +247,8 @@ double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, in
         printf("% 3d%%", (int)(t*100/T));
     }
     update_flight(v,&v_last, f, &f_last, t, T-t);
-    f -> Ap   = calc_Apoapsis(*f);
+    f -> a = calc_semi_major_axis(*f);
+    f -> e = calc_eccentricity(*f);
     store_flight_data(v, f, &flight_data);
 
     printf("\b\b\b\b\b");
@@ -268,7 +271,8 @@ void start_stage(struct Vessel *v, struct Flight *f) {
     f -> g   = calc_grav_acceleration(f);
     f -> ab  = calc_balanced_acceleration(f->g, f->ac);
     f -> av  = calc_vertical_acceleration(v->av, f->ab, f->ad, f->vv, f->v_s);
-    f -> Ap  = 0;
+    f -> a = calc_semi_major_axis(*f);
+    f -> e = calc_eccentricity(*f);
 }
 
 
@@ -384,16 +388,23 @@ double calc_change_of_reference_frame(struct Flight *f, struct Flight *last_f, d
     return -(1/f->r)*(dx*f->vv-sqrt(pow(f->r,2)-dx*dx)*f->vh);
 }
 
-double calc_Apoapsis(struct Flight f) {
+double calc_semi_major_axis(struct Flight f) {
+    return (f.body->mu*f.r) / (2*f.body->mu - f.r*pow(f.v,2));
+}
+
+double calc_eccentricity(struct Flight f) {
     struct Vector r  = {0,f.r};         // current position of vessel
     struct Vector v  = {f.vh, f.vv};    // velocity vector of vessel
-    double a = (f.body->mu*f.r) / (2*f.body->mu - f.r*pow(f.v,2));
+
     double h = cross_product(r,v);  // angular momentum
     struct Vector e;                // eccentricity vector
     e.x = r.x/vector_magnitude(r) - (h*v.y) / f.body->mu;
     e.y = r.y/vector_magnitude(r) + (h*v.x) / f.body->mu;
-    double Ap = a*(1+vector_magnitude(e)) - f.body->radius;
-    return Ap;
+    return vector_magnitude(e);
+}
+
+double calc_apoapsis(struct Flight f) {
+    return f.a*(1+f.e) - f.body->radius;
 }
 
 
@@ -415,7 +426,7 @@ double rad_to_deg(double rad) {
 
 void store_flight_data(struct Vessel *v, struct Flight *f, double **data) {
     int initial_length = (int)*data[0];
-    int n_param = 18;   // number of saved parameters
+    int n_param = 19;   // number of saved parameters
     data[0] = (double*) realloc(*data, (initial_length+n_param)*sizeof(double));
     data[0][initial_length+0] = f->t;
     data[0][initial_length+1] = v->F;
@@ -434,7 +445,8 @@ void store_flight_data(struct Vessel *v, struct Flight *f, double **data) {
     data[0][initial_length+14]= f->vv;
     data[0][initial_length+15]= f->v;
     data[0][initial_length+16]= f->h;
-    data[0][initial_length+17]= f->Ap;
+    data[0][initial_length+17]= f->a;
+    data[0][initial_length+18]= f->e;
     data[0][0] += n_param;
     return;
 }
