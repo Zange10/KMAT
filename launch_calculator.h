@@ -9,9 +9,17 @@
 
 // ACS (Ascending stage), CIRC (Circularization stage), COAST (Coasting)
 enum STATUS{ASC, CIRC, COAST};
+// Launch profile parameters a1, a2 and b1
+struct Lp_Params{double a1, a2, b2};
+// resulting parameters from launch for parameter adjustment calculations
+struct Launch_Results {
+    double pe;      // Periapsis [m]
+    double dv;      // spent delta-v [m/s]
+    double rf;      // remaining fuel [kg]
+};
 
 // return new instance of struct vessel and set relevant parameters
-struct  Vessel init_vessel();
+struct  Vessel init_vessel(struct Lp_Params lp_param);
 // modify vessel with parameters of next stage (F_sl [N], F_vac [N], m0 [kg], me [kg], br [kg/s] and the kind of stage)
 void    init_vessel_next_stage(struct Vessel *vessel, double F_sl, double F_vac, double m0, double br, enum STATUS status);
 // initialize flight
@@ -23,8 +31,10 @@ void    print_flight_info(struct Flight *f);
 
 // start launch calculations
 void    launch_calculator();
+// initiate launches (if calc_params = 1, multiple launches to get launch parameters, if calc_params = 0, do one launch)
+void    initiate_launch_campaign(struct LV lv, int calc_params);
 // calculate parameters during launch 
-void    calculate_launch(struct LV lv);
+struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct Lp_Params lp_param, int calc_params);
 
 // calculate expended Delta-V after t with initial mass m0, final mass mf, static thrust F and burn rate (integral of a=F/m(t))
 double  calculate_dV(double F, double m0, double mf, double burn_rate);

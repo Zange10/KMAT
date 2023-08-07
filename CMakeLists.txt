@@ -22,6 +22,8 @@ add_executable(KSP
         tool_funcs.c
         tool_funcs.h
         launch_circularization.c
-        launch_circularization.h)
+        launch_circularization.h
+        lp_parameters.c
+        lp_parameters.h)
 
 target_link_libraries(KSP m)
