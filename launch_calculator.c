@@ -190,7 +190,9 @@ void initiate_launch_campaign(struct LV lv, int calc_params) {
         //lp_param_fixed_payload_analysis(lv, payload_mass, &best_lp_params);
         //printf("\n------- a1: %f, a2: %f, b2: %g, h: %g ------- \n\n", best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h);
         //calculate_launch(lv, payload_mass, best_lp_params, 0);
-        lp_param_mass_analysis(lv, 0);
+        double payload_max = calc_highest_payload_mass(lv);
+        printf("Payload max: %g\n", payload_max);
+        lp_param_mass_analysis(lv, 0, payload_max);
     } else {
         struct Lp_Params lp_params = {.a1 = 36e-6, .a2 = 12e-6, .b2 = 49};
         lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);

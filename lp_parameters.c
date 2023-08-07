@@ -116,7 +116,7 @@ void lp_param_analysis(struct LV lv, double payload_mass, struct Analysis_Params
            payload_mass, best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h, best_results.dv, best_results.pe/1000);
 }
 
-void lp_param_mass_analysis(struct LV lv, double payload_min) {
+double calc_highest_payload_mass(struct LV lv) {
     struct Analysis_Params ap = {
             .min_a1 = 28e-6,
             .max_a1 = 42e-6,
@@ -128,19 +128,17 @@ void lp_param_mass_analysis(struct LV lv, double payload_min) {
             .step_size_b = 2
     };
 
-    lp_param_analysis(lv, payload_min, ap,0);
-    struct Lp_Params payload_min_lp = best_lp_params;
-
+    lp_param_analysis(lv, 0, ap,0);
 
     ap.step_size_a = 2e-6;
     ap.step_size_b = 2;
 
     ap.max_a2 = best_lp_params.a2+ap.step_size_a;
 
-    double payload_mass = payload_min;
+    double payload_mass = 0;
     int max_i = 5;
     while(best_results.dv < 10000) {
-        for(int i = max_i; i > 1; i--) {
+        for(int i = max_i; i > 0; i--) {
             printf("\nCalculating %gkg payload\n", payload_mass + pow(10,i));
             lp_param_analysis(lv, payload_mass + pow(10,i), ap, 1);
             if(best_results.dv < 10000) {
@@ -152,8 +150,24 @@ void lp_param_mass_analysis(struct LV lv, double payload_min) {
         }
     }
 
-    lp_param_analysis(lv, payload_mass, ap, 0);
-    double payload_max = payload_mass;
+    return payload_mass;
+}
+
+void lp_param_mass_analysis(struct LV lv, double payload_min, double payload_max) {
+    struct Analysis_Params ap = {
+            .min_a1 = 28e-6,
+            .max_a1 = 42e-6,
+            .min_a2 =  0e-6,
+            .max_a2 = 20e-6,
+            .min_b  = 20,
+            .max_b  = 70,
+            .step_size_a = 2e-6,
+            .step_size_b = 2
+    };
+    lp_param_analysis(lv, 0, ap,0);
+    struct Lp_Params payload_min_lp = best_lp_params;
+
+    lp_param_analysis(lv, payload_max, ap, 0);
     double payload_step = (payload_max-payload_min)/10;
 
     if(best_lp_params.a1 < payload_min_lp.a1) {
@@ -184,6 +198,7 @@ void lp_param_mass_analysis(struct LV lv, double payload_min) {
     double all_results[(int)((payload_max-payload_min)/payload_step+1)*7+1];
     all_results[0] = ((payload_max-payload_min)/payload_step+1)*7+1;
 
+    double payload_mass = payload_min;
 
     for(int i = 0; i < (int)((payload_max-payload_min)/payload_step+1); i++) {
         payload_mass = i*payload_step + payload_min;
