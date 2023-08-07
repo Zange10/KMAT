@@ -185,7 +185,7 @@ void launch_calculator() {
 
 void initiate_launch_campaign(struct LV lv, int calc_params) {
     if(calc_params) {
-        double payload_mass = 20000;
+        double payload_mass = 10000;
         struct Lp_Params best_lp_params;
         calc_lp_param_adjustments(lv, payload_mass, &best_lp_params);
         printf("\n------- a1: %f, a2: %f, b2: %g, h: %g ------- \n\n", best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h);

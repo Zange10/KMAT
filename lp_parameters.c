@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 
-struct Lp_Params best_lp_params = {.a1 = 0.00002, .a2 = 0.00001, .b2 = 60, .h = 0};
+struct Lp_Params best_lp_params = {.a1 = 0.00003, .a2 = 0.000004, .b2 = 40, .h = 0};
 
 struct Launch_Results best_results;
 double payload;
@@ -61,7 +61,7 @@ void calc_params_a2(struct LV lv, struct Lp_Params lp_params, double step_size_a
 void calc_params_b2(struct LV lv, struct Lp_Params lp_params, double step_size_b) {
     struct Launch_Results new_results;
     lp_params.b2 = best_lp_params.b2;
-    best_lp_params.h = log(best_lp_params.b2/90) / (best_lp_params.a2-best_lp_params.a1);
+    lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
     new_results = calculate_launch(lv, payload, lp_params, 1);
     if(new_results.pe > min_pe && new_results.dv < best_results.dv) {
         best_results = new_results;
@@ -71,7 +71,7 @@ void calc_params_b2(struct LV lv, struct Lp_Params lp_params, double step_size_b
     }
 
     lp_params.b2 = best_lp_params.b2 + step_size_b;
-    best_lp_params.h = log(best_lp_params.b2/90) / (best_lp_params.a2-best_lp_params.a1);
+    lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
     new_results = calculate_launch(lv, payload, lp_params, 1);
     if(new_results.pe > min_pe && new_results.dv < best_results.dv) {
         best_results = new_results;
@@ -81,7 +81,7 @@ void calc_params_b2(struct LV lv, struct Lp_Params lp_params, double step_size_b
     }
 
     lp_params.b2 = best_lp_params.b2 - step_size_b;
-    best_lp_params.h = log(best_lp_params.b2/90) / (best_lp_params.a2-best_lp_params.a1);
+    lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
     new_results = calculate_launch(lv, payload, lp_params, 1);
     if(new_results.pe > min_pe && new_results.dv < best_results.dv) {
         best_results = new_results;
