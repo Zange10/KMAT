@@ -4,7 +4,6 @@
 
 #include "launch_calculator.h"
 #include "launch_circularization.h"
-#include "lp_parameters.h"
 
 // double vl = 0;
 
@@ -186,14 +185,15 @@ void launch_calculator() {
 
 void initiate_launch_campaign(struct LV lv, int calc_params) {
     if(calc_params) {
-        double payload_mass = 0;
+        double payload_mass = 20000;
         struct Lp_Params best_lp_params;
         calc_lp_param_adjustments(lv, payload_mass, &best_lp_params);
-        printf("\n------- a1: %f, a2: %f, b2: %g ------- \n\n", best_lp_params.a1, best_lp_params.a2, best_lp_params.b2);
+        printf("\n------- a1: %f, a2: %f, b2: %g, h: %g ------- \n\n", best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h);
         calculate_launch(lv, payload_mass, best_lp_params, 0);
     } else {
         struct Lp_Params lp_params = {.a1 = 0.00003, .a2 = 0.00001, .b2 = 45};
-        double payload_mass = 25000;
+        lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
+        double payload_mass = 10000;
         calculate_launch(lv, payload_mass, lp_params, 0);
     }
 }
@@ -260,7 +260,7 @@ double calculate_dV(double F, double m0, double mf, double burn_rate) {
 
 double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data) {
     double t;
-    double step = 1e-3;
+    double step = 1e-2;
 
     struct Vessel v_last;
     struct Flight f_last;
@@ -391,8 +391,7 @@ double get_pitch(struct Vessel v, struct Flight f) {
             double a1 = v.lp_param.a1;
             double a2 = v.lp_param.a2;
             double b2 = v.lp_param.b2;
-            double h = log(b2/90) / (a2-a1);
-            if (f.h < h) return 90.0 * exp(-a1 * f.h);
+            if (f.h < v.lp_param.h) return 90.0 * exp(-a1 * f.h);
             else return b2 * exp(-a2 * f.h); }
         case CIRC:
             return get_circularization_pitch(

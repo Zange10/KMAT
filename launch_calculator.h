@@ -6,11 +6,12 @@
 #include "tool_funcs.h"
 #include "lv_profile.h"
 #include "celestial_bodies.h"
+#include "lp_parameters.h"
 
 // ACS (Ascending stage), CIRC (Circularization stage), COAST (Coasting)
 enum STATUS{ASC, CIRC, COAST};
-// Launch profile parameters a1, a2 and b1
-struct Lp_Params{double a1, a2, b2};
+// Launch profile parameters a1, a2, b2 and the altitude h (f1(h) = f2(h))
+struct Lp_Params{double a1, a2, b2, h;};
 // resulting parameters from launch for parameter adjustment calculations
 struct Launch_Results {
     double pe;      // Periapsis [m]
