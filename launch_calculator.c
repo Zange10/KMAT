@@ -185,15 +185,15 @@ void launch_calculator() {
 
 void initiate_launch_campaign(struct LV lv, int calc_params) {
     if(calc_params) {
-        double payload_mass = 10000;
+        double payload_mass = 0;
         struct Lp_Params best_lp_params;
         calc_lp_param_adjustments(lv, payload_mass, &best_lp_params);
         printf("\n------- a1: %f, a2: %f, b2: %g, h: %g ------- \n\n", best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h);
         calculate_launch(lv, payload_mass, best_lp_params, 0);
     } else {
-        struct Lp_Params lp_params = {.a1 = 0.00003, .a2 = 0.00001, .b2 = 45};
+        struct Lp_Params lp_params = {.a1 = 36e-6, .a2 = 12e-6, .b2 = 49};
         lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
-        double payload_mass = 10000;
+        double payload_mass = 0;
         calculate_launch(lv, payload_mass, lp_params, 0);
     }
 }
@@ -221,10 +221,10 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
     }
 
     //printf("Coast:\t\t");
-    init_vessel_next_stage(&vessel, 0, 0, vessel.mass, 0, COAST);
-    double temp = flight.vv/flight.ab + sqrt( pow(flight.vv/flight.ab,2) + 2*(flight.h-80e3)/flight.ab);
-    double duration = ( temp > 0 && calc_periapsis(flight) < 150000) ? temp : 300;
-    flight_data = calculate_stage_flight(&vessel, &flight, duration, lv.stage_n, flight_data);
+    //init_vessel_next_stage(&vessel, 0, 0, vessel.mass, 0, COAST);
+    //double temp = flight.vv/flight.ab + sqrt( pow(flight.vv/flight.ab,2) + 2*(flight.h-80e3)/flight.ab);
+    //double duration = ( temp > 0 && calc_periapsis(flight) < 150000) ? temp : 300;
+    //flight_data = calculate_stage_flight(&vessel, &flight, duration, lv.stage_n, flight_data);
 
 
     if(!calc_params) {
@@ -236,7 +236,6 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
             write_csv(flight_data_fields, flight_data);
         }
 
-        free(flight_data);
 
         print_vessel_info(&vessel);
         print_flight_info(&flight);
@@ -246,6 +245,8 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
         //printf("Gravity Drag: %g m/s^2\n", vl);
 
     }
+
+    free(flight_data);
 
     struct Launch_Results results;
     results.pe = calc_periapsis(flight);
