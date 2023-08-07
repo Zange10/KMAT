@@ -185,15 +185,16 @@ void launch_calculator() {
 
 void initiate_launch_campaign(struct LV lv, int calc_params) {
     if(calc_params) {
-        double payload_mass = 0;
-        struct Lp_Params best_lp_params;
-        calc_lp_param_adjustments(lv, payload_mass, &best_lp_params);
-        printf("\n------- a1: %f, a2: %f, b2: %g, h: %g ------- \n\n", best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h);
-        calculate_launch(lv, payload_mass, best_lp_params, 0);
+        //double payload_mass = 35000;
+        //struct Lp_Params best_lp_params;
+        //lp_param_fixed_payload_analysis(lv, payload_mass, &best_lp_params);
+        //printf("\n------- a1: %f, a2: %f, b2: %g, h: %g ------- \n\n", best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h);
+        //calculate_launch(lv, payload_mass, best_lp_params, 0);
+        lp_param_mass_analysis(lv, 0);
     } else {
         struct Lp_Params lp_params = {.a1 = 36e-6, .a2 = 12e-6, .b2 = 49};
         lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
-        double payload_mass = 0;
+        double payload_mass = 25000;
         calculate_launch(lv, payload_mass, lp_params, 0);
     }
 }
@@ -212,7 +213,7 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
         //printf("STAGE %d:\t\n", i+1);
         double burn_duration = (lv.stages[i].m0-lv.stages[i].me) / lv.stages[i].burn_rate;
         // Circularization stage, if stage could get approximately to orbit
-        enum STATUS status = (vessel.dV+ calculate_dV(lv.stages[i].F_vac, lv.stages[i].m0, lv.stages[i].m0 - burn_duration*lv.stages[i].burn_rate, lv.stages[i].burn_rate)) < 7800 ?
+        enum STATUS status = (vessel.dV+ calculate_dV(lv.stages[i].F_vac, lv.stages[i].m0+payload_mass, lv.stages[i].m0+payload_mass - burn_duration*lv.stages[i].burn_rate, lv.stages[i].burn_rate)) < 7800 ?
                 ASC : CIRC;
         init_vessel_next_stage(&vessel, lv.stages[i].F_sl, lv.stages[i].F_vac, lv.stages[i].m0 + payload_mass, lv.stages[i].burn_rate, status);
         flight_data = calculate_stage_flight(&vessel, &flight, burn_duration, lv.stage_n, flight_data);
