@@ -198,7 +198,7 @@ void lp_param_mass_analysis(struct LV lv, double payload_min, double payload_max
     double all_results[(int)((payload_max-payload_min)/payload_step+1)*7+1];
     all_results[0] = ((payload_max-payload_min)/payload_step+1)*7+1;
 
-    double payload_mass = payload_min;
+    double payload_mass;
 
     for(int i = 0; i < (int)((payload_max-payload_min)/payload_step+1); i++) {
         payload_mass = i*payload_step + payload_min;

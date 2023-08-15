@@ -10,20 +10,20 @@ add_executable(KSP
         celestial_bodies.h
         csv_writer.c
         csv_writer.h
-        launch_calculator.c
-        launch_calculator.h
-        lv_profile.c
-        lv_profile.h
+        launch_calculator/launch_calculator.c
+        launch_calculator/launch_calculator.h
+        launch_calculator/lv_profile.c
+        launch_calculator/lv_profile.h
         main.c
-        orbit.c
-        orbit.h
-        orbit_calculator.c
-        orbit_calculator.h
+        orbit_calculator/orbit.c
+        orbit_calculator/orbit.h
+        orbit_calculator/orbit_calculator.c
+        orbit_calculator/orbit_calculator.h
         tool_funcs.c
         tool_funcs.h
-        launch_circularization.c
-        launch_circularization.h
-        lp_parameters.c
-        lp_parameters.h)
+        launch_calculator/launch_circularization.c
+        launch_calculator/launch_circularization.h
+        launch_calculator/lp_parameters.c
+        launch_calculator/lp_parameters.h)
 
 target_link_libraries(KSP m)

@@ -32,7 +32,7 @@ struct Flight {
     double ah;      // current horizontal acceleration due to thrust and with drag [m/s²]
     double g;       // gravitational acceleration [m/s²]
     double ac;      // negative centripetal force due to horizontal speed [m/s²]
-    double ab;      // gravitational a subtracted by cetrifucal a [m/s²]
+    double ab;      // gravitational a subtracted by centrifugal a [m/s²]
     double av;      // current vertical acceleration due to Thrust, pitch, gravity and velocity [m/s²]
     double vh_s;    // horizontal surface speed [m/s]
     double vh;      // horizontal orbital speed [m/s]
@@ -196,7 +196,7 @@ void initiate_launch_campaign(struct LV lv, int calc_params) {
     } else {
         struct Lp_Params lp_params = {.a1 = 36e-6, .a2 = 12e-6, .b2 = 49};
         lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
-        double payload_mass = 25000;
+        double payload_mass = 0;
         calculate_launch(lv, payload_mass, lp_params, 0);
     }
 }

@@ -1,7 +1,7 @@
 #ifndef CELESTIAL_BODIES
 #define CELESTIAL_BODIES
 
-#include "orbit.h"
+#include "orbit_calculator/orbit.h"
 
 
 // struct Body currently declared in orbit.h (needs to be declared after struct Orbit)
