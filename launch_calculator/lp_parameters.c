@@ -11,25 +11,15 @@ struct Launch_Results best_results;
 double min_pe = 170e3;
 
 struct Thread_Args {
-    double *all_results;
-    int i,j,k,size_a2,size_b;
     double payload_mass;
     struct Lp_Params lp_params;
     struct LV lv;
 };
 
-// Function executed by each thread
-void *calc_launches_for_b2(void *arg) {
+// Launched at every b2 calculation for fixed payload analysis
+void *calc_launch_results(void *arg) {
     struct Thread_Args *thread_args = (struct Thread_Args *)arg;
-    int i = thread_args->i;
-    int j = thread_args->j;
-    int k = thread_args->k;
-    int size_a2 = thread_args->size_a2;
-    int size_b = thread_args->size_b;
-    double *all_results = thread_args->all_results;
     struct Lp_Params lp_params = thread_args->lp_params;
-
-    int index = (int)(i*size_a2*size_b + j*size_b + k)*6;
 
     struct Launch_Results results = calculate_launch(thread_args->lv, thread_args->payload_mass, lp_params, 1);
 
@@ -37,13 +27,6 @@ void *calc_launches_for_b2(void *arg) {
     p_results->dv = results.dv;
     p_results->pe = results.pe;
     p_results->rf = results.rf;
-
-    all_results[index+1] = lp_params.a1;
-    all_results[index+2] = lp_params.a2;
-    all_results[index+3] = lp_params.b2;
-    all_results[index+4] = lp_params.h;
-    all_results[index+5] = results.dv;
-    all_results[index+6] = results.pe;
 
     return p_results;
 }
@@ -56,13 +39,13 @@ void lp_param_fixed_payload_analysis(struct LV lv, double payload_mass, struct L
     double step_size_a = 2e-6;
     double step_size_b = 1;
 
-    double min_a1 = 30e-6, max_a1 = 50e-6;
+    double min_a1 = 25e-6, max_a1 = 60e-6;
     double size_a1 = (max_a1-min_a1)/step_size_a;
 
-    double min_a2 = 5e-6, max_a2 = 20e-6;
+    double min_a2 = 0e-6, max_a2 = 20e-6;
     double size_a2 = (max_a2-min_a2)/step_size_a;
 
-    double min_b = 30, max_b = 70;
+    double min_b = 20, max_b = 70;
     double size_b = (max_b-min_b)/step_size_b;
 
     struct Lp_Params lp_params;
@@ -85,37 +68,42 @@ void lp_param_fixed_payload_analysis(struct LV lv, double payload_mass, struct L
                 lp_params.b2 = k*step_size_b+min_b;
                 lp_params.h  = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
 
-                thread_args[k].i = i;
-                thread_args[k].j = j;
-                thread_args[k].k = k;
-                thread_args[k].size_a2 = size_a2;
-                thread_args[k].size_b = size_b;
-                thread_args[k].all_results = all_results;
                 thread_args[k].lp_params = lp_params;
                 thread_args[k].lv = lv;
                 thread_args[k].payload_mass = payload_mass;
 
-                if (pthread_create(&threads[k], NULL, calc_launches_for_b2, &thread_args[k]) != 0) {
+                if (pthread_create(&threads[k], NULL, calc_launch_results, &thread_args[k]) != 0) {
                     perror("pthread_create");
                     exit(EXIT_FAILURE);
                 }
             }
             for(int k = 0; k < (int)size_b; k++) {
                 // Declare a pointer to store the thread-specific result
-                struct Launch_Results *result = (struct Launch_Results *)malloc(sizeof(struct Launch_Results));
+                struct Launch_Results *results = (struct Launch_Results *)malloc(sizeof(struct Launch_Results));
 
                 // Wait for the thread to finish and retrieve the result
-                pthread_join(threads[k], (void **)&result);
+                pthread_join(threads[k], (void **)&results);
 
-                if(result->dv < best_results.dv && result->pe > min_pe) {
-                    best_results = *result;
+                int index = (int)(i*size_a2*size_b + j*size_b + k)*6;
+                lp_params.b2 = k*step_size_b+min_b;
+                lp_params.h  = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
+
+                all_results[index+1] = lp_params.a1;
+                all_results[index+2] = lp_params.a2;
+                all_results[index+3] = lp_params.b2;
+                all_results[index+4] = lp_params.h;
+                all_results[index+5] = results->dv;
+                all_results[index+6] = results->pe;
+
+                if(results->dv < best_results.dv && results->pe > min_pe) {
+                    best_results = *results;
                     lp_params.b2 = k*step_size_b+min_b;
                     lp_params.h  = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
                     best_lp_params = lp_params;
                 }
 
                 // Free the allocated memory for the thread-specific result
-                free(result);
+                free(results);
             }
         }
     }
@@ -160,11 +148,12 @@ void lp_param_analysis(struct LV lv, double payload_mass, struct Analysis_Params
     double size_b = (max_b-min_b)/step_size_b;
 
     struct Lp_Params lp_params;
-    struct Launch_Results results;
 
     best_results.dv = 10000;
 
     printf("analyzing %g launches:\n\n", size_a1*size_a2*size_b);
+    struct Thread_Args thread_args[(int)size_b];
+    pthread_t threads[(int)size_b];
 
     for(int i = 0; i < (int)size_a1; i++) {
         lp_params.a1 = i*step_size_a + min_a1;
@@ -172,15 +161,34 @@ void lp_param_analysis(struct LV lv, double payload_mass, struct Analysis_Params
             printf("%.02f%%\n", (i*size_a2+j)/(size_a1*size_a2)*100);
             lp_params.a2 = j*step_size_a + min_a2;
             for(int k = 0; k < (int)size_b; k++) {
-                lp_params.b2 = k*step_size_b+min_b;
-                lp_params.h  = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
-                results = calculate_launch(lv, payload_mass, lp_params, 1);
-                if(results.pe > min_pe && results.dv < best_results.dv) {
-                    best_results = results;
-                    best_lp_params = lp_params;
-                    if(orbit_test_only) return;
+                lp_params.b2 = k * step_size_b + min_b;
+                lp_params.h = log(lp_params.b2 / 90) / (lp_params.a2 - lp_params.a1);
+
+                thread_args[k].lp_params = lp_params;
+                thread_args[k].lv = lv;
+                thread_args[k].payload_mass = payload_mass;
+
+                if (pthread_create(&threads[k], NULL, calc_launch_results, &thread_args[k]) != 0) {
+                    perror("pthread_create");
+                    exit(EXIT_FAILURE);
                 }
             }
+            for(int k = 0; k < (int)size_b; k++) {
+                // Declare a pointer to store the thread-specific result
+                struct Launch_Results *results = (struct Launch_Results *)malloc(sizeof(struct Launch_Results));
+
+                // Wait for the thread to finish and retrieve the result
+                pthread_join(threads[k], (void **)&results);
+
+                lp_params.b2 = k*step_size_b+min_b;
+                lp_params.h  = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);if(results->dv < best_results.dv && results->pe > min_pe) {
+                    best_results = *results;
+                    lp_params.b2 = k*step_size_b+min_b;
+                    lp_params.h  = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
+                    best_lp_params = lp_params;
+                }
+            }
+            if(orbit_test_only && best_results.dv < 10000) return;
         }
     }
 
@@ -189,6 +197,9 @@ void lp_param_analysis(struct LV lv, double payload_mass, struct Analysis_Params
 }
 
 double calc_highest_payload_mass(struct LV lv) {
+    struct timeval start, end;
+    double elapsed_time;
+    gettimeofday(&start, NULL);  // Record the starting time
     /*struct Analysis_Params ap = {
             .min_a1 = 28e-6,
             .max_a1 = 42e-6,
@@ -201,8 +212,8 @@ double calc_highest_payload_mass(struct LV lv) {
     };*/
 
     struct Analysis_Params ap = {
-            .min_a1 = 15e-6,
-            .max_a1 = 60e-6,
+            .min_a1 = 20e-6,
+            .max_a1 = 50e-6,
             .min_a2 =  0e-6,
             .max_a2 = 10e-6,
             .min_b  = 30,
@@ -232,6 +243,10 @@ double calc_highest_payload_mass(struct LV lv) {
             }
         }
     }
+    gettimeofday(&end, NULL);  // Record the ending time
+
+    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+    printf("Elapsed time: %f seconds\n", elapsed_time);
 
     return payload_mass;
 }
