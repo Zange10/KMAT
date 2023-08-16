@@ -184,19 +184,22 @@ void launch_calculator() {
 
 void initiate_launch_campaign(struct LV lv, int calc_params) {
     if(calc_params) {
-        double payload_mass = 0;
-        struct Lp_Params best_lp_params;
-        lp_param_fixed_payload_analysis(lv, payload_mass, &best_lp_params);
-        printf("\n------- a1: %f, a2: %f, b2: %g, h: %g ------- \n\n", best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h);
-        calculate_launch(lv, payload_mass, best_lp_params, 0);
-        //double payload_max = calc_highest_payload_mass(lv);
-        //printf("Payload max: %g\n", payload_max);
-        //lp_param_mass_analysis(lv, 0, payload_max);
+        if(1) {
+            double payload_mass = 0;
+            struct Lp_Params best_lp_params;
+            lp_param_fixed_payload_analysis(lv, payload_mass, &best_lp_params);
+            printf("\n------- a1: %f, a2: %f, b2: %g, h: %g ------- \n\n", best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h);
+            calculate_launch(lv, payload_mass, best_lp_params, 0);
+        } else {
+            double payload_max = calc_highest_payload_mass(lv);
+            printf("Payload max: %g\n", payload_max);
+            //lp_param_mass_analysis(lv, 0, payload_max);
+        }
     } else {
         //struct Lp_Params lp_params = {.a1 = 36e-6, .a2 = 12e-6, .b2 = 49};    // tester
-        struct Lp_Params lp_params = {.a1 = 20e-6, .a2 = 4e-6, .b2 = 46};      // electron
+        struct Lp_Params lp_params = {.a1 = 40e-6, .a2 = 5e-6, .b2 = 52};      // electron
         lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
-        double payload_mass = 0;
+        double payload_mass = 250;
         calculate_launch(lv, payload_mass, lp_params, 0);
     }
 }
@@ -204,12 +207,14 @@ void initiate_launch_campaign(struct LV lv, int calc_params) {
 struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct Lp_Params lp_param, int calc_params) {
     struct Vessel vessel = init_vessel(lp_param);
     struct Body *earth = EARTH();
-    struct Flight flight = init_flight(earth, 28.6);
+    // struct Flight flight = init_flight(earth, 28.6); // KSC
+    struct Flight flight = init_flight(earth, 39.26); // Mahia
 
     double *flight_data = (double*) calloc(1, sizeof(double));
     flight_data[0] = 1;    // amount of data points
 
     double left_over_propellant;
+    double left_over_dv;
 
     for(int i = 0; i < lv.stage_n; i++) {
         // Separation (not for first stage) - further adjustments for side booster in the future...
@@ -228,9 +233,10 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
                 ASC : CIRC;
         init_vessel_next_stage(&vessel, lv.stages[i].F_sl, lv.stages[i].F_vac, lv.stages[i].m0 + payload_mass, lv.stages[i].burn_rate, status);
         flight_data = calculate_stage_flight(&vessel, &flight, burn_duration, lv.stage_n, flight_data);
-        left_over_propellant += vessel.mass - (vessel.m0 - burn_duration*vessel.burn_rate);
-
+        left_over_propellant = vessel.mass - (vessel.m0 - burn_duration*vessel.burn_rate);
+        left_over_dv = calculate_dV(vessel.F_vac, vessel.mass, vessel.m0 - burn_duration*vessel.burn_rate, vessel.burn_rate);
     }
+
 
     //printf("Coast:\t\t");
     //init_vessel_next_stage(&vessel, 0, 0, vessel.mass, 0, COAST);
@@ -252,8 +258,8 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
         print_vessel_info(&vessel);
         print_flight_info(&flight);
 
-        printf("Payload: %g kg\nLeft-over propellant: %g kg\nPossible Payload: %g kg\n", payload_mass,
-               left_over_propellant, payload_mass + left_over_propellant);
+        printf("Payload: %g kg\nLeft-over delta-V: %g m/s\nLeft-over propellant: %g kg\nPossible Payload: %g kg\n",
+               payload_mass, left_over_dv, left_over_propellant, payload_mass + left_over_propellant);
 
     }
 
@@ -359,7 +365,6 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
     double b = f->ab;
     double beta = deg_to_rad(90-v->pitch);
     double c = sqrt(a*a + b*b - 2*a*b*cos(beta));
-    //vl += (a-c)*step;
 }
 
 
@@ -380,18 +385,18 @@ double get_atmo_press(double h, double scale_height) {
 }
 
 double calc_aerodynamic_drag(double p, double v) {
-    double c;   // constant by good guess
-    double c1 = 0.2e-5;
-    double c2 = 2.8e-5;
-    if(v < 250) c = c1;
-    else if (v < 330) c = (1.0-(1.0/80.0*(v-250.0)))*c1+(1.0/80.0*(v-250.0))*c2;
-    else  c = (exp(-(v-330.0)/2000.0))*c2+(1.0-(exp(-(v-330.0)/2000.0)))*c1;
+    //double c;   // constant by good guess
+    //double c1 = 0.2e-5;
+    //double c2 = 2.8e-5;
+    //if(v < 250) c = c1;
+    //else if (v < 330) c = (1.0-(1.0/80.0*(v-250.0)))*c1+(1.0/80.0*(v-250.0))*c2;
+    //else  c = (exp(-(v-330.0)/2000.0))*c2+(1.0-(exp(-(v-330.0)/2000.0)))*c1;
     //return 0.5*(p)*pow(v,2) * c;
 
     double rho = p/57411.6;
     double A = 66;
     double c_d = 0.7;
-    A = 4;
+    //A = 1.13;
     return 0.5*rho*A*c_d*pow(v,2);
 }
 

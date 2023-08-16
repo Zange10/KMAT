@@ -1,33 +1,80 @@
 #include "lp_parameters.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
+#include <pthread.h>
+#include <sys/time.h>
 
 struct Lp_Params best_lp_params = {.a1 = 0.00003, .a2 = 0.000004, .b2 = 40, .h = 0};
 
 struct Launch_Results best_results;
 double min_pe = 170e3;
 
-void lp_param_fixed_payload_analysis(struct LV lv, double payload_mass, struct Lp_Params *return_params) {
-    double step_size_a = 2e-6;
-    double step_size_b = 2;
+struct Thread_Args {
+    double *all_results;
+    int i,j,k,size_a2,size_b;
+    double payload_mass;
+    struct Lp_Params lp_params;
+    struct LV lv;
+};
 
-    double min_a1 = 0e-6, max_a1 = 30e-6;
+// Function executed by each thread
+void *calc_launches_for_b2(void *arg) {
+    struct Thread_Args *thread_args = (struct Thread_Args *)arg;
+    int i = thread_args->i;
+    int j = thread_args->j;
+    int k = thread_args->k;
+    int size_a2 = thread_args->size_a2;
+    int size_b = thread_args->size_b;
+    double *all_results = thread_args->all_results;
+    struct Lp_Params lp_params = thread_args->lp_params;
+
+    int index = (int)(i*size_a2*size_b + j*size_b + k)*6;
+
+    struct Launch_Results results = calculate_launch(thread_args->lv, thread_args->payload_mass, lp_params, 1);
+
+    struct Launch_Results *p_results = (struct Launch_Results *)malloc(sizeof(struct Launch_Results));;
+    p_results->dv = results.dv;
+    p_results->pe = results.pe;
+    p_results->rf = results.rf;
+
+    all_results[index+1] = lp_params.a1;
+    all_results[index+2] = lp_params.a2;
+    all_results[index+3] = lp_params.b2;
+    all_results[index+4] = lp_params.h;
+    all_results[index+5] = results.dv;
+    all_results[index+6] = results.pe;
+
+    return p_results;
+}
+
+void lp_param_fixed_payload_analysis(struct LV lv, double payload_mass, struct Lp_Params *return_params) {
+    struct timeval start, end;
+    double elapsed_time;
+    gettimeofday(&start, NULL);  // Record the starting time
+
+    double step_size_a = 2e-6;
+    double step_size_b = 1;
+
+    double min_a1 = 30e-6, max_a1 = 50e-6;
     double size_a1 = (max_a1-min_a1)/step_size_a;
 
-    double min_a2 = 0e-6, max_a2 = 20e-6;
+    double min_a2 = 5e-6, max_a2 = 20e-6;
     double size_a2 = (max_a2-min_a2)/step_size_a;
 
     double min_b = 30, max_b = 70;
     double size_b = (max_b-min_b)/step_size_b;
 
     struct Lp_Params lp_params;
-    struct Launch_Results results;
 
     double all_results[(int)(size_a1*size_a2*size_b)*6+1];
     all_results[0] = (int)(size_a1*size_a2*size_b)*6+1;
     best_results.dv = 10000;
 
     printf("Analyzing %g launches:\n\n", (all_results[0]-1)/6);
+
+    pthread_t threads[(int)size_b];
+    struct Thread_Args thread_args[(int)size_b];
 
     for(int i = 0; i < (int)size_a1; i++) {
         lp_params.a1 = i*step_size_a + min_a1;
@@ -37,21 +84,46 @@ void lp_param_fixed_payload_analysis(struct LV lv, double payload_mass, struct L
             for(int k = 0; k < (int)size_b; k++) {
                 lp_params.b2 = k*step_size_b+min_b;
                 lp_params.h  = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
-                results = calculate_launch(lv, payload_mass, lp_params, 1);
-                if(results.pe > min_pe && results.dv < best_results.dv) {
-                    best_results = results;
+
+                thread_args[k].i = i;
+                thread_args[k].j = j;
+                thread_args[k].k = k;
+                thread_args[k].size_a2 = size_a2;
+                thread_args[k].size_b = size_b;
+                thread_args[k].all_results = all_results;
+                thread_args[k].lp_params = lp_params;
+                thread_args[k].lv = lv;
+                thread_args[k].payload_mass = payload_mass;
+
+                if (pthread_create(&threads[k], NULL, calc_launches_for_b2, &thread_args[k]) != 0) {
+                    perror("pthread_create");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            for(int k = 0; k < (int)size_b; k++) {
+                // Declare a pointer to store the thread-specific result
+                struct Launch_Results *result = (struct Launch_Results *)malloc(sizeof(struct Launch_Results));
+
+                // Wait for the thread to finish and retrieve the result
+                pthread_join(threads[k], (void **)&result);
+
+                if(result->dv < best_results.dv && result->pe > min_pe) {
+                    best_results = *result;
+                    lp_params.b2 = k*step_size_b+min_b;
+                    lp_params.h  = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
                     best_lp_params = lp_params;
                 }
-                int index = (int)(i*size_a2*size_b + j*size_b + k)*6;
-                all_results[index+1] = lp_params.a1;
-                all_results[index+2] = lp_params.a2;
-                all_results[index+3] = lp_params.b2;
-                all_results[index+4] = lp_params.h;
-                all_results[index+5] = results.dv;
-                all_results[index+6] = results.pe;
+
+                // Free the allocated memory for the thread-specific result
+                free(result);
             }
         }
     }
+    gettimeofday(&end, NULL);  // Record the ending time
+
+    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+    printf("Elapsed time: %f seconds\n", elapsed_time);
+
     char flight_data_fields[] = "a1,a2,b2,h,dv,pe";
     write_csv(flight_data_fields, all_results);
 
@@ -117,12 +189,23 @@ void lp_param_analysis(struct LV lv, double payload_mass, struct Analysis_Params
 }
 
 double calc_highest_payload_mass(struct LV lv) {
-    struct Analysis_Params ap = {
+    /*struct Analysis_Params ap = {
             .min_a1 = 28e-6,
             .max_a1 = 42e-6,
             .min_a2 =  0e-6,
             .max_a2 = 20e-6,
             .min_b  = 20,
+            .max_b  = 70,
+            .step_size_a = 2e-6,
+            .step_size_b = 2
+    };*/
+
+    struct Analysis_Params ap = {
+            .min_a1 = 15e-6,
+            .max_a1 = 60e-6,
+            .min_a2 =  0e-6,
+            .max_a2 = 10e-6,
+            .min_b  = 30,
             .max_b  = 70,
             .step_size_a = 2e-6,
             .step_size_b = 2
@@ -154,7 +237,7 @@ double calc_highest_payload_mass(struct LV lv) {
 }
 
 void lp_param_mass_analysis(struct LV lv, double payload_min, double payload_max) {
-    struct Analysis_Params ap = {
+    /*struct Analysis_Params ap = {
             .min_a1 = 28e-6,
             .max_a1 = 42e-6,
             .min_a2 =  0e-6,
@@ -163,7 +246,19 @@ void lp_param_mass_analysis(struct LV lv, double payload_min, double payload_max
             .max_b  = 70,
             .step_size_a = 2e-6,
             .step_size_b = 2
+    };*/
+
+    struct Analysis_Params ap = {
+            .min_a1 = 15e-6,
+            .max_a1 = 29e-6,
+            .min_a2 =  0e-6,
+            .max_a2 = 10e-6,
+            .min_b  = 30,
+            .max_b  = 70,
+            .step_size_a = 2e-6,
+            .step_size_b = 2
     };
+
     lp_param_analysis(lv, 0, ap,0);
     struct Lp_Params payload_min_lp = best_lp_params;
 
