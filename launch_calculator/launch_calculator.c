@@ -5,7 +5,6 @@
 #include "launch_calculator.h"
 #include "launch_circularization.h"
 
-// double vl = 0;
 
 struct Vessel {
     double F_vac;       // Thrust produced by the engines in a vacuum [N]
@@ -194,7 +193,8 @@ void initiate_launch_campaign(struct LV lv, int calc_params) {
         //printf("Payload max: %g\n", payload_max);
         //lp_param_mass_analysis(lv, 0, payload_max);
     } else {
-        struct Lp_Params lp_params = {.a1 = 36e-6, .a2 = 12e-6, .b2 = 49};
+        //struct Lp_Params lp_params = {.a1 = 36e-6, .a2 = 12e-6, .b2 = 49};    // tester
+        struct Lp_Params lp_params = {.a1 = 20e-6, .a2 = 4e-6, .b2 = 46};      // electron
         lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
         double payload_mass = 0;
         calculate_launch(lv, payload_mass, lp_params, 0);
@@ -212,7 +212,16 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
     double left_over_propellant;
 
     for(int i = 0; i < lv.stage_n; i++) {
-        //printf("STAGE %d:\t\n", i+1);
+        // Separation (not for first stage) - further adjustments for side booster in the future...
+        if(i > 0) {
+            // after engine burnout and before separation
+            init_vessel_next_stage(&vessel, 0, 0, vessel.mass, 0, ASC);
+            flight_data = calculate_stage_flight(&vessel, &flight, 4, lv.stage_n, flight_data);
+            // after separation and before engine ignition
+            init_vessel_next_stage(&vessel, 0, 0, lv.stages[i].m0+payload_mass, 0, ASC);
+            flight_data = calculate_stage_flight(&vessel, &flight, 4, lv.stage_n, flight_data);
+        }
+
         double burn_duration = (lv.stages[i].m0-lv.stages[i].me) / lv.stages[i].burn_rate;
         // Circularization stage, if stage could get approximately to orbit
         enum STATUS status = (vessel.dV+ calculate_dV(lv.stages[i].F_vac, lv.stages[i].m0+payload_mass, lv.stages[i].m0+payload_mass - burn_duration*lv.stages[i].burn_rate, lv.stages[i].burn_rate)) < 7800 ?
@@ -220,7 +229,7 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
         init_vessel_next_stage(&vessel, lv.stages[i].F_sl, lv.stages[i].F_vac, lv.stages[i].m0 + payload_mass, lv.stages[i].burn_rate, status);
         flight_data = calculate_stage_flight(&vessel, &flight, burn_duration, lv.stage_n, flight_data);
         left_over_propellant += vessel.mass - (vessel.m0 - burn_duration*vessel.burn_rate);
-        // vessel.dV += calculate_dV(vessel.F, vessel.m0, vessel.mass, vessel.burn_rate);   // not needed anymore, as calculated during integration
+
     }
 
     //printf("Coast:\t\t");
@@ -245,7 +254,6 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
 
         printf("Payload: %g kg\nLeft-over propellant: %g kg\nPossible Payload: %g kg\n", payload_mass,
                left_over_propellant, payload_mass + left_over_propellant);
-        //printf("Gravity Drag: %g m/s^2\n", vl);
 
     }
 
@@ -273,7 +281,7 @@ double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, in
     v_last = *v;
     f_last = *f;
     store_flight_data(v, f, &flight_data);
-    
+
     //printf("% 3d%%", 0);
 
     for(t = 0; t <= T-step; t += step) {
