@@ -11,10 +11,10 @@ void lp_param_fixed_payload_analysis(struct LV lv, double payload_mass, struct L
     double step_size_a = 2e-6;
     double step_size_b = 2;
 
-    double min_a1 = 20e-6, max_a1 = 55e-6;
+    double min_a1 = 0e-6, max_a1 = 30e-6;
     double size_a1 = (max_a1-min_a1)/step_size_a;
 
-    double min_a2 = 5e-6, max_a2 = 40e-6;
+    double min_a2 = 0e-6, max_a2 = 20e-6;
     double size_a2 = (max_a2-min_a2)/step_size_a;
 
     double min_b = 30, max_b = 70;

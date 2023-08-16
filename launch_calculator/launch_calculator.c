@@ -42,8 +42,8 @@ struct Flight {
     double h;       // altitude above sea level [m]
     double r;       // distance to center of body [m]
     double a;       // semi-major axis of orbit [m]
-    double e;       // eccentricity of orbit
     double s;       // distance travelled downrange [m]
+    double e;       // eccentricity of orbit
     double i;       // inclination during flight
 };
 
@@ -185,14 +185,14 @@ void launch_calculator() {
 
 void initiate_launch_campaign(struct LV lv, int calc_params) {
     if(calc_params) {
-        //double payload_mass = 35000;
-        //struct Lp_Params best_lp_params;
-        //lp_param_fixed_payload_analysis(lv, payload_mass, &best_lp_params);
-        //printf("\n------- a1: %f, a2: %f, b2: %g, h: %g ------- \n\n", best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h);
-        //calculate_launch(lv, payload_mass, best_lp_params, 0);
-        double payload_max = calc_highest_payload_mass(lv);
-        printf("Payload max: %g\n", payload_max);
-        lp_param_mass_analysis(lv, 0, payload_max);
+        double payload_mass = 0;
+        struct Lp_Params best_lp_params;
+        lp_param_fixed_payload_analysis(lv, payload_mass, &best_lp_params);
+        printf("\n------- a1: %f, a2: %f, b2: %g, h: %g ------- \n\n", best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h);
+        calculate_launch(lv, payload_mass, best_lp_params, 0);
+        //double payload_max = calc_highest_payload_mass(lv);
+        //printf("Payload max: %g\n", payload_max);
+        //lp_param_mass_analysis(lv, 0, payload_max);
     } else {
         struct Lp_Params lp_params = {.a1 = 36e-6, .a2 = 12e-6, .b2 = 49};
         lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
@@ -382,7 +382,9 @@ double calc_aerodynamic_drag(double p, double v) {
 
     double rho = p/57411.6;
     double A = 66;
-    return 0.5*rho*A*0.7*pow(v,2);
+    double c_d = 0.7;
+    A = 4;
+    return 0.5*rho*A*c_d*pow(v,2);
 }
 
 double get_thrust(double F_vac, double F_sl, double p) {
