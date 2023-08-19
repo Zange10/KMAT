@@ -10,7 +10,8 @@ struct Stage {
 struct LV {
     char * name;            // name of the launch vehicle
     int stage_n;            // amount of stages of the launch vehicle
-    double payload;         // payload mass [kg]
+    double A;               // biggest cross-section (relevant for drag calculation) [m²]
+    double c_d;             // drag coefficient
     struct Stage * stages;  // the stages of the launch vehicle
 };
 

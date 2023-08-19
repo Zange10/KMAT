@@ -20,7 +20,7 @@ struct Launch_Results {
 };
 
 // return new instance of struct vessel and set relevant parameters
-struct  Vessel init_vessel(struct Lp_Params lp_param);
+struct  Vessel init_vessel(struct Lp_Params lp_param, double A, double c_d);
 // modify vessel with parameters of next stage (F_sl [N], F_vac [N], m0 [kg], me [kg], br [kg/s] and the kind of stage)
 void    init_vessel_next_stage(struct Vessel *vessel, double F_sl, double F_vac, double m0, double br, enum STATUS status);
 // initialize flight
@@ -51,8 +51,8 @@ void    update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f,
 
 // get atmospheric pressure p at height h with the scale height of the parent body
 double  get_atmo_press(double h, double scale_height);
-// calculate acceleration due to aerodynamic drag with given velocity and atmospheric pressure
-double  calc_aerodynamic_drag(double p, double v);
+// calculate acceleration due to aerodynamic drag with given velocity, atmospheric pressure, cross-section and drag coefficient
+double  calc_aerodynamic_drag(double p, double v, double A, double c_d);
 // get thrust at current atmospheric pressure
 double  get_thrust(double F_vac, double F_sl, double p);
 // get vessel's pitch at altitude h

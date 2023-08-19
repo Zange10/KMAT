@@ -74,7 +74,7 @@ void read_LV_from_file(struct LV * lv) {
     scanf("%s", profile_name);
     lv -> name = profile_name;
 
-    char filename[42];  // 30 for the name, 9 for the diractory and 3 for .lv
+    char filename[42];  // 30 for the name, 9 for the directory and 3 for .lv
     sprintf(filename, "Profiles/%s.lv", profile_name);
 
     // -------------------
@@ -83,6 +83,8 @@ void read_LV_from_file(struct LV * lv) {
     file = fopen(filename,"r");
 
 
+    fscanf(file,"A: %lg\n", &lv->A);
+    fscanf(file,"c_d: %lg\n", &lv->c_d);
     fscanf(file,"Stages: %d\n\n", &lv->stage_n);
     lv->stages = (struct Stage*) calloc(lv->stage_n,sizeof(struct Stage));
 
@@ -112,6 +114,8 @@ void get_test_LV(struct LV * lv) {
     file = fopen(filename,"r");
 
 
+    fscanf(file,"A: %lg\n", &lv->A);
+    fscanf(file,"c_d: %lg\n", &lv->c_d);
     fscanf(file,"Stages: %d\n\n", &lv->stage_n);
     lv->stages = (struct Stage*) calloc(lv->stage_n,sizeof(struct Stage));
 
