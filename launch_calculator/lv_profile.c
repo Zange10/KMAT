@@ -11,7 +11,7 @@ struct LV init_LV(char * name, int amt_of_stages, struct Stage *stages) {
     return new_lv;
 }
 
-void create_new_Profile() {
+void write_temp_LV_file() {
     char name[30];
     int amt_of_stages;
 
@@ -21,28 +21,8 @@ void create_new_Profile() {
     printf("Number of Stages: ");
     scanf("%d", &amt_of_stages);
 
-    struct Stage stages[amt_of_stages];
-
-    for(int i = 0; i < amt_of_stages; i++) {
-        printf("Stage %d:\n", i+1);
-        printf("F_vac: ");
-        scanf("%lg", &stages[i].F_vac);
-        printf("F_sl: ");
-        scanf("%lg", &stages[i].F_sl);
-        printf("m0: ");
-        scanf("%lg", &stages[i].m0);
-        printf("me: ");
-        scanf("%lg", &stages[i].me);
-        printf("burn rate: ");
-        scanf("%lg", &stages[i].burn_rate);
-    }
-    struct LV lv = init_LV(name, amt_of_stages, stages);
-    write_LV_to_file(lv);
-}
-
-void write_LV_to_file(struct LV lv) {
-    char filename[42];  // 30 for the name, 9 for the diractory and 3 for .lv
-    sprintf(filename, "./Profiles/%s.lv", lv.name);
+    char filename[42];  // 30 for the name, 9 for the directory and 3 for .lv
+    sprintf(filename, "./Profiles/%s.lv", name);
 
     // -------------------
     printf("%s\n", filename);
@@ -54,15 +34,17 @@ void write_LV_to_file(struct LV lv) {
         return;
     }
 
-    fprintf(file,"Stages: %d\n", lv.stage_n);
+    fprintf(file,"A: 1\n");
+    fprintf(file,"c_d: 0.7\n", amt_of_stages);
+    fprintf(file,"Stages: %d\n", amt_of_stages);
 
-    for(int i = 0; i < lv.stage_n; i++) {
+    for(int i = 0; i < amt_of_stages; i++) {
         fprintf(file,"\nStage: %d:\n", i+1);
-        fprintf(file,"\tF_vac: %g\n", lv.stages[i].F_vac);
-        fprintf(file,"\tF_sl: %g\n", lv.stages[i].F_sl);
-        fprintf(file,"\tm0: %g\n", lv.stages[i].m0);
-        fprintf(file,"\tme: %g\n", lv.stages[i].me);
-        fprintf(file,"\tburn rate: %g", lv.stages[i].burn_rate);
+        fprintf(file,"\tF_vac: 1000\n");
+        fprintf(file,"\tF_sl: 1000\n");
+        fprintf(file,"\tm0: 1000\n");
+        fprintf(file,"\tme: 50\n");
+        fprintf(file,"\tburn rate: 10");
     }
 
     fclose(file);

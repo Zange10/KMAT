@@ -17,10 +17,8 @@ struct LV {
 
 // initialize launch vehicle with its stages (without payload mass)
 struct  LV init_LV(char * name, int amt_of_stages, struct Stage *stages);
-// user creates new LV-profile by being asked the parameters
-void    create_new_Profile();
-// write LV parameters to file
-void    write_LV_to_file(struct LV lv);
+// write temporary parameters of LV to file which will be manually changed by user
+void    write_temp_LV_file();
 // read LV parameters from file
 void    read_LV_from_file(struct LV * lv);
 // read LV parameters from file for Test.lv

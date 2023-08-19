@@ -154,8 +154,7 @@ void calc_launch_azimuth(struct Body *body) {
 void launch_calculator() {
     struct LV lv;
 
-    int selection = 0;
-    char name[30] = "Test";
+    int selection;
     char title[] = "LAUNCH CALCULATOR:";
     char options[] = "Go Back; Calculate; Choose Profile; Create new Profile; Testing; Launch Profile Adjustments; Calculate Launch Azimuth";
     char question[] = "Program: ";
@@ -170,7 +169,7 @@ void launch_calculator() {
                 read_LV_from_file(&lv);
                 break;
             case 3:
-                create_new_Profile();
+                write_temp_LV_file();
                 break;
             case 4:
                 get_test_LV(&lv);
@@ -189,7 +188,7 @@ void launch_calculator() {
 
 void initiate_launch_campaign(struct LV lv, int calc_params) {
     if(calc_params) {
-        if(1) {
+        if(0) {
             double payload_mass = 310;
             struct Lp_Params best_lp_params;
             lp_param_fixed_payload_analysis(lv, payload_mass, &best_lp_params);
@@ -198,7 +197,7 @@ void initiate_launch_campaign(struct LV lv, int calc_params) {
         } else {
             //double payload_max = calc_highest_payload_mass(lv);
             //printf("Payload max: %g\n", payload_max);
-            lp_param_mass_analysis(lv, 0, 50);
+            lp_param_mass_analysis(lv, 0, 20);
         }
     } else {
         //struct Lp_Params lp_params = {.a1 = 36e-6, .a2 = 12e-6, .b2 = 49};    // tester
