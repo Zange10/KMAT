@@ -42,7 +42,6 @@ struct Flight {
     double h;       // altitude above sea level [m]
     double r;       // distance to center of body [m]
     double a;       // semi-major axis of orbit [m]
-    double s;       // distance travelled downrange [m]
     double e;       // eccentricity of orbit
     double i;       // inclination during flight [°]
 };
@@ -83,7 +82,6 @@ struct Flight init_flight(struct Body *body, double latitude) {
     new_flight.v = 0;
     new_flight.h = 0;
     new_flight.r = new_flight.h + new_flight.body->radius;
-    new_flight.s = 0;
     return new_flight;
 }
 
@@ -120,7 +118,6 @@ void print_flight_info(struct Flight *f) {
     printf("Radius:\t\t\t%g km\n", f -> r/1000);
     printf("Apoapsis:\t\t%g km\n", calc_apoapsis(*f) / 1000);
     printf("Periapsis:\t\t%g km\n", calc_periapsis(*f) / 1000);
-    printf("Distance Downrange\t%g km\n", f -> s/1000);
     printf("______________________\n\n");
 }
 
@@ -260,6 +257,13 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
         printf("Elapsed time: %f seconds\n", elapsed_time);
         printf("Elapsed time: %f ms\n", elapsed_time*1000);
 
+
+        print_vessel_info(&vessel);
+        print_flight_info(&flight);
+
+        printf("Payload: %g kg\nLeft-over delta-V: %g m/s\nLeft-over propellant: %g kg\nPossible Payload: %g kg\n",
+               payload_mass, left_over_dv, left_over_propellant, payload_mass + left_over_propellant);
+
         char pcsv;
         printf("Write data to .csv (y/Y=yes)? ");
         scanf(" %c", &pcsv);
@@ -267,13 +271,6 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
             char flight_data_fields[] = "Time,Thrust,Mass,Pitch,AtmoPress,Drag,HorizontalV,VerticalV,OrbitalV,HorizontalSurfV,SurfaceV,Altitude,Semi-MajorAxis,Eccentricity";
             write_csv(flight_data_fields, flight_data);
         }
-
-
-        print_vessel_info(&vessel);
-        print_flight_info(&flight);
-
-        printf("Payload: %g kg\nLeft-over delta-V: %g m/s\nLeft-over propellant: %g kg\nPossible Payload: %g kg\n",
-               payload_mass, left_over_dv, left_over_propellant, payload_mass + left_over_propellant);
 
     }
 
@@ -366,7 +363,6 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
     f -> v_s  = calc_velocity(f->vh_s, f->vv);
     f -> h   += integrate(f->vv,last_f->vv,step);    // integrate vertical speed
     f -> r    = f->h + f->body->radius;
-    f -> s   += integrate(f->vh_s, last_f->vh_s, step);
     // change of frame of reference (vv already changed due to centrifugal force in av calc)
     f -> vh   = calc_change_of_reference_frame(f, last_f, step);
 }
@@ -384,7 +380,7 @@ void update_vessel(struct Vessel *v, double t, double p) {
 
 
 double get_atmo_press(double h, double scale_height) {
-    if(h<140e3) return 101325*exp(-(1.2/scale_height) * h);
+    if(h<140e3) return 101325*exp(-h/scale_height);
     else return 0;
 }
 
