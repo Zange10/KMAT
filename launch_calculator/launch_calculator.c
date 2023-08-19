@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <sys/time.h>
 
 #include "launch_calculator.h"
 #include "launch_circularization.h"
@@ -32,8 +33,6 @@ struct Flight {
     double ad;      // acceleration due to aerodynamic drag [m/s²]
     double ah;      // current horizontal acceleration due to thrust and with drag [m/s²]
     double g;       // gravitational acceleration [m/s²]
-    double ac;      // negative centripetal force due to horizontal speed [m/s²]
-    double ab;      // gravitational a subtracted by centrifugal a [m/s²]
     double av;      // current vertical acceleration due to Thrust, pitch, gravity and velocity [m/s²]
     double vh_s;    // horizontal surface speed [m/s]
     double vh;      // horizontal orbital speed [m/s]
@@ -45,7 +44,7 @@ struct Flight {
     double a;       // semi-major axis of orbit [m]
     double s;       // distance travelled downrange [m]
     double e;       // eccentricity of orbit
-    double i;       // inclination during flight
+    double i;       // inclination during flight [°]
 };
 
 struct Vessel init_vessel(struct Lp_Params lp_param, double A, double c_d) {
@@ -116,8 +115,6 @@ void print_flight_info(struct Flight *f) {
     printf("Drag:\t\t\t%g N\n", f -> D);
     printf("Drag a:\t\t\t%g m/s²\n", f -> ad);
     printf("Gravity:\t\t%g m/s²\n", f -> g);
-    printf("Centrifugal a:\t\t%g m/s²\n", f -> ac);
-    printf("Balanced a:\t\t%g m/s²\n", f -> ab);
     printf("Vertical a:\t\t%g m/s²\n", f -> av);
     printf("Horizontal a:\t\t%g m/s²\n", f -> ah);
     printf("Radius:\t\t\t%g km\n", f -> r/1000);
@@ -173,7 +170,6 @@ void launch_calculator() {
                 break;
             case 4:
                 get_test_LV(&lv);
-                printf("%g %g\n", lv.A, lv.c_d);
                 initiate_launch_campaign(lv, 0);
                 break;
             case 5:
@@ -209,6 +205,10 @@ void initiate_launch_campaign(struct LV lv, int calc_params) {
 }
 
 struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct Lp_Params lp_param, int calc_params) {
+    struct timeval start_time, end_time;
+    double elapsed_time;
+    gettimeofday(&start_time, NULL);
+
     struct Vessel vessel = init_vessel(lp_param, lv.A, lv.c_d);
     struct Body *earth = EARTH();
     // struct Flight flight = init_flight(earth, 28.6); // KSC
@@ -222,7 +222,7 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
 
     for(int i = 0; i < lv.stage_n; i++) {
         // Separation (not for first stage) - further adjustments for side booster in the future...
-        //printf("Stage %d:\t\t", i+1);
+        printf("Stage %d:\n", i+1);
         if(i > 0) {
             // after engine burnout and before separation
             init_vessel_next_stage(&vessel, 0, 0, vessel.mass, 0, ASC);
@@ -242,19 +242,29 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
         left_over_dv = calculate_dV(vessel.F_vac, vessel.mass, vessel.m0 - burn_duration*vessel.burn_rate, vessel.burn_rate);
     }
 
-
     if(!calc_params) {
-        //printf("Coast:\t\t");
+        printf("Coast:\n");
         init_vessel_next_stage(&vessel, 0, 0, vessel.mass, 0, COAST);
-        double temp = flight.vv/flight.ab + sqrt( pow(flight.vv/flight.ab,2) + 2*(flight.h-80e3)/flight.ab);
-        double duration = ( temp > 0 && calc_periapsis(flight) < 150000) ? temp : 300;
+        double ab = flight.g = pow(flight.vh, 2) / flight.r;
+        double temp = flight.vv/ab + sqrt( pow(flight.vv/ab,2) + 2*(flight.h-50e3)/ab);
+        double duration = ( temp > 0 && calc_periapsis(flight) < 100e3) ? temp : 600;
         flight_data = calculate_stage_flight(&vessel, &flight, duration, lv.stage_n, flight_data);
+
+
+        gettimeofday(&end_time, NULL);
+
+        // Calculate the elapsed time in seconds
+        elapsed_time = (end_time.tv_sec - start_time.tv_sec) +
+                       (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
+
+        printf("Elapsed time: %f seconds\n", elapsed_time);
+        printf("Elapsed time: %f ms\n", elapsed_time*1000);
 
         char pcsv;
         printf("Write data to .csv (y/Y=yes)? ");
         scanf(" %c", &pcsv);
         if (pcsv == 'y' || pcsv == 'Y') {
-            char flight_data_fields[] = "Time,Thrust,Mass,Pitch,VessAcceleration,AtmoPress,Drag,DragA,HorizontalA,Gravity,CentrifugalA,BalancedA,VerticalA,HorizontalV,VerticalV,Velocity,Altitude,Semi-MajorAxis,Eccentricity";
+            char flight_data_fields[] = "Time,Thrust,Mass,Pitch,AtmoPress,Drag,HorizontalV,VerticalV,OrbitalV,HorizontalSurfV,SurfaceV,Altitude,Semi-MajorAxis,Eccentricity";
             write_csv(flight_data_fields, flight_data);
         }
 
@@ -282,7 +292,7 @@ double calculate_dV(double F, double m0, double mf, double burn_rate) {
 
 double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data) {
     double t;
-    double step = 1e-2;
+    double step = 5e-5;
 
     struct Vessel v_last;
     struct Flight f_last;
@@ -323,17 +333,15 @@ double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, in
 
 void start_stage(struct Vessel *v, struct Flight *f) {
     f -> p   = get_atmo_press(f->h, f->body->scale_height);
-    update_vessel(v, 0, f->p, f->h);
+    update_vessel(v, 0, f->p);
     f -> r   = f->h + f->body->radius;
     f -> v   = calc_velocity(f->vh,f->vv);
     f -> v_s = calc_velocity(f->vh_s, f->vv);
     f -> D   = calc_aerodynamic_drag(f->p, f->v_s, v->A, v->c_d);
     f -> ad  = f->D/v->mass;
     f -> ah  = calc_horizontal_acceleration(v->ah, f->ad, f->vh_s, f->v_s);
-    f -> ac  = calc_centrifugal_acceleration(f);
     f -> g   = calc_grav_acceleration(f);
-    f -> ab  = calc_balanced_acceleration(f->g, f->ac);
-    f -> av  = calc_vertical_acceleration(v->av, f->ab, f->ad, f->vv, f->v_s);
+    f -> av  = calc_vertical_acceleration(v->av, *f);
     f -> a = calc_semi_major_axis(*f);
     f -> e = calc_eccentricity(*f);
 }
@@ -344,30 +352,27 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
     f -> t   += step;
     f -> p    = get_atmo_press(f->h, f->body->scale_height);
     v -> pitch = get_pitch(*v, *f);
-    update_vessel(v, t, f->p, f->h);
+    update_vessel(v, t, f->p);
     v -> dV  += integrate(v->a, last_v->a, step);
     f -> D    = calc_aerodynamic_drag(f->p, f->v_s, v->A, v->c_d);
     f -> ad   = f->D/v->mass;
     f -> ah   = calc_horizontal_acceleration(v->ah, f->ad, f->vh_s, f->v_s);
     f -> vh  += integrate(f->ah,last_f->ah,step);    // integrate horizontal acceleration
     f -> vh_s+= integrate(f->ah,last_f->ah,step);    // integrate horizontal acceleration
-    f -> ac   = calc_centrifugal_acceleration(f);
     f -> g    = calc_grav_acceleration(f);
-    f -> ab   = calc_balanced_acceleration(f->g, f->ac);
-    f -> av   = calc_vertical_acceleration(v->av, f->ab, f->ad, f->vv, f->v_s);
+    f -> av   = calc_vertical_acceleration(v->av, *f);
     f -> vv  += integrate(f->av,last_f->av,step);    // integrate vertical acceleration
     f -> v    = calc_velocity(f->vh,f->vv);
     f -> v_s  = calc_velocity(f->vh_s, f->vv);
-    double theta = atan(integrate(f->vh, last_f->vh, step)/f->r);
     f -> h   += integrate(f->vv,last_f->vv,step);    // integrate vertical speed
     f -> r    = f->h + f->body->radius;
     f -> s   += integrate(f->vh_s, last_f->vh_s, step);
-    // change of frame of reference (vv already changed due to ab)
+    // change of frame of reference (vv already changed due to centrifugal force in av calc)
     f -> vh   = calc_change_of_reference_frame(f, last_f, step);
 }
 
 
-void update_vessel(struct Vessel *v, double t, double p, double h) {
+void update_vessel(struct Vessel *v, double t, double p) {
     v -> F = get_thrust(v->F_vac, v->F_sl, p);
     v -> mass = v->m0 - v->burn_rate*t;     // m(t) = m0 - br*t
     v -> a  = v->F / v->mass;       // a = F/m
@@ -410,29 +415,19 @@ double get_pitch(struct Vessel v, struct Flight f) {
 }
 
 
-
-double calc_centrifugal_acceleration(struct Flight *f) {
-    return pow(f->vh, 2) / f->r;
-}
-
 double calc_grav_acceleration(struct Flight *f) {
     return f->body->mu / pow(f->r,2);
 }
 
-double calc_balanced_acceleration(double g, double centri_a) {
-    return g - centri_a;
+double calc_vertical_acceleration(double a_vertical_thrust, struct Flight f) {
+    double a_centrifugal = pow(f.vh, 2) / f.r;     // centrifugal acceleration
+    double a_vertical_drag = f.v_s != 0 ? f.ad*(f.vv/f.v_s) : 0;
+    return a_vertical_thrust - (f.g - a_centrifugal) - a_vertical_drag;
 }
 
-double calc_vertical_acceleration(double vertical_a_thrust, double balanced_a, double drag_a, double vert_speed, double v) {
-    double vertical_drag_a = 0;
-    if(v!=0) vertical_drag_a = drag_a*(vert_speed/v);
-    return vertical_a_thrust - balanced_a - vertical_drag_a;
-}
-
-double calc_horizontal_acceleration(double horizontal_a_thrust, double drag_a,  double hor_speed, double v) {
-    double horizontal_drag_a = 0;
-    if(v!=0) horizontal_drag_a = drag_a*(hor_speed/v);
-    return horizontal_a_thrust - horizontal_drag_a;
+double calc_horizontal_acceleration(double a_horizontal_thrust, double a_drag, double vh_s, double v_s) {
+    double a_horizontal_drag = v_s != 0 ? a_drag*(vh_s/v_s) : 0;
+    return a_horizontal_thrust - a_horizontal_drag;
 }
 
 double calc_velocity(double vh, double vv) {
@@ -499,27 +494,22 @@ double rad_to_deg(double rad) {
 
 void store_flight_data(struct Vessel *v, struct Flight *f, double **data) {
     int initial_length = (int)*data[0];
-    int n_param = 19;   // number of saved parameters
+    int n_param = 14;   // number of saved parameters
     data[0] = (double*) realloc(*data, (initial_length+n_param)*sizeof(double));
     data[0][initial_length+0] = f->t;
     data[0][initial_length+1] = v->F;
     data[0][initial_length+2] = v->mass;
     data[0][initial_length+3] = v->pitch;
-    data[0][initial_length+4] = v->a;
-    data[0][initial_length+5] = f->p;
-    data[0][initial_length+6] = f->D;
-    data[0][initial_length+7] = f->ad;
-    data[0][initial_length+8] = f->ah;
-    data[0][initial_length+9] = f->g;
-    data[0][initial_length+10]= f->ac;
-    data[0][initial_length+11]= f->ab;
-    data[0][initial_length+12]= f->av;
-    data[0][initial_length+13]= f->vh;
-    data[0][initial_length+14]= f->vv;
-    data[0][initial_length+15]= f->v_s;
-    data[0][initial_length+16]= f->h;
-    data[0][initial_length+17]= f->a;
-    data[0][initial_length+18]= f->e;
+    data[0][initial_length+4] = f->p;
+    data[0][initial_length+5] = f->D;
+    data[0][initial_length+6]= f->vh;
+    data[0][initial_length+7]= f->vv;
+    data[0][initial_length+8]= f->v;
+    data[0][initial_length+9]= f->vh_s;
+    data[0][initial_length+10]= f->v_s;
+    data[0][initial_length+11]= f->h;
+    data[0][initial_length+12]= f->a;
+    data[0][initial_length+13]= f->e;
     data[0][0] += n_param;
     return;
 }

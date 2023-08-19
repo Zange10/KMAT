@@ -45,7 +45,7 @@ double* calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int
 // set starting parameters for flight
 void    start_stage(struct Vessel *v, struct Flight *f);
 // update parameters of vessel for the point in time t of the flight
-void    update_vessel(struct Vessel *v, double t, double p, double h);
+void    update_vessel(struct Vessel *v, double t, double p);
 // update parameters of the flight for the point in time t of the flight
 void    update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, struct Flight *last_f, double t, double step);
 
@@ -58,16 +58,12 @@ double  get_thrust(double F_vac, double F_sl, double p);
 // get vessel's pitch at altitude h
 double  get_pitch(struct Vessel v, struct Flight f);
 
-// calculate centrifugal acceleration due to the vessel's horizontal speed
-double  calc_centrifugal_acceleration(struct Flight *f);
 // calculate gravitational acceleration at a given distance to the center of the body
 double  calc_grav_acceleration(struct Flight *f);
-// calculate acceleration towards body with vessel's thrust, pitch and drag
-double  calc_vertical_acceleration(double vertical_a_thrust, double balanced_a, double drag_a, double vert_speed, double v);
-// calculate acceleration towards body without the vessel's thrust (g-ac)
-double  calc_balanced_acceleration(double g, double centri_a);
-// calculate horizontal acceleration with vessel's thrust, pitch and drag
-double  calc_horizontal_acceleration(double horizontal_a_thrust, double drag_a,  double hor_speed, double v);
+// calculate acceleration towards body with vessel's thrust, drag and flight path angle
+double  calc_vertical_acceleration(double vertical_a_thrust, struct Flight f);
+// calculate horizontal acceleration with vessel's thrust, drag and flight path angle
+double  calc_horizontal_acceleration(double a_horizontal_thrust, double a_drag, double vh_s, double v_s);
 // calculate overall velocity with given vertical and horizontal speed (pythagoras)
 double  calc_velocity(double vh, double vv);
 
