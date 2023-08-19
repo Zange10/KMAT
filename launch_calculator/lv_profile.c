@@ -39,7 +39,7 @@ void write_temp_LV_file() {
     fprintf(file,"Stages: %d\n", amt_of_stages);
 
     for(int i = 0; i < amt_of_stages; i++) {
-        fprintf(file,"\nStage: %d:\n", i+1);
+        fprintf(file,"\nStage %d:\n", i+1);
         fprintf(file,"\tF_vac: 1000\n");
         fprintf(file,"\tF_sl: 1000\n");
         fprintf(file,"\tm0: 1000\n");
@@ -72,7 +72,7 @@ void read_LV_from_file(struct LV * lv) {
 
     for(int i = 0; i < lv->stage_n; i++) {
         int temp;
-        fscanf(file,"Stage: %d:\n", &temp);
+        fscanf(file,"Stage %d:\n", &temp);
         fscanf(file,"\tF_vac: %lg\n", &lv->stages[i].F_vac);
         fscanf(file,"\tF_sl: %lg\n", &lv->stages[i].F_sl);
         fscanf(file,"\tm0: %lg\n", &lv->stages[i].m0);
@@ -103,7 +103,7 @@ void get_test_LV(struct LV * lv) {
 
     for(int i = 0; i < lv->stage_n; i++) {
         int temp;
-        fscanf(file,"Stage: %d:\n", &temp);
+        fscanf(file,"Stage %d:\n", &temp);
         fscanf(file,"\tF_vac: %lg\n", &lv->stages[i].F_vac);
         fscanf(file,"\tF_sl: %lg\n", &lv->stages[i].F_sl);
         fscanf(file,"\tm0: %lg\n", &lv->stages[i].m0);
