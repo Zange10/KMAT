@@ -8,7 +8,7 @@
 struct Lp_Params best_lp_params = {.a1 = 0.00003, .a2 = 0.000004, .b2 = 40, .h = 0};
 
 struct Launch_Results best_results;
-double min_pe = 170e3;
+double min_pe = 180e3;
 
 struct Thread_Args {
     double payload_mass;
@@ -36,16 +36,16 @@ void lp_param_fixed_payload_analysis(struct LV lv, double payload_mass, struct L
     double elapsed_time;
     gettimeofday(&start, NULL);  // Record the starting time
 
-    double step_size_a = 2e-6;
+    double step_size_a = 1e-6;
     double step_size_b = 1;
 
-    double min_a1 = 25e-6, max_a1 = 60e-6;
+    double min_a1 = 25e-6, max_a1 = 45e-6;
     double size_a1 = (max_a1-min_a1)/step_size_a;
 
-    double min_a2 = 0e-6, max_a2 = 20e-6;
+    double min_a2 = 3e-6, max_a2 = 12e-6;
     double size_a2 = (max_a2-min_a2)/step_size_a;
 
-    double min_b = 20, max_b = 70;
+    double min_b = 40, max_b = 70;
     double size_b = (max_b-min_b)/step_size_b;
 
     struct Lp_Params lp_params;
@@ -54,7 +54,7 @@ void lp_param_fixed_payload_analysis(struct LV lv, double payload_mass, struct L
     all_results[0] = (int)(size_a1*size_a2*size_b)*6+1;
     best_results.dv = 10000;
 
-    printf("Analyzing %g launches:\n\n", (all_results[0]-1)/6);
+    printf("\n_________________________________\nAnalyzing %g launches:\n\n", (all_results[0]-1)/6);
 
     pthread_t threads[(int)size_b];
     struct Thread_Args thread_args[(int)size_b];
@@ -191,9 +191,6 @@ void lp_param_analysis(struct LV lv, double payload_mass, struct Analysis_Params
             if(orbit_test_only && best_results.dv < 10000) return;
         }
     }
-
-    printf("------- payload: %g, a1: %f, a2: %f, b2: %g, h: %.02f, dv: %.02f, pe: %.02f ------- \n",
-           payload_mass, best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h, best_results.dv, best_results.pe/1000);
 }
 
 double calc_highest_payload_mass(struct LV lv) {
@@ -212,12 +209,12 @@ double calc_highest_payload_mass(struct LV lv) {
     };*/
 
     struct Analysis_Params ap = {
-            .min_a1 = 20e-6,
-            .max_a1 = 50e-6,
-            .min_a2 =  0e-6,
-            .max_a2 = 10e-6,
-            .min_b  = 30,
-            .max_b  = 70,
+            .min_a1 = 25e-6,
+            .max_a1 = 45e-6,
+            .min_a2 =  5e-6,
+            .max_a2 = 12e-6,
+            .min_b  = 40,
+            .max_b  = 75,
             .step_size_a = 2e-6,
             .step_size_b = 2
     };
@@ -264,14 +261,14 @@ void lp_param_mass_analysis(struct LV lv, double payload_min, double payload_max
     };*/
 
     struct Analysis_Params ap = {
-            .min_a1 = 15e-6,
-            .max_a1 = 29e-6,
-            .min_a2 =  0e-6,
-            .max_a2 = 10e-6,
-            .min_b  = 30,
-            .max_b  = 70,
-            .step_size_a = 2e-6,
-            .step_size_b = 2
+            .min_a1 = 25e-6,
+            .max_a1 = 36e-6,
+            .min_a2 =  5e-6,
+            .max_a2 = 12e-6,
+            .min_b  = 50,
+            .max_b  = 75,
+            .step_size_a = 1e-6,
+            .step_size_b = 1
     };
 
     lp_param_analysis(lv, 0, ap,0);
@@ -303,10 +300,10 @@ void lp_param_mass_analysis(struct LV lv, double payload_min, double payload_max
     }
 
     ap.step_size_a = 0.5e-6;
-    ap.step_size_b = 0.5;
+    ap.step_size_b = 1;
 
-    double all_results[(int)((payload_max-payload_min)/payload_step+1)*7+1];
-    all_results[0] = ((payload_max-payload_min)/payload_step+1)*7+1;
+    double all_results[(int)((payload_max-payload_min)/payload_step+1)*8+1];
+    all_results[0] = ((payload_max-payload_min)/payload_step+1)*8+1;
 
     double payload_mass;
 
@@ -315,7 +312,7 @@ void lp_param_mass_analysis(struct LV lv, double payload_min, double payload_max
 
         lp_param_analysis(lv, payload_mass, ap,0);
 
-        int index = (int)(i*7+1);
+        int index = (int)(i*8+1);
         all_results[index+0] = payload_mass;
         all_results[index+1] = best_lp_params.a1;
         all_results[index+2] = best_lp_params.a2;
@@ -323,8 +320,13 @@ void lp_param_mass_analysis(struct LV lv, double payload_min, double payload_max
         all_results[index+4] = best_lp_params.h;
         all_results[index+5] = best_results.dv;
         all_results[index+6] = best_results.pe;
+        double ve = lv.stages[lv.stage_n-1].F_vac/lv.stages[lv.stage_n-1].burn_rate;
+        double m0 = lv.stages[lv.stage_n-1].me+best_results.rf + payload_mass;
+        double mf = lv.stages[lv.stage_n-1].me + payload_mass;
+        double rem_dv = ve * log(m0/mf);
+        all_results[index+7] = rem_dv;
     }
 
-    char flight_data_fields[] = "pm,a1,a2,b2,h,dv,pe";
+    char flight_data_fields[] = "pm,a1,a2,b2,h,dv,pe,rem_dv";
     write_csv(flight_data_fields, all_results);
 }

@@ -79,7 +79,7 @@ struct Flight init_flight(struct Body *body, double latitude) {
     new_flight.vh = vh_at_equator*cos(deg_to_rad(latitude));
     new_flight.vv = 0;
     new_flight.v_s = 0;
-    new_flight.v = 0;
+    new_flight.v = calc_velocity(new_flight.vv, new_flight.vh);
     new_flight.h = 0;
     new_flight.r = new_flight.h + new_flight.body->radius;
     return new_flight;
@@ -181,22 +181,27 @@ void launch_calculator() {
 
 void initiate_launch_campaign(struct LV lv, int calc_params) {
     if(calc_params) {
-        if(0) {
-            double payload_mass = 310;
+        if(1) {
+            double payload_mass = 50;
             struct Lp_Params best_lp_params;
             lp_param_fixed_payload_analysis(lv, payload_mass, &best_lp_params);
             printf("\n------- a1: %f, a2: %f, b2: %g, h: %g ------- \n\n", best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h);
             calculate_launch(lv, payload_mass, best_lp_params, 0);
         } else {
-            //double payload_max = calc_highest_payload_mass(lv);
-            //printf("Payload max: %g\n", payload_max);
-            lp_param_mass_analysis(lv, 0, 20);
+            double payload_max = calc_highest_payload_mass(lv);
+            printf("Payload max: %g\n", payload_max);
+            lp_param_mass_analysis(lv, 285, payload_max);
+            lp_param_mass_analysis(lv, 50, 280);
+            lp_param_mass_analysis(lv, 10, 50);
+            lp_param_mass_analysis(lv, 0, 10);
         }
     } else {
         //struct Lp_Params lp_params = {.a1 = 36e-6, .a2 = 12e-6, .b2 = 49};    // tester
-        struct Lp_Params lp_params = {.a1 = 37e-6, .a2 = 6e-6, .b2 = 64};      // electron
-        lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
-        double payload_mass = 0;
+        struct Lp_Params lp_params = {.a1 = 30e-6, .a2 = 6e-6, .b2 = 58};      // electron
+        //struct Lp_Params lp_params = {.a1 = 0e-6, .a2 = 0e-6, .b2 = 90};      // sounding
+        if(1) lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
+        else lp_params.h = 1e9;
+        double payload_mass = 300;
         calculate_launch(lv, payload_mass, lp_params, 0);
     }
 }
@@ -210,16 +215,16 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
     struct Body *earth = EARTH();
     // struct Flight flight = init_flight(earth, 28.6); // KSC
     struct Flight flight = init_flight(earth, 39.26); // Mahia
+    //struct Flight flight = init_flight(earth, 90); // Pole
 
     double *flight_data = (double*) calloc(1, sizeof(double));
     flight_data[0] = 1;    // amount of data points
 
     double left_over_propellant;
     double left_over_dv;
-
     for(int i = 0; i < lv.stage_n; i++) {
         // Separation (not for first stage) - further adjustments for side booster in the future...
-        printf("Stage %d:\n", i+1);
+        // printf("Stage %d:\n", i+1);
         if(i > 0) {
             // after engine burnout and before separation
             init_vessel_next_stage(&vessel, 0, 0, vessel.mass, 0, ASC);
@@ -232,7 +237,7 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
         double burn_duration = (lv.stages[i].m0-lv.stages[i].me) / lv.stages[i].burn_rate;
         // Circularization stage, if stage could get approximately to orbit
         enum STATUS status = (vessel.dV+ calculate_dV(lv.stages[i].F_vac, lv.stages[i].m0+payload_mass, lv.stages[i].m0+payload_mass - burn_duration*lv.stages[i].burn_rate, lv.stages[i].burn_rate)) < 7800 ?
-                ASC : CIRC;
+                             ASC : CIRC;
         init_vessel_next_stage(&vessel, lv.stages[i].F_sl, lv.stages[i].F_vac, lv.stages[i].m0 + payload_mass, lv.stages[i].burn_rate, status);
         flight_data = calculate_stage_flight(&vessel, &flight, burn_duration, lv.stage_n, flight_data);
         left_over_propellant = vessel.mass - (vessel.m0 - burn_duration*vessel.burn_rate);
@@ -240,9 +245,9 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
     }
 
     if(!calc_params) {
-        printf("Coast:\n");
+        //printf("Coast:\n");
         init_vessel_next_stage(&vessel, 0, 0, vessel.mass, 0, COAST);
-        double ab = flight.g = pow(flight.vh, 2) / flight.r;
+        double ab = flight.g - pow(flight.vh, 2) / flight.r;
         double temp = flight.vv/ab + sqrt( pow(flight.vv/ab,2) + 2*(flight.h-50e3)/ab);
         double duration = ( temp > 0 && calc_periapsis(flight) < 100e3) ? temp : 600;
         flight_data = calculate_stage_flight(&vessel, &flight, duration, lv.stage_n, flight_data);
@@ -289,7 +294,7 @@ double calculate_dV(double F, double m0, double mf, double burn_rate) {
 
 double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, int number_of_stages, double *flight_data) {
     double t;
-    double step = 5e-5;
+    double step = 1e-2;
 
     struct Vessel v_last;
     struct Flight f_last;
@@ -305,7 +310,7 @@ double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, in
         update_flight(v,&v_last, f, &f_last, t, step);
         f -> a = calc_semi_major_axis(*f);
         f -> e = calc_eccentricity(*f);
-        if(v->status == CIRC && f->e > f_last.e) T = t;
+        //if(v->status == CIRC && f->e > f_last.e) T = t;
         double x = remainder(t,(T/(888/number_of_stages+1)));   // only store 890 (888 in this loop) data points overall
         if(x < step && x >=0) {
             store_flight_data(v, f, &flight_data);
@@ -339,8 +344,8 @@ void start_stage(struct Vessel *v, struct Flight *f) {
     f -> ah  = calc_horizontal_acceleration(v->ah, f->ad, f->vh_s, f->v_s);
     f -> g   = calc_grav_acceleration(f);
     f -> av  = calc_vertical_acceleration(v->av, *f);
-    f -> a = calc_semi_major_axis(*f);
-    f -> e = calc_eccentricity(*f);
+    f -> a   = calc_semi_major_axis(*f);
+    f -> e   = calc_eccentricity(*f);
 }
 
 
@@ -364,7 +369,7 @@ void update_flight(struct Vessel *v, struct Vessel *last_v, struct Flight *f, st
     f -> h   += integrate(f->vv,last_f->vv,step);    // integrate vertical speed
     f -> r    = f->h + f->body->radius;
     // change of frame of reference (vv already changed due to centrifugal force in av calc)
-    f -> vh   = calc_change_of_reference_frame(f, last_f, step);
+    calc_change_of_reference_frame(f, last_f, step);
 }
 
 
@@ -412,6 +417,7 @@ double get_pitch(struct Vessel v, struct Flight f) {
 
 
 double calc_grav_acceleration(struct Flight *f) {
+    //return 9.81;
     return f->body->mu / pow(f->r,2);
 }
 
@@ -430,23 +436,11 @@ double calc_velocity(double vh, double vv) {
     return sqrt(vv*vv+vh*vh);
 }
 
-struct Vector {
-    double x;
-    double y;
-};
-
-double vector_magnitude(struct Vector v) {
-    return sqrt(v.x*v.x + v.y*v.y);
-}
-
-double cross_product(struct Vector v1, struct Vector v2) {
-    return v1.x*v2.y - v1.y*v2.x;
-}
-
 // calculates new horizontal speed in new frame of reference (vertical speed not needed to be recalculated, as flat earth is assumed)
-double calc_change_of_reference_frame(struct Flight *f, struct Flight *last_f, double step) {
+void calc_change_of_reference_frame(struct Flight *f, struct Flight *last_f, double step) {
     double dx = integrate(f->vh, last_f->vh, step);
-    return -(1/f->r)*(dx*f->vv-sqrt(pow(f->r,2)-dx*dx)*f->vh);
+    f->vh = fabs((1/f->r-dx*dx))*(dx*f->vv-sqrt(pow(f->r,2)*f->vh));
+    f->vh_s = fabs((1/f->r-dx*dx))*(dx*f->vv-sqrt(pow(f->r,2)*f->vh_s));
 }
 
 double calc_semi_major_axis(struct Flight f) {
@@ -454,14 +448,8 @@ double calc_semi_major_axis(struct Flight f) {
 }
 
 double calc_eccentricity(struct Flight f) {
-    struct Vector r  = {0,f.r};         // current position of vessel
-    struct Vector v  = {f.vh, f.vv};    // velocity vector of vessel
-
-    double h = cross_product(r,v);  // angular momentum
-    struct Vector e;                // eccentricity vector
-    e.x = r.x/vector_magnitude(r) - (h*v.y) / f.body->mu;
-    e.y = r.y/vector_magnitude(r) + (h*v.x) / f.body->mu;
-    return vector_magnitude(e);
+    double h = -f.r * f.vh;         // angular momentum (cross product of r and v; r_x = 0)
+    return sqrt(1-(h*h)/(f.body->mu * f.a));
 }
 
 double calc_apoapsis(struct Flight f) {
@@ -498,10 +486,10 @@ void store_flight_data(struct Vessel *v, struct Flight *f, double **data) {
     data[0][initial_length+3] = v->pitch;
     data[0][initial_length+4] = f->p;
     data[0][initial_length+5] = f->D;
-    data[0][initial_length+6]= f->vh;
-    data[0][initial_length+7]= f->vv;
-    data[0][initial_length+8]= f->v;
-    data[0][initial_length+9]= f->vh_s;
+    data[0][initial_length+6] = f->vh;
+    data[0][initial_length+7] = f->vv;
+    data[0][initial_length+8] = f->v;
+    data[0][initial_length+9] = f->vh_s;
     data[0][initial_length+10]= f->v_s;
     data[0][initial_length+11]= f->h;
     data[0][initial_length+12]= f->a;

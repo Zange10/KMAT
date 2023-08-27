@@ -96,8 +96,7 @@ void init_EARTH() {
     earth->radius = 6371e3;
     earth->rotation_period = 86164.098903691;
     earth->sl_atmo_p = 101325;
-    //earth->scale_height = 8500;
-    earth->scale_height = 6700;
+    earth->scale_height = 8500;
     earth->atmo_alt = 140e3;
     earth->orbit = constr_orbit(
         /*  a  */ 149.5978872e+9,

@@ -68,7 +68,7 @@ double  calc_horizontal_acceleration(double a_horizontal_thrust, double a_drag, 
 double  calc_velocity(double vh, double vv);
 
 // calculate horizontal speed in new frame of reference
-double  calc_change_of_reference_frame(struct Flight *f, struct Flight *last_f, double step);
+void    calc_change_of_reference_frame(struct Flight *f, struct Flight *last_f, double step);
 // calculate current semi-major axis of flight/orbit
 double  calc_semi_major_axis(struct Flight f);
 // calculate current Eccentricity of flight/orbit
