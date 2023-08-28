@@ -310,7 +310,7 @@ double * calculate_stage_flight(struct Vessel *v, struct Flight *f, double T, in
         update_flight(v,&v_last, f, &f_last, t, step);
         f -> a = calc_semi_major_axis(*f);
         f -> e = calc_eccentricity(*f);
-        //if(v->status == CIRC && f->e > f_last.e) T = t;
+        if(v->status == CIRC && f->e > f_last.e) T = t;
         double x = remainder(t,(T/(888/number_of_stages+1)));   // only store 890 (888 in this loop) data points overall
         if(x < step && x >=0) {
             store_flight_data(v, f, &flight_data);
@@ -439,8 +439,8 @@ double calc_velocity(double vh, double vv) {
 // calculates new horizontal speed in new frame of reference (vertical speed not needed to be recalculated, as flat earth is assumed)
 void calc_change_of_reference_frame(struct Flight *f, struct Flight *last_f, double step) {
     double dx = integrate(f->vh, last_f->vh, step);
-    f->vh = fabs((1/f->r-dx*dx))*(dx*f->vv-sqrt(pow(f->r,2)*f->vh));
-    f->vh_s = fabs((1/f->r-dx*dx))*(dx*f->vv-sqrt(pow(f->r,2)*f->vh_s));
+    f->vh = fabs((1/f->r)*(dx*f->vv-sqrt(pow(f->r,2)-dx*dx)*f->vh));
+    f->vh_s = fabs((1/f->r)*(dx*f->vv-sqrt(pow(f->r,2)-dx*dx)*f->vh_s));
 }
 
 double calc_semi_major_axis(struct Flight f) {
