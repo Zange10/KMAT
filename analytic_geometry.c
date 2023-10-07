@@ -12,7 +12,7 @@ double vector2d_mag(struct Vector2D v) {
 
 struct Vector norm_vector(struct Vector v) {
     double mag = vector_mag(v);
-    return scalar_multipl(v, 1 / mag);
+    return scalar_multiply(v, 1 / mag);
 }
 
 struct Vector2D norm_vector2d(struct Vector2D v) {
@@ -28,7 +28,7 @@ struct Vector2D rotate_vector2d(struct Vector2D n, double gamma) {
     return v_rot;
 }
 
-struct Vector scalar_multipl(struct Vector v, double scalar) {
+struct Vector scalar_multiply(struct Vector v, double scalar) {
     v.x *= scalar;
     v.y *= scalar;
     v.z *= scalar;
@@ -91,6 +91,7 @@ double angle_vec_vec_2d(struct Vector2D v1, struct Vector2D v2) {
 }
 
 void print_vector(struct Vector v) {
+    printf("\n%f, %f, %f\n", v.x, v.y, v.z);
     printf("\nx: %f\ny: %f\nz: %f\n", v.x, v.y, v.z);
 }
 

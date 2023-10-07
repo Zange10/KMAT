@@ -17,18 +17,24 @@ void calc_3d_orbit(struct Transfer2D transfer2d, struct Vector r1, struct Vector
 
 void init_transfer() {
     struct Vector r1_norm = {1, 0, 0};
-    struct Vector r1 = scalar_multipl(r1_norm, 149.7848e9);
+    struct Vector r1 = scalar_multiply(r1_norm, 149.7848e9);
     struct Vector v1_norm = {0, 1, 0};
-    struct Vector v1 = scalar_multipl(v1_norm, sqrt(SUN()->mu * (1 / vector_mag(r1))));
-    struct Vector r2_norm = {-0.8, 0.857, 0};
+    struct Vector v1 = scalar_multiply(v1_norm, sqrt(SUN()->mu * (1 / vector_mag(r1))));
+    struct Vector r2_norm = {-0.8, 0.857, 0.14};
     r2_norm = norm_vector(r2_norm);
-    struct Vector r2 = scalar_multipl(r2_norm, 108.9014e9);
-    struct Vector v2_norm = {-0.6, -0.8, 0};
+    struct Vector r2 = scalar_multiply(r2_norm, 108.9014e9);
+    struct Vector v2_norm = {-0.857, -0.8, 0};
     v2_norm = norm_vector(v2_norm);
-    struct Vector v2 = scalar_multipl(v2_norm, sqrt(SUN()->mu * (1 / vector_mag(r2))));
+    struct Vector v2 = scalar_multiply(v2_norm, sqrt(SUN()->mu * (1 / vector_mag(r2))));
     double dt = 109*(24*60*60);
     double dtheta = angle_vec_vec(r1, r2);
-    print_vector(scalar_multipl(r2, 1e-9));
+
+    print_vector(scalar_multiply(r1, 1e-9));
+    print_vector(scalar_multiply(r2, 1e-9));
+    print_vector(scalar_multiply(v1, 1));
+    print_vector(scalar_multiply(v2, 1));
+
+
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
 
     calc_3d_orbit(transfer2d, r1, v1, r2, v2);
@@ -95,8 +101,8 @@ struct Vector2D calc_v_2d(double r_mag, double v_mag, double theta, double gamma
 void calc_3d_orbit(struct Transfer2D transfer2d, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2) {
     struct Vector origin = {0, 0, 0};
     struct Plane p_T = constr_plane(origin, r1, r2);
-    struct Plane p_1 = constr_plane(r1, v1, scalar_multipl(r1, -1));
-    struct Plane p_2 = constr_plane(r2, v2, scalar_multipl(r2, -1));
+    struct Plane p_1 = constr_plane(r1, v1, scalar_multiply(r1, -1));
+    struct Plane p_2 = constr_plane(r2, v2, scalar_multiply(r2, -1));
     struct Orbit orbit2d = transfer2d.orbit;
     double a = orbit2d.a;
     double e = orbit2d.e;
@@ -115,20 +121,18 @@ void calc_3d_orbit(struct Transfer2D transfer2d, struct Vector r1, struct Vector
 
     v_t1_2d = rotate_vector2d(v_t1_2d, arg_peri);
     v_t2_2d = rotate_vector2d(v_t2_2d, arg_peri);
-    struct Vector2D temp = {0, 1};
 
-    double a1 = rad2deg(angle_vec_vec_2d(temp, v_t1_2d));
-    double a2 = rad2deg(gamma1);
-    printf("angle: %f, gamma: %f, diff: %f\n", a1, a2, fabs(a2)- fabs(a1));
-    print_vector2d(v_t1_2d);
+    double i = angle_plane_plane(p_T, p_1);
+    printf("i: %f\n", i);
+    struct Vector v_t1;
+    v_t1.x = v_t1_2d.x;
+    v_t1.y = v_t1_2d.y*cos(i);
+    v_t1.z = v_t1_2d.y*sin(i);
 
 
-    temp.x = -r2.y;
-    temp.y = r2.x;
+    v_t1.x = v_t1_2d.x;
+    v_t1.y = v_t1_2d.y*cos(i);
+    v_t1.z = v_t1_2d.y*sin(i);
 
-    a1 = rad2deg(angle_vec_vec_2d(temp, v_t2_2d));
-    a2 = rad2deg(gamma2);
-    printf("angle: %f, gamma: %f, diff: %f\n", a1, a2, fabs(a2)- fabs(a1));
-    print_vector2d(v_t2_2d);
-
+    print_vector(v_t1);
 }

@@ -18,6 +18,8 @@ struct Plane {
     struct Vector v;
 };
 
+struct Vector add_vectors(struct Vector v1, struct Vector v2);
+
 double vector_mag(struct Vector v);
 
 double vector2d_mag(struct Vector2D v);
@@ -28,7 +30,7 @@ struct Vector2D norm_vector2d(struct Vector2D v);
 
 struct Vector2D rotate_vector2d(struct Vector2D n, double gamma);
 
-struct Vector scalar_multipl(struct Vector v, double scalar);
+struct Vector scalar_multiply(struct Vector v, double scalar);
 
 struct Vector2D scalar_multipl2d(struct Vector2D v, double scalar);
 
