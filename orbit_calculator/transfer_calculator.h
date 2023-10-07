@@ -1,0 +1,6 @@
+#ifndef KSP_TRANSFER_CALCULATOR_H
+#define KSP_TRANSFER_CALCULATOR_H
+
+void init_transfer();
+
+#endif //KSP_TRANSFER_CALCULATOR_H

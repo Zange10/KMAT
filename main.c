@@ -3,12 +3,17 @@
 #include "celestial_bodies.h"
 #include "launch_calculator/launch_calculator.h"
 #include "orbit_calculator/orbit_calculator.h"
+#include "orbit_calculator/transfer_calculator.h"
 #include "tool_funcs.h"
+
 
 // ------------------------------------------------------------
 
 int main() {
     init_celestial_bodies();
+
+    init_transfer();
+    return 0;
 
     int selection = 0;
     char title[] = "CHOOSE PROGRAM:";
