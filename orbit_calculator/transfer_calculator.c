@@ -17,12 +17,13 @@ void calc_3d_orbit(struct Transfer2D transfer2d, struct Vector r1, struct Vector
 
 void init_transfer() {
     struct Vector r1_norm = {1, 0, 0};
-    struct Vector r1 = scalar_multiply(r1_norm, 149.7848e9);
+    struct Vector r1 = scalar_multiply(r1_norm, 150e9);
     struct Vector v1_norm = {0, 1, 0};
     struct Vector v1 = scalar_multiply(v1_norm, sqrt(SUN()->mu * (1 / vector_mag(r1))));
     struct Vector r2_norm = {-0.8, 0.857, 0.14};
-    r2_norm = norm_vector(r2_norm);
-    struct Vector r2 = scalar_multiply(r2_norm, 108.9014e9);
+    //r2_norm = norm_vector(r2_norm);
+    //struct Vector r2 = scalar_multiply(r2_norm, 108.9014e9);
+    struct Vector r2 = {-74e9, 79e9, 4e9};
     struct Vector v2_norm = {-0.857, -0.8, 0};
     v2_norm = norm_vector(v2_norm);
     struct Vector v2 = scalar_multiply(v2_norm, sqrt(SUN()->mu * (1 / vector_mag(r2))));
@@ -52,7 +53,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
 
-    while(fabs(dt-target_dt) > 1e-10) {
+    while(fabs(dt-target_dt) > 1e-5) {
         theta2 = theta1 + dtheta;
         e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));
         double rp = r1*(1+e*cos(theta1))/(1+e);
@@ -98,6 +99,24 @@ struct Vector2D calc_v_2d(double r_mag, double v_mag, double theta, double gamma
     return v;
 }
 
+struct Vector heliocentric_rot(struct Vector2D v, double RAAN, double w, double i) {
+    double Q[3][3] = {
+            {-sin(RAAN)*cos(i)*sin(w)+cos(RAAN)*cos(w),     -sin(RAAN)*cos(i)*cos(w)-cos(RAAN)*sin(w),   sin(RAAN)*sin(i)},
+            { cos(RAAN)*cos(i)*sin(w)+sin(RAAN)*cos(w),      cos(RAAN)*cos(i)*cos(w)-sin(RAAN)*sin(w),  -cos(RAAN)*sin(i)},
+            { sin(i)*sin(w),                                 sin(i)*cos(w),                              cos(i)}};
+
+    double v_vec[3] = {v.x, v.y, 0};
+    double result[3] = {0,0,0};
+
+    for(int i = 0; i < 3; i++) {
+        for(int j = 0; j < 3; j++) {
+            result[i] += Q[i][j]*v_vec[j];
+        }
+    }
+    struct Vector result_v = {result[0], result[1], result[2]};
+    return result_v;
+}
+
 void calc_3d_orbit(struct Transfer2D transfer2d, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2) {
     struct Vector origin = {0, 0, 0};
     struct Plane p_T = constr_plane(origin, r1, r2);
@@ -108,7 +127,7 @@ void calc_3d_orbit(struct Transfer2D transfer2d, struct Vector r1, struct Vector
     double e = orbit2d.e;
     double theta1 = transfer2d.theta1;
     double theta2 = transfer2d.theta2;
-    double arg_peri = theta1-M_PI;
+    double argument_orbit = theta1 - M_PI;
 
     double gamma1 = e*sin(theta1)/(1+e*cos(theta1));
     double gamma2 = e*sin(theta2)/(1+e*cos(theta2));
@@ -119,20 +138,20 @@ void calc_3d_orbit(struct Transfer2D transfer2d, struct Vector r1, struct Vector
     struct Vector2D v_t1_2d = calc_v_2d(vector_mag(r1), v_t1_mag, theta1, gamma1);
     struct Vector2D v_t2_2d = calc_v_2d(vector_mag(r2), v_t2_mag, theta2, gamma2);
 
-    v_t1_2d = rotate_vector2d(v_t1_2d, arg_peri);
-    v_t2_2d = rotate_vector2d(v_t2_2d, arg_peri);
+    v_t1_2d = rotate_vector2d(v_t1_2d, argument_orbit);
+    v_t2_2d = rotate_vector2d(v_t2_2d, argument_orbit);
 
+    double RAAN = deg2rad(0);
+    double arg_peri = deg2rad(0);
     double i = angle_plane_plane(p_T, p_1);
-    printf("i: %f\n", i);
-    struct Vector v_t1;
-    v_t1.x = v_t1_2d.x;
-    v_t1.y = v_t1_2d.y*cos(i);
-    v_t1.z = v_t1_2d.y*sin(i);
+    struct Vector v_t1 = heliocentric_rot(v_t1_2d, RAAN, arg_peri, i);
 
+    RAAN = deg2rad(0);
+    arg_peri = deg2rad(0);
+    i = angle_plane_plane(p_T, p_1);
+    struct Vector v_t2 = heliocentric_rot(v_t2_2d, RAAN, arg_peri, i);
 
-    v_t1.x = v_t1_2d.x;
-    v_t1.y = v_t1_2d.y*cos(i);
-    v_t1.z = v_t1_2d.y*sin(i);
 
     print_vector(v_t1);
+    print_vector(v_t2);
 }
