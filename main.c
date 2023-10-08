@@ -4,10 +4,13 @@
 #include "launch_calculator/launch_calculator.h"
 #include "orbit_calculator/orbit_calculator.h"
 #include "tool_funcs.h"
+#include "ephem.h"
 
 // ------------------------------------------------------------
 
 int main() {
+    get_ephem();
+    return 0;
     init_celestial_bodies();
 
     int selection = 0;

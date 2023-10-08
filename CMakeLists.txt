@@ -24,6 +24,8 @@ add_executable(KSP
         launch_calculator/launch_circularization.c
         launch_calculator/launch_circularization.h
         launch_calculator/lp_parameters.c
-        launch_calculator/lp_parameters.h)
+        launch_calculator/lp_parameters.h
+        ephem.c
+        ephem.h)
 
 target_link_libraries(KSP m)
