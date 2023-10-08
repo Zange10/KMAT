@@ -2,6 +2,14 @@
 #include <math.h>
 #include <stdio.h>
 
+struct Vector add_vectors(struct Vector v1, struct Vector v2) {
+    struct Vector v;
+    v.x = v1.x+v2.x;
+    v.y = v1.y+v2.y;
+    v.z = v1.z+v2.z;
+    return v;
+}
+
 double vector_mag(struct Vector v) {
     return sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
 }
@@ -92,7 +100,7 @@ double angle_vec_vec_2d(struct Vector2D v1, struct Vector2D v2) {
 
 void print_vector(struct Vector v) {
     printf("\n%f, %f, %f\n", v.x, v.y, v.z);
-    printf("\nx: %f\ny: %f\nz: %f\n", v.x, v.y, v.z);
+    printf("x: %f\ny: %f\nz: %f\n", v.x, v.y, v.z);
 }
 
 void print_vector2d(struct Vector2D v) {

@@ -12,10 +12,13 @@ struct Transfer2D {
 };
 
 struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt, double dtheta, struct Body *attractor);
-void calc_3d_orbit(struct Transfer2D transfer2d, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2);
+double calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2);
 
 
 void init_transfer() {
+
+    struct timeval start, end;
+    gettimeofday(&start, NULL);  // Record the starting time
     struct Vector r1_norm = {1, 0, 0};
     struct Vector r1 = scalar_multiply(r1_norm, 150e9);
     struct Vector v1_norm = {0, 1, 0};
@@ -30,15 +33,16 @@ void init_transfer() {
     double dt = 109*(24*60*60);
     double dtheta = angle_vec_vec(r1, r2);
 
-    print_vector(scalar_multiply(r1, 1e-9));
-    print_vector(scalar_multiply(r2, 1e-9));
-    print_vector(scalar_multiply(v1, 1));
-    print_vector(scalar_multiply(v2, 1));
-
-
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
 
-    calc_3d_orbit(transfer2d, r1, v1, r2, v2);
+    double dv = calc_transfer_dv(transfer2d, r1, v1, r2, v2);
+
+
+
+    gettimeofday(&end, NULL);  // Record the ending time
+    double elapsed_time;
+    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+    printf("Elapsed time: %f seconds\n", elapsed_time);
 }
 
 struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt, double dtheta, struct Body *attractor) {
@@ -50,10 +54,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
     double a = 0;
     double e = 0;
 
-    struct timeval start, end;
-    gettimeofday(&start, NULL);  // Record the starting time
-
-    while(fabs(dt-target_dt) > 1e-5) {
+    while(fabs(dt-target_dt) > 1e-10) {
         theta2 = theta1 + dtheta;
         e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));
         double rp = r1*(1+e*cos(theta1))/(1+e);
@@ -70,21 +71,14 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
         dt = t2-t1;
 
         if(dt-target_dt > 0) {
-            if(step < 0) step *= -1.0/5;
+            if(step < 0) step *= -1.0/3;
             theta1 += step;
         } else {
-            if(step > 0) step *= -1.0/5;
+            if(step > 0) step *= -1.0/3;
             theta1 += step;
         }
     }
 
-    gettimeofday(&end, NULL);  // Record the ending time
-    double elapsed_time;
-    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-    printf("Elapsed time: %f seconds\n", elapsed_time);
-
-    printf("th1: %f, duration: %f, arrival: %f\n", rad2deg(theta1), dt/(24*60*60), dt/(24*60*60)+7259);
-    printf("a: %f, e: %f, th2: %f\n", a/1e9, e, rad2deg(theta2));
     struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
     return transfer;
 }
@@ -117,7 +111,17 @@ struct Vector heliocentric_rot(struct Vector2D v, double RAAN, double w, double 
     return result_v;
 }
 
-void calc_3d_orbit(struct Transfer2D transfer2d, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2) {
+double dv_circ(struct Body *body, double rp, double vinf) {
+    rp += body->radius;
+    return sqrt(2*body->mu/rp+vinf*vinf) - sqrt(body->mu/rp);
+}
+
+double dv_capture(struct Body *body, double rp, double vinf) {
+    rp += body->radius;
+    return sqrt(2*body->mu/rp+vinf*vinf) - sqrt(2*body->mu/rp);
+}
+
+double calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2) {
     struct Vector origin = {0, 0, 0};
     struct Plane p_T = constr_plane(origin, r1, r2);
     struct Plane p_1 = constr_plane(r1, v1, scalar_multiply(r1, -1));
@@ -141,6 +145,7 @@ void calc_3d_orbit(struct Transfer2D transfer2d, struct Vector r1, struct Vector
     v_t1_2d = rotate_vector2d(v_t1_2d, argument_orbit);
     v_t2_2d = rotate_vector2d(v_t2_2d, argument_orbit);
 
+    // seems to work (verified using poliastro python and Geogebra)
     double RAAN = deg2rad(0);
     double arg_peri = deg2rad(0);
     double i = angle_plane_plane(p_T, p_1);
@@ -151,7 +156,10 @@ void calc_3d_orbit(struct Transfer2D transfer2d, struct Vector r1, struct Vector
     i = angle_plane_plane(p_T, p_1);
     struct Vector v_t2 = heliocentric_rot(v_t2_2d, RAAN, arg_peri, i);
 
+    double v_t1_inf = fabs(vector_mag(add_vectors(v_t1, scalar_multiply(v1, -1))));
+    double dv1 = dv_circ(EARTH(), 150e3, v_t1_inf);
+    double v_t2_inf = fabs(vector_mag(add_vectors(v_t2, scalar_multiply(v2, -1))));
+    double dv2 = dv_capture(VENUS(), 250e3, v_t2_inf);
 
-    print_vector(v_t1);
-    print_vector(v_t2);
+    return dv1+dv2;
 }
