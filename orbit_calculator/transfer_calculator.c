@@ -157,9 +157,8 @@ double calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct V
     print_vector2d(v_t1_2d);
     print_vector2d(v_t2_2d);
 
-    double RAAN = 2*M_PI-angle_vec_vec(vec(1,0,0), vec(r1.x,r1.y,0));
+    double RAAN = angle_vec_vec(vec(1,0,0), vec(r1.x,r1.y,0));
     double i = angle_plane_plane(p_T, p_0);
-    printf("raan: %f, i2: %f\n", rad2deg(-0.00315), rad2deg(- 0.00165));
     double arg_peri = deg2rad(0);
     struct Vector v_t1 = heliocentric_rot(v_t1_2d, RAAN, arg_peri, i);
     struct Vector v_t2 = heliocentric_rot(v_t2_2d, RAAN, arg_peri, i);
