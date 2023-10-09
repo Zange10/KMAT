@@ -19,25 +19,25 @@ void init_transfer() {
 
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
-    struct Vector r1_norm = {1, 0, 0};
-    struct Vector r1 = scalar_multiply(r1_norm, 150e9);
-    struct Vector v1_norm = {0, 1, 0};
-    struct Vector v1 = scalar_multiply(v1_norm, sqrt(SUN()->mu * (1 / vector_mag(r1))));
-    struct Vector r2_norm = {-0.8, 0.857, 0.14};
-    //r2_norm = norm_vector(r2_norm);
-    //struct Vector r2 = scalar_multiply(r2_norm, 108.9014e9);
-    struct Vector r2 = {-74e9, 79e9, 4e9};
-    struct Vector v2_norm = {-0.857, -0.8, 0};
-    v2_norm = norm_vector(v2_norm);
-    struct Vector v2 = scalar_multiply(v2_norm, sqrt(SUN()->mu * (1 / vector_mag(r2))));
-    double dt = 109*(24*60*60);
+//    struct Vector r1_norm = {1, 0, 0};
+//    struct Vector r1 = scalar_multiply(r1_norm, 150e9);
+//    struct Vector v1_norm = {0, 1, 0};
+//    struct Vector v1 = scalar_multiply(v1_norm, sqrt(SUN()->mu * (1 / vector_mag(r1))));
+//    struct Vector r2_norm = {-0.8, 0.857, 0.14};
+//    //r2_norm = norm_vector(r2_norm);
+//    //struct Vector r2 = scalar_multiply(r2_norm, 108.9014e9);
+//    struct Vector r2 = {-74e9, 79e9, 4e9};
+//    struct Vector v2_norm = {-0.857, -0.8, 0};
+    struct Vector r1 = {100e9, 180e9, -2e9};
+    struct Vector v1 = {-20000, 15000, 2000};
+    struct Vector r2 = {-374e9, -179e9, 4e9};
+    struct Vector v2 = {8000, -13000, 3000};
+
+    double dt = 271*(24*60*60);
     double dtheta = angle_vec_vec(r1, r2);
-
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
-
     double dv = calc_transfer_dv(transfer2d, r1, v1, r2, v2);
-
-
+    printf("dv: %f m/s - dtheta: %f°\n", dv, rad2deg(dtheta));
 
     gettimeofday(&end, NULL);  // Record the ending time
     double elapsed_time;
@@ -49,13 +49,14 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
     double theta1 = r1 > r2 ? deg2rad(180) : 0;
     double theta2 = theta1+dtheta;
     double mu = attractor->mu;
-    double step = deg2rad(10);
+    double step = -deg2rad(10);
     double dt = 1e20;
     double a = 0;
     double e = 0;
 
-    while(fabs(dt-target_dt) > 1e-10) {
-        theta2 = theta1 + dtheta;
+    while(fabs(dt-target_dt) > 1e-5) {
+        theta1 = pi_norm(theta1);
+        theta2 = pi_norm(theta1 + dtheta);
         e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));
         double rp = r1*(1+e*cos(theta1))/(1+e);
         a = rp/(1-e);
@@ -63,14 +64,18 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
 
         double E1 = acos( (e+cos(theta1))/(1+e*cos(theta1)) );
         double t1 = (E1-e*sin(E1))/n;
-        if(theta1 > M_PI) t1 = 2*M_PI * sqrt(pow(a,3) / mu) - t1;
+        //if(theta1 > M_PI) t1 = 2*M_PI * sqrt(pow(a,3) / mu) - t1;
         double E2 = acos( (e+cos(theta2))/(1+e*cos(theta2)) );
         double t2 = (E2-e*sin(E2))/n;
-        if(theta2 > M_PI) t2 = 2*M_PI * sqrt(pow(a,3) / mu) - t2;
+        //if(theta2 > M_PI) t2 = 2*M_PI * sqrt(pow(a,3) / mu) - t2;
 
-        dt = t2-t1;
+        dt = theta1 < theta2 ? t2-t1 : t2 + t1;
+        double ddt = dt-target_dt;
+        double ts[] = {t1/(24*60*60), t2/(24*60*60)};
+        double x[] = {dt/(24*60*60), target_dt/(24*60*60), ddt/(24*60*60)};
 
-        if(dt-target_dt > 0) {
+
+        if((dt-target_dt)*(r1-r2) > 0) {
             if(step < 0) step *= -1.0/3;
             theta1 += step;
         } else {
@@ -79,7 +84,10 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
         }
     }
 
+    printf("Theta1: %f°, Theta2: %f°\n", rad2deg(theta1), rad2deg(theta2));
+
     struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
+    printf("a: %f, e: %f\n",a,e);
     return transfer;
 }
 
@@ -123,6 +131,7 @@ double dv_capture(struct Body *body, double rp, double vinf) {
 
 double calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2) {
     struct Vector origin = {0, 0, 0};
+    struct Plane p_0 = constr_plane(origin, vec(1,0,0), vec(0,1,0));
     struct Plane p_T = constr_plane(origin, r1, r2);
     struct Plane p_1 = constr_plane(r1, v1, scalar_multiply(r1, -1));
     struct Plane p_2 = constr_plane(r2, v2, scalar_multiply(r2, -1));
@@ -145,21 +154,34 @@ double calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct V
     v_t1_2d = rotate_vector2d(v_t1_2d, argument_orbit);
     v_t2_2d = rotate_vector2d(v_t2_2d, argument_orbit);
 
-    // seems to work (verified using poliastro python and Geogebra)
-    double RAAN = deg2rad(0);
-    double arg_peri = deg2rad(0);
-    double i = angle_plane_plane(p_T, p_1);
-    struct Vector v_t1 = heliocentric_rot(v_t1_2d, RAAN, arg_peri, i);
+    print_vector2d(v_t1_2d);
+    print_vector2d(v_t2_2d);
 
-    RAAN = deg2rad(0);
-    arg_peri = deg2rad(0);
-    i = angle_plane_plane(p_T, p_1);
+    double RAAN = 2*M_PI-angle_vec_vec(vec(1,0,0), vec(r1.x,r1.y,0));
+    double i = angle_plane_plane(p_T, p_0);
+    printf("raan: %f, i2: %f\n", rad2deg(-0.00315), rad2deg(- 0.00165));
+    double arg_peri = deg2rad(0);
+    struct Vector v_t1 = heliocentric_rot(v_t1_2d, RAAN, arg_peri, i);
     struct Vector v_t2 = heliocentric_rot(v_t2_2d, RAAN, arg_peri, i);
+    printf("RAAN: %f, arg_peri: %f, i: %f\n", rad2deg(RAAN), rad2deg(arg_peri), rad2deg(i));
 
     double v_t1_inf = fabs(vector_mag(add_vectors(v_t1, scalar_multiply(v1, -1))));
     double dv1 = dv_circ(EARTH(), 150e3, v_t1_inf);
     double v_t2_inf = fabs(vector_mag(add_vectors(v_t2, scalar_multiply(v2, -1))));
     double dv2 = dv_capture(VENUS(), 250e3, v_t2_inf);
+
+    //print_vector(scalar_multiply(v_t1,1e-3));
+    //print_vector(scalar_multiply(v_t2,1e-3));
+
+
+    //print_vector(norm_vector(v_t1));
+    //print_vector(norm_vector(v_t2));
+
+
+    print_vector(scalar_multiply(v_t1,1e-3));
+    print_vector(scalar_multiply(v_t2,1e-3));
+
+    printf("%f\n", rad2deg(angle_vec_vec(vec(1,0,0), r1)));
 
     return dv1+dv2;
 }

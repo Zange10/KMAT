@@ -18,6 +18,8 @@ struct Plane {
     struct Vector v;
 };
 
+struct Vector vec(double x, double y, double z);
+
 struct Vector add_vectors(struct Vector v1, struct Vector v2);
 
 double vector_mag(struct Vector v);
@@ -59,5 +61,7 @@ void print_vector2d(struct Vector2D v);
 double deg2rad(double deg);
 
 double rad2deg(double rad);
+
+double pi_norm(double rad);
 
 #endif //KSP_ANALYTIC_GEOMETRY_H

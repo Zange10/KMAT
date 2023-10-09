@@ -2,6 +2,12 @@
 #include <math.h>
 #include <stdio.h>
 
+
+struct Vector vec(double x, double y, double z) {
+    struct Vector v = {x, y, z};
+    return v;
+}
+
 struct Vector add_vectors(struct Vector v1, struct Vector v2) {
     struct Vector v;
     v.x = v1.x+v2.x;
@@ -113,4 +119,10 @@ double deg2rad(double deg) {
 
 double rad2deg(double rad) {
     return rad/M_PI*180;
+}
+
+double pi_norm(double rad) {
+    while(rad > 2*M_PI) rad -= 2*M_PI;
+    while(rad < 0) rad += 2*M_PI;
+    return rad;
 }
