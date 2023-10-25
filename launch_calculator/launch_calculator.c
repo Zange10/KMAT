@@ -150,7 +150,7 @@ void launch_calculator() {
 
     int selection;
     char title[] = "LAUNCH CALCULATOR:";
-    char options[] = "Go Back; Calculate; Choose Profile; Create new Profile; Testing; Launch Profile Adjustments; Calculate Launch Azimuth";
+    char options[] = "Go Back; Calculate; Choose Profile; Create new Profile; Testing; Launch Profile Adjustments; Payload Launch Profile Analysis; Calculate Launch Azimuth";
     char question[] = "Program: ";
     do {
         selection = user_selection(title, options, question);
@@ -173,6 +173,9 @@ void launch_calculator() {
                 if(lv.stages != NULL) initiate_launch_campaign(lv, 1); // if lv initialized
                 break;
             case 6:
+                if(lv.stages != NULL) initiate_launch_campaign(lv, 2); // if lv initialized
+                break;
+            case 7:
                 calc_launch_azimuth(EARTH());
                 break;
         }
@@ -180,8 +183,8 @@ void launch_calculator() {
 }
 
 void initiate_launch_campaign(struct LV lv, int calc_params) {
-    if(calc_params) {
-        if(1) {
+    if(calc_params != 0) {
+        if(calc_params == 1) {
             double payload_mass = 50;
             struct Lp_Params best_lp_params;
             lp_param_fixed_payload_analysis(lv, payload_mass, &best_lp_params);
