@@ -104,8 +104,56 @@ double angle_vec_vec_2d(struct Vector2D v1, struct Vector2D v2) {
     return fabs(acos(dot_product2d(v1,v2) / (vector2d_mag(v1)* vector2d_mag(v2))));
 }
 
+
+
+
+void printMatrix(double M[3][5]) {
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 5; j++) {
+            printf("%.2f\t", M[i][j]); // Adjust the format specifier as needed
+        }
+        printf("\n"); // Move to the next row
+    }
+    printf("\n");
+}
+
+struct Vector calc_intersecting_line_dir(struct Plane p1, struct Plane p2) {
+    double M[3][5] = {
+            {p1.u.x, p1.v.x, -p2.u.x, -p2.v.x, p2.loc.x-p1.loc.x},
+            {p1.u.y, p1.v.y, -p2.u.y, -p2.v.y, p2.loc.y-p1.loc.y},
+            {p1.u.z, p1.v.z, -p2.u.z, -p2.v.z, p2.loc.z-p1.loc.z}
+    };
+
+    // make 0-triangle
+    for(int i = 4; i >= 0; i--) M[1][i] = M[0][0]*M[1][i] - M[1][0] * M[0][i];  // I  -> II
+    for(int i = 4; i >= 0; i--) M[2][i] = M[0][0]*M[2][i] - M[2][0] * M[0][i];  // I  -> III
+    printMatrix(M);
+    for(int i = 4; i >= 0; i--) M[2][i] = M[1][1]*M[2][i] - M[2][1] * M[1][i];  // II -> III
+
+    double a = M[2][2];
+    double b = M[2][3];
+    double c = M[2][4];
+
+    /*
+    struct Vector loc = {
+            p2.loc.x + c/a*p2.u.x,
+            p2.loc.y + c/a*p2.u.y,
+            p2.loc.z + c/a*p2.u.z
+    }; */
+
+    struct Vector dir = {
+            -b/a*p2.u.x + p2.v.x,
+            -b/a*p2.u.y + p2.v.y,
+            -b/a*p2.u.z + p2.v.z,
+    };
+
+    return dir;
+}
+
+
+
 void print_vector(struct Vector v) {
-    printf("\n%f, %f, %f\n", v.x, v.y, v.z);
+    printf("\n%f, %f, %f (%f)\n", v.x, v.y, v.z, vector_mag(v));
     printf("x: %f\ny: %f\nz: %f\n", v.x, v.y, v.z);
 }
 

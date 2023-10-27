@@ -54,6 +54,8 @@ double angle_plane_plane(struct Plane p1, struct Plane p2);
 
 double angle_vec_vec_2d(struct Vector2D v1, struct Vector2D v2);
 
+struct Vector calc_intersecting_line_dir(struct Plane p1, struct Plane p2);
+
 void print_vector(struct Vector v);
 
 void print_vector2d(struct Vector2D v);
