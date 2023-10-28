@@ -29,11 +29,12 @@ void init_transfer() {
 //    struct Vector v2_norm = {-0.857, -0.8, 0};
     struct Vector r1 = {100e9, 180e9, 100e9};
     struct Vector v1 = {-20000, 15000, 2000};
-    struct Vector r2 = {-374e9, -179e9, 120e9};
-    struct Vector v2 = {8000, -13000, 3000};
+    struct Vector r2 = {174e9, -379e9, 120e9};
+    struct Vector v2 = {12000, 16000, 3000};
 
-    double dt = 150 * 24* 60 * 60;
+    double dt = 400 * 24* 60 * 60;
     double dtheta = angle_vec_vec(r1, r2);
+    if(cross_product(r1,r2).z < 0) dtheta = 2*M_PI - dtheta;
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
 
     double dv = calc_transfer_dv(transfer2d, r1, v1, r2, v2);
@@ -55,6 +56,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
     double a, e;
 
     while(fabs(dt-target_dt) > 1) {
+
         theta1 = pi_norm(theta1);
         theta2 = pi_norm(theta1 + dtheta);
         e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));
@@ -81,9 +83,14 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
         double ts[] = {t1/(24*60*60), t2/(24*60*60)};
         double x[] = {dt/(24*60*60), target_dt/(24*60*60), ddt/(24*60*60)};
 
+        printf("Theta1: %f°, Theta2: %f°, dt: %f, a: %f 1e6km, e: %f\n", rad2deg(theta1), rad2deg(theta2), dt/(24*60*60), a*1e-9, e);
+
+
         if(fabs(dt-target_dt) < 1) break;
 
-        if((dt-target_dt)*(r1-r2) > 0) {
+        double temp = dtheta < M_PI ? (r1-r2) : -(r1-r2);
+
+        if((dt-target_dt)*temp > 0) {
             if(step < 0) step *= -1.0/4;
             theta1 += step;
         } else {
