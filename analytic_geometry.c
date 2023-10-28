@@ -79,6 +79,10 @@ struct Plane constr_plane(struct Vector loc, struct Vector u, struct Vector v) {
     return p;
 }
 
+struct Vector calc_plane_norm_vector(struct Plane p) {
+    return cross_product(p.v, p.u);
+}
+
 struct Vector2D inverse_vector2d(struct Vector2D v) {
     v.x = 1/v.x;
     v.y = 1/v.y;
@@ -91,7 +95,7 @@ double angle_vec_vec(struct Vector v1, struct Vector v2) {
 
 double angle_plane_vec(struct Plane p, struct Vector v) {
     struct Vector n = cross_product(p.u, p.v);
-    return M_PI - angle_vec_vec(n, v);
+    return M_PI/2 - angle_vec_vec(n, v);
 }
 
 double angle_plane_plane(struct Plane p1, struct Plane p2) {
@@ -132,8 +136,6 @@ struct Vector calc_intersecting_line_dir(struct Plane p1, struct Plane p2) {
             -b/a*p2.u.y + p2.v.y,
             -b/a*p2.u.z + p2.v.z,
     };
-
-    if(dir.y < 0) dir = scalar_multiply(dir, -1); // for rotation of RAAN in clock-wise direction
 
     return dir;
 }

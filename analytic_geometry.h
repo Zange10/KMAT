@@ -44,6 +44,8 @@ struct Vector cross_product(struct Vector v1, struct Vector v2);
 
 struct Plane constr_plane(struct Vector loc, struct Vector u, struct Vector v);
 
+struct Vector calc_plane_norm_vector(struct Plane p);
+
 struct Vector2D inverse_vector2d(struct Vector2D v);
 
 double angle_vec_vec(struct Vector v1, struct Vector v2);

@@ -32,7 +32,6 @@ void init_transfer() {
 
     return;*/
 
-
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
 //    struct Vector r1_norm = {1, 0, 0};
@@ -44,9 +43,9 @@ void init_transfer() {
 //    //struct Vector r2 = scalar_multiply(r2_norm, 108.9014e9);
 //    struct Vector r2 = {-74e9, 79e9, 4e9};
 //    struct Vector v2_norm = {-0.857, -0.8, 0};
-    struct Vector r1 = {100e9, 180e9, 100e9};
+    struct Vector r1 = {100e9, 180e9, -100e9};
     struct Vector v1 = {-20000, 15000, 2000};
-    struct Vector r2 = {-374e9, -179e9, 120e9};
+    struct Vector r2 = {-374e9, -179e9, -120e9};
     struct Vector v2 = {8000, -13000, 3000};
 
     double dt = 270*(24*60*60);
@@ -67,8 +66,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
     double mu = attractor->mu;
     double step = -deg2rad(10);
     double dt = 1e20;
-    double a = 0;
-    double e = 0;
+    double a, e;
 
     while(fabs(dt-target_dt) > 1e-5) {
         theta1 = pi_norm(theta1);
@@ -99,6 +97,9 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
         }
     }
 
+    printf("r: %f, %f, %f\n", r1/1e9, cos(theta1)*r1/1e9, sin(theta1)*r1/1e9);
+    printf("r: %f, %f, %f\n", r2/1e9, cos(theta2)*r2/1e9, sin(theta2)*r2/1e9);
+
     printf("Theta1: %f°, Theta2: %f°\n", rad2deg(theta1), rad2deg(theta2));
 
     struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
@@ -107,7 +108,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
 }
 
 struct Vector2D calc_v_2d(double r_mag, double v_mag, double theta, double gamma) {
-    struct Vector2D r_norm = {-cos(theta), -sin(theta)};
+    struct Vector2D r_norm = {cos(theta), sin(theta)};
     struct Vector2D r = scalar_multipl2d(r_norm, r_mag);
     struct Vector2D n = {-r.y, r.x};
     struct Vector2D v = rotate_vector2d(n, gamma);
@@ -167,8 +168,9 @@ double calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct V
     double theta2 = transfer2d.theta2;
     double argument_orbit = theta1 - M_PI;
 
-    double gamma1 = e*sin(theta1)/(1+e*cos(theta1));
-    double gamma2 = e*sin(theta2)/(1+e*cos(theta2));
+    double gamma1 = atan(e*sin(theta1)/(1+e*cos(theta1)));
+    double gamma2 = atan(e*sin(theta2)/(1+e*cos(theta2)));
+    printf("theta2: %f, gamma2: %f\n", rad2deg(theta2), rad2deg(gamma2));
 
     double v_t1_mag = calc_orbital_speed(orbit2d, vector_mag(r1));
     double v_t2_mag = calc_orbital_speed(orbit2d, vector_mag(r2));
@@ -176,18 +178,28 @@ double calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct V
     struct Vector2D v_t1_2d = calc_v_2d(vector_mag(r1), v_t1_mag, theta1, gamma1);
     struct Vector2D v_t2_2d = calc_v_2d(vector_mag(r2), v_t2_mag, theta2, gamma2);
 
-    v_t1_2d = rotate_vector2d(v_t1_2d, argument_orbit);
-    v_t2_2d = rotate_vector2d(v_t2_2d, argument_orbit);
-
     print_vector2d(v_t1_2d);
     print_vector2d(v_t2_2d);
 
-    double RAAN = angle_vec_vec(vec(1,0,0), calc_intersecting_line_dir(p_0, p_T));
-    //double RAAN = angle_vec_vec(vec(1,0,0), vec(r1.x,r1.y,0));
-    printf("\n-----------\n");
-    print_vector(scalar_multiply(calc_intersecting_line_dir(p_0, p_T),1e-9));
-    double i = angle_plane_plane(p_T, p_0);
-    double arg_peri = deg2rad(0);
+    // calculate RAAN, inclination and argument of periapsis
+    struct Vector inters_line = calc_intersecting_line_dir(p_0, p_T);
+    if(inters_line.y < 0) inters_line = scalar_multiply(inters_line, -1); // for rotation of RAAN in clock-wise direction
+    struct Vector in_plane_up = cross_product(inters_line, calc_plane_norm_vector(p_T));    // 90° to intersecting line and norm vector of plane
+    if(in_plane_up.z < 0) in_plane_up = scalar_multiply(in_plane_up, -1);   // this vector is always 90° before RAAN for prograde orbits
+    double RAAN = in_plane_up.x < 0 ? angle_vec_vec(vec(1,0,0), inters_line) : angle_vec_vec(vec(1,0,0), inters_line) + M_PI;   // RAAN 90° behind in_plane_up
+
+    double i = angle_plane_plane(p_T, p_0);   // also possible to get angle between p_0 and in_plane_up
+
+    double arg_peri = 2*M_PI - theta1;
+    if(RAAN < M_PI) {
+        if(r1.z > 0) arg_peri += angle_vec_vec(inters_line, r1);
+        else arg_peri += 2*M_PI - angle_vec_vec(inters_line, r1);
+    } else {
+        if(r1.z < 0) arg_peri += angle_vec_vec(inters_line, r1)+M_PI;
+        else arg_peri += M_PI - angle_vec_vec(inters_line, r1);
+    }
+
+
     struct Vector v_t1 = heliocentric_rot(v_t1_2d, RAAN, arg_peri, i);
     struct Vector v_t2 = heliocentric_rot(v_t2_2d, RAAN, arg_peri, i);
     printf("RAAN: %f, arg_peri: %f, i: %f\n", rad2deg(RAAN), rad2deg(arg_peri), rad2deg(i));
@@ -198,9 +210,9 @@ double calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct V
     double dv2 = dv_capture(VENUS(), 250e3, v_t2_inf);
 
     print_vector(scalar_multiply(v_t1,1e-3));
-    //print_vector(scalar_multiply(v_t2,1e-3));
+    print_vector(scalar_multiply(v_t2,1e-3));
 
-
+    printf("%f°\n", rad2deg(angle_plane_vec(p_T, v_t1)));
     //print_vector(norm_vector(v_t1));
     //print_vector(norm_vector(v_t2));
     // printf("%f, %f", v_t1_inf, v_t2_inf);
