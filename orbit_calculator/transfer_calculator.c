@@ -16,22 +16,6 @@ double calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct V
 
 
 void init_transfer() {
-    /*struct Vector loc0 = {-1,2,0};
-    struct Vector r = {1, 1, 1};
-    struct Vector s = {2,0,-1};
-    struct Vector loc1 = {2,1,-2};
-    struct Vector t = {0,-1,3};
-    struct Vector u = {2,2,0};
-
-    struct Plane p1 = constr_plane(loc0, r,s);
-    struct Plane p2 = constr_plane(loc1, t,u);
-
-    struct Vector v = calc_intersecting_line_dir(p1, p2);
-
-    //print_vector(v);
-
-    return;*/
-
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
 //    struct Vector r1_norm = {1, 0, 0};
@@ -45,19 +29,19 @@ void init_transfer() {
 //    struct Vector v2_norm = {-0.857, -0.8, 0};
     struct Vector r1 = {100e9, 180e9, -100e9};
     struct Vector v1 = {-20000, 15000, 2000};
-    struct Vector r2 = {-374e9, -179e9, -120e9};
+    struct Vector r2 = {-374e9, -179e9, 120e9};
     struct Vector v2 = {8000, -13000, 3000};
 
-    double dt = 270*(24*60*60);
+    double dt = 358*(24*60*60);
     double dtheta = angle_vec_vec(r1, r2);
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
     double dv = calc_transfer_dv(transfer2d, r1, v1, r2, v2);
-    // printf("dv: %f m/s - dtheta: %f°\n", dv, rad2deg(dtheta));
+    printf("dv: %f m/s - dtheta: %f°\n", dv, rad2deg(dtheta));
 
     gettimeofday(&end, NULL);  // Record the ending time
     double elapsed_time;
     elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-    //printf("Elapsed time: %f seconds\n", elapsed_time);
+    printf("Elapsed time: %f seconds\n", elapsed_time);
 }
 
 struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt, double dtheta, struct Body *attractor) {
@@ -211,11 +195,9 @@ double calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct V
 
     print_vector(scalar_multiply(v_t1,1e-3));
     print_vector(scalar_multiply(v_t2,1e-3));
-
-    printf("%f°\n", rad2deg(angle_plane_vec(p_T, v_t1)));
     //print_vector(norm_vector(v_t1));
     //print_vector(norm_vector(v_t2));
-    // printf("%f, %f", v_t1_inf, v_t2_inf);
+    printf("%f, %f", v_t1_inf, v_t2_inf);
 
     // print_vector(scalar_multiply(v_t1,1e-3));
     // print_vector(scalar_multiply(v_t2,1e-3));
