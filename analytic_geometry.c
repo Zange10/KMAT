@@ -124,6 +124,10 @@ struct Vector calc_intersecting_line_dir(struct Plane p1, struct Plane p2) {
     double b = M[2][3];
     double c = M[2][4];
 
+    // if planes are equal (inside ecliptic for p_0)
+    // return p2.u because for earth ecliptic cases draw line from Sun to Earth
+    if(a == 0) return scalar_multiply(p2.u, 1);
+
     /*
     struct Vector loc = {
             p2.loc.x + c/a*p2.u.x,
