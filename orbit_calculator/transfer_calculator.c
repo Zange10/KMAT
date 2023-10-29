@@ -27,18 +27,26 @@ void init_transfer() {
 //    //struct Vector r2 = scalar_multiply(r2_norm, 108.9014e9);
 //    struct Vector r2 = {-74e9, 79e9, 4e9};
 //    struct Vector v2_norm = {-0.857, -0.8, 0};
+    /** class two transfer */
+    //struct Vector r1 = {100e9, 180e9, 100e9};
+    //struct Vector v1 = {-20000, 15000, 2000};
+    //struct Vector r2 = {174e9, -379e9, 120e9};
+    //struct Vector v2 = {12000, 16000, 3000};
+
+    /** class one transfer*/
     struct Vector r1 = {100e9, 180e9, 100e9};
     struct Vector v1 = {-20000, 15000, 2000};
-    struct Vector r2 = {174e9, -379e9, 120e9};
-    struct Vector v2 = {12000, 16000, 3000};
+    struct Vector r2 = {-374e9, -179e9, 120e9};
+    struct Vector v2 = {3000, -18000, 3000};
 
-    double dt = 400 * 24* 60 * 60;
+
+    double dt = 200 * 24* 60 * 60;
     double dtheta = angle_vec_vec(r1, r2);
     if(cross_product(r1,r2).z < 0) dtheta = 2*M_PI - dtheta;
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
 
     double dv = calc_transfer_dv(transfer2d, r1, v1, r2, v2);
-    printf("dv: %f m/s - dtheta: %f°\n", dv, rad2deg(dtheta));
+    //printf("dv: %f m/s - dtheta: %f°\n", dv, rad2deg(dtheta));
 
     printf("\n\n");
     gettimeofday(&end, NULL);  // Record the ending time
@@ -65,32 +73,36 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
         double n = sqrt(mu / pow(fabs(a),3));
 
         double t1,t2;
+        double T = 2*M_PI/n;
 
         if(e < 1) {
             double E1 = acos((e + cos(theta1)) / (1 + e * cos(theta1)));
             t1 = (E1 - e * sin(E1)) / n;
+            if(theta1 > M_PI) t1 = T-t1;
             double E2 = acos((e + cos(theta2)) / (1 + e * cos(theta2)));
             t2 = (E2 - e * sin(E2)) / n;
+            if(theta2 > M_PI) t2 = T-t2;
+            dt = theta1 < theta2 ? t2-t1 : T-t1 + t2;
         } else {
             double F1 = acosh((e + cos(theta1)) / (1 + e * cos(theta1)));
             t1 = (e * sinh(F1) - F1) / n;
             double F2 = acosh((e + cos(theta2)) / (1 + e * cos(theta2)));
             t2 = (e * sinh(F2) - F2) / n;
+            dt = theta1 < theta2 ? t2-t1 : t1 + t2;
         }
 
-        dt = theta1 < theta2 ? t2-t1 : t2 + t1;
         double ddt = dt-target_dt;
         double ts[] = {t1/(24*60*60), t2/(24*60*60)};
         double x[] = {dt/(24*60*60), target_dt/(24*60*60), ddt/(24*60*60)};
 
-        printf("Theta1: %f°, Theta2: %f°, dt: %f, a: %f 1e6km, e: %f\n", rad2deg(theta1), rad2deg(theta2), dt/(24*60*60), a*1e-9, e);
-
+        printf("Theta1: %f°, Theta2: %f°, dt: %f, t1: %f, t2: %f, T: %f, a: %f 1e6km, e: %f\n", rad2deg(theta1), rad2deg(theta2), dt/(24*60*60), t1/(24*60*60), t2/(24*60*60), T/(24*60*60), a*1e-9, e);
 
         if(fabs(dt-target_dt) < 1) break;
+        if(fabs(e-1) < 0.0001) break;
 
-        double temp = dtheta < M_PI ? (r1-r2) : -(r1-r2);
+        //double temp = dtheta < M_PI ? (r1-r2) : -(r1-r2);
 
-        if((dt-target_dt)*temp > 0) {
+        if((dt-target_dt)*(r1-r2) > 0) {
             if(step < 0) step *= -1.0/4;
             theta1 += step;
         } else {
@@ -99,7 +111,9 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
         }
     }
 
-    printf("Theta1: %f°, Theta2: %f°, a: %f 1e6km, e: %f\n", rad2deg(theta1), rad2deg(theta2), a*1e-9, e);
+    printf("Theta1: %f°, Theta2: %f°, a: %f 1e6km, e: %f, HF: (%f, 0)\n", rad2deg(theta1), rad2deg(theta2), a*1e-9, e, 2*e*a*1e-9);
+    printf("r: %f (%f. %f)\n", r1*1e-9, cos(theta1)*r1*1e-9, sin(theta1)*r1*1e-9);
+    printf("r: %f (%f, %f)\n", r2*1e-9, cos(theta2)*r2*1e-9, sin(theta2)*r2*1e-9);
 
     struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
     return transfer;
@@ -161,8 +175,8 @@ double calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct V
     struct Vector2D v_t1_2d = calc_v_2d(vector_mag(r1), v_t1_mag, theta1, gamma1);
     struct Vector2D v_t2_2d = calc_v_2d(vector_mag(r2), v_t2_mag, theta2, gamma2);
 
-    //print_vector2d(v_t1_2d);
-    //print_vector2d(v_t2_2d);
+    print_vector2d(v_t1_2d);
+    print_vector2d(v_t2_2d);
 
     // calculate RAAN, inclination and argument of periapsis
     struct Vector inters_line = calc_intersecting_line_dir(p_0, p_T);
@@ -171,7 +185,8 @@ double calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct V
     if(in_plane_up.z < 0) in_plane_up = scalar_multiply(in_plane_up, -1);   // this vector is always 90° before RAAN for prograde orbits
     double RAAN = in_plane_up.x < 0 ? angle_vec_vec(vec(1,0,0), inters_line) : angle_vec_vec(vec(1,0,0), inters_line) + M_PI;   // RAAN 90° behind in_plane_up
 
-    double i = angle_plane_plane(p_T, p_0);   // also possible to get angle between p_0 and in_plane_up
+    //double i = angle_plane_plane(p_T, p_0);   // can create angles greater than 90°
+    double i = angle_plane_vec(p_0, in_plane_up);   // also possible to get angle between p_0 and in_plane_up
 
     double arg_peri = 2*M_PI - theta1;
     if(RAAN < M_PI) {
@@ -185,7 +200,7 @@ double calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct V
 
     struct Vector v_t1 = heliocentric_rot(v_t1_2d, RAAN, arg_peri, i);
     struct Vector v_t2 = heliocentric_rot(v_t2_2d, RAAN, arg_peri, i);
-    //printf("RAAN: %f, arg_peri: %f, i: %f\n", rad2deg(RAAN), rad2deg(arg_peri), rad2deg(i));
+    printf("RAAN: %f, arg_peri: %f, i: %f\n", rad2deg(RAAN), rad2deg(arg_peri), rad2deg(i));
 
     double v_t1_inf = fabs(vector_mag(add_vectors(v_t1, scalar_multiply(v1, -1))));
     double dv1 = dv_circ(EARTH(), 150e3, v_t1_inf);
