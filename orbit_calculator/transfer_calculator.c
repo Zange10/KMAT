@@ -40,7 +40,7 @@ void init_transfer() {
     struct Vector v2 = {3000, -18000, 3000};
 
 
-    double dt = 200 * 24* 60 * 60;
+    double dt = 5 * 24* 60 * 60;
     double dtheta = angle_vec_vec(r1, r2);
     if(cross_product(r1,r2).z < 0) dtheta = 2*M_PI - dtheta;
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
@@ -68,6 +68,11 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
         theta1 = pi_norm(theta1);
         theta2 = pi_norm(theta1 + dtheta);
         e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));
+        if(e < 0){  // not possible
+            theta1 -= step;
+            step /= 4;
+            continue;
+        }
         double rp = r1*(1+e*cos(theta1))/(1+e);
         a = rp/(1-e);
         double n = sqrt(mu / pow(fabs(a),3));
