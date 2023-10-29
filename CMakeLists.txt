@@ -28,6 +28,8 @@ add_executable(KSP
         orbit_calculator/transfer_calculator.c
         orbit_calculator/transfer_calculator.h
         analytic_geometry.c
-        analytic_geometry.h)
+        analytic_geometry.h
+        orbit_calculator/transfer_tools.c
+        orbit_calculator/transfer_tools.h)
 
 target_link_libraries(KSP m)
