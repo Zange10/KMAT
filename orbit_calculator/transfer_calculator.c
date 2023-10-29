@@ -27,20 +27,21 @@ void init_transfer() {
 //    //struct Vector r2 = scalar_multiply(r2_norm, 108.9014e9);
 //    struct Vector r2 = {-74e9, 79e9, 4e9};
 //    struct Vector v2_norm = {-0.857, -0.8, 0};
-    /** class two transfer */
-    //struct Vector r1 = {100e9, 180e9, 100e9};
-    //struct Vector v1 = {-20000, 15000, 2000};
-    //struct Vector r2 = {174e9, -379e9, 120e9};
-    //struct Vector v2 = {12000, 16000, 3000};
 
-    /** class one transfer*/
+    /* class two transfer */
     struct Vector r1 = {100e9, 180e9, 100e9};
     struct Vector v1 = {-20000, 15000, 2000};
-    struct Vector r2 = {-374e9, -179e9, 120e9};
-    struct Vector v2 = {3000, -18000, 3000};
+    struct Vector r2 = {174e9, -379e9, 120e9};
+    struct Vector v2 = {12000, 16000, 3000};
+
+    /* class one transfer*/
+    //struct Vector r1 = {100e9, 180e9, 100e9};
+    //struct Vector v1 = {-20000, 15000, 2000};
+    //struct Vector r2 = {-374e9, -179e9, 120e9};
+    //struct Vector v2 = {3000, -18000, 3000};
 
 
-    double dt = 5 * 24* 60 * 60;
+    double dt = 3 * 24* 60 * 60;
     double dtheta = angle_vec_vec(r1, r2);
     if(cross_product(r1,r2).z < 0) dtheta = 2*M_PI - dtheta;
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
@@ -96,11 +97,14 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
             dt = theta1 < theta2 ? t2-t1 : t1 + t2;
         }
 
-        double ddt = dt-target_dt;
-        double ts[] = {t1/(24*60*60), t2/(24*60*60)};
-        double x[] = {dt/(24*60*60), target_dt/(24*60*60), ddt/(24*60*60)};
-
         printf("Theta1: %f°, Theta2: %f°, dt: %f, t1: %f, t2: %f, T: %f, a: %f 1e6km, e: %f\n", rad2deg(theta1), rad2deg(theta2), dt/(24*60*60), t1/(24*60*60), t2/(24*60*60), T/(24*60*60), a*1e-9, e);
+
+        if(isnan(dt)){  // at this theta1 not solvable
+            theta1 -= step;
+            step /= 4;
+            dt = 100;
+            continue;
+        }
 
         if(fabs(dt-target_dt) < 1) break;
         if(fabs(e-1) < 0.0001) break;
