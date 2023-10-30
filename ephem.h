@@ -7,7 +7,14 @@ struct Ephem {
 
 struct Date {
     int y, m, d, h, min;
+    double s;
 };
+
+void print_date(struct Date date, int line_break);
+
+double convert_date_JD(struct Date date);
+
+struct Date convert_JD_date(double JD);
 
 void print_ephem(struct Ephem ephem);
 

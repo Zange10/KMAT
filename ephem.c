@@ -10,8 +10,57 @@ void print_ephem(struct Ephem ephem) {
            ephem.date, ephem.x, ephem.y, ephem.z, ephem.vx, ephem.vy, ephem.vz);
 }
 
-void print_date(struct Date date) {
-    printf("%4d-%02d-%02d %02d:%02d\n", date.y, date.m, date.d, date.h, date.min);
+void print_date(struct Date date, int line_break) {
+    printf("%4d-%02d-%02d %02d:%02d:%06.3f", date.y, date.m, date.d, date.h, date.min, date.s);
+    if(line_break) printf("\n");
+}
+
+struct Date convert_JD_date(double JD) {
+    struct Date date = {0,1,1,0,0,0};
+//    printf("%f\n", JD);
+    double init_JD = JD;
+    JD -= 2451544.5;
+    date.y = JD >= 0 ?  2000 + (int)(JD/365.25) : 2000 + (int)(JD/365.25)-1;
+    JD = init_JD - convert_date_JD(date);
+//    printf("%f\n", JD);
+
+    for(int i = 1; i < 12; i++) {
+        int month_days;
+        if(i == 1 || i == 3 || i == 5 || i == 7 || i == 8 || i == 10) month_days = 31;
+        else if(i == 4 || i == 6 || i == 9 || i == 11) month_days = 30;
+        else {
+            if(date.y%4 == 0) month_days = 29;
+            else month_days = 28;
+        }
+        JD -= month_days;
+        if(JD < 0) {
+            JD += month_days;
+            break;
+        } else {
+            date.m++;
+        }
+    }
+
+//    printf("%f\n", JD);
+    date.d += (int)JD;
+    JD -= (int)JD;
+
+    // years before a leap year before 2000 would go to 32 Dec
+    if(date.m == 12 && date.d == 32) {
+        date.m = 1;
+        date.d = 1;
+        date.y++;
+    }
+
+//    printf("%f\n", JD);
+
+    date.h = (int) (JD * 24.0);
+    JD -= (double)date.h/24;
+    date.min = (int) (JD * 24 * 60);
+    JD -= (double)date.min/(24*60);
+    date.s = JD;
+
+    return date;
 }
 
 double convert_date_JD(struct Date date) {
@@ -32,7 +81,7 @@ double convert_date_JD(struct Date date) {
     }
 
     J += month_part+year_part+date.d;
-    J += date.h/24 + date.min/60;
+    J += (double)date.h/24 + (double)date.min/(24*60) + date.s/(24*60*60);
     return J;
 }
 
