@@ -10,8 +10,8 @@
 
 
 void init_transfer() {
-    struct Vector r = {357e9, -146e9, 0};
-    struct Vector v = {-34533,14059, 0};
+    struct Vector r = {150e9, 58e9, 200e9};
+    struct Vector v = {-30433,14059, -500};
 
     struct Orbital_State_Vectors temp = propagate_orbit(r,v,1000000,SUN());
 
