@@ -11,8 +11,6 @@
 // ------------------------------------------------------------
 
 int main() {
-    get_ephem();
-    return 0;
     init_celestial_bodies();
 
     init_transfer();

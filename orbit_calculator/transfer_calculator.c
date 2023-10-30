@@ -2,6 +2,7 @@
 #include "analytic_geometry.h"
 #include "celestial_bodies.h"
 #include "transfer_tools.h"
+#include "ephem.h"
 #include <stdio.h>
 #include <sys/time.h>
 #include <math.h>
@@ -9,6 +10,16 @@
 
 
 void init_transfer() {
+
+
+    struct Ephem ephem[750];
+    get_ephem(ephem, sizeof(ephem) / sizeof(struct Ephem));
+
+    for(int i = 0; i < 200; i++) {
+        print_ephem(ephem[i]);
+    }
+
+    return;
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
     struct Vector r1_norm = {1, 0, 0};

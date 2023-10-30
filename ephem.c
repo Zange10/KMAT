@@ -30,13 +30,13 @@ double convert_date_JD(struct Date date) {
             else month_part += 28;
         }
     }
-    printf("%d, %d\n", month_part, year_part);
+
     J += month_part+year_part+date.d;
     J += date.h/24 + date.min/60;
     return J;
 }
 
-void get_ephem() {
+void get_ephem(struct Ephem *ephem, double size_ephem) {
     // Construct the URL with your API key and parameters
     const char *url = "https://ssd.jpl.nasa.gov/api/horizons.api?"
                       "format=text&"
@@ -47,7 +47,7 @@ void get_ephem() {
                       "CENTER='500@0'&"
                       "START_TIME='2000-01-01'&"
                       "STOP_TIME='2005-01-01'&"
-                      "STEP_SIZE='210d'&"
+                      "STEP_SIZE='10d'&"
                       "VEC_TABLE='2'&"
                       "QUANTITIES='1,9,20,23,24,29'";
 
@@ -76,8 +76,6 @@ void get_ephem() {
         return;
     }
 
-    struct Ephem ephem[400];
-
     // Read lines from the file until the end is reached
     while (fgets(line, sizeof(line), file) != NULL) {
         line[strcspn(line, "\n")] = '\0';
@@ -86,7 +84,7 @@ void get_ephem() {
         }
     }
 
-    for(int i = 0; i < sizeof(ephem) / sizeof(struct Ephem); i++){
+    for(int i = 0; i < size_ephem; i++){
         fgets(line, sizeof(line), file);
         line[strcspn(line, "\n")] = '\0';
         if (strcmp(line, "$$EOE") == 0) {
@@ -111,46 +109,7 @@ void get_ephem() {
         ephem[i].vz = vz*1e3;
     }
 
-
-    struct Date date = {2000, 1, 1, 0, 0};
-    print_date(date);
-    printf("Date: %f", convert_date_JD(date));
-    print_ephem(ephem[0]);
-    date.y = 2000; date.m = 7, date.d = 29;
-    print_date(date);
-    printf("Date: %f", convert_date_JD(date));
-    print_ephem(ephem[1]);
-    date.y = 2001; date.m = 2, date.d = 24;
-    print_date(date);
-    printf("Date: %f", convert_date_JD(date));
-    print_ephem(ephem[2]);
-    date.y = 2001; date.m = 9, date.d = 22;
-    print_date(date);
-    printf("Date: %f", convert_date_JD(date));
-    print_ephem(ephem[3]);
-    date.y = 2002; date.m = 4, date.d = 20;
-    print_date(date);
-    printf("Date: %f", convert_date_JD(date));
-    print_ephem(ephem[4]);
-    date.y = 2002; date.m = 11, date.d = 16;
-    print_date(date);
-    printf("Date: %f", convert_date_JD(date));
-    print_ephem(ephem[5]);
-    date.y = 2003; date.m = 6, date.d = 14;
-    print_date(date);
-    printf("Date: %f", convert_date_JD(date));
-    print_ephem(ephem[6]);
-    date.y = 2004; date.m = 1, date.d = 10;
-    print_date(date);
-    printf("Date: %f", convert_date_JD(date));
-    print_ephem(ephem[7]);
-    date.y = 2004; date.m = 8, date.d = 7;
-    print_date(date);
-    printf("Date: %f", convert_date_JD(date));
-    print_ephem(ephem[8]);
-
     // Close the file when done
     fclose(file);
-
     return;
 }
