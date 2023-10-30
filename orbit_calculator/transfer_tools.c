@@ -164,8 +164,6 @@ struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, d
     struct Vector n_vec = cross_product(k, h);
     struct Vector n_norm = norm_vector(n_vec);
 
-//    printf("r: %f, v: %f, a: %f, e: %f   ---- ",
-//           r_mag, v_mag, a*1e-9, e_mag);
     double RAAN, i, arg_peri;
     if(vector_mag(n_vec) != 0) {
         RAAN = n_norm.y >= 0 ? acos(n_norm.x) : 2 * M_PI - acos(n_norm.x); // if n_norm.y is negative: RAAN > 180°
@@ -173,7 +171,6 @@ struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, d
         arg_peri = e.z >= 0 ? acos(dot_product(n_norm, e) / e_mag) : 2 * M_PI - acos(dot_product(n_norm, e) / e_mag);  // if r.z is positive: w > 180°
     } else {
         RAAN = 0;
-//        print_vector(cross_product(r,v));
         i = dot_product(k, norm_vector(h)) > 0 ? 0 : M_PI;
         arg_peri = cross_product(r,v).z * e.y > 0 ? acos(e.x/e_mag) : 2*M_PI - acos(e.x/e_mag);
     }
@@ -183,39 +180,13 @@ struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, d
     double n = sqrt(mu / pow(fabs(a),3));
     double T = 2*M_PI/n;
     if(t < 0) t += T;
-    printf("%f\n", v_r);
-    printf("RAAN: %f, i: %f, w: %f, theta: %f, E: %f, t: %f, rv: %f, ex: %f, ey: %f\n",
-           rad2deg(RAAN), rad2deg(i), rad2deg(arg_peri), rad2deg(theta), E, t, cross_product(r,v).z/1e15, e.x, e.y);
-
-
-//    double gamma1 = atan(e_mag*sin(theta)/(1+e_mag*cos(theta)));
-//    printf("theta: %f, E: %f, t: %f, gamma: %f\n",
-//           rad2deg(theta), E, t, rad2deg(gamma1));
-//    printf("Hidden Focus: (%f, 0)\n", 2*a*e_mag*1e-9);
-//
-//    r_mag = a*(1-pow(e_mag,2)) / (1+e_mag*cos(theta));
-//    v_mag = sqrt(mu*(2/r_mag - 1/a));
-//    struct Vector2D r_2d1 = {cos(theta) * r_mag, sin(theta) * r_mag};
-//    struct Vector2D v_2d1 = calc_v_2d(r_mag, v_mag, theta, gamma1);
-//    print_vector2d(scalar_multipl2d(r_2d1,1e-9));
-//    print_vector2d(scalar_multipl2d(v_2d1,1e-3));
-//    r = heliocentric_rot(r_2d1, RAAN, arg_peri, i);
-//    v = heliocentric_rot(v_2d1, RAAN, arg_peri, i);
-//
-//    struct Orbital_State_Vectors osv1 = {r,v, e_mag};
-//    return osv1;
-
-
 
     double target_t = t+dt;
     double step = deg2rad(5);
     theta += step;
 
-
-    printf("%f %f %f\n", target_t, T, t);
     while(target_t > T) target_t -= T;
 
-    printf("%f %f %f\n", target_t, T, t);
     while(fabs(t-target_t) > 1e-3) {
         theta = pi_norm(theta);
 
@@ -224,7 +195,6 @@ struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, d
         if(theta > M_PI) t = T-t;
 
 
-//        printf("%f, %f, %f\n", rad2deg(theta), t, target_t);
         if((target_t-t) > 0) {
             if(step < 0) step *= -1.0/4;
             theta += step;
@@ -235,12 +205,8 @@ struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, d
     }
 
     theta -= step; // reset theta1 from last change inside the loop
-    E = 2 * atan(sqrt((1-e_mag)/(1+e_mag)) * tan(theta/2));
-    t = (E-e_mag*sin(E)) / sqrt(mu/ pow(a,3));
 
     double gamma = atan(e_mag*sin(theta)/(1+e_mag*cos(theta)));
-//    printf("theta: %f, E: %f, t: %f, gamma: %f\n",
-//           rad2deg(theta), E, t, rad2deg(gamma));
     r_mag = a*(1-pow(e_mag,2)) / (1+e_mag*cos(theta));
     v_mag = sqrt(mu*(2/r_mag - 1/a));
     struct Vector2D r_2d = {cos(theta) * r_mag, sin(theta) * r_mag};

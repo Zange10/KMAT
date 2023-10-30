@@ -5,70 +5,10 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <math.h>
-#include <stdlib.h>
 
 
 
 void init_transfer() {
-    struct Vector r = {150e9, 58e9, 200e9};
-    struct Vector v = {-30433,14059, -500};
-
-    struct Orbital_State_Vectors temp = propagate_orbit(r,v,1000000,SUN());
-
-    print_vector(scalar_multiply(temp.r,1e-6));
-    print_vector(scalar_multiply(temp.v,1e-0));
-
-
-//    double data[50][2];
-//    double errs = 0;
-//    double total = 0;
-//
-//    for(int i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
-//        printf("\n-----------------------------\n");
-//        int min = -500;
-//        int max = 500;
-//        int n = (rand() % (max - min + 1)) + min;
-//        r.x = (double)n*1e9;
-//        n = (rand() % (max - min + 1)) + min;
-//        r.y = (double)n*1e9;
-//
-//        min = -50000;
-//        max = 50000;
-//        n = (rand() % (max - min + 1)) + min;
-//        v.x = (double)n;
-//        n = (rand() % (max - min + 1)) + min;
-//        v.y = (double)n;
-//        temp = propagate_orbit(r,v,1000000,SUN());
-//
-////        print_vector(scalar_multiply(r,1e-6));
-////        print_vector(scalar_multiply(v,1e-0));
-////        print_vector(scalar_multiply(temp.r,1e-6));
-////        print_vector(scalar_multiply(temp.v,1e-0));
-//
-//        struct Vector e1 = add_vectors(r, scalar_multiply(temp.r, -1));
-//        struct Vector e2 = add_vectors(v, scalar_multiply(temp.v, -1));
-////        if(vector_mag(e1) > 1) printf("%f, %f, %f, (rx: %f, ry: %f, vx: %f, vy: %f)\n",
-////                                      temp.e, vector_mag(e1), vector_mag(e2), r.x/1e9, r.y/1e9, v.x, v.y);
-//        data[i][0] = temp.e;
-//        data[i][1] = vector_mag(e1);
-//
-//        if(temp.e < 0.9) {
-//            total++;
-//            if(vector_mag(e1)>0.01) errs++;
-//        }
-//    }
-//
-//    for(int i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
-//        printf(",%f", data[i][0]);
-//    }
-//    printf("]\n");
-//    for(int i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
-//        printf(",%f", data[i][1]);
-//    }
-//    printf("]\n");
-//
-//    printf("%f %%\n",errs/total*100);
-    return;
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
     struct Vector r1_norm = {1, 0, 0};

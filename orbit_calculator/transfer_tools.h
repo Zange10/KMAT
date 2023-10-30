@@ -42,7 +42,7 @@ double dv_circ(struct Body *body, double rp, double vinf);
 // calculate the delta-v between speed at given Periapsis for excess speed of 0m/s at given Periapsis and speed at given Periapsis for given excess speed
 double dv_capture(struct Body *body, double rp, double vinf);
 
-// propagate orbit by time
+// propagate elliptical orbit by time
 struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor);
 
 #endif //KSP_TRANSFER_TOOLS_H
