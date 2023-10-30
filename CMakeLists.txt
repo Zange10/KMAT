@@ -30,6 +30,9 @@ add_executable(KSP
         analytic_geometry.c
         analytic_geometry.h
         orbit_calculator/transfer_tools.c
-        orbit_calculator/transfer_tools.h)
+        orbit_calculator/transfer_tools.h
+        launch_calculator/lp_parameters.h
+        ephem.c
+        ephem.h)
 
 target_link_libraries(KSP m)

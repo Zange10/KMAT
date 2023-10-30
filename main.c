@@ -5,11 +5,14 @@
 #include "orbit_calculator/orbit_calculator.h"
 #include "orbit_calculator/transfer_calculator.h"
 #include "tool_funcs.h"
+#include "ephem.h"
 
 
 // ------------------------------------------------------------
 
 int main() {
+    get_ephem();
+    return 0;
     init_celestial_bodies();
 
     init_transfer();
