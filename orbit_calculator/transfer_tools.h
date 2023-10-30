@@ -19,6 +19,11 @@ struct Transfer {
     struct Vector r0, v0, r1, v1;
 };
 
+struct Orbital_State_Vectors {
+    struct Vector r, v;
+    double e;
+};
+
 // calculate the 2-dimensional vector with given magnitude, location, true anomaly and flight path angle
 struct Vector2D calc_v_2d(double r_mag, double v_mag, double theta, double gamma);
 
@@ -37,5 +42,7 @@ double dv_circ(struct Body *body, double rp, double vinf);
 // calculate the delta-v between speed at given Periapsis for excess speed of 0m/s at given Periapsis and speed at given Periapsis for given excess speed
 double dv_capture(struct Body *body, double rp, double vinf);
 
+// propagate orbit by time
+struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor);
 
 #endif //KSP_TRANSFER_TOOLS_H
