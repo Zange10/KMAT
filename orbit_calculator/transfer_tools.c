@@ -163,7 +163,6 @@ struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, d
     struct Vector k = {0,0,1};
     struct Vector n_vec = cross_product(k, h);
     struct Vector n_norm = norm_vector(n_vec);
-
     double RAAN, i, arg_peri;
     if(vector_mag(n_vec) != 0) {
         RAAN = n_norm.y >= 0 ? acos(n_norm.x) : 2 * M_PI - acos(n_norm.x); // if n_norm.y is negative: RAAN > 180°
@@ -186,19 +185,18 @@ struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, d
     theta += step;
 
     while(target_t > T) target_t -= T;
-
     while(fabs(t-target_t) > 1e-3) {
         theta = pi_norm(theta);
-
         E = acos((e_mag + cos(theta)) / (1 + e_mag * cos(theta)));
         t = (E - e_mag * sin(E)) / n;
         if(theta > M_PI) t = T-t;
 
-
         if((target_t-t) > 0) {
             if(step < 0) step *= -1.0/4;
+            while(theta+step > 2*M_PI) step *= 1.0/4;
             theta += step;
         } else {
+            while(theta+step < 0) step *= 1.0/4;
             if(step > 0) step *= -1.0/4;
             theta += step;
         }

@@ -10,48 +10,40 @@
 
 
 void init_transfer() {
+    struct Ephem ephem[1440];
+    get_ephem(ephem, sizeof(ephem) / sizeof(struct Ephem), 1);
 
-    for(int a = 1902; a < 2090; a++) {
-        for(int i = 1; i <= 12; i++) {
-            int month_days;
-            if(i == 1 || i == 3 || i == 5 || i == 7 || i == 8 || i == 10 || i == 12) month_days = 31;
-            else if(i == 4 || i == 6 || i == 9 || i == 11) month_days = 30;
-            else {
-                if(a%4 == 0) month_days = 29;
-                else month_days = 28;
-            }
+    struct Vector r0 = {ephem[0].x, ephem[0].y, ephem[0].z};
+    struct Vector v0 = {ephem[0].vx, ephem[0].vy, ephem[0].vz};
 
-            for(int j = 1; j <= month_days; j++) {
-                struct Date date = {a,i,j,0,0,0};
-                double jd = convert_date_JD(date);
-                struct Date new_date = convert_JD_date(jd);
-                if(date.y != new_date.y || date.m != new_date.m || date.d != new_date.d || date.h != new_date.h || date.min != new_date.min || date.s != new_date.s) {
-                    print_date(date, 0);
-                    printf(" - %f - ", jd);
-                    print_date(new_date, 1);
-                }
-            }
+    double data[1440][7];
+
+    for(int i = 0; i < 1440; i++) {
+        printf("%d\n", i);
+        struct Orbital_State_Vectors state = propagate_orbit(r0, v0, (i*24*60*60), SUN());
+        struct Vector r = {ephem[i].x, ephem[i].y, ephem[i].z};
+        struct Vector e = add_vectors(r, scalar_multiply(state.r, -1));
+        data[i][0] = state.r.x;
+        data[i][1] = state.r.y;
+        data[i][2] = state.r.z;
+        data[i][3] = r.x;
+        data[i][4] = r.y;
+        data[i][5] = r.z;
+//        data[i][0] = i*1;
+        data[i][6] = vector_mag(e);
+//        print_vector(scalar_multiply(r,1e-6));
+//        print_vector(scalar_multiply(state.r,1e-6));
+//        print_vector(e);
+    }
+
+//    for(int i = 0; i < 700*24; i++) {
+//        printf(",%f", data[i][0]);
+//    }
+    for(int i = 0; i < 7; i++) {
+        for (int j = 0; j < 1440; j++) {
+            printf(",%f", data[j][i]);
         }
-    }
-
-    for(int i = 0; i < 100; i++) {
-        double JD = 2451544.500000000 + i*10;
-        struct Date date = convert_JD_date(JD);
-        printf("%f - ", JD);print_date(date,0);
-        JD = convert_date_JD(date);
-        printf("- %f\n", JD);
-    }
-    return;
-
-
-
-
-    return;
-    struct Ephem ephem[750];
-    get_ephem(ephem, sizeof(ephem) / sizeof(struct Ephem));
-
-    for(int i = 0; i < 200; i++) {
-        print_ephem(ephem[i]);
+        printf("]\n");
     }
 
     return;

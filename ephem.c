@@ -5,9 +5,11 @@
 #include <string.h>
 
 void print_ephem(struct Ephem ephem) {
-    printf("\nDate: %f\nx: %g m,   y: %g m,   z: %g m\n"
+    printf("Date: %f  (", ephem.date);
+    print_date(convert_JD_date(ephem.date),0);
+    printf(")\nx: %g m,   y: %g m,   z: %g m\n"
            "vx: %g m/s,   vy: %g m/s,   vz: %g m/s\n\n",
-           ephem.date, ephem.x, ephem.y, ephem.z, ephem.vx, ephem.vy, ephem.vz);
+           ephem.x, ephem.y, ephem.z, ephem.vx, ephem.vy, ephem.vz);
 }
 
 void print_date(struct Date date, int line_break) {
@@ -17,12 +19,10 @@ void print_date(struct Date date, int line_break) {
 
 struct Date convert_JD_date(double JD) {
     struct Date date = {0,1,1,0,0,0};
-//    printf("%f\n", JD);
     double init_JD = JD;
     JD -= 2451544.5;
     date.y = JD >= 0 ?  2000 + (int)(JD/365.25) : 2000 + (int)(JD/365.25)-1;
     JD = init_JD - convert_date_JD(date);
-//    printf("%f\n", JD);
 
     for(int i = 1; i < 12; i++) {
         int month_days;
@@ -41,7 +41,6 @@ struct Date convert_JD_date(double JD) {
         }
     }
 
-//    printf("%f\n", JD);
     date.d += (int)JD;
     JD -= (int)JD;
 
@@ -51,8 +50,6 @@ struct Date convert_JD_date(double JD) {
         date.d = 1;
         date.y++;
     }
-
-//    printf("%f\n", JD);
 
     date.h = (int) (JD * 24.0);
     JD -= (double)date.h/24;
@@ -85,32 +82,34 @@ double convert_date_JD(struct Date date) {
     return J;
 }
 
-void get_ephem(struct Ephem *ephem, double size_ephem) {
+void get_ephem(struct Ephem *ephem, double size_ephem, int download) {
     // Construct the URL with your API key and parameters
-    const char *url = "https://ssd.jpl.nasa.gov/api/horizons.api?"
-                      "format=text&"
-                      "COMMAND='2'&"
-                      "OBJ_DATA='NO'&"
-                      "MAKE_EPHEM='YES'&"
-                      "EPHEM_TYPE='VECTORS'&"
-                      "CENTER='500@0'&"
-                      "START_TIME='2000-01-01'&"
-                      "STOP_TIME='2005-01-01'&"
-                      "STEP_SIZE='10d'&"
-                      "VEC_TABLE='2'&"
-                      "QUANTITIES='1,9,20,23,24,29'";
+    if(download) {
+        const char *url = "https://ssd.jpl.nasa.gov/api/horizons.api?"
+                          "format=text&"
+                          "COMMAND='1'&"
+                          "OBJ_DATA='NO'&"
+                          "MAKE_EPHEM='YES'&"
+                          "EPHEM_TYPE='VECTORS'&"
+                          "CENTER='500@0'&"
+                          "START_TIME='1963-01-01'&"
+                          "STOP_TIME='1967-01-01'&"
+                          "STEP_SIZE='1d'&"
+                          "VEC_TABLE='2'&"
+                          "QUANTITIES='1,9,20,23,24,29'";
 
-    // Construct the wget command
-    char wget_command[512];
-    snprintf(wget_command, sizeof(wget_command), "wget \"%s\" -O output.json", url);
+        // Construct the wget command
+        char wget_command[512];
+        snprintf(wget_command, sizeof(wget_command), "wget \"%s\" -O output.json", url);
 
-    // Execute the wget command
-    int ret_code = system(wget_command);
+        // Execute the wget command
+        int ret_code = system(wget_command);
 
-    // Check for errors
-    if (ret_code != 0) {
-        fprintf(stderr, "Error executing wget: %d\n", ret_code);
-        return;
+        // Check for errors
+        if (ret_code != 0) {
+            fprintf(stderr, "Error executing wget: %d\n", ret_code);
+            return;
+        }
     }
     // Now you can parse the downloaded JSON file (output.json) in your C program.
 
