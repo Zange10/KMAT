@@ -6,7 +6,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
     double theta1 = r1 > r2 ? deg2rad(180) : 0;
     double theta2 = theta1+dtheta;
     double mu = attractor->mu;
-    double step = deg2rad(10);
+    double step = 0;
     double dt = 1e20;
     double a, e;
 
@@ -37,12 +37,27 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
             if(theta2 > M_PI) t2 = T-t2;
             dt = theta1 < theta2 ? t2-t1 : T-t1 + t2;
         } else {
+            // is theta2 reachable?
+            if((theta1 < M_PI  &&  theta2 > M_PI) ||
+              ((theta1 < M_PI) == (theta2 < M_PI) && (theta1 > theta2))){
+                theta1 -= step;
+                step /= 4;
+                continue;
+            }
+
             double F1 = acosh((e + cos(theta1)) / (1 + e * cos(theta1)));
             t1 = (e * sinh(F1) - F1) / n;
             double F2 = acosh((e + cos(theta2)) / (1 + e * cos(theta2)));
             t2 = (e * sinh(F2) - F2) / n;
-            dt = theta1 < theta2 ? t2-t1 : t1 + t2;
+            // different quadrant
+            if((theta1 < M_PI) != (theta2 < M_PI)) dt = t1+t2;
+            // past periapsis
+            else if(theta1 < M_PI) dt = t2-t1;
+            // before periapsis
+            else dt = t1-t2;
         }
+
+
 
         if(c >= 1000) {
             c = 0/0;
@@ -50,13 +65,9 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
 
 //        printf(",%f", rad2deg(theta1));
 //        printf("(%f, %f, %f)", rad2deg(theta1), (dt-target_dt)/(24*60*60), rad2deg(step));
-//        printf("(%f, %f, %f, %f, %f, %f)", rad2deg(theta1), rad2deg(theta2), t1/(24*60*60), t2/(24*60*60), (dt-target_dt)/(24*60*60), e);
+//        printf("(%f, %f, %f, %f, %f, %f)\n", rad2deg(theta1), rad2deg(theta2), t1/(24*60*60), t2/(24*60*60), (dt-target_dt)/(24*60*60), e);
 
         if(isnan(dt)){  // at this theta1 orbit not solvable
-            if(c == 0) {
-                theta1 += step;
-                continue;
-            }
             theta1 -= step;
             step /= 4;
             dt = 100;
@@ -67,19 +78,27 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
 
 
 
-
-        if((dt-target_dt)*(r1-r2) > 0) {
-            if(step < 0) step *= -1.0/4;
-            theta1 += step;
+        if(step != 0) {
+            if ((dt - target_dt) * (r1 - r2) > 0) {
+                if (step < 0) step *= -1.0 / 4;
+            } else {
+                if (step > 0) step *= -1.0 / 4;
+            }
         } else {
-            if(step > 0) step *= -1.0/4;
-            theta1 += step;
+            if ((dt - target_dt) * (r1 - r2) > 0) {
+                step = deg2rad(1);
+            } else {
+                step = deg2rad(-1);
+            }
         }
+        theta1 += step;
     }
 
     theta1 -= step; // reset theta1 from last change inside the loop
-    printf("(%f, %f, %f, %f, %f)", rad2deg(theta1), rad2deg(theta2), dt/(24*60*60), e, a*1e-9);
-    printf("\n");
+//    printf("(%f, %f, %f, %f, %f, %f)", rad2deg(theta1), rad2deg(theta2), rad2deg(dtheta), dt/(24*60*60), e, a*1e-9);
+//    printf("\n");
+
+//    printf(",%f", e);
 
     struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
     return transfer;

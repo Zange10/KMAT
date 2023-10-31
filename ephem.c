@@ -87,7 +87,7 @@ double convert_date_JD(struct Date date) {
     return J;
 }
 
-void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int time_steps, double jd0, double jd1, int download) {
+void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_steps, double jd0, double jd1, int download) {
     if(download) {
         struct Date d0 = convert_JD_date(jd0);
         struct Date d1 = convert_JD_date(jd1);
@@ -149,10 +149,11 @@ void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int time_s
         }
     }
 
-    for(int i = 0; i < size_ephem; i++){
+    for(int i = 0; i < size_ephem-1; i++){
         fgets(line, sizeof(line), file);
         line[strcspn(line, "\n")] = '\0';
         if (strcmp(line, "$$EOE") == 0) {
+            size_ephem = i+1;   // see below for signifying end of array
             break; // Exit the loop when "$$SOE" is encountered
         }
         char *endptr;
@@ -174,6 +175,7 @@ void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int time_s
         ephem[i].vz = vz*1e3;
     }
 
+    ephem[size_ephem-1].date = -1;  // to know where array ends
     // Close the file when done
     fclose(file);
     return;
