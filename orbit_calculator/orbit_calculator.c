@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdbool.h>
 #include "orbit_calculator.h"
+#include "analytic_geometry.h"
 
 struct ManeuverPlan {
     double dV1;
@@ -282,8 +283,4 @@ void calc_v_at_circ(struct Body *body) {
     printf("\n____________\n\nSpeed in orbit at an altitude of %gkm: \t%g m/s\n\n", alt, v);
 
     return;
-}
-
-double deg2rad(double deg) {
-    return deg*(M_PI/180);
 }

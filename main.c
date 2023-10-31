@@ -3,7 +3,9 @@
 #include "celestial_bodies.h"
 #include "launch_calculator/launch_calculator.h"
 #include "orbit_calculator/orbit_calculator.h"
+#include "orbit_calculator/transfer_calculator.h"
 #include "tool_funcs.h"
+
 
 // ------------------------------------------------------------
 
@@ -12,7 +14,7 @@ int main() {
 
     int selection;
     char title[] = "CHOOSE PROGRAM:";
-    char options[] = "Exit; Launch Calculator; Orbit Calculator";
+    char options[] = "Exit; Launch Calculator; Orbit Calculator; Transfer Calculator";
     char question[] = "Program: ";
 
     do {
@@ -24,6 +26,9 @@ int main() {
             break;
         case 2:
             orbit_calculator();
+            break;
+        case 3:
+            create_transfer();
             break;
         default:
             break;

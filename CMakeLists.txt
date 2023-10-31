@@ -24,6 +24,15 @@ add_executable(KSP
         launch_calculator/launch_circularization.c
         launch_calculator/launch_circularization.h
         launch_calculator/lp_parameters.c
-        launch_calculator/lp_parameters.h)
+        launch_calculator/lp_parameters.h
+        orbit_calculator/transfer_calculator.c
+        orbit_calculator/transfer_calculator.h
+        analytic_geometry.c
+        analytic_geometry.h
+        orbit_calculator/transfer_tools.c
+        orbit_calculator/transfer_tools.h
+        launch_calculator/lp_parameters.h
+        ephem.c
+        ephem.h)
 
 target_link_libraries(KSP m)
