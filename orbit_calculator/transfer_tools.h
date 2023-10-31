@@ -21,7 +21,6 @@ struct Transfer {
 
 struct Orbital_State_Vectors {
     struct Vector r, v;
-    double e;
 };
 
 // calculate the 2-dimensional vector with given magnitude, location, true anomaly and flight path angle
