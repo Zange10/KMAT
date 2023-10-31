@@ -3,7 +3,7 @@
 
 #include "analytic_geometry.h"
 
-void create_porkchop();
+void create_transfer();
 
 struct Transfer calc_transfer(struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, double *data);
 

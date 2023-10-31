@@ -5,7 +5,6 @@
 #include "orbit_calculator/orbit_calculator.h"
 #include "orbit_calculator/transfer_calculator.h"
 #include "tool_funcs.h"
-#include "ephem.h"
 
 
 // ------------------------------------------------------------
@@ -13,12 +12,9 @@
 int main() {
     init_celestial_bodies();
 
-    create_porkchop();
-    return 0;
-
     int selection = 0;
     char title[] = "CHOOSE PROGRAM:";
-    char options[] = "Exit; Launch Calculator; Orbit Calculator";
+    char options[] = "Exit; Launch Calculator; Orbit Calculator; Transfer Calculator";
     char question[] = "Program: ";
 
     do {
@@ -30,6 +26,9 @@ int main() {
             break;
         case 2:
             orbit_calculator();
+            break;
+        case 3:
+            create_transfer();
             break;
         default:
             break;

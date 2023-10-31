@@ -8,15 +8,17 @@
 #include <sys/time.h>
 #include <math.h>
 
+struct Porkchop_Properties {
+    double jd_min_dep, jd_max_dep, dep_time_steps, arr_time_steps;
+    int min_duration, max_duration;
+};
 
-
+void create_porkchop(struct Porkchop_Properties pochopro);
 struct Ephem get_last_ephem(struct Ephem *ephem, double date);
 
-void create_porkchop() {
 
-    struct timeval start, end;
-    gettimeofday(&start, NULL);  // Record the starting time
 
+void create_transfer() {
     struct Date min_dep_date = {2024, 1, 1, 0, 0, 0};
     struct Date max_dep_date = {2025, 1, 1, 0, 0, 0};
     int min_duration = 300;         // [days]
@@ -26,6 +28,30 @@ void create_porkchop() {
 
     double jd_min_dep = convert_date_JD(min_dep_date);
     double jd_max_dep = convert_date_JD(max_dep_date);
+
+    struct Porkchop_Properties pochopro = {
+        jd_min_dep,
+        jd_max_dep,
+        dep_time_steps,
+        arr_time_steps,
+        min_duration,
+        max_duration
+    };
+
+    create_porkchop(pochopro);
+}
+
+void create_porkchop(struct Porkchop_Properties pochopro) {
+    struct timeval start, end;
+    gettimeofday(&start, NULL);  // Record the starting time
+
+    int min_duration = pochopro.min_duration;         // [days]
+    int max_duration = pochopro.max_duration;         // [days]
+    double dep_time_steps = pochopro.dep_time_steps; // [seconds]
+    double arr_time_steps = pochopro.arr_time_steps; // [seconds]
+
+    double jd_min_dep = pochopro.jd_min_dep;
+    double jd_max_dep = pochopro.jd_max_dep;
 
     int ephem_time_steps = 10;  // [days]
     int num_ephems = (int)(max_duration + jd_max_dep - jd_min_dep) / ephem_time_steps + 1;
