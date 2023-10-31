@@ -99,6 +99,7 @@ void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_step
 
         char url[256];
         int center = 0;
+        // TODO: correct error due to using sun center instead of barycenter for inner planets + jupiter
         if (body_code <= 5) center = 10;     // inner planets + jupiter sun center; solar system bary center else
         sprintf(url, "https://ssd.jpl.nasa.gov/api/horizons.api?"
                      "format=text&"
@@ -111,20 +112,6 @@ void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_step
                      "STOP_TIME='%s'&"
                      "STEP_SIZE='%dd'&"
                      "VEC_TABLE='2'", body_code, center, d0_s, d1_s, time_steps);
-
-        if(body_code == 0) {
-            sprintf(url, "https://ssd.jpl.nasa.gov/api/horizons.api?"
-                         "format=text&"
-                         "COMMAND='DES=2023 SP2'&"
-                         "OBJ_DATA='NO'&"
-                         "MAKE_EPHEM='YES'&"
-                         "EPHEM_TYPE='VECTORS'&"
-                         "CENTER='500@%d'&"
-                         "START_TIME='%s'&"
-                         "STOP_TIME='%s'&"
-                         "STEP_SIZE='%dd'&"
-                         "VEC_TABLE='2'", center, d0_s, d1_s, time_steps);
-        }
 
         // Construct the wget command
         char wget_command[512];

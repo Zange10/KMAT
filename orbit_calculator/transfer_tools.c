@@ -16,7 +16,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
         theta1 = pi_norm(theta1);
         theta2 = pi_norm(theta1 + dtheta);
         e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));
-//        printf("(%f, %f, %f, %f) \n", rad2deg(theta1), rad2deg(theta2), e, rad2deg(step));
+//        printf("(%f, %f, %f, %f) ", rad2deg(theta1), rad2deg(theta2), e, rad2deg(step));
         if(e < 0){  // not possible
             if(c == 0) theta1 += deg2rad(1);
             else {
@@ -46,7 +46,9 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
             if((theta1 < M_PI  &&  theta2 > M_PI) ||
               ((theta1 < M_PI) == (theta2 < M_PI) && (theta1 > theta2))){
                 if(c==0) {
-                    theta1 += deg2rad(1);
+                    // relevant for when
+                    if(fabs(theta1 - M_PI) < deg2rad(2) && dtheta > deg2rad(358)) theta1 += (2*M_PI-dtheta)/4;
+                    else theta1 += deg2rad(1);
                     continue;
                 }
                 theta1 -= step;

@@ -164,7 +164,7 @@ double rad2deg(double rad) {
 }
 
 double pi_norm(double rad) {
-    while(rad > 2*M_PI) rad -= 2*M_PI;
+    while(rad >= 2*M_PI) rad -= 2*M_PI;
     while(rad < 0) rad += 2*M_PI;
     return rad;
 }

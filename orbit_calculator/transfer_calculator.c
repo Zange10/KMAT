@@ -19,8 +19,8 @@ void create_porkchop() {
 
     struct Date min_dep_date = {2024, 1, 1, 0, 0, 0};
     struct Date max_dep_date = {2025, 1, 1, 0, 0, 0};
-    int min_duration = 20;         // [days]
-    int max_duration = 500;         // [days]
+    int min_duration = 300;         // [days]
+    int max_duration = 1200;         // [days]
     double dep_time_steps = 24 * 60 * 60; // [seconds]
     double arr_time_steps = 24 * 60 * 60; // [seconds]
 
@@ -40,7 +40,7 @@ void create_porkchop() {
     struct Ephem venus_ephem[num_ephems];
 
     get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 1);
-    get_ephem(venus_ephem, num_ephems, 0, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 1);
+    get_ephem(venus_ephem, num_ephems, 5, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 1);
 
     int progress = -1;
     int mind = 0;
@@ -153,7 +153,6 @@ void create_porkchop() {
     transfer_data[0] = 0;
 
     for(int i = 0; i < num_states; i++) {
-        printf("%d", i);
         transfer_data[i*7+1] = times[i];
         transfer_data[i*7+2] = osvs[i].r.x;
         transfer_data[i*7+3] = osvs[i].r.y;
@@ -179,8 +178,7 @@ struct Transfer calc_transfer(struct Vector r1, struct Vector v1, struct Vector 
     double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
     double dv1 = dv_circ(EARTH(), 180e3, v_t1_inf);
     double v_t2_inf = fabs(vector_mag(add_vectors(transfer.v1, scalar_multiply(v2, -1))));
-    //double dv2 = dv_capture(VENUS(), 250e3, v_t2_inf);
-    double dv2 = v_t2_inf;
+    double dv2 = dv_capture(JUPITER(), 1000e3, v_t2_inf);
     data[0] = dt/(24*60*60);
     data[1] = dv1;
     data[2] = dv2;
