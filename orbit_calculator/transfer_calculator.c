@@ -14,9 +14,9 @@ void create_porkchop() {
     gettimeofday(&start, NULL);  // Record the starting time
 
     struct Date min_dep_date = {2025, 1, 1, 0, 0, 0};
-    struct Date max_dep_date = {2026, 1, 1, 0, 0, 0};
-    int max_duration = 300;         // [days]
+    struct Date max_dep_date = {2025, 12, 1, 0, 0, 0};
     int min_duration = 20;         // [days]
+    int max_duration = 300;         // [days]
     double time_steps = 1*24*60*60; // [seconds]
 
     double jd_min_dep = convert_date_JD(min_dep_date);
@@ -26,30 +26,42 @@ void create_porkchop() {
     int num_ephems = (int)(max_duration + jd_max_dep - jd_min_dep) / ephem_time_steps + 1;
 
 
-    struct Ephem earth_ephem[num_ephems];
-    struct Ephem venus_ephem[num_ephems];
+    struct Ephem earth_ephem[1000];
+    struct Ephem venus_ephem[1000];
 
-    get_ephem(venus_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep);
-    get_ephem(earth_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration);
+//    get_ephem(venus_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep);
+//    get_ephem(earth_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration);
+
+    get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 0);
+    get_ephem(venus_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 0);
 
     double t_dep = jd_min_dep;
     while(t_dep < jd_max_dep) {
         double t_arr = t_dep + min_duration;
+        struct Ephem last_eph0 = get_last_ephem(earth_ephem, 1000, t_dep);
+        struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
+        struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
+        double dt0 = t_dep-last_eph0.date;
+        struct Orbital_State_Vectors s0 = propagate_orbit(r0, v0, dt0, SUN());
         while(t_arr < t_dep + max_duration) {
-            struct Ephem last_eph0 = get_last_ephem(earth_ephem, num_ephems, t_arr);
-            struct Ephem last_eph1 = get_last_ephem(venus_ephem, num_ephems, t_arr);
-            struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
-            struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
+            struct Ephem last_eph1 = get_last_ephem(venus_ephem, 1000, t_arr);
             struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
             struct Vector v1 = {last_eph1.vx, last_eph1.vy, last_eph1.vz};
-            double dt0 = t_dep-last_eph0.date;
             double dt1 = t_arr-last_eph1.date;
 
-            struct Orbital_State_Vectors s0 = propagate_orbit(r0, v0, dt0, SUN());
             struct Orbital_State_Vectors s1 = propagate_orbit(r1, v1, dt1, SUN());
             double data[3];
 
             data[0] = t_dep;
+            printf("\n");
+            print_date(convert_JD_date(t_dep), 0);
+            printf(" - ");
+            print_date(convert_JD_date(t_arr), 0);
+            printf(" (%.2f days)\n", t_arr-t_dep);
+//            print_vector(scalar_multiply(s0.r,1e-9));
+//            print_vector(scalar_multiply(s1.r,1e-9));
+//            print_vector(scalar_multiply(r0,1e-9));
+//            print_vector(scalar_multiply(r1,1e-9));
             calc_transfer(s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24*60*60), data);
 
             print_date(convert_JD_date(data[0]), 0);

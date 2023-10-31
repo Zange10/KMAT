@@ -87,49 +87,54 @@ double convert_date_JD(struct Date date) {
     return J;
 }
 
-void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int time_steps, double jd0, double jd1) {
-    struct Date d0 = convert_JD_date(jd0);
-    struct Date d1 = convert_JD_date(jd1);
-    char d0_s[32];
-    char d1_s[32];
-    date_to_string(d0, d0_s);
-    date_to_string(d1, d1_s);
-    // Construct the URL with your API key and parameters
+void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int time_steps, double jd0, double jd1, int download) {
+    if(download) {
+        struct Date d0 = convert_JD_date(jd0);
+        struct Date d1 = convert_JD_date(jd1);
+        char d0_s[32];
+        char d1_s[32];
+        date_to_string(d0, d0_s);
+        date_to_string(d1, d1_s);
+        // Construct the URL with your API key and parameters
 
-    char url[256];
-    int center = 0;
-    if(body_code <= 5) center = 10;     // inner planets + jupiter sun center; solar system bary center else
-    sprintf(url, "https://ssd.jpl.nasa.gov/api/horizons.api?"
-                      "format=text&"
-                      "COMMAND='%d'&"
-                      "OBJ_DATA='NO'&"
-                      "MAKE_EPHEM='YES'&"
-                      "EPHEM_TYPE='VECTORS'&"
-                      "CENTER='500@%d'&"
-                      "START_TIME='%s'&"
-                      "STOP_TIME='%s'&"
-                      "STEP_SIZE='%dd'&"
-                      "VEC_TABLE='2'", body_code, center, d0_s, d1_s, time_steps);
+        char url[256];
+        int center = 0;
+        if (body_code <= 5) center = 10;     // inner planets + jupiter sun center; solar system bary center else
+        sprintf(url, "https://ssd.jpl.nasa.gov/api/horizons.api?"
+                     "format=text&"
+                     "COMMAND='%d'&"
+                     "OBJ_DATA='NO'&"
+                     "MAKE_EPHEM='YES'&"
+                     "EPHEM_TYPE='VECTORS'&"
+                     "CENTER='500@%d'&"
+                     "START_TIME='%s'&"
+                     "STOP_TIME='%s'&"
+                     "STEP_SIZE='%dd'&"
+                     "VEC_TABLE='2'", body_code, center, d0_s, d1_s, time_steps);
 
-    // Construct the wget command
-    char wget_command[512];
-    snprintf(wget_command, sizeof(wget_command), "wget \"%s\" -O output.json", url);
+        // Construct the wget command
+        char wget_command[512];
+        snprintf(wget_command, sizeof(wget_command), "wget \"%s\" -O output.json", url);
 
-    // Execute the wget command
-    int ret_code = system(wget_command);
+        // Execute the wget command
+        int ret_code = system(wget_command);
 
-    // Check for errors
-    if (ret_code != 0) {
-        fprintf(stderr, "Error executing wget: %d\n", ret_code);
-        return;
+        // Check for errors
+        if (ret_code != 0) {
+            fprintf(stderr, "Error executing wget: %d\n", ret_code);
+            return;
+        }
     }
     // Now you can parse the downloaded JSON file (output.json) in your C program.
 
     FILE *file;
     char line[256];  // Assuming lines are no longer than 255 characters
 
-    // Open the file for reading
-    file = fopen("output.json", "r");
+    if(download) file = fopen("output.json", "r");
+    else{
+        if(body_code == 3) file = fopen("earth.json", "r");
+        else file = fopen("venus.json", "r");
+    }
 
     if (file == NULL) {
         perror("Unable to open file");
