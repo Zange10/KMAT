@@ -112,6 +112,20 @@ void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_step
                      "STEP_SIZE='%dd'&"
                      "VEC_TABLE='2'", body_code, center, d0_s, d1_s, time_steps);
 
+        if(body_code == 0) {
+            sprintf(url, "https://ssd.jpl.nasa.gov/api/horizons.api?"
+                         "format=text&"
+                         "COMMAND='DES=2023 SP2'&"
+                         "OBJ_DATA='NO'&"
+                         "MAKE_EPHEM='YES'&"
+                         "EPHEM_TYPE='VECTORS'&"
+                         "CENTER='500@%d'&"
+                         "START_TIME='%s'&"
+                         "STOP_TIME='%s'&"
+                         "STEP_SIZE='%dd'&"
+                         "VEC_TABLE='2'", center, d0_s, d1_s, time_steps);
+        }
+
         // Construct the wget command
         char wget_command[512];
         snprintf(wget_command, sizeof(wget_command), "wget \"%s\" -O output.json", url);

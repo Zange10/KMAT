@@ -73,10 +73,8 @@ void init_MERCURY() {
 void init_VENUS() {
     venus = (struct Body*)malloc(sizeof(struct Body));
     strcpy(venus->name, "VENUS");
-//    venus->mu = 3.24859e14;
-//    venus->radius = 6049e3;
-    venus->mu = 3.24858592e14;
-    venus->radius = 6051.8e3;
+    venus->mu = 3.24859e14;
+    venus->radius = 6049e3;
     venus->rotation_period = -20996797.016381; // rotates in opposite direction
     venus->sl_atmo_p = 10905200;
     venus->scale_height = 15900;

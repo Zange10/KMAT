@@ -16,11 +16,16 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
         theta1 = pi_norm(theta1);
         theta2 = pi_norm(theta1 + dtheta);
         e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));
+//        printf("(%f, %f, %f, %f) \n", rad2deg(theta1), rad2deg(theta2), e, rad2deg(step));
         if(e < 0){  // not possible
-            theta1 -= step;
-            step /= 4;
+            if(c == 0) theta1 += deg2rad(1);
+            else {
+                theta1 -= step;
+                step /= 4;
+            }
             continue;
         }
+
         double rp = r1*(1+e*cos(theta1))/(1+e);
         a = rp/(1-e);
         double n = sqrt(mu / pow(fabs(a),3));
@@ -40,6 +45,10 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
             // is theta2 reachable?
             if((theta1 < M_PI  &&  theta2 > M_PI) ||
               ((theta1 < M_PI) == (theta2 < M_PI) && (theta1 > theta2))){
+                if(c==0) {
+                    theta1 += deg2rad(1);
+                    continue;
+                }
                 theta1 -= step;
                 step /= 4;
                 continue;
@@ -60,25 +69,28 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
 
 
         if(c >= 1000) {
-            if(fabs(dt-target_dt) < 1) {
+            if(fabs(dt-target_dt) < 10) {
                 theta1 += step;
                 break;
             }
             c = 0/0;
         }
+        c++;
 
 //        printf(",%f", rad2deg(theta1));
-//        printf("(%f, %f, %f)", rad2deg(theta1), (dt-target_dt)/(24*60*60), rad2deg(step));
+//        printf("(%f, %f, %f)", dt/(24*60*60), target_dt/(24*60*60), rad2deg(step));
 //        printf("(%f, %f, %f, %f, %f, %f)\n", rad2deg(theta1), rad2deg(theta2), t1/(24*60*60), t2/(24*60*60), (dt-target_dt)/(24*60*60), e);
 
         if(isnan(dt)){  // at this theta1 orbit not solvable
+            if(step == 0) {
+                theta1 += deg2rad(10);
+                continue;
+            }
             theta1 -= step;
             step /= 4;
             dt = 100;
             continue;
         }
-
-        c++;
 
 
 
@@ -98,8 +110,11 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
         theta1 += step;
     }
 
+
+
+
     theta1 -= step; // reset theta1 from last change inside the loop
-//    printf("(%f, %f, %f, %f, %f, %f)", rad2deg(theta1), rad2deg(theta2), rad2deg(dtheta), dt/(24*60*60), e, a*1e-9);
+//    printf("OUT (%f, %f, %f, %f, %f, %f)\n", rad2deg(theta1), rad2deg(theta2), rad2deg(dtheta), dt/(24*60*60), e, a*1e-9);
 //    printf("\n");
 
 //    printf(",%f", e);

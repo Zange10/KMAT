@@ -17,12 +17,12 @@ void create_porkchop() {
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
 
-    struct Date min_dep_date = {2024, 6, 1, 0, 0, 0};
-    struct Date max_dep_date = {2025, 6, 1, 0, 0, 0};
-    int min_duration = 75;         // [days]
-    int max_duration = 200;         // [days]
-    double dep_time_steps = 6 * 60 * 60; // [seconds]
-    double arr_time_steps = 6 * 60 * 60; // [seconds]
+    struct Date min_dep_date = {2024, 1, 1, 0, 0, 0};
+    struct Date max_dep_date = {2025, 1, 1, 0, 0, 0};
+    int min_duration = 20;         // [days]
+    int max_duration = 500;         // [days]
+    double dep_time_steps = 24 * 60 * 60; // [seconds]
+    double arr_time_steps = 24 * 60 * 60; // [seconds]
 
     double jd_min_dep = convert_date_JD(min_dep_date);
     double jd_max_dep = convert_date_JD(max_dep_date);
@@ -30,16 +30,7 @@ void create_porkchop() {
     int ephem_time_steps = 10;  // [days]
     int num_ephems = (int)(max_duration + jd_max_dep - jd_min_dep) / ephem_time_steps + 1;
 
-
-//    get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 0);
-//    get_ephem(venus_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 0);
-
     int all_data_size = (int)(4*(max_duration-min_duration)/(arr_time_steps/(24*60*60)) * (jd_max_dep - jd_min_dep)/ (dep_time_steps/(24*60*60))) + 1;
-
-//    if(all_data_size > 1000000) {
-//        printf("Data array would be bigger than 8MB, which seems to be not allowed...");
-//        return;
-//    }
 
     double * all_data;
     all_data = (double*) malloc(all_data_size * sizeof(double));
@@ -49,11 +40,7 @@ void create_porkchop() {
     struct Ephem venus_ephem[num_ephems];
 
     get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 1);
-    get_ephem(venus_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 1);
-
-//    struct Date date = {2027, 10, 4, 0, 0, 0};
-//    double jd = convert_date_JD(date);
-//    print_ephem(earth_ephem[0]);
+    get_ephem(venus_ephem, num_ephems, 0, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 1);
 
     int progress = -1;
 
@@ -130,7 +117,8 @@ void calc_transfer(struct Vector r1, struct Vector v1, struct Vector r2, struct 
     double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
     double dv1 = dv_circ(EARTH(), 180e3, v_t1_inf);
     double v_t2_inf = fabs(vector_mag(add_vectors(transfer.v1, scalar_multiply(v2, -1))));
-    double dv2 = dv_capture(VENUS(), 250e3, v_t2_inf);
+    //double dv2 = dv_capture(VENUS(), 250e3, v_t2_inf);
+    double dv2 = v_t2_inf;
     data[0] = dt/(24*60*60);
     data[1] = dv1;
     data[2] = dv2;
