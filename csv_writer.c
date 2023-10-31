@@ -22,9 +22,7 @@ void write_csv(char fields[], double data[]) {
     fprintf(file,"%s\n", fields);
 
     for(int i = 1; i < data[0]; i+=n_fields) {   // data[0] amount of data points in data
-        //printf("%d %f\n", i, data[i]);
-        for(int j = 0; j < n_fields-1; j++) {
-            fprintf(file, "%f,", data[i + j]); printf("%d\n", i+j);}
+        for(int j = 0; j < n_fields-1; j++) fprintf(file, "%f,",data[i+j]);
         fprintf(file, "%f\n", data[i+n_fields-1]);
     }
 

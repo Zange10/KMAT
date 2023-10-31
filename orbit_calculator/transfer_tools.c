@@ -60,6 +60,10 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
 
 
         if(c >= 1000) {
+            if(fabs(dt-target_dt) < 1) {
+                theta1 += step;
+                break;
+            }
             c = 0/0;
         }
 

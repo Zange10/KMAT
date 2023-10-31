@@ -15,11 +15,12 @@ void create_porkchop() {
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
 
-    struct Date min_dep_date = {2025, 1, 1, 0, 0, 0};
-    struct Date max_dep_date = {2025, 1, 5, 0, 0, 0};
-    int min_duration = 50;         // [days]
-    int max_duration = 150;         // [days]
-    double time_steps = 1*24*60*60; // [seconds]
+    struct Date min_dep_date = {1970, 1, 1, 0, 0, 0};
+    struct Date max_dep_date = {1980, 1, 1, 0, 0, 0};
+    int min_duration = 90;         // [days]
+    int max_duration = 180;         // [days]
+    double dep_time_steps = 10 * 24 * 60 * 60; // [seconds]
+    double arr_time_steps = 24 * 60 * 60; // [seconds]
 
     double jd_min_dep = convert_date_JD(min_dep_date);
     double jd_max_dep = convert_date_JD(max_dep_date);
@@ -30,19 +31,19 @@ void create_porkchop() {
     struct Ephem earth_ephem[num_ephems];
     struct Ephem venus_ephem[num_ephems];
 
-//    get_ephem(venus_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep);
-//    get_ephem(earth_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration);
+    get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 1);
+    get_ephem(venus_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 1);
 
-    get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 0);
-    get_ephem(venus_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 0);
+//    get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 0);
+//    get_ephem(venus_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 0);
 
 
-    double all_data[10000];
+    double all_data[1000000];
     all_data[0] = 0;
 
 //    struct Date date = {2027, 10, 4, 0, 0, 0};
 //    double jd = convert_date_JD(date);
-//    print_ephem(get_last_ephem(venus_ephem, jd));
+//    print_ephem(earth_ephem[0]);
 //
 //    return;
 
@@ -52,8 +53,9 @@ void create_porkchop() {
         struct Ephem last_eph0 = get_last_ephem(earth_ephem, t_dep);
         struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
         struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
-        double dt0 = t_dep-last_eph0.date;
+        double dt0 = (t_dep-last_eph0.date)*(24*60*60);
         struct Orbital_State_Vectors s0 = propagate_orbit(r0, v0, dt0, SUN());
+        print_date(convert_JD_date(t_dep), 1);
         while(t_arr < t_dep + max_duration) {
             struct Ephem last_eph1 = get_last_ephem(venus_ephem, t_arr);
             struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
@@ -63,10 +65,10 @@ void create_porkchop() {
             struct Orbital_State_Vectors s1 = propagate_orbit(r1, v1, dt1, SUN());
 
             all_data[(int)all_data[0]+1] = t_dep;
-            printf("\n");
-            print_date(convert_JD_date(t_dep), 0);
-            printf(" (%f) - ", t_dep);
-            print_date(convert_JD_date(t_arr), 0);
+//            printf("\n");
+//            print_date(convert_JD_date(t_dep), 0);
+//            printf(" (%f) - ", t_dep);
+//            print_date(convert_JD_date(t_arr), 0);
 //            printf(" (%.2f days)\n", t_arr-t_dep);
 //            print_vector(scalar_multiply(s0.r,1e-9));
 //            print_vector(scalar_multiply(s1.r,1e-9));
@@ -83,9 +85,9 @@ void create_porkchop() {
 //            printf(",%f", data[2]);
 //            print_date(convert_JD_date(data[0]), 0);
 //            printf("  %4.1f  %f\n", data[1], data[2]);
-            t_arr += (time_steps)/(24*60*60);
+            t_arr += (arr_time_steps) / (24 * 60 * 60);
         }
-        t_dep += (time_steps)/(24*60*60);
+        t_dep += (dep_time_steps) / (24 * 60 * 60);
     }
 
     char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
@@ -108,7 +110,7 @@ void calc_transfer(struct Vector r1, struct Vector v1, struct Vector r2, struct 
     double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
     double dv1 = dv_circ(EARTH(), 180e3, v_t1_inf);
     double v_t2_inf = fabs(vector_mag(add_vectors(transfer.v1, scalar_multiply(v2, -1))));
-    double dv2 = dv_capture(VENUS(), 200e3, v_t2_inf);
+    double dv2 = dv_capture(VENUS(), 250e3, v_t2_inf);
     data[0] = dt/(24*60*60);
     data[1] = dv1;
     data[2] = dv2;
