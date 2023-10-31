@@ -82,21 +82,24 @@ double convert_date_JD(struct Date date) {
     return J;
 }
 
-void get_ephem(struct Ephem *ephem, double size_ephem, int download) {
+void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int download) {
     // Construct the URL with your API key and parameters
+
     if(download) {
-        const char *url = "https://ssd.jpl.nasa.gov/api/horizons.api?"
+        char url[256];
+        int center = 0;
+        if(body_code <= 5) center = 10;     // inner planets + jupiter sun center; solar system bary center else
+        sprintf(url, "https://ssd.jpl.nasa.gov/api/horizons.api?"
                           "format=text&"
-                          "COMMAND='1'&"
+                          "COMMAND='%d'&"
                           "OBJ_DATA='NO'&"
                           "MAKE_EPHEM='YES'&"
                           "EPHEM_TYPE='VECTORS'&"
-                          "CENTER='500@0'&"
-                          "START_TIME='1963-01-01'&"
-                          "STOP_TIME='1967-01-01'&"
+                          "CENTER='500@%d'&"
+                          "START_TIME='1983-01-01'&"
+                          "STOP_TIME='1987-01-01'&"
                           "STEP_SIZE='1d'&"
-                          "VEC_TABLE='2'&"
-                          "QUANTITIES='1,9,20,23,24,29'";
+                          "VEC_TABLE='2'", body_code, center);
 
         // Construct the wget command
         char wget_command[512];

@@ -185,11 +185,18 @@ struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, d
     theta += step;
 
     while(target_t > T) target_t -= T;
+
+    int c = 0;
+
     while(fabs(t-target_t) > 1e-3) {
+        c++;
         theta = pi_norm(theta);
         E = acos((e_mag + cos(theta)) / (1 + e_mag * cos(theta)));
         t = (E - e_mag * sin(E)) / n;
         if(theta > M_PI) t = T-t;
+
+        // prevent endless loops (floating point imprecision can lead to not changing values for very small steps)
+        if(c == 500) break;
 
         if((target_t-t) > 0) {
             if(step < 0) step *= -1.0/4;
@@ -201,7 +208,6 @@ struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, d
             theta += step;
         }
     }
-
     theta -= step; // reset theta1 from last change inside the loop
 
     double gamma = atan(e_mag*sin(theta)/(1+e_mag*cos(theta)));

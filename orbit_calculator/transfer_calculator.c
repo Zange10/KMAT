@@ -11,40 +11,49 @@
 
 void init_transfer() {
     struct Ephem ephem[1440];
-    get_ephem(ephem, sizeof(ephem) / sizeof(struct Ephem), 1);
+    double data[8][1440];
+    for(int b = 0; b < 8; b++) {
+        get_ephem(ephem, sizeof(ephem) / sizeof(struct Ephem), b + 1, 1);
 
-    struct Vector r0 = {ephem[0].x, ephem[0].y, ephem[0].z};
-    struct Vector v0 = {ephem[0].vx, ephem[0].vy, ephem[0].vz};
+        struct Vector r0 = {ephem[0].x, ephem[0].y, ephem[0].z};
+        struct Vector v0 = {ephem[0].vx, ephem[0].vy, ephem[0].vz};
 
-    double data[1440][7];
-
-    for(int i = 0; i < 1440; i++) {
-        printf("%d\n", i);
-        struct Orbital_State_Vectors state = propagate_orbit(r0, v0, (i*24*60*60), SUN());
-        struct Vector r = {ephem[i].x, ephem[i].y, ephem[i].z};
-        struct Vector e = add_vectors(r, scalar_multiply(state.r, -1));
-        data[i][0] = state.r.x;
-        data[i][1] = state.r.y;
-        data[i][2] = state.r.z;
-        data[i][3] = r.x;
-        data[i][4] = r.y;
-        data[i][5] = r.z;
-//        data[i][0] = i*1;
-        data[i][6] = vector_mag(e);
-//        print_vector(scalar_multiply(r,1e-6));
-//        print_vector(scalar_multiply(state.r,1e-6));
-//        print_vector(e);
+        for (int i = 0; i < 1440; i++) {
+            printf("\n%d ", i);
+            struct Orbital_State_Vectors state = propagate_orbit(r0, v0, (i * 24 * 60 * 60), SUN());
+            struct Vector r = {ephem[i].x, ephem[i].y, ephem[i].z};
+            struct Vector e = add_vectors(r, scalar_multiply(state.r, -1));
+//            data[i][0] = state.r.x;
+//            data[i][1] = state.r.y;
+//            data[i][2] = state.r.z;
+//            data[i][3] = r.x;
+//            data[i][4] = r.y;
+//            data[i][5] = r.z;
+            //        data[i][0] = i*1;
+            data[b][i] = vector_mag(e);
+            //        print_vector(scalar_multiply(r,1e-6));
+            //        print_vector(scalar_multiply(state.r,1e-6));
+            //        print_vector(e);
+        }
+    }
+    for(int b = 0; b < 8; b++) {
+        for (int j = 0; j < 1440; j++) {
+            if (j == 0) printf("b%d = [", b);
+            else printf(",");
+            printf("%f", data[b][j]);
+        }
+        printf("]\n");
     }
 
 //    for(int i = 0; i < 700*24; i++) {
 //        printf(",%f", data[i][0]);
 //    }
-    for(int i = 0; i < 7; i++) {
-        for (int j = 0; j < 1440; j++) {
-            printf(",%f", data[j][i]);
-        }
-        printf("]\n");
-    }
+//    for(int i = 0; i < 7; i++) {
+//        for (int j = 0; j < 1440; j++) {
+//            printf(",%f", data[j][i]);
+//        }
+//        printf("]\n");
+//    }
 
     return;
     struct timeval start, end;
