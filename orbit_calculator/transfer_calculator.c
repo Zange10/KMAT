@@ -2,6 +2,7 @@
 #include "celestial_bodies.h"
 #include "transfer_tools.h"
 #include "ephem.h"
+#include "csv_writer.h"
 #include <stdio.h>
 #include <sys/time.h>
 #include <math.h>
@@ -15,9 +16,9 @@ void create_porkchop() {
     gettimeofday(&start, NULL);  // Record the starting time
 
     struct Date min_dep_date = {2025, 1, 1, 0, 0, 0};
-    struct Date max_dep_date = {2026, 1, 1, 0, 0, 0};
-    int min_duration = 20;         // [days]
-    int max_duration = 300;         // [days]
+    struct Date max_dep_date = {2025, 1, 5, 0, 0, 0};
+    int min_duration = 50;         // [days]
+    int max_duration = 150;         // [days]
     double time_steps = 1*24*60*60; // [seconds]
 
     double jd_min_dep = convert_date_JD(min_dep_date);
@@ -36,6 +37,8 @@ void create_porkchop() {
     get_ephem(venus_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 0);
 
 
+    double all_data[10000];
+    all_data[0] = 0;
 
 //    struct Date date = {2027, 10, 4, 0, 0, 0};
 //    double jd = convert_date_JD(date);
@@ -58,22 +61,25 @@ void create_porkchop() {
             double dt1 = (t_arr-last_eph1.date)*(24*60*60);
 
             struct Orbital_State_Vectors s1 = propagate_orbit(r1, v1, dt1, SUN());
-            double data[3];
 
-            data[0] = t_dep;
-//            printf("\n");
+            all_data[(int)all_data[0]+1] = t_dep;
+            printf("\n");
             print_date(convert_JD_date(t_dep), 0);
-            printf(" - ");
+            printf(" (%f) - ", t_dep);
             print_date(convert_JD_date(t_arr), 0);
 //            printf(" (%.2f days)\n", t_arr-t_dep);
 //            print_vector(scalar_multiply(s0.r,1e-9));
 //            print_vector(scalar_multiply(s1.r,1e-9));
 //            print_vector(scalar_multiply(r0,1e-9));
 //            print_vector(scalar_multiply(r1,1e-9));
-            printf("\n(%f, %f, %f) (%f)\n", s0.r.x*1e-9, s0.r.y*1e-9, s0.r.z*1e-9, vector_mag(s0.r)*1e-9);
-            printf("(%f, %f, %f) (%f)\n", s1.r.x*1e-9, s1.r.y*1e-9, s1.r.z*1e-9, vector_mag(s1.r)*1e-9);
+//            printf("\n(%f, %f, %f) (%f)\n", s0.r.x*1e-9, s0.r.y*1e-9, s0.r.z*1e-9, vector_mag(s0.r)*1e-9);
+//            printf("(%f, %f, %f) (%f)\n", s1.r.x*1e-9, s1.r.y*1e-9, s1.r.z*1e-9, vector_mag(s1.r)*1e-9);
+            double data[3];
             calc_transfer(s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24*60*60), data);
-
+            all_data[(int)all_data[0]+2] = data[0];
+            all_data[(int)all_data[0]+3] = data[1];
+            all_data[(int)all_data[0]+4] = data[2];
+            all_data[0] += 4;
 //            printf(",%f", data[2]);
 //            print_date(convert_JD_date(data[0]), 0);
 //            printf("  %4.1f  %f\n", data[1], data[2]);
@@ -82,6 +88,8 @@ void create_porkchop() {
         t_dep += (time_steps)/(24*60*60);
     }
 
+    char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
+    write_csv(data_fields, all_data);
 
     gettimeofday(&end, NULL);  // Record the ending time
     double elapsed_time;
@@ -98,12 +106,12 @@ void calc_transfer(struct Vector r1, struct Vector v1, struct Vector r2, struct 
     struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
 
     double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
-    double dv = dv_circ(EARTH(), 200e3, v_t1_inf);
+    double dv1 = dv_circ(EARTH(), 180e3, v_t1_inf);
     double v_t2_inf = fabs(vector_mag(add_vectors(transfer.v1, scalar_multiply(v2, -1))));
-    dv += dv_capture(VENUS(), 200e3, v_t2_inf);
-
-    data[1] = dt/(24*60*60);
-    data[2] = dv;
+    double dv2 = dv_capture(VENUS(), 200e3, v_t2_inf);
+    data[0] = dt/(24*60*60);
+    data[1] = dv1;
+    data[2] = dv2;
 }
 
 struct Ephem get_last_ephem(struct Ephem *ephem, double date) {
