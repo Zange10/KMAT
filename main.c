@@ -13,7 +13,7 @@
 int main() {
     init_celestial_bodies();
 
-    init_transfer();
+    create_porkchop();
     return 0;
 
     int selection = 0;

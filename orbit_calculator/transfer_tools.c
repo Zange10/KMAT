@@ -10,11 +10,17 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
     double dt = 1e20;
     double a, e;
 
+    int c = 0;
+
     while(fabs(dt-target_dt) > 1e-3) {
         theta1 = pi_norm(theta1);
         theta2 = pi_norm(theta1 + dtheta);
         e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));
         if(e < 0){  // not possible
+            if(c == 0) {
+                theta1 += deg2rad(90);
+                continue;
+            }
             theta1 -= step;
             step /= 4;
             continue;
@@ -42,13 +48,28 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
             dt = theta1 < theta2 ? t2-t1 : t1 + t2;
         }
 
+        if(c >= 2000) {
+            c = 0/0;
+        }
+
+//        printf(",%f", rad2deg(theta1));
+//        printf("(%f, %f, %f)", rad2deg(theta1), (dt-target_dt)/(24*60*60), rad2deg(step));
+        printf("(%f, %f, %f, %f)", rad2deg(theta1), t1/(24*60*60), t2/(24*60*60), (dt-target_dt)/(24*60*60));
+
         if(isnan(dt)){  // at this theta1 orbit not solvable
+            if(c == 0 && e > 0) {
+                theta1 += deg2rad(10);
+                dt = 100;
+                continue;
+            }
             theta1 -= step;
             step /= 4;
             dt = 100;
             continue;
         }
 
+
+        c++;
 
         if((dt-target_dt)*(r1-r2) > 0) {
             if(step < 0) step *= -1.0/4;
@@ -59,6 +80,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
         }
     }
 
+    printf("\n");
     theta1 -= step; // reset theta1 from last change inside the loop
 
     struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
