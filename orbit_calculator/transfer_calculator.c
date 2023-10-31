@@ -13,6 +13,7 @@
 struct Ephem get_last_ephem(struct Ephem *ephem, double date);
 
 void create_porkchop() {
+
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
 
@@ -54,6 +55,8 @@ void create_porkchop() {
 //    double jd = convert_date_JD(date);
 //    print_ephem(earth_ephem[0]);
 
+    int progress = -1;
+
     double t_dep = jd_min_dep;
     while(t_dep < jd_max_dep) {
         double t_arr = t_dep + min_duration;
@@ -62,7 +65,13 @@ void create_porkchop() {
         struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
         double dt0 = (t_dep-last_eph0.date)*(24*60*60);
         struct Orbital_State_Vectors s0 = propagate_orbit(r0, v0, dt0, SUN());
-        print_date(convert_JD_date(t_dep), 1);
+//        print_date(convert_JD_date(t_dep), 1);
+
+        if((int)(100*(t_dep-jd_min_dep)/(jd_max_dep-jd_min_dep)) > progress) {
+            progress = (int)(100*(t_dep-jd_min_dep)/(jd_max_dep-jd_min_dep));
+            printf("% 3d%%\n",progress);
+        }
+
         while(t_arr < t_dep + max_duration) {
             struct Ephem last_eph1 = get_last_ephem(venus_ephem, t_arr);
             struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
@@ -71,7 +80,6 @@ void create_porkchop() {
 
             struct Orbital_State_Vectors s1 = propagate_orbit(r1, v1, dt1, SUN());
 
-            all_data[(int)all_data[0]+1] = t_dep;
 //            printf("\n");
 //            print_date(convert_JD_date(t_dep), 0);
 //            printf(" (%f) - ", t_dep);
@@ -85,10 +93,13 @@ void create_porkchop() {
 //            printf("(%f, %f, %f) (%f)\n", s1.r.x*1e-9, s1.r.y*1e-9, s1.r.z*1e-9, vector_mag(s1.r)*1e-9);
             double data[3];
             calc_transfer(s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24*60*60), data);
-            all_data[(int)all_data[0]+2] = data[0];
-            all_data[(int)all_data[0]+3] = data[1];
-            all_data[(int)all_data[0]+4] = data[2];
-            all_data[0] += 4;
+            if(!isnan(data[2])) {
+                all_data[(int) all_data[0] + 1] = t_dep;
+                all_data[(int) all_data[0] + 2] = data[0];
+                all_data[(int) all_data[0] + 3] = data[1];
+                all_data[(int) all_data[0] + 4] = data[2];
+                all_data[0] += 4;
+            }
 //            printf(",%f", data[2]);
 //            print_date(convert_JD_date(data[0]), 0);
 //            printf("  %4.1f  %f\n", data[1], data[2]);
@@ -97,7 +108,7 @@ void create_porkchop() {
         t_dep += (dep_time_steps) / (24 * 60 * 60);
     }
 
-    printf("%d trajectories analyzed\n", (int)(all_data[0])/4);
+    printf("%d trajectories analyzed\n", (int)(all_data_size-1)/4);
 
     char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
     write_csv(data_fields, all_data);
