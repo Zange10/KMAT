@@ -18,6 +18,6 @@ struct Date convert_JD_date(double JD);
 
 void print_ephem(struct Ephem ephem);
 
-void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int download);
+void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int time_steps, int download);
 
 #endif //KSP_EPHEM_H

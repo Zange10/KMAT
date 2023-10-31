@@ -82,7 +82,7 @@ double convert_date_JD(struct Date date) {
     return J;
 }
 
-void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int download) {
+void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int time_steps, int download) {
     // Construct the URL with your API key and parameters
 
     if(download) {
@@ -96,10 +96,10 @@ void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int downlo
                           "MAKE_EPHEM='YES'&"
                           "EPHEM_TYPE='VECTORS'&"
                           "CENTER='500@%d'&"
-                          "START_TIME='1983-01-01'&"
-                          "STOP_TIME='1987-01-01'&"
-                          "STEP_SIZE='1d'&"
-                          "VEC_TABLE='2'", body_code, center);
+                          "START_TIME='1960-01-01'&"
+                          "STOP_TIME='2010-01-01'&"
+                          "STEP_SIZE='%dd'&"
+                          "VEC_TABLE='2'", body_code, center, time_steps);
 
         // Construct the wget command
         char wget_command[512];
