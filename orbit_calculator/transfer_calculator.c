@@ -9,18 +9,19 @@
 
 
 
+#include <stdint.h>
 struct Ephem get_last_ephem(struct Ephem *ephem, double date);
 
 void create_porkchop() {
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
 
-    struct Date min_dep_date = {1970, 1, 1, 0, 0, 0};
-    struct Date max_dep_date = {1980, 1, 1, 0, 0, 0};
-    int min_duration = 90;         // [days]
-    int max_duration = 180;         // [days]
-    double dep_time_steps = 10 * 24 * 60 * 60; // [seconds]
-    double arr_time_steps = 24 * 60 * 60; // [seconds]
+    struct Date min_dep_date = {1924, 6, 1, 0, 0, 0};
+    struct Date max_dep_date = {1927, 6, 1, 0, 0, 0};
+    int min_duration = 75;         // [days]
+    int max_duration = 200;         // [days]
+    double dep_time_steps = 12 * 60 * 60; // [seconds]
+    double arr_time_steps = 12 * 60 * 60; // [seconds]
 
     double jd_min_dep = convert_date_JD(min_dep_date);
     double jd_max_dep = convert_date_JD(max_dep_date);
@@ -28,24 +29,29 @@ void create_porkchop() {
     int ephem_time_steps = 10;  // [days]
     int num_ephems = (int)(max_duration + jd_max_dep - jd_min_dep) / ephem_time_steps + 1;
 
+
+//    get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 0);
+//    get_ephem(venus_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 0);
+
+    int all_data_size = (int)(4*(max_duration-min_duration)/(arr_time_steps/(24*60*60)) * (jd_max_dep - jd_min_dep)/ (dep_time_steps/(24*60*60)));
+
+    if(all_data_size > 1000000) {
+        printf("Data array would be bigger than 8MB, which seems to be not allowed...");
+        return;
+    }
+
+    double all_data[all_data_size+1];
+    all_data[0] = 0;
+
     struct Ephem earth_ephem[num_ephems];
     struct Ephem venus_ephem[num_ephems];
 
     get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 1);
     get_ephem(venus_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 1);
 
-//    get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 0);
-//    get_ephem(venus_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 0);
-
-
-    double all_data[1000000];
-    all_data[0] = 0;
-
 //    struct Date date = {2027, 10, 4, 0, 0, 0};
 //    double jd = convert_date_JD(date);
 //    print_ephem(earth_ephem[0]);
-//
-//    return;
 
     double t_dep = jd_min_dep;
     while(t_dep < jd_max_dep) {
