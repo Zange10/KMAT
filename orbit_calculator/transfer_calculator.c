@@ -4,24 +4,24 @@
 #include "ephem.h"
 #include "csv_writer.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/time.h>
 #include <math.h>
 
 
 
-#include <stdint.h>
 struct Ephem get_last_ephem(struct Ephem *ephem, double date);
 
 void create_porkchop() {
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
 
-    struct Date min_dep_date = {1924, 6, 1, 0, 0, 0};
-    struct Date max_dep_date = {1927, 6, 1, 0, 0, 0};
+    struct Date min_dep_date = {2024, 6, 1, 0, 0, 0};
+    struct Date max_dep_date = {2025, 6, 1, 0, 0, 0};
     int min_duration = 75;         // [days]
     int max_duration = 200;         // [days]
-    double dep_time_steps = 12 * 60 * 60; // [seconds]
-    double arr_time_steps = 12 * 60 * 60; // [seconds]
+    double dep_time_steps = 6 * 60 * 60; // [seconds]
+    double arr_time_steps = 6 * 60 * 60; // [seconds]
 
     double jd_min_dep = convert_date_JD(min_dep_date);
     double jd_max_dep = convert_date_JD(max_dep_date);
@@ -33,14 +33,15 @@ void create_porkchop() {
 //    get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 0);
 //    get_ephem(venus_ephem, num_ephems, 2, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 0);
 
-    int all_data_size = (int)(4*(max_duration-min_duration)/(arr_time_steps/(24*60*60)) * (jd_max_dep - jd_min_dep)/ (dep_time_steps/(24*60*60)));
+    int all_data_size = (int)(4*(max_duration-min_duration)/(arr_time_steps/(24*60*60)) * (jd_max_dep - jd_min_dep)/ (dep_time_steps/(24*60*60))) + 1;
 
-    if(all_data_size > 1000000) {
-        printf("Data array would be bigger than 8MB, which seems to be not allowed...");
-        return;
-    }
+//    if(all_data_size > 1000000) {
+//        printf("Data array would be bigger than 8MB, which seems to be not allowed...");
+//        return;
+//    }
 
-    double all_data[all_data_size+1];
+    double * all_data;
+    all_data = (double*) malloc(all_data_size * sizeof(double));
     all_data[0] = 0;
 
     struct Ephem earth_ephem[num_ephems];
@@ -95,6 +96,8 @@ void create_porkchop() {
         }
         t_dep += (dep_time_steps) / (24 * 60 * 60);
     }
+
+    printf("%d trajectories analyzed\n", (int)(all_data[0])/4);
 
     char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
     write_csv(data_fields, all_data);
