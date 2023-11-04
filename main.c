@@ -11,6 +11,8 @@
 
 int main() {
     init_celestial_bodies();
+    create_transfer();
+    return 0;
 
     int selection = 0;
     char title[] = "CHOOSE PROGRAM:";

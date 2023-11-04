@@ -20,6 +20,7 @@ struct Orbit {
 
 struct Body {
     char name[10];
+    int id;                 // ID issued by JPL's Horizon API
     double mu;              // gravitational parameter of body [m³/s²]
     double radius;          // radius of body [m]
     double rotation_period; // the time period, in which the body rotates around its axis [s]

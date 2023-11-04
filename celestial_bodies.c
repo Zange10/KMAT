@@ -42,6 +42,7 @@ struct Body ** all_celest_bodies() {
 void init_SUN() {
     sun = (struct Body*)malloc(sizeof(struct Body));
     strcpy(sun->name, "SUN");
+    sun->id = 10;
     sun->mu = 1327124.40042e14;
     sun->radius = 695700e3;
     sun->rotation_period = 2192832;
@@ -54,6 +55,7 @@ void init_SUN() {
 void init_MERCURY() {
     mercury = (struct Body*)malloc(sizeof(struct Body));
     strcpy(mercury->name, "MERCURY");
+    mercury->id = 1;
     mercury->mu = 0.22032e14;
     mercury->radius = 2439.7e3;
     mercury->rotation_period = 5067360; // rotates in opposite direction
@@ -73,6 +75,7 @@ void init_MERCURY() {
 void init_VENUS() {
     venus = (struct Body*)malloc(sizeof(struct Body));
     strcpy(venus->name, "VENUS");
+    venus->id = 2;
     venus->mu = 3.24859e14;
     venus->radius = 6049e3;
     venus->rotation_period = -20996797.016381; // rotates in opposite direction
@@ -92,6 +95,7 @@ void init_VENUS() {
 void init_EARTH() {
     earth = (struct Body*)malloc(sizeof(struct Body));
     strcpy(earth->name, "EARTH");
+    earth->id = 3;
     earth->mu = 3.986004418e14;
     earth->radius = 6371e3;
     earth->rotation_period = 86164.098903691;
@@ -111,6 +115,7 @@ void init_EARTH() {
 void init_MOON() {
     moon = (struct Body*)malloc(sizeof(struct Body));
     strcpy(moon->name, "MOON");
+    moon->id = 301;
     moon->mu = 0.049038958e14;
     moon->radius = 1737.1e3;
     moon->rotation_period = 2360584.68479999;
@@ -130,6 +135,7 @@ void init_MOON() {
 void init_MARS() {
     mars = (struct Body*)malloc(sizeof(struct Body));
     strcpy(mars->name, "MARS");
+    mars->id = 4;
     mars->mu = 0.4282831e14;
     mars->radius = 3375.8e3;
     mars->rotation_period = 88642.6848;
@@ -149,6 +155,7 @@ void init_MARS() {
 void init_JUPITER() {
     jupiter = (struct Body*)malloc(sizeof(struct Body));
     strcpy(jupiter->name, "JUPITER");
+    jupiter->id = 5;
     jupiter->mu = 1266.86534e14;
     jupiter->radius = 69373e3;
     jupiter->rotation_period = 35730;
@@ -168,6 +175,7 @@ void init_JUPITER() {
 void init_SATURN() {
     saturn = (struct Body*)malloc(sizeof(struct Body));
     strcpy(saturn->name, "SATURN");
+    saturn->id = 6;
     saturn->mu = 379.31187e14;
     saturn->radius = 57216e3;
     saturn->rotation_period = 38052;
@@ -187,6 +195,7 @@ void init_SATURN() {
 void init_URANUS() {
     uranus = (struct Body*)malloc(sizeof(struct Body));
     strcpy(uranus->name, "URANUS");
+    uranus->id = 7;
     uranus->mu = 57.940e14;
     uranus->radius = 25362e3;
     uranus->rotation_period = -62064; // rotates in tilted direction
@@ -206,6 +215,7 @@ void init_URANUS() {
 void init_NEPTUNE() {
     neptune = (struct Body*)malloc(sizeof(struct Body));
     strcpy(neptune->name, "NEPTUNE");
+    neptune->id = 8;
     neptune->mu = 68.351e14;
     neptune->radius = 24622e3;
     neptune->rotation_period = 57996;
@@ -225,6 +235,7 @@ void init_NEPTUNE() {
 void init_PLUTO() {
     pluto = (struct Body*)malloc(sizeof(struct Body));
     strcpy(pluto->name, "PLUTO");
+    pluto->id = 9;
     pluto->mu = 0.00870e14;
     pluto->radius = 1188e3;
     pluto->rotation_period = -551854.08; // rotates in opposite direction

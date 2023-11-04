@@ -19,10 +19,10 @@ struct Ephem get_last_ephem(struct Ephem *ephem, double date);
 
 
 void create_transfer() {
-    struct Date min_dep_date = {2024, 1, 1, 0, 0, 0};
-    struct Date max_dep_date = {2025, 1, 1, 0, 0, 0};
-    int min_duration = 300;         // [days]
-    int max_duration = 1200;         // [days]
+    struct Date min_dep_date = {2025, 1, 1, 0, 0, 0};
+    struct Date max_dep_date = {2026, 1, 1, 0, 0, 0};
+    int min_duration = 60;         // [days]
+    int max_duration = 500;         // [days]
     double dep_time_steps = 24 * 60 * 60; // [seconds]
     double arr_time_steps = 24 * 60 * 60; // [seconds]
 
@@ -42,6 +42,11 @@ void create_transfer() {
 }
 
 void create_porkchop(struct Porkchop_Properties pochopro) {
+    struct Body bodies[3];
+    bodies[0] = *EARTH();
+    bodies[1] = *VENUS();
+    bodies[2] = *MARS();
+
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
 
@@ -65,8 +70,8 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
     struct Ephem earth_ephem[num_ephems];
     struct Ephem venus_ephem[num_ephems];
 
-    get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 1);
-    get_ephem(venus_ephem, num_ephems, 5, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 1);
+    get_ephem(earth_ephem, num_ephems, 2, 10, jd_min_dep, jd_max_dep, 1);
+    get_ephem(venus_ephem, num_ephems, 3, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 1);
 
     int progress = -1;
     int mind = 0;
@@ -188,9 +193,13 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
         transfer_data[i*7+7] = osvs[i].v.z;
         transfer_data[0] += 7;
     }
-
-    char transfer_data_fields[] = "JD,X,Y,Z,VX,VY,VZ";
-    write_csv(transfer_data_fields, transfer_data);
+    char pcsv;
+    printf("Write transfer data to .csv (y/Y=yes)? ");
+    scanf(" %c", &pcsv);
+    if (pcsv == 'y' || pcsv == 'Y') {
+        char transfer_data_fields[] = "JD,X,Y,Z,VX,VY,VZ";
+        write_csv(transfer_data_fields, transfer_data);
+    }
 }
 
 struct Transfer calc_transfer(struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, double *data) {
