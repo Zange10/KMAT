@@ -13,6 +13,7 @@ void init_transfer() {
     struct Ephem ephem[1000];
     double data[8][1000];
     int time_steps = 10;
+
     for(int b = 0; b < 8; b++) {
         get_ephem(ephem, sizeof(ephem) / sizeof(struct Ephem), b + 1, time_steps, 1);
 
@@ -21,7 +22,7 @@ void init_transfer() {
 
             struct Vector r0 = {ephem[i-1].x, ephem[i-1].y, ephem[i-1].z};
             struct Vector v0 = {ephem[i-1].vx, ephem[i-1].vy, ephem[i-1].vz};
-            struct Orbital_State_Vectors state = propagate_orbit(r0, v0, (time_steps * 24 * 60 * 60), SUN());
+            struct Orbital_State_Vectors state = propagate_orbit(r0, v0, (time_steps * 24 * 60 * 60), SUN(), i);
             struct Vector r = {ephem[i].x, ephem[i].y, ephem[i].z};
             struct Vector e = add_vectors(r, scalar_multiply(state.r, -1));
 //            data[i][0] = state.r.x;
@@ -37,6 +38,7 @@ void init_transfer() {
             //        print_vector(e);
         }
     }
+    printf("\n");
     for(int b = 0; b < 8; b++) {
         for (int j = 0; j < 1000; j++) {
             if (j == 0) printf("s%d = [", b);

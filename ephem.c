@@ -95,11 +95,11 @@ void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int time_s
                           "OBJ_DATA='NO'&"
                           "MAKE_EPHEM='YES'&"
                           "EPHEM_TYPE='VECTORS'&"
-                          "CENTER='500@%d'&"
+                          "CENTER='500@10'&"
                           "START_TIME='1960-01-01'&"
                           "STOP_TIME='2010-01-01'&"
                           "STEP_SIZE='%dd'&"
-                          "VEC_TABLE='2'", body_code, center, time_steps);
+                          "VEC_TABLE='2'", body_code, time_steps);
 
         // Construct the wget command
         char wget_command[512];

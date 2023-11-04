@@ -1,6 +1,12 @@
 #include "transfer_tools.h"
 #include <math.h>
 #include <stdio.h>
+#include "ephem.h"
+
+
+struct Ephem sun_ephem[1000];
+int sun_ephem_initialized = 0;
+
 
 struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt, double dtheta, struct Body *attractor) {
     double theta1 = r1 > r2 ? deg2rad(180) : 0;
@@ -149,7 +155,18 @@ struct Transfer calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1,
 }
 
 
-struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
+struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor, int index) {
+    if(!sun_ephem_initialized) {
+        get_ephem(sun_ephem,  sizeof(sun_ephem) / sizeof(struct Ephem), 10, 10, 1);
+        sun_ephem_initialized = 1;
+    }
+    double weight = vector_mag(r)/2e12;
+    if(weight>1) weight = 1;
+
+    r.x -= sun_ephem[index].x * weight;
+    r.y -= sun_ephem[index].y * weight;
+    r.z -= sun_ephem[index].z * weight;
+
     double r_mag = vector_mag(r);
     double v_mag = vector_mag(v);
     double v_r = dot_product(v,r) / r_mag;
@@ -218,6 +235,10 @@ struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, d
 
     r = heliocentric_rot(r_2d, RAAN, arg_peri, i);
     v = heliocentric_rot(v_2d, RAAN, arg_peri, i);
+
+    r.x += sun_ephem[index].x * weight;
+    r.y += sun_ephem[index].y * weight;
+    r.z += sun_ephem[index].z * weight;
 
     struct Orbital_State_Vectors osv = {r,v};
     return osv;

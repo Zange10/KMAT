@@ -43,6 +43,6 @@ double dv_circ(struct Body *body, double rp, double vinf);
 double dv_capture(struct Body *body, double rp, double vinf);
 
 // propagate elliptical orbit by time
-struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor);
+struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor, int index);
 
 #endif //KSP_TRANSFER_TOOLS_H
