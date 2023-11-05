@@ -17,6 +17,8 @@ struct Transfer2D {
 // 3-dimensional transfer from point r0 to point r1
 struct Transfer {
     struct Vector r0, v0, r1, v1;
+    double duration;
+    struct Transfer *previous;
 };
 
 struct Orbital_State_Vectors {

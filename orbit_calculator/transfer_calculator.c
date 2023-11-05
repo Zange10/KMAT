@@ -21,8 +21,8 @@ struct Ephem get_last_ephem(struct Ephem *ephem, double date);
 void create_transfer() {
     struct Date min_dep_date = {2025, 1, 1, 0, 0, 0};
     struct Date max_dep_date = {2026, 1, 1, 0, 0, 0};
-    int min_duration = 60;         // [days]
-    int max_duration = 500;         // [days]
+    int min_duration = 300;         // [days]
+    int max_duration = 2000;         // [days]
     double dep_time_steps = 24 * 60 * 60; // [seconds]
     double arr_time_steps = 24 * 60 * 60; // [seconds]
 
@@ -70,8 +70,8 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
     struct Ephem earth_ephem[num_ephems];
     struct Ephem venus_ephem[num_ephems];
 
-    get_ephem(earth_ephem, num_ephems, 2, 10, jd_min_dep, jd_max_dep, 1);
-    get_ephem(venus_ephem, num_ephems, 3, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 1);
+    get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 1);
+    get_ephem(venus_ephem, num_ephems, 5, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 1);
 
     int progress = -1;
     int mind = 0;
@@ -209,6 +209,7 @@ struct Transfer calc_transfer(struct Vector r1, struct Vector v1, struct Vector 
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
 
     struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
+    transfer.duration = dt;
 
     double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
     double dv1 = dv_circ(EARTH(), 180e3, v_t1_inf);
