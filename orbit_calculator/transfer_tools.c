@@ -312,7 +312,7 @@ struct Transfer calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1,
 }
 
 
-struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
+struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
     double r_mag = vector_mag(r);
     double v_mag = vector_mag(v);
     double v_r = dot_product(v,r) / r_mag;
@@ -382,6 +382,6 @@ struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, d
     r = heliocentric_rot(r_2d, RAAN, arg_peri, i);
     v = heliocentric_rot(v_2d, RAAN, arg_peri, i);
 
-    struct Orbital_State_Vectors osv = {r,v};
+    struct OSV osv = {r, v};
     return osv;
 }

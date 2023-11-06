@@ -17,11 +17,9 @@ struct Transfer2D {
 // 3-dimensional transfer from point r0 to point r1
 struct Transfer {
     struct Vector r0, v0, r1, v1;
-    double duration;
-    struct Transfer *previous;
 };
 
-struct Orbital_State_Vectors {
+struct OSV {
     struct Vector r, v;
 };
 
@@ -44,6 +42,6 @@ double dv_circ(struct Body *body, double rp, double vinf);
 double dv_capture(struct Body *body, double rp, double vinf);
 
 // propagate elliptical orbit by time
-struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor);
+struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor);
 
 #endif //KSP_TRANSFER_TOOLS_H

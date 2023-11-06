@@ -11,23 +11,35 @@
 struct Porkchop_Properties {
     double jd_min_dep, jd_max_dep, dep_time_steps, arr_time_steps;
     int min_duration, max_duration;
+    struct Ephem **ephems;
 };
 
 void create_porkchop(struct Porkchop_Properties pochopro);
 struct Ephem get_last_ephem(struct Ephem *ephem, double date);
-
+struct OSV default_osv();
 
 
 void create_transfer() {
-    struct Date min_dep_date = {2025, 1, 1, 0, 0, 0};
+    struct Date min_dep_date = {2023, 1, 1, 0, 0, 0};
     struct Date max_dep_date = {2026, 1, 1, 0, 0, 0};
-    int min_duration = 300;         // [days]
-    int max_duration = 2000;         // [days]
+    int min_duration = 600;         // [days]
+    int max_duration = 1600;         // [days]
     double dep_time_steps = 24 * 60 * 60; // [seconds]
     double arr_time_steps = 24 * 60 * 60; // [seconds]
 
     double jd_min_dep = convert_date_JD(min_dep_date);
     double jd_max_dep = convert_date_JD(max_dep_date);
+
+    int ephem_time_steps = 10;  // [days]
+    int num_ephems = (int)(max_duration + jd_max_dep - jd_min_dep) / ephem_time_steps + 1;
+
+    struct Ephem dep_ephem[num_ephems];
+    struct Ephem arr_ephem[num_ephems];
+
+    get_ephem(dep_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 1);
+    get_ephem(arr_ephem, num_ephems, 5, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 1);
+
+    struct Ephem *ephems[2] = {dep_ephem, arr_ephem};
 
     struct Porkchop_Properties pochopro = {
         jd_min_dep,
@@ -35,18 +47,14 @@ void create_transfer() {
         dep_time_steps,
         arr_time_steps,
         min_duration,
-        max_duration
+        max_duration,
+        ephems
     };
 
     create_porkchop(pochopro);
 }
 
 void create_porkchop(struct Porkchop_Properties pochopro) {
-    struct Body bodies[3];
-    bodies[0] = *EARTH();
-    bodies[1] = *VENUS();
-    bodies[2] = *MARS();
-
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
 
@@ -58,20 +66,16 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
     double jd_min_dep = pochopro.jd_min_dep;
     double jd_max_dep = pochopro.jd_max_dep;
 
-    int ephem_time_steps = 10;  // [days]
-    int num_ephems = (int)(max_duration + jd_max_dep - jd_min_dep) / ephem_time_steps + 1;
+    struct Ephem *dep_ephem = pochopro.ephems[0];
+    struct Ephem *arr_ephem = pochopro.ephems[1];
 
-    int all_data_size = (int)(4*(max_duration-min_duration)/(arr_time_steps/(24*60*60)) * (jd_max_dep - jd_min_dep)/ (dep_time_steps/(24*60*60))) + 1;
+    // 16 = dep_time, duration, dv1, dv2
+    int data_length = 4;
+    int all_data_size = (int)(data_length*(max_duration-min_duration)/(arr_time_steps/(24*60*60)) * (jd_max_dep - jd_min_dep)/ (dep_time_steps/(24*60*60))) + 1;
 
     double * all_data;
     all_data = (double*) malloc(all_data_size * sizeof(double));
     all_data[0] = 0;
-
-    struct Ephem earth_ephem[num_ephems];
-    struct Ephem venus_ephem[num_ephems];
-
-    get_ephem(earth_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 1);
-    get_ephem(venus_ephem, num_ephems, 5, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 1);
 
     int progress = -1;
     int mind = 0;
@@ -80,11 +84,11 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
     double t_dep = jd_min_dep;
     while(t_dep < jd_max_dep) {
         double t_arr = t_dep + min_duration;
-        struct Ephem last_eph0 = get_last_ephem(earth_ephem, t_dep);
+        struct Ephem last_eph0 = get_last_ephem(dep_ephem, t_dep);
         struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
         struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
         double dt0 = (t_dep-last_eph0.date)*(24*60*60);
-        struct Orbital_State_Vectors s0 = propagate_orbit(r0, v0, dt0, SUN());
+        struct OSV s0 = propagate_orbit(r0, v0, dt0, SUN());
 //        print_date(convert_JD_date(t_dep), 1);
 
         if((int)(100*(t_dep-jd_min_dep)/(jd_max_dep-jd_min_dep)) > progress) {
@@ -93,12 +97,12 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
         }
 
         while(t_arr < t_dep + max_duration) {
-            struct Ephem last_eph1 = get_last_ephem(venus_ephem, t_arr);
+            struct Ephem last_eph1 = get_last_ephem(arr_ephem, t_arr);
             struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
             struct Vector v1 = {last_eph1.vx, last_eph1.vy, last_eph1.vz};
             double dt1 = (t_arr-last_eph1.date)*(24*60*60);
 
-            struct Orbital_State_Vectors s1 = propagate_orbit(r1, v1, dt1, SUN());
+            struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());
 
 //            printf("\n");
 //            print_date(convert_JD_date(t_dep), 0);
@@ -114,15 +118,17 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
             double data[3];
             calc_transfer(s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24*60*60), data);
             if(!isnan(data[2])) {
-                all_data[(int) all_data[0] + 1] = t_dep;
-                all_data[(int) all_data[0] + 2] = data[0];
-                all_data[(int) all_data[0] + 3] = data[1];
-                all_data[(int) all_data[0] + 4] = data[2];
+                for(int i = 1; i <= data_length; i++) {
+                    if(i == 1) all_data[(int) all_data[0] + i] = t_dep;
+                    else all_data[(int) all_data[0] + i] = data[i-2];
+                }
+
+
                 if(data[1]+data[2] < mindv) {
                     mindv = data[1] + data[2];
-                    mind = (int)(all_data[0]/4);
+                    mind = (int)(all_data[0]/data_length);
                 }
-                all_data[0] += 4;
+                all_data[0] += data_length;
             }
 //            printf(",%f", data[2]);
 //            print_date(convert_JD_date(data[0]), 0);
@@ -148,17 +154,17 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
 
     free(all_data);
 
-    struct Ephem last_eph0 = get_last_ephem(earth_ephem, t_dep);
+    struct Ephem last_eph0 = get_last_ephem(dep_ephem, t_dep);
     struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
     struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
     double dt0 = (t_dep-last_eph0.date)*(24*60*60);
-    struct Orbital_State_Vectors s0 = propagate_orbit(r0, v0, dt0, SUN());
+    struct OSV s0 = propagate_orbit(r0, v0, dt0, SUN());
 
-    struct Ephem last_eph1 = get_last_ephem(venus_ephem, t_arr);
+    struct Ephem last_eph1 = get_last_ephem(arr_ephem, t_arr);
     struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
     struct Vector v1 = {last_eph1.vx, last_eph1.vy, last_eph1.vz};
     double dt1 = (t_arr-last_eph1.date)*(24*60*60);
-    struct Orbital_State_Vectors s1 = propagate_orbit(r1, v1, dt1, SUN());
+    struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());
 
     double data[3];
     struct Transfer transfer = calc_transfer(s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24*60*60), data);
@@ -172,7 +178,7 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
     int num_states = 4;
 
     double times[] = {t_dep, t_dep, t_arr, t_arr};
-    struct Orbital_State_Vectors osvs[num_states];
+    struct OSV osvs[num_states];
     osvs[0] = s0;
     osvs[1].r = transfer.r0;
     osvs[1].v = transfer.v0;
@@ -209,7 +215,6 @@ struct Transfer calc_transfer(struct Vector r1, struct Vector v1, struct Vector 
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
 
     struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
-    transfer.duration = dt;
 
     double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
     double dv1 = dv_circ(EARTH(), 180e3, v_t1_inf);
@@ -219,6 +224,13 @@ struct Transfer calc_transfer(struct Vector r1, struct Vector v1, struct Vector 
     data[1] = dv1;
     data[2] = dv2;
     return transfer;
+}
+
+struct OSV default_osv() {
+    struct Vector r = {0,0,0};
+    struct Vector v = {0,0,0};
+    struct OSV osv = {r,v};
+    return osv;
 }
 
 struct Ephem get_last_ephem(struct Ephem *ephem, double date) {
