@@ -33,6 +33,51 @@ double get_min_from_porkchop(double *pc, int index);
 struct OSV default_osv();
 
 
+void simple_transfer() {
+    struct Body *bodies[2] = {VENUS(), MARS()};
+    struct Date min_dep_date = {2025, 9, 18, 0, 0, 0};
+    struct Date max_dep_date = {2025, 9, 23, 0, 0, 0};
+    int min_duration = 202;         // [days]
+    int max_duration = 206;         // [days]
+    double dep_time_steps = 24 * 60 * 60; // [seconds]
+    double arr_time_steps = 24 * 60 * 60; // [seconds]
+
+    double jd_min_dep = convert_date_JD(min_dep_date);
+    double jd_max_dep = convert_date_JD(max_dep_date);
+
+    double jd_max_arr = jd_max_dep + max_duration;
+
+    int ephem_time_steps = 10;  // [days]
+    int num_ephems = (int)(jd_max_arr - jd_min_dep) / ephem_time_steps + 1;
+
+    struct Ephem **ephems = (struct Ephem**) malloc(2*sizeof(struct Ephem*));
+    for(int i = 0; i < 2; i++) {
+        ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
+        get_ephem(ephems[i], num_ephems, bodies[i]->id, ephem_time_steps, jd_min_dep, jd_max_arr, 1);
+    }
+
+    struct Porkchop_Properties pochopro = {
+            jd_min_dep,
+            jd_max_dep,
+            dep_time_steps,
+            arr_time_steps,
+            min_duration,
+            max_duration,
+            ephems,
+            bodies[0],
+            bodies[1]
+    };
+    // 4 = dep_time, duration, dv1, dv2
+    int data_length = 4;
+    int all_data_size = (int) (data_length * (max_duration - min_duration) / (arr_time_steps / (24 * 60 * 60)) *
+                               (jd_max_dep - jd_min_dep) / (dep_time_steps / (24 * 60 * 60))) + 1;
+    double *porkchop = (double *) malloc(all_data_size * sizeof(double));
+
+    create_porkchop(pochopro, circcirc, porkchop);
+    char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
+    write_csv(data_fields, porkchop);
+}
+
 void create_transfer() {
     struct Body *bodies[3] = {EARTH(), VENUS(), MARS()};
     int num_bodies = (int) (sizeof(bodies)/sizeof(struct Body*));
@@ -81,8 +126,8 @@ void create_transfer() {
                 min_duration[i],
                 max_duration[i],
                 ephems+i,
-                EARTH(),
-                VENUS()
+                bodies[i],
+                bodies[i+1]
         };
         // 4 = dep_time, duration, dv1, dv2
         int data_length = 4;
@@ -139,6 +184,109 @@ void create_transfer() {
             free(porkchops[i]);
             porkchops[i] = temp;
         }
+    }
+
+    double jd_dates[3] = {0,0,0};
+    double min = 1e9;
+
+    printf("\nLooking for cheapest transfer...\n");
+    for(int i = 0; i < (int)(porkchops[0][0]/4); i++) {
+        for(int j = 0; j < (int)(porkchops[1][0]/4); j++) {
+            double *p_dep = porkchops[0]+i*4;
+            double *p_arr = porkchops[1]+j*4;
+            if(p_dep[1]+p_dep[2] != p_arr[1]) continue;
+            if(fabs(p_dep[4]-p_arr[3]) < 10) {
+                if(p_dep[3] + p_arr[4] < min) {
+                    jd_dates[0] = p_dep[1];
+                    jd_dates[1] = p_arr[1];
+                    jd_dates[2] = p_arr[1] + p_arr[2];
+                    min = p_dep[3] + p_arr[4];
+                    print_date(convert_JD_date(p_dep[1]),0);
+                    printf(" - ");
+                    print_date(convert_JD_date(p_dep[1]+p_dep[2]),0);
+                    printf(" - ");
+                    print_date(convert_JD_date(p_arr[1]),0);
+                    printf(" - ");
+                    print_date(convert_JD_date(p_arr[1]+p_arr[2]),1);
+                    printf("%f %f %f %f %f\n",
+                           p_dep[3], p_dep[4], p_arr[3], p_arr[4], p_dep[3]+p_arr[4]);
+                }
+            }
+        }
+    }
+    print_date(convert_JD_date(jd_dates[0]),1);
+    print_date(convert_JD_date(jd_dates[1]),1);
+    print_date(convert_JD_date(jd_dates[2]),1);
+
+
+
+    // 3 states per transfer (departure, arrival and final state)
+    // 1 additional for initial start; 7 variables per state
+    double transfer_data[((num_bodies-1)*3+1) * 7 + 1];
+    transfer_data[0] = 0;
+
+    struct Ephem init_last_ephem = get_last_ephem(ephems[0], jd_dates[0]);
+    struct Vector init_r = {init_last_ephem.x, init_last_ephem.y, init_last_ephem.z};
+    struct Vector init_v = {init_last_ephem.vx, init_last_ephem.vy, init_last_ephem.vz};
+    double init_dt = (jd_dates[0] - init_last_ephem.date) * (24 * 60 * 60);
+    struct OSV init_s = propagate_orbit(init_r, init_v, init_dt, SUN());
+
+    transfer_data[1] = jd_dates[0];
+    transfer_data[2] = init_s.r.x;
+    transfer_data[3] = init_s.r.y;
+    transfer_data[4] = init_s.r.z;
+    transfer_data[5] = init_s.v.x;
+    transfer_data[6] = init_s.v.y;
+    transfer_data[7] = init_s.v.z;
+    transfer_data[0] += 7;
+
+    for(int i = 0; i < num_bodies-1; i++) {
+        struct Ephem last_eph0 = get_last_ephem(ephems[i], jd_dates[i]);
+        struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
+        struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
+        double dt0 = (jd_dates[0] - last_eph0.date) * (24 * 60 * 60);
+        struct OSV s0 = propagate_orbit(r0, v0, dt0, SUN());
+
+        struct Ephem last_eph1 = get_last_ephem(ephems[i+1], jd_dates[i+1]);
+        struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
+        struct Vector v1 = {last_eph1.vx, last_eph1.vy, last_eph1.vz};
+        double dt1 = (jd_dates[i+1] - last_eph1.date) * (24 * 60 * 60);
+        struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());
+
+        double data[3];
+        struct Transfer transfer = calc_transfer(circcirc, bodies[i], bodies[i+1], s0.r, s0.v, s1.r, s1.v, (jd_dates[i+1] - jd_dates[i]) * (24 * 60 * 60), data);
+        printf("Departure: ");
+        print_date(convert_JD_date(jd_dates[i]), 0);
+        printf(", Arrival: ");
+        print_date(convert_JD_date(jd_dates[i+1]), 0);
+        printf(" (%f days), Delta-v: %f m/s (%f m/s, %f m/s)\n",
+               jd_dates[i+1] - jd_dates[i], data[1] + data[2], data[1], data[2]);
+
+
+        struct OSV osvs[3];
+        osvs[0].r = transfer.r0;
+        osvs[0].v = transfer.v0;
+        osvs[1].r = transfer.r1;
+        osvs[1].v = transfer.v1;
+        osvs[2] = s1;
+
+        for (int j = 0; j < 3; j++) {
+            transfer_data[(int)transfer_data[0] + 1] = j == 0 ? jd_dates[i] : jd_dates[i+1];
+            transfer_data[(int)transfer_data[0] + 2] = osvs[j].r.x;
+            transfer_data[(int)transfer_data[0] + 3] = osvs[j].r.y;
+            transfer_data[(int)transfer_data[0] + 4] = osvs[j].r.z;
+            transfer_data[(int)transfer_data[0] + 5] = osvs[j].v.x;
+            transfer_data[(int)transfer_data[0] + 6] = osvs[j].v.y;
+            transfer_data[(int)transfer_data[0] + 7] = osvs[j].v.z;
+            transfer_data[0] += 7;
+        }
+    }
+    char pcsv;
+    printf("Write transfer data to .csv (y/Y=yes)? ");
+    scanf(" %c", &pcsv);
+    if (pcsv == 'y' || pcsv == 'Y') {
+        char transfer_data_fields[] = "JD,X,Y,Z,VX,VY,VZ";
+        write_csv(transfer_data_fields, transfer_data);
     }
 }
 
@@ -297,18 +445,18 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
 struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, double *data) {
     double dtheta = angle_vec_vec(r1, r2);
     if (cross_product(r1, r2).z < 0) dtheta = 2 * M_PI - dtheta;
-
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
-
     struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
 
     double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
     double dv1 = tt % 2 == 0 ? dv_capture(dep_body, 200e3, v_t1_inf) : dv_circ(dep_body, 200e3, v_t1_inf);
+
     double v_t2_inf = fabs(vector_mag(add_vectors(transfer.v1, scalar_multiply(v2, -1))));
     double dv2;
     if(tt < 2)      dv2 = dv_capture(arr_body, 200e3, v_t2_inf);
     else if(tt < 4) dv2 = dv_circ(arr_body, 200e3, v_t2_inf);
     else            dv2 = 0;
+
     data[0] = dt/(24*60*60);
     data[1] = dv1;
     data[2] = dv2;

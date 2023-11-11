@@ -11,7 +11,8 @@
 
 int main() {
     init_celestial_bodies();
-    create_transfer();
+    if(0)simple_transfer();
+    else create_transfer();
     return 0;
 
     int selection = 0;
