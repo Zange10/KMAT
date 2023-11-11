@@ -76,6 +76,75 @@ void simple_transfer() {
     create_porkchop(pochopro, circcirc, porkchop);
     char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
     write_csv(data_fields, porkchop);
+
+    int mind = 0;
+    double min = 1e9;
+
+    for(int i = 0; i < porkchop[0]/4; i++) {
+        if(porkchop[i*4+4] < min) {
+            mind = i;
+            min = porkchop[i*4+4];
+        }
+    }
+
+    double t_dep = porkchop[mind*4+1];
+    double t_arr = t_dep + porkchop[mind*4+2];
+
+    free(porkchop);
+
+    struct Ephem last_eph0 = get_last_ephem(ephems[0], t_dep);
+    struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
+    struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
+    double dt0 = (t_dep-last_eph0.date)*(24*60*60);
+    struct OSV s0 = propagate_orbit(r0, v0, dt0, SUN());
+
+    struct Ephem last_eph1 = get_last_ephem(ephems[1], t_arr);
+    struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
+    struct Vector v1 = {last_eph1.vx, last_eph1.vy, last_eph1.vz};
+    double dt1 = (t_arr-last_eph1.date)*(24*60*60);
+    struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());
+
+    double data[3];
+    struct Transfer transfer = calc_transfer(circcirc, bodies[0], bodies[1], s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24*60*60), data);
+    printf("Departure: ");
+    print_date(convert_JD_date(t_dep),0);
+    printf(", Arrival: ");
+    print_date(convert_JD_date(t_arr),0);
+    printf(" (%f days), Delta-v: %f m/s (%f m/s, %f m/s)\n",
+           t_arr-t_dep, data[1]+data[2], data[1], data[2]);
+
+    int num_states = 4;
+
+    double times[] = {t_dep, t_dep, t_arr, t_arr};
+    struct OSV osvs[num_states];
+    osvs[0] = s0;
+    osvs[1].r = transfer.r0;
+    osvs[1].v = transfer.v0;
+    osvs[2].r = transfer.r1;
+    osvs[2].v = transfer.v1;
+    osvs[3] = s1;
+
+    double transfer_data[num_states*7+1];
+    transfer_data[0] = 0;
+
+    for(int i = 0; i < num_states; i++) {
+        transfer_data[i*7+1] = times[i];
+        transfer_data[i*7+2] = osvs[i].r.x;
+        transfer_data[i*7+3] = osvs[i].r.y;
+        transfer_data[i*7+4] = osvs[i].r.z;
+        transfer_data[i*7+5] = osvs[i].v.x;
+        transfer_data[i*7+6] = osvs[i].v.y;
+        transfer_data[i*7+7] = osvs[i].v.z;
+        transfer_data[0] += 7;
+    }
+    char pcsv;
+    printf("Write transfer data to .csv (y/Y=yes)? ");
+    scanf(" %c", &pcsv);
+    if (pcsv == 'y' || pcsv == 'Y') {
+        char transfer_data_fields[] = "JD,X,Y,Z,VX,VY,VZ";
+        write_csv(transfer_data_fields, transfer_data);
+    }
+
 }
 
 void create_transfer() {
@@ -85,7 +154,7 @@ void create_transfer() {
     struct Date min_dep_date = {2024, 10, 1, 0, 0, 0};
     struct Date max_dep_date = {2025, 10, 1, 0, 0, 0};
     int min_duration[2] = {60, 120};         // [days]
-    int max_duration[2] = {200, 500};         // [days]
+    int max_duration[2] = {200, 350};         // [days]
     double dep_time_steps = 24 * 60 * 60; // [seconds]
     double arr_time_steps = 24 * 60 * 60; // [seconds]
 
@@ -240,11 +309,13 @@ void create_transfer() {
     transfer_data[7] = init_s.v.z;
     transfer_data[0] += 7;
 
+    struct OSV temp_osv1, temp_osv2, ven_osv;
+
     for(int i = 0; i < num_bodies-1; i++) {
         struct Ephem last_eph0 = get_last_ephem(ephems[i], jd_dates[i]);
         struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
         struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
-        double dt0 = (jd_dates[0] - last_eph0.date) * (24 * 60 * 60);
+        double dt0 = (jd_dates[i] - last_eph0.date) * (24 * 60 * 60);
         struct OSV s0 = propagate_orbit(r0, v0, dt0, SUN());
 
         struct Ephem last_eph1 = get_last_ephem(ephems[i+1], jd_dates[i+1]);
@@ -270,6 +341,11 @@ void create_transfer() {
         osvs[1].v = transfer.v1;
         osvs[2] = s1;
 
+        if(i == 0) {
+            temp_osv1 = osvs[1];
+            ven_osv = osvs[2];
+        } else temp_osv2 = osvs[0];
+
         for (int j = 0; j < 3; j++) {
             transfer_data[(int)transfer_data[0] + 1] = j == 0 ? jd_dates[i] : jd_dates[i+1];
             transfer_data[(int)transfer_data[0] + 2] = osvs[j].r.x;
@@ -281,6 +357,18 @@ void create_transfer() {
             transfer_data[0] += 7;
         }
     }
+
+    struct Vector temp1 = add_vectors(temp_osv1.v, scalar_multiply(ven_osv.v,-1));
+    struct Vector temp2 = add_vectors(temp_osv2.v, scalar_multiply(ven_osv.v,-1));
+
+    print_vector(temp1);
+    print_vector(temp2);
+
+    double beta = (M_PI-angle_vec_vec(temp1, temp2))/2;
+    double rp = (1/cos(beta)-1)*(VENUS()->mu/(pow(vector_mag(temp1), 2)));
+
+    printf("%f, %f, %f\n", rad2deg(beta), rp, vector_mag(temp1));
+
     char pcsv;
     printf("Write transfer data to .csv (y/Y=yes)? ");
     scanf(" %c", &pcsv);
@@ -449,12 +537,12 @@ struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, stru
     struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
 
     double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
-    double dv1 = tt % 2 == 0 ? dv_capture(dep_body, 200e3, v_t1_inf) : dv_circ(dep_body, 200e3, v_t1_inf);
+    double dv1 = tt % 2 == 0 ? dv_capture(dep_body, dep_body->atmo_alt+100e3, v_t1_inf) : dv_circ(dep_body, dep_body->atmo_alt+100e3, v_t1_inf);
 
     double v_t2_inf = fabs(vector_mag(add_vectors(transfer.v1, scalar_multiply(v2, -1))));
     double dv2;
-    if(tt < 2)      dv2 = dv_capture(arr_body, 200e3, v_t2_inf);
-    else if(tt < 4) dv2 = dv_circ(arr_body, 200e3, v_t2_inf);
+    if(tt < 2)      dv2 = dv_capture(arr_body, arr_body->atmo_alt+100e3, v_t2_inf);
+    else if(tt < 4) dv2 = dv_circ(arr_body, arr_body->atmo_alt+100e3, v_t2_inf);
     else            dv2 = 0;
 
     data[0] = dt/(24*60*60);
