@@ -12,49 +12,137 @@ struct Porkchop_Properties {
     double jd_min_dep, jd_max_dep, dep_time_steps, arr_time_steps;
     int min_duration, max_duration;
     struct Ephem **ephems;
+    struct Body *dep_body, *arr_body;
 };
 
-void create_porkchop(struct Porkchop_Properties pochopro);
+enum Transfer_Type {
+    capcap,
+    circcap,
+    capcirc,
+    circcirc,
+    capfb,
+    circfb
+};
+
+void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt, double *all_data);
 struct Ephem get_last_ephem(struct Ephem *ephem, double date);
+struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, double *data);
+double get_min_arr_from_porkchop(double *pc);
+double get_max_arr_from_porkchop(double *pc);
+double get_min_from_porkchop(double *pc, int index);
 struct OSV default_osv();
 
 
 void create_transfer() {
-    struct Date min_dep_date = {2023, 1, 1, 0, 0, 0};
-    struct Date max_dep_date = {2026, 1, 1, 0, 0, 0};
-    int min_duration = 600;         // [days]
-    int max_duration = 1600;         // [days]
+    struct Body *bodies[3] = {EARTH(), VENUS(), MARS()};
+    int num_bodies = (int) (sizeof(bodies)/sizeof(struct Body*));
+
+    struct Date min_dep_date = {2024, 10, 1, 0, 0, 0};
+    struct Date max_dep_date = {2025, 10, 1, 0, 0, 0};
+    int min_duration[2] = {60, 120};         // [days]
+    int max_duration[2] = {200, 500};         // [days]
     double dep_time_steps = 24 * 60 * 60; // [seconds]
     double arr_time_steps = 24 * 60 * 60; // [seconds]
 
     double jd_min_dep = convert_date_JD(min_dep_date);
     double jd_max_dep = convert_date_JD(max_dep_date);
 
+    int max_total_dur = 0;
+    for(int i = 0; i < num_bodies-1; i++) max_total_dur += max_duration[i];
+    double jd_max_arr = convert_date_JD(max_dep_date) + max_total_dur;
+
     int ephem_time_steps = 10;  // [days]
-    int num_ephems = (int)(max_duration + jd_max_dep - jd_min_dep) / ephem_time_steps + 1;
+    int num_ephems = (int)(jd_max_arr - jd_min_dep) / ephem_time_steps + 1;
 
-    struct Ephem dep_ephem[num_ephems];
-    struct Ephem arr_ephem[num_ephems];
+    struct Ephem **ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
+    for(int i = 0; i < num_bodies; i++) {
+        ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
+        get_ephem(ephems[i], num_ephems, bodies[i]->id, ephem_time_steps, jd_min_dep, jd_max_arr, 1);
+    }
 
-    get_ephem(dep_ephem, num_ephems, 3, 10, jd_min_dep, jd_max_dep, 1);
-    get_ephem(arr_ephem, num_ephems, 5, 10, jd_min_dep + min_duration, jd_max_dep + max_duration, 1);
 
-    struct Ephem *ephems[2] = {dep_ephem, arr_ephem};
+    double ** porkchops = (double**) malloc((num_bodies-1) * sizeof(double*));
 
-    struct Porkchop_Properties pochopro = {
-        jd_min_dep,
-        jd_max_dep,
-        dep_time_steps,
-        arr_time_steps,
-        min_duration,
-        max_duration,
-        ephems
-    };
+    for(int i = 0; i < num_bodies-1; i++) {
+        double min_dep, max_dep;
+        if(i == 0) {
+            min_dep = jd_min_dep;
+            max_dep = jd_max_dep;
+        } else {
+            min_dep = get_min_arr_from_porkchop(porkchops[i-1]);
+            max_dep = get_max_arr_from_porkchop(porkchops[i-1]);
+        }
 
-    create_porkchop(pochopro);
+        struct Porkchop_Properties pochopro = {
+                min_dep,
+                max_dep,
+                dep_time_steps,
+                arr_time_steps,
+                min_duration[i],
+                max_duration[i],
+                ephems+i,
+                EARTH(),
+                VENUS()
+        };
+        // 4 = dep_time, duration, dv1, dv2
+        int data_length = 4;
+        int all_data_size = (int) (data_length * (max_duration[i] - min_duration[i]) / (arr_time_steps / (24 * 60 * 60)) *
+                                   (max_dep - min_dep) / (dep_time_steps / (24 * 60 * 60))) + 1;
+        porkchops[i] = (double *) malloc(all_data_size * sizeof(double));
+
+        create_porkchop(pochopro, circcirc, porkchops[i]);
+
+        if(i == 0) {
+            double min_dep_dv = get_min_from_porkchop(porkchops[0], 3);
+            int num_2_min_dv = 0;
+            for(int j = 0; j < (int)(porkchops[0][0]/4); j++) {
+                if(porkchops[0][j*4 + 3] < 2*min_dep_dv) num_2_min_dv++;
+            }
+            double *temp = (double*) malloc(4 * num_2_min_dv * sizeof(double) + 1);
+            temp[0] = 0;
+            for(int j = 0; j < (int)(porkchops[0][0]/4); j++) {
+                if(porkchops[0][j*4 + 3] < 2*min_dep_dv) {
+                    for(int k = 1; k <= 4; k++) {
+                        temp[(int)temp[0] + k] = porkchops[0][j*4 + k];
+                    }
+                    temp[0] += 4;
+                }
+            }
+            free(porkchops[0]);
+            porkchops[0] = temp;
+        } else {
+            int num_fb = 0;
+            for(int j = 0; j < (int)(porkchops[i-1][0]/4); j++) {
+                for(int k = 0; k < (int)(porkchops[i][0]/4); k++) {
+                    if(porkchops[i-1][j * 4 + 1] + porkchops[i-1][j * 4 + 2] != porkchops[i][k * 4 + 1]) continue;
+                    double arr_v = porkchops[i-1][j * 4 + 4];
+                    double dep_v = porkchops[i][k * 4 + 3];
+                    if(fabs(arr_v - dep_v) < 10) num_fb++;
+                }
+            }
+
+            double *temp = (double*) malloc(4 * num_fb * sizeof(double) + 1);
+            temp[0] = 0;
+            for(int j = 0; j < (int)(porkchops[i-1][0]/4); j++) {
+                for(int k = 0; k < (int)(porkchops[i][0]/4); k++) {
+                    if(porkchops[i-1][j * 4 + 1] + porkchops[i-1][j * 4 + 2] != porkchops[i][k * 4 + 1]) continue;
+                    double arr_v = porkchops[i-1][j * 4 + 4];
+                    double dep_v = porkchops[i][k * 4 + 3];
+                    if(fabs(arr_v - dep_v) < 10) {
+                        for (int l = 1; l <= 4; l++) {
+                            temp[(int) temp[0] + l] = porkchops[i][k * 4 + l];
+                        }
+                        temp[0] += 4;
+                    }
+                }
+            }
+            free(porkchops[i]);
+            porkchops[i] = temp;
+        }
+    }
 }
 
-void create_porkchop(struct Porkchop_Properties pochopro) {
+void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt, double *all_data) {
     struct timeval start, end;
     gettimeofday(&start, NULL);  // Record the starting time
 
@@ -69,12 +157,10 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
     struct Ephem *dep_ephem = pochopro.ephems[0];
     struct Ephem *arr_ephem = pochopro.ephems[1];
 
-    // 16 = dep_time, duration, dv1, dv2
+    // 4 = dep_time, duration, dv1, dv2
     int data_length = 4;
     int all_data_size = (int)(data_length*(max_duration-min_duration)/(arr_time_steps/(24*60*60)) * (jd_max_dep - jd_min_dep)/ (dep_time_steps/(24*60*60))) + 1;
 
-    double * all_data;
-    all_data = (double*) malloc(all_data_size * sizeof(double));
     all_data[0] = 0;
 
     int progress = -1;
@@ -116,7 +202,7 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
 //            printf("\n(%f, %f, %f) (%f)\n", s0.r.x*1e-9, s0.r.y*1e-9, s0.r.z*1e-9, vector_mag(s0.r)*1e-9);
 //            printf("(%f, %f, %f) (%f)\n", s1.r.x*1e-9, s1.r.y*1e-9, s1.r.z*1e-9, vector_mag(s1.r)*1e-9);
             double data[3];
-            calc_transfer(s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24*60*60), data);
+            calc_transfer(tt, pochopro.dep_body, pochopro.arr_body, s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24*60*60), data);
             if(!isnan(data[2])) {
                 for(int i = 1; i <= data_length; i++) {
                     if(i == 1) all_data[(int) all_data[0] + i] = t_dep;
@@ -140,8 +226,8 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
 
     printf("%d trajectories analyzed\n", (int)(all_data_size-1)/4);
 
-    char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
-    write_csv(data_fields, all_data);
+//    char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
+//    write_csv(data_fields, all_data);
 
 
     gettimeofday(&end, NULL);  // Record the ending time
@@ -152,8 +238,8 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
     t_dep = all_data[mind*4+1];
     double t_arr = t_dep + all_data[mind*4+2];
 
-    free(all_data);
-
+    //free(all_data);
+/*
     struct Ephem last_eph0 = get_last_ephem(dep_ephem, t_dep);
     struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
     struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
@@ -205,10 +291,10 @@ void create_porkchop(struct Porkchop_Properties pochopro) {
     if (pcsv == 'y' || pcsv == 'Y') {
         char transfer_data_fields[] = "JD,X,Y,Z,VX,VY,VZ";
         write_csv(transfer_data_fields, transfer_data);
-    }
+    }*/
 }
 
-struct Transfer calc_transfer(struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, double *data) {
+struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, double *data) {
     double dtheta = angle_vec_vec(r1, r2);
     if (cross_product(r1, r2).z < 0) dtheta = 2 * M_PI - dtheta;
 
@@ -217,9 +303,12 @@ struct Transfer calc_transfer(struct Vector r1, struct Vector v1, struct Vector 
     struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
 
     double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
-    double dv1 = dv_circ(EARTH(), 180e3, v_t1_inf);
+    double dv1 = tt % 2 == 0 ? dv_capture(dep_body, 200e3, v_t1_inf) : dv_circ(dep_body, 200e3, v_t1_inf);
     double v_t2_inf = fabs(vector_mag(add_vectors(transfer.v1, scalar_multiply(v2, -1))));
-    double dv2 = dv_capture(JUPITER(), 1000e3, v_t2_inf);
+    double dv2;
+    if(tt < 2)      dv2 = dv_capture(arr_body, 200e3, v_t2_inf);
+    else if(tt < 4) dv2 = dv_circ(arr_body, 200e3, v_t2_inf);
+    else            dv2 = 0;
     data[0] = dt/(24*60*60);
     data[1] = dv1;
     data[2] = dv2;
@@ -240,4 +329,31 @@ struct Ephem get_last_ephem(struct Ephem *ephem, double date) {
         i++;
     }
     return ephem[i-1];
+}
+
+double get_min_from_porkchop(double *pc, int index) {
+    double min = 1e20;
+    for(int i = 0; i < pc[0]/4; i++) {
+        double temp = pc[i*4 + index];
+        if(temp < min) min = temp;
+    }
+    return min;
+}
+
+double get_min_arr_from_porkchop(double *pc) {
+    double min = 1e20;
+    for(int i = 0; i < pc[0]/4; i++) {
+        double arr = pc[i*4 + 1] + pc[i*4 + 2];
+        if(arr < min) min = arr;
+    }
+    return min;
+}
+
+double get_max_arr_from_porkchop(double *pc) {
+    double max = -1e20;
+    for(int i = 0; i < pc[0]/4; i++) {
+        double arr = pc[i*4 + 1] + pc[i*4 + 2];
+        if(arr > max) max = arr;
+    }
+    return max;
 }
