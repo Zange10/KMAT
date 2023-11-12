@@ -32,6 +32,7 @@ double get_max_arr_from_porkchop(double *pc);
 double get_min_from_porkchop(double *pc, int index);
 struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor);
 struct OSV default_osv();
+void show_progress(char *text, double progress, double total);
 
 
 void simple_transfer() {
@@ -151,13 +152,13 @@ void simple_transfer() {
 }
 
 void create_transfer() {
-    struct Body *bodies[3] = {EARTH(), VENUS(), MARS()};
+    struct Body *bodies[3] = {EARTH(), JUPITER(), SATURN()};
     int num_bodies = (int) (sizeof(bodies)/sizeof(struct Body*));
 
-    struct Date min_dep_date = {2024, 10, 1, 0, 0, 0};
-    struct Date max_dep_date = {2025, 10, 1, 0, 0, 0};
-    int min_duration[2] = {60, 120};         // [days]
-    int max_duration[2] = {200, 350};         // [days]
+    struct Date min_dep_date = {1977, 6, 1, 0, 0, 0};
+    struct Date max_dep_date = {1977, 10, 1, 0, 0, 0};
+    int min_duration[2] = {600, 800};         // [days]
+    int max_duration[2] = {1000, 1100};         // [days]
     double dep_time_steps = 24 * 60 * 60; // [seconds]
     double arr_time_steps = 24 * 60 * 60; // [seconds]
 
@@ -207,17 +208,15 @@ void create_transfer() {
                                    (max_dep - min_dep) / (dep_time_steps / (24 * 60 * 60))) + 1;
         porkchops[i] = (double *) malloc(all_data_size * sizeof(double));
 
-        create_porkchop(pochopro, circcirc, porkchops[i]);
+        if(i<num_bodies-2) create_porkchop(pochopro, circcirc, porkchops[i]);
+        else               create_porkchop(pochopro, circcap, porkchops[i]);
 
         if(i == 0) {
             double min_dep_dv = get_min_from_porkchop(porkchops[0], 3);
-            int num_2_min_dv = 0;
-            for(int j = 0; j < (int)(porkchops[0][0]/4); j++) {
-                if(porkchops[0][j*4 + 3] < 2*min_dep_dv) num_2_min_dv++;
-            }
-            double *temp = (double*) malloc(4 * num_2_min_dv * sizeof(double) + 1);
+            double *temp = (double*) malloc(((int)porkchops[0][0]+1)*sizeof(double));
             temp[0] = 0;
             for(int j = 0; j < (int)(porkchops[0][0]/4); j++) {
+                show_progress("Decreasing Porkchop size", (double)j, (porkchops[0][0]/4));
                 if(porkchops[0][j*4 + 3] < 2*min_dep_dv) {
                     for(int k = 1; k <= 4; k++) {
                         temp[(int)temp[0] + k] = porkchops[0][j*4 + k];
@@ -225,36 +224,29 @@ void create_transfer() {
                     temp[0] += 4;
                 }
             }
+            show_progress("Decreasing Porkchop size", 1, 1);
+            printf("\n");
             free(porkchops[0]);
-            porkchops[0] = temp;
+            porkchops[0] = realloc(temp, (int)(temp[0]+1)*sizeof(double));
         } else {
-            int num_fb = 0;
-            for(int j = 0; j < (int)(porkchops[i-1][0]/4); j++) {
-                for(int k = 0; k < (int)(porkchops[i][0]/4); k++) {
-                    if(porkchops[i-1][j * 4 + 1] + porkchops[i-1][j * 4 + 2] != porkchops[i][k * 4 + 1]) continue;
-                    double arr_v = porkchops[i-1][j * 4 + 4];
-                    double dep_v = porkchops[i][k * 4 + 3];
-                    if(fabs(arr_v - dep_v) < 10) num_fb++;
-                }
-            }
-
-            double *temp = (double*) malloc(4 * num_fb * sizeof(double) + 1);
+            double *temp = (double*) malloc(((int)porkchops[i][0]+1)*sizeof(double));
             temp[0] = 0;
-            for(int j = 0; j < (int)(porkchops[i-1][0]/4); j++) {
-                for(int k = 0; k < (int)(porkchops[i][0]/4); k++) {
-                    if(porkchops[i-1][j * 4 + 1] + porkchops[i-1][j * 4 + 2] != porkchops[i][k * 4 + 1]) continue;
-                    double arr_v = porkchops[i-1][j * 4 + 4];
-                    double dep_v = porkchops[i][k * 4 + 3];
+            for(int j = 0; j < (int)(porkchops[i][0]/4); j++) {
+                show_progress("Finding fly-bys", (double)j, (porkchops[i][0]/4));
+                for(int k = 0; k < (int)(porkchops[i-1][0]/4); k++) {
+                    if(porkchops[i-1][k * 4 + 1] + porkchops[i-1][k * 4 + 2] != porkchops[i][j * 4 + 1]) continue;
+                    double arr_v = porkchops[i-1][k * 4 + 4];
+                    double dep_v = porkchops[i][j * 4 + 3];
                     if(fabs(arr_v - dep_v) < 10) {
                         double data[3]; // not used (just as parameter for calc_transfer)
-                        double t_dep = porkchops[i-1][j * 4 + 1];
-                        double t_arr = porkchops[i][k * 4 + 1];
+                        double t_dep = porkchops[i-1][k * 4 + 1];
+                        double t_arr = porkchops[i][j * 4 + 1];
                         struct OSV s0 = osv_from_ephem(ephems[i-1], t_dep, SUN());
                         struct OSV s1 = osv_from_ephem(ephems[i], t_arr, SUN());
                         struct Transfer transfer1 = calc_transfer(circcirc, bodies[i], bodies[i+1], s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24 * 60 * 60), data);
 
-                        t_dep = porkchops[i][k * 4 + 1];
-                        t_arr = porkchops[i][k * 4 + 1]+porkchops[i][k * 4 + 2];
+                        t_dep = porkchops[i][j * 4 + 1];
+                        t_arr = porkchops[i][j * 4 + 1]+porkchops[i][j * 4 + 2];
                         s0 = s1;
                         s1 = osv_from_ephem(ephems[i+1], t_arr, SUN());
                         struct Transfer transfer2 = calc_transfer(circcirc, bodies[i], bodies[i+1], s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24 * 60 * 60), data);
@@ -263,26 +255,28 @@ void create_transfer() {
                         struct Vector temp2 = add_vectors(transfer2.v0, scalar_multiply(s0.v,-1));
                         double beta = (M_PI-angle_vec_vec(temp1, temp2))/2;
                         double rp = (1/cos(beta)-1)*(bodies[i]->mu/(pow(vector_mag(temp1), 2)));
-                        printf("%f, %f, %f\n", rad2deg(beta), rp, bodies[i]->radius+bodies[i]->atmo_alt);
                         if(rp > bodies[i]->radius+bodies[i]->atmo_alt) {
                             for (int l = 1; l <= 4; l++) {
-                                temp[(int) temp[0] + l] = porkchops[i][k * 4 + l];
+                                temp[(int) temp[0] + l] = porkchops[i][j * 4 + l];
                             }
                             temp[0] += 4;
+                            break;  // only need to store this transfer once
                         }
                     }
                 }
             }
+            show_progress("Finding fly-bys", 1, 1);
+            printf("\n");
             free(porkchops[i]);
-            porkchops[i] = temp;
+            porkchops[i] = realloc(temp, (int)(temp[0]+1)*sizeof(double));
         }
     }
 
     double jd_dates[3] = {0,0,0};
     double min = 1e9;
 
-    printf("\nLooking for cheapest transfer...\n");
     for(int i = 0; i < (int)(porkchops[0][0]/4); i++) {
+        show_progress("Looking for cheapest transfer", (double)i, (porkchops[0][0]/4));
         for(int j = 0; j < (int)(porkchops[1][0]/4); j++) {
             double *p_dep = porkchops[0]+i*4;
             double *p_arr = porkchops[1]+j*4;
@@ -297,9 +291,11 @@ void create_transfer() {
             }
         }
     }
-    print_date(convert_JD_date(jd_dates[0]),1);
-    print_date(convert_JD_date(jd_dates[1]),1);
-    print_date(convert_JD_date(jd_dates[2]),1);
+    show_progress("Looking for cheapest transfer", 1, 1);
+    printf("\n");
+//    print_date(convert_JD_date(jd_dates[0]),1);
+//    print_date(convert_JD_date(jd_dates[1]),1);
+//    print_date(convert_JD_date(jd_dates[2]),1);
 
 
 
@@ -308,11 +304,6 @@ void create_transfer() {
     double transfer_data[((num_bodies-1)*3+1) * 7 + 1];
     transfer_data[0] = 0;
 
-/*    struct Ephem init_last_ephem = get_last_ephem(ephems[0], jd_dates[0]);
-    struct Vector init_r = {init_last_ephem.x, init_last_ephem.y, init_last_ephem.z};
-    struct Vector init_v = {init_last_ephem.vx, init_last_ephem.vy, init_last_ephem.vz};
-    double init_dt = (jd_dates[0] - init_last_ephem.date) * (24 * 60 * 60);
-    struct OSV init_s = propagate_orbit(init_r, init_v, init_dt, SUN());*/
     struct OSV init_s = osv_from_ephem(ephems[0], jd_dates[0], SUN());
 
     transfer_data[1] = jd_dates[0];
@@ -327,23 +318,18 @@ void create_transfer() {
     struct OSV temp_osv1, temp_osv2, ven_osv;
 
     for(int i = 0; i < num_bodies-1; i++) {
-        /*struct Ephem last_eph0 = get_last_ephem(ephems[i], jd_dates[i]);
-        struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
-        struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
-        double dt0 = (jd_dates[i] - last_eph0.date) * (24 * 60 * 60);
-        struct OSV s0 = propagate_orbit(r0, v0, dt0, SUN());
-
-        struct Ephem last_eph1 = get_last_ephem(ephems[i+1], jd_dates[i+1]);
-        struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
-        struct Vector v1 = {last_eph1.vx, last_eph1.vy, last_eph1.vz};
-        double dt1 = (jd_dates[i+1] - last_eph1.date) * (24 * 60 * 60);
-        struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());*/
-
         struct OSV s0 = osv_from_ephem(ephems[i], jd_dates[i], SUN());
         struct OSV s1 = osv_from_ephem(ephems[i+1], jd_dates[i+1], SUN());
 
         double data[3];
-        struct Transfer transfer = calc_transfer(circcirc, bodies[i], bodies[i+1], s0.r, s0.v, s1.r, s1.v, (jd_dates[i+1] - jd_dates[i]) * (24 * 60 * 60), data);
+        struct Transfer transfer;
+        if(i < num_bodies-2) {
+            transfer = calc_transfer(circcirc, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r, s1.v,
+                                     (jd_dates[i + 1] - jd_dates[i]) * (24 * 60 * 60), data);
+        } else {
+            transfer = calc_transfer(circcap, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r, s1.v,
+                                     (jd_dates[i + 1] - jd_dates[i]) * (24 * 60 * 60), data);
+        }
         printf("Departure: ");
         print_date(convert_JD_date(jd_dates[i]), 0);
         printf(", Arrival: ");
@@ -394,8 +380,8 @@ void create_transfer() {
 }
 
 void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt, double *all_data) {
-    struct timeval start, end;
-    gettimeofday(&start, NULL);  // Record the starting time
+/*    struct timeval start, end;
+    gettimeofday(&start, NULL);  // Record the starting time*/
 
     int min_duration = pochopro.min_duration;         // [days]
     int max_duration = pochopro.max_duration;         // [days]
@@ -414,32 +400,21 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
 
     all_data[0] = 0;
 
-    int progress = -1;
     int mind = 0;
     double mindv = 1e9;
 
     double t_dep = jd_min_dep;
     while(t_dep < jd_max_dep) {
         double t_arr = t_dep + min_duration;
-        /*struct Ephem last_eph0 = get_last_ephem(dep_ephem, t_dep);
-        struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
-        struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
-        double dt0 = (t_dep-last_eph0.date)*(24*60*60);
-        struct OSV s0 = propagate_orbit(r0, v0, dt0, SUN());*/
         struct OSV s0 = osv_from_ephem(dep_ephem, t_dep, SUN());
-//        print_date(convert_JD_date(t_dep), 1);
+        show_progress("Calculating Porkchop", (t_dep-jd_min_dep), (jd_max_dep-jd_min_dep));
 
-        if((int)(100*(t_dep-jd_min_dep)/(jd_max_dep-jd_min_dep)) > progress) {
+/*        if((int)(100*(t_dep-jd_min_dep)/(jd_max_dep-jd_min_dep)) > progress) {
             progress = (int)(100*(t_dep-jd_min_dep)/(jd_max_dep-jd_min_dep));
             printf("% 3d%%\n",progress);
-        }
+        }*/
 
         while(t_arr < t_dep + max_duration) {
-            /*struct Ephem last_eph1 = get_last_ephem(arr_ephem, t_arr);
-            struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
-            struct Vector v1 = {last_eph1.vx, last_eph1.vy, last_eph1.vz};
-            double dt1 = (t_arr-last_eph1.date)*(24*60*60);
-            struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());*/
             struct OSV s1 = osv_from_ephem(arr_ephem, t_arr, SUN());
 
 //            printf("\n");
@@ -475,17 +450,17 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
         }
         t_dep += (dep_time_steps) / (24 * 60 * 60);
     }
-
-    printf("%d trajectories analyzed\n", (int)(all_data_size-1)/4);
+    show_progress("Calculating Porkchop", 1, 1);
+    printf("\n%d trajectories analyzed\n", (int)(all_data_size-1)/4);
 
 //    char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
 //    write_csv(data_fields, all_data);
 
 
-    gettimeofday(&end, NULL);  // Record the ending time
+/*    gettimeofday(&end, NULL);  // Record the ending time
     double elapsed_time;
     elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-    printf("\n\nElapsed time: %f seconds\n", elapsed_time);
+    printf("\n\nElapsed time: %f seconds\n", elapsed_time);*/
 
     t_dep = all_data[mind*4+1];
     double t_arr = t_dep + all_data[mind*4+2];
@@ -617,4 +592,10 @@ double get_max_arr_from_porkchop(double *pc) {
         if(arr > max) max = arr;
     }
     return max;
+}
+
+void show_progress(char *text, double progress, double total) {
+    double percentage = (progress / total) * 100.0;
+    printf("\r%s: %.2f%%", text, percentage);
+    fflush(stdout);
 }
