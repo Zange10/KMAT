@@ -1,6 +1,7 @@
 #include "transfer_tools.h"
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt, double dtheta, struct Body *attractor);
 
@@ -23,7 +24,8 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
                 theta1 += step; // will be subtracted again after the loop
                 break;
             }
-            c = 0/0;    // exit with error (REMOVE LATER)
+            fprintf(stderr, "\nMore than 1000 calculations tried (transfer orbit calculation)\n");
+            exit(EXIT_FAILURE);
         }
         c++;
 
@@ -142,7 +144,8 @@ struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt,
                 theta1 += step; // will be subtracted again after the loop
                 break;
             }
-            c = 0/0;    // exit with error (REMOVE LATER)
+            fprintf(stderr, "\nMore than 200 calculations tried (extreme hyperbola)\n");
+            exit(EXIT_FAILURE);
         }
         c++;
         theta1 = pi_norm(theta1);
