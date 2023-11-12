@@ -33,6 +33,7 @@ double get_min_from_porkchop(double *pc, int index);
 struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor);
 struct OSV default_osv();
 void show_progress(char *text, double progress, double total);
+void get_cheapest_transfer_dates(double **porkchops, double *p_dep, double dv_dep, int index, int num_transfers, double *current_dates, double *jd_dates, double *min);
 
 
 void simple_transfer() {
@@ -152,13 +153,13 @@ void simple_transfer() {
 }
 
 void create_transfer() {
-    struct Body *bodies[3] = {EARTH(), JUPITER(), SATURN()};
+    struct Body *bodies[5] = {EARTH(), JUPITER(), SATURN(), URANUS(), NEPTUNE()};
     int num_bodies = (int) (sizeof(bodies)/sizeof(struct Body*));
 
     struct Date min_dep_date = {1977, 6, 1, 0, 0, 0};
     struct Date max_dep_date = {1977, 10, 1, 0, 0, 0};
-    int min_duration[2] = {600, 800};         // [days]
-    int max_duration[2] = {1000, 1100};         // [days]
+    int min_duration[4] = {750, 800, 1800, 1500};         // [days]
+    int max_duration[4] = {900, 1200, 2600, 2200};         // [days]
     double dep_time_steps = 24 * 60 * 60; // [seconds]
     double arr_time_steps = 24 * 60 * 60; // [seconds]
 
@@ -272,32 +273,22 @@ void create_transfer() {
         }
     }
 
-    double jd_dates[3] = {0,0,0};
+    double *jd_dates = (double*) malloc(num_bodies*sizeof(double));
     double min = 1e9;
 
     for(int i = 0; i < (int)(porkchops[0][0]/4); i++) {
         show_progress("Looking for cheapest transfer", (double)i, (porkchops[0][0]/4));
-        for(int j = 0; j < (int)(porkchops[1][0]/4); j++) {
-            double *p_dep = porkchops[0]+i*4;
-            double *p_arr = porkchops[1]+j*4;
-            if(p_dep[1]+p_dep[2] != p_arr[1]) continue;
-            if(fabs(p_dep[4]-p_arr[3]) < 10) {
-                if(p_dep[3] + p_arr[4] < min) {
-                    jd_dates[0] = p_dep[1];
-                    jd_dates[1] = p_arr[1];
-                    jd_dates[2] = p_arr[1] + p_arr[2];
-                    min = p_dep[3] + p_arr[4];
-                }
-            }
-        }
+        double *p_dep = porkchops[0]+i*4;
+        double dv_dep = p_dep[3];
+        double *current_dates = (double*) malloc(num_bodies*sizeof(double));
+        current_dates[0] = p_dep[1];
+        get_cheapest_transfer_dates(porkchops, p_dep, dv_dep, 1, num_bodies-1, current_dates, jd_dates, &min);
+        free(current_dates);
     }
     show_progress("Looking for cheapest transfer", 1, 1);
     printf("\n");
-//    print_date(convert_JD_date(jd_dates[0]),1);
-//    print_date(convert_JD_date(jd_dates[1]),1);
-//    print_date(convert_JD_date(jd_dates[2]),1);
 
-
+    for(int i = 0; i < num_bodies; i++) print_date(convert_JD_date(jd_dates[i]),1);
 
     // 3 states per transfer (departure, arrival and final state)
     // 1 additional for initial start; 7 variables per state
@@ -314,8 +305,6 @@ void create_transfer() {
     transfer_data[6] = init_s.v.y;
     transfer_data[7] = init_s.v.z;
     transfer_data[0] += 7;
-
-    struct OSV temp_osv1, temp_osv2, ven_osv;
 
     for(int i = 0; i < num_bodies-1; i++) {
         struct OSV s0 = osv_from_ephem(ephems[i], jd_dates[i], SUN());
@@ -345,11 +334,6 @@ void create_transfer() {
         osvs[1].v = transfer.v1;
         osvs[2] = s1;
 
-        if(i == 0) {
-            temp_osv1 = osvs[1];
-            ven_osv = osvs[2];
-        } else temp_osv2 = osvs[0];
-
         for (int j = 0; j < 3; j++) {
             transfer_data[(int)transfer_data[0] + 1] = j == 0 ? jd_dates[i] : jd_dates[i+1];
             transfer_data[(int)transfer_data[0] + 2] = osvs[j].r.x;
@@ -361,14 +345,6 @@ void create_transfer() {
             transfer_data[0] += 7;
         }
     }
-
-    struct Vector temp1 = add_vectors(temp_osv1.v, scalar_multiply(ven_osv.v,-1));
-    struct Vector temp2 = add_vectors(temp_osv2.v, scalar_multiply(ven_osv.v,-1));
-
-    double beta = (M_PI-angle_vec_vec(temp1, temp2))/2;
-    double rp = (1/cos(beta)-1)*(VENUS()->mu/(pow(vector_mag(temp1), 2)));
-
-    printf("%f, %f, %f\n", rad2deg(beta), rp, vector_mag(temp1));
 
     char pcsv;
     printf("Write transfer data to .csv (y/Y=yes)? ");
@@ -403,16 +379,14 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
     int mind = 0;
     double mindv = 1e9;
 
+    char progress_text[100];
+    sprintf(progress_text, "Calculating Porkchop (%s -> %s)", pochopro.dep_body->name, pochopro.arr_body->name);
+
     double t_dep = jd_min_dep;
     while(t_dep < jd_max_dep) {
         double t_arr = t_dep + min_duration;
         struct OSV s0 = osv_from_ephem(dep_ephem, t_dep, SUN());
-        show_progress("Calculating Porkchop", (t_dep-jd_min_dep), (jd_max_dep-jd_min_dep));
-
-/*        if((int)(100*(t_dep-jd_min_dep)/(jd_max_dep-jd_min_dep)) > progress) {
-            progress = (int)(100*(t_dep-jd_min_dep)/(jd_max_dep-jd_min_dep));
-            printf("% 3d%%\n",progress);
-        }*/
+        show_progress(progress_text, (t_dep-jd_min_dep), (jd_max_dep-jd_min_dep));
 
         while(t_arr < t_dep + max_duration) {
             struct OSV s1 = osv_from_ephem(arr_ephem, t_arr, SUN());
@@ -450,7 +424,7 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
         }
         t_dep += (dep_time_steps) / (24 * 60 * 60);
     }
-    show_progress("Calculating Porkchop", 1, 1);
+    show_progress(progress_text, 1, 1);
     printf("\n%d trajectories analyzed\n", (int)(all_data_size-1)/4);
 
 //    char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
@@ -466,59 +440,6 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
     double t_arr = t_dep + all_data[mind*4+2];
 
     //free(all_data);
-/*
-    struct Ephem last_eph0 = get_last_ephem(dep_ephem, t_dep);
-    struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
-    struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
-    double dt0 = (t_dep-last_eph0.date)*(24*60*60);
-    struct OSV s0 = propagate_orbit(r0, v0, dt0, SUN());
-
-    struct Ephem last_eph1 = get_last_ephem(arr_ephem, t_arr);
-    struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
-    struct Vector v1 = {last_eph1.vx, last_eph1.vy, last_eph1.vz};
-    double dt1 = (t_arr-last_eph1.date)*(24*60*60);
-    struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());
-
-    double data[3];
-    struct Transfer transfer = calc_transfer(s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24*60*60), data);
-    printf("Departure: ");
-    print_date(convert_JD_date(t_dep),0);
-    printf(", Arrival: ");
-    print_date(convert_JD_date(t_arr),0);
-    printf(" (%f days), Delta-v: %f m/s (%f m/s, %f m/s)\n",
-           t_arr-t_dep, data[1]+data[2], data[1], data[2]);
-
-    int num_states = 4;
-
-    double times[] = {t_dep, t_dep, t_arr, t_arr};
-    struct OSV osvs[num_states];
-    osvs[0] = s0;
-    osvs[1].r = transfer.r0;
-    osvs[1].v = transfer.v0;
-    osvs[2].r = transfer.r1;
-    osvs[2].v = transfer.v1;
-    osvs[3] = s1;
-
-    double transfer_data[num_states*7+1];
-    transfer_data[0] = 0;
-
-    for(int i = 0; i < num_states; i++) {
-        transfer_data[i*7+1] = times[i];
-        transfer_data[i*7+2] = osvs[i].r.x;
-        transfer_data[i*7+3] = osvs[i].r.y;
-        transfer_data[i*7+4] = osvs[i].r.z;
-        transfer_data[i*7+5] = osvs[i].v.x;
-        transfer_data[i*7+6] = osvs[i].v.y;
-        transfer_data[i*7+7] = osvs[i].v.z;
-        transfer_data[0] += 7;
-    }
-    char pcsv;
-    printf("Write transfer data to .csv (y/Y=yes)? ");
-    scanf(" %c", &pcsv);
-    if (pcsv == 'y' || pcsv == 'Y') {
-        char transfer_data_fields[] = "JD,X,Y,Z,VX,VY,VZ";
-        write_csv(transfer_data_fields, transfer_data);
-    }*/
 }
 
 struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, double *data) {
@@ -598,4 +519,22 @@ void show_progress(char *text, double progress, double total) {
     double percentage = (progress / total) * 100.0;
     printf("\r%s: %.2f%%", text, percentage);
     fflush(stdout);
+}
+
+void get_cheapest_transfer_dates(double **porkchops, double *p_dep, double dv_dep, int index, int num_transfers, double *current_dates, double *jd_dates, double *min) {
+    for(int i = 0; i < (int)(porkchops[index][0] / 4); i++) {
+        double *p_arr = porkchops[index] + i * 4;
+        if(p_dep[1]+p_dep[2] != p_arr[1] || fabs(p_dep[4]-p_arr[3]) > 10) continue;
+
+        current_dates[index] = p_arr[1];
+        if(index < num_transfers-1) {
+            get_cheapest_transfer_dates(porkchops, p_arr, dv_dep, index + 1, num_transfers, current_dates, jd_dates, min);
+        } else {
+            current_dates[index+1] = p_arr[1]+p_arr[2];
+            if (dv_dep + p_arr[4] < *min) {
+                for(int j = 0; j <= num_transfers; j++) jd_dates[j] = current_dates[j];
+                *min = dv_dep + p_arr[4];
+            }
+        }
+    }
 }
