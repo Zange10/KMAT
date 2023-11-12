@@ -30,6 +30,7 @@ struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, stru
 double get_min_arr_from_porkchop(double *pc);
 double get_max_arr_from_porkchop(double *pc);
 double get_min_from_porkchop(double *pc, int index);
+struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor);
 struct OSV default_osv();
 
 
@@ -91,18 +92,20 @@ void simple_transfer() {
     double t_arr = t_dep + porkchop[mind*4+2];
 
     free(porkchop);
-
+/*
     struct Ephem last_eph0 = get_last_ephem(ephems[0], t_dep);
     struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
     struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
     double dt0 = (t_dep-last_eph0.date)*(24*60*60);
     struct OSV s0 = propagate_orbit(r0, v0, dt0, SUN());
-
     struct Ephem last_eph1 = get_last_ephem(ephems[1], t_arr);
     struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
     struct Vector v1 = {last_eph1.vx, last_eph1.vy, last_eph1.vz};
     double dt1 = (t_arr-last_eph1.date)*(24*60*60);
-    struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());
+    struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());*/
+
+    struct OSV s0 = osv_from_ephem(ephems[0], t_dep, SUN());
+    struct OSV s1 = osv_from_ephem(ephems[1], t_arr, SUN());
 
     double data[3];
     struct Transfer transfer = calc_transfer(circcirc, bodies[0], bodies[1], s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24*60*60), data);
@@ -243,10 +246,30 @@ void create_transfer() {
                     double arr_v = porkchops[i-1][j * 4 + 4];
                     double dep_v = porkchops[i][k * 4 + 3];
                     if(fabs(arr_v - dep_v) < 10) {
-                        for (int l = 1; l <= 4; l++) {
-                            temp[(int) temp[0] + l] = porkchops[i][k * 4 + l];
+                        double data[3]; // not used (just as parameter for calc_transfer)
+                        double t_dep = porkchops[i-1][j * 4 + 1];
+                        double t_arr = porkchops[i][k * 4 + 1];
+                        struct OSV s0 = osv_from_ephem(ephems[i-1], t_dep, SUN());
+                        struct OSV s1 = osv_from_ephem(ephems[i], t_arr, SUN());
+                        struct Transfer transfer1 = calc_transfer(circcirc, bodies[i], bodies[i+1], s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24 * 60 * 60), data);
+
+                        t_dep = porkchops[i][k * 4 + 1];
+                        t_arr = porkchops[i][k * 4 + 1]+porkchops[i][k * 4 + 2];
+                        s0 = s1;
+                        s1 = osv_from_ephem(ephems[i+1], t_arr, SUN());
+                        struct Transfer transfer2 = calc_transfer(circcirc, bodies[i], bodies[i+1], s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24 * 60 * 60), data);
+
+                        struct Vector temp1 = add_vectors(transfer1.v1, scalar_multiply(s0.v,-1));
+                        struct Vector temp2 = add_vectors(transfer2.v0, scalar_multiply(s0.v,-1));
+                        double beta = (M_PI-angle_vec_vec(temp1, temp2))/2;
+                        double rp = (1/cos(beta)-1)*(bodies[i]->mu/(pow(vector_mag(temp1), 2)));
+                        printf("%f, %f, %f\n", rad2deg(beta), rp, bodies[i]->radius+bodies[i]->atmo_alt);
+                        if(rp > bodies[i]->radius+bodies[i]->atmo_alt) {
+                            for (int l = 1; l <= 4; l++) {
+                                temp[(int) temp[0] + l] = porkchops[i][k * 4 + l];
+                            }
+                            temp[0] += 4;
                         }
-                        temp[0] += 4;
                     }
                 }
             }
@@ -270,15 +293,6 @@ void create_transfer() {
                     jd_dates[1] = p_arr[1];
                     jd_dates[2] = p_arr[1] + p_arr[2];
                     min = p_dep[3] + p_arr[4];
-                    print_date(convert_JD_date(p_dep[1]),0);
-                    printf(" - ");
-                    print_date(convert_JD_date(p_dep[1]+p_dep[2]),0);
-                    printf(" - ");
-                    print_date(convert_JD_date(p_arr[1]),0);
-                    printf(" - ");
-                    print_date(convert_JD_date(p_arr[1]+p_arr[2]),1);
-                    printf("%f %f %f %f %f\n",
-                           p_dep[3], p_dep[4], p_arr[3], p_arr[4], p_dep[3]+p_arr[4]);
                 }
             }
         }
@@ -294,11 +308,12 @@ void create_transfer() {
     double transfer_data[((num_bodies-1)*3+1) * 7 + 1];
     transfer_data[0] = 0;
 
-    struct Ephem init_last_ephem = get_last_ephem(ephems[0], jd_dates[0]);
+/*    struct Ephem init_last_ephem = get_last_ephem(ephems[0], jd_dates[0]);
     struct Vector init_r = {init_last_ephem.x, init_last_ephem.y, init_last_ephem.z};
     struct Vector init_v = {init_last_ephem.vx, init_last_ephem.vy, init_last_ephem.vz};
     double init_dt = (jd_dates[0] - init_last_ephem.date) * (24 * 60 * 60);
-    struct OSV init_s = propagate_orbit(init_r, init_v, init_dt, SUN());
+    struct OSV init_s = propagate_orbit(init_r, init_v, init_dt, SUN());*/
+    struct OSV init_s = osv_from_ephem(ephems[0], jd_dates[0], SUN());
 
     transfer_data[1] = jd_dates[0];
     transfer_data[2] = init_s.r.x;
@@ -312,7 +327,7 @@ void create_transfer() {
     struct OSV temp_osv1, temp_osv2, ven_osv;
 
     for(int i = 0; i < num_bodies-1; i++) {
-        struct Ephem last_eph0 = get_last_ephem(ephems[i], jd_dates[i]);
+        /*struct Ephem last_eph0 = get_last_ephem(ephems[i], jd_dates[i]);
         struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
         struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
         double dt0 = (jd_dates[i] - last_eph0.date) * (24 * 60 * 60);
@@ -322,7 +337,10 @@ void create_transfer() {
         struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
         struct Vector v1 = {last_eph1.vx, last_eph1.vy, last_eph1.vz};
         double dt1 = (jd_dates[i+1] - last_eph1.date) * (24 * 60 * 60);
-        struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());
+        struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());*/
+
+        struct OSV s0 = osv_from_ephem(ephems[i], jd_dates[i], SUN());
+        struct OSV s1 = osv_from_ephem(ephems[i+1], jd_dates[i+1], SUN());
 
         double data[3];
         struct Transfer transfer = calc_transfer(circcirc, bodies[i], bodies[i+1], s0.r, s0.v, s1.r, s1.v, (jd_dates[i+1] - jd_dates[i]) * (24 * 60 * 60), data);
@@ -360,9 +378,6 @@ void create_transfer() {
 
     struct Vector temp1 = add_vectors(temp_osv1.v, scalar_multiply(ven_osv.v,-1));
     struct Vector temp2 = add_vectors(temp_osv2.v, scalar_multiply(ven_osv.v,-1));
-
-    print_vector(temp1);
-    print_vector(temp2);
 
     double beta = (M_PI-angle_vec_vec(temp1, temp2))/2;
     double rp = (1/cos(beta)-1)*(VENUS()->mu/(pow(vector_mag(temp1), 2)));
@@ -406,11 +421,12 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
     double t_dep = jd_min_dep;
     while(t_dep < jd_max_dep) {
         double t_arr = t_dep + min_duration;
-        struct Ephem last_eph0 = get_last_ephem(dep_ephem, t_dep);
+        /*struct Ephem last_eph0 = get_last_ephem(dep_ephem, t_dep);
         struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
         struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
         double dt0 = (t_dep-last_eph0.date)*(24*60*60);
-        struct OSV s0 = propagate_orbit(r0, v0, dt0, SUN());
+        struct OSV s0 = propagate_orbit(r0, v0, dt0, SUN());*/
+        struct OSV s0 = osv_from_ephem(dep_ephem, t_dep, SUN());
 //        print_date(convert_JD_date(t_dep), 1);
 
         if((int)(100*(t_dep-jd_min_dep)/(jd_max_dep-jd_min_dep)) > progress) {
@@ -419,12 +435,12 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
         }
 
         while(t_arr < t_dep + max_duration) {
-            struct Ephem last_eph1 = get_last_ephem(arr_ephem, t_arr);
+            /*struct Ephem last_eph1 = get_last_ephem(arr_ephem, t_arr);
             struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
             struct Vector v1 = {last_eph1.vx, last_eph1.vy, last_eph1.vz};
             double dt1 = (t_arr-last_eph1.date)*(24*60*60);
-
-            struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());
+            struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());*/
+            struct OSV s1 = osv_from_ephem(arr_ephem, t_arr, SUN());
 
 //            printf("\n");
 //            print_date(convert_JD_date(t_dep), 0);
@@ -555,6 +571,15 @@ struct OSV default_osv() {
     struct Vector r = {0,0,0};
     struct Vector v = {0,0,0};
     struct OSV osv = {r,v};
+    return osv;
+}
+
+struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor) {
+    struct Ephem ephem = get_last_ephem(ephem_list, date);
+    struct Vector r1 = {ephem.x, ephem.y, ephem.z};
+    struct Vector v1 = {ephem.vx, ephem.vy, ephem.vz};
+    double dt1 = (date - ephem.date) * (24 * 60 * 60);
+    struct OSV osv = propagate_orbit(r1, v1, dt1, attractor);
     return osv;
 }
 
