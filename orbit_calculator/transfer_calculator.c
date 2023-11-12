@@ -24,6 +24,8 @@ enum Transfer_Type {
     circfb
 };
 
+enum Transfer_Type final_tt = circcap;
+
 void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt, double *all_data);
 struct Ephem get_last_ephem(struct Ephem *ephem, double date);
 struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, double *data);
@@ -210,7 +212,7 @@ void create_transfer() {
         porkchops[i] = (double *) malloc(all_data_size * sizeof(double));
 
         if(i<num_bodies-2) create_porkchop(pochopro, circcirc, porkchops[i]);
-        else               create_porkchop(pochopro, circcap, porkchops[i]);
+        else               create_porkchop(pochopro, final_tt, porkchops[i]);
 
         if(i == 0) {
             double min_dep_dv = get_min_from_porkchop(porkchops[0], 3);
@@ -226,7 +228,7 @@ void create_transfer() {
                 }
             }
             show_progress("Decreasing Porkchop size", 1, 1);
-            printf("\n");
+            printf("\nTrajectories remaining: %d\n", (int)temp[0]/4);
             free(porkchops[0]);
             porkchops[0] = realloc(temp, (int)(temp[0]+1)*sizeof(double));
         } else {
@@ -267,7 +269,7 @@ void create_transfer() {
                 }
             }
             show_progress("Finding fly-bys", 1, 1);
-            printf("\n");
+            printf("\nTrajectories remaining: %d\n", (int)temp[0]/4);
             free(porkchops[i]);
             porkchops[i] = realloc(temp, (int)(temp[0]+1)*sizeof(double));
         }
@@ -316,7 +318,7 @@ void create_transfer() {
             transfer = calc_transfer(circcirc, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r, s1.v,
                                      (jd_dates[i + 1] - jd_dates[i]) * (24 * 60 * 60), data);
         } else {
-            transfer = calc_transfer(circcap, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r, s1.v,
+            transfer = calc_transfer(final_tt, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r, s1.v,
                                      (jd_dates[i + 1] - jd_dates[i]) * (24 * 60 * 60), data);
         }
         printf("Departure: ");
