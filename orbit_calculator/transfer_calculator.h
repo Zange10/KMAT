@@ -4,6 +4,6 @@
 #include "analytic_geometry.h"
 
 void simple_transfer();
-void create_transfer();
+void create_swing_by_transfer();
 
 #endif //KSP_TRANSFER_CALCULATOR_H

@@ -12,7 +12,7 @@
 int main() {
     init_celestial_bodies();
     if(0)simple_transfer();
-    else create_transfer();
+    else create_swing_by_transfer();
     return 0;
 
     int selection = 0;
@@ -31,7 +31,7 @@ int main() {
             orbit_calculator();
             break;
         case 3:
-            create_transfer();
+            create_swing_by_transfer();
             break;
         default:
             break;

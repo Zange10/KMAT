@@ -8,6 +8,8 @@
 #include <sys/time.h>
 #include <math.h>
 
+const double DAY = 24*60*60;
+
 struct Porkchop_Properties {
     double jd_min_dep, jd_max_dep, dep_time_steps, arr_time_steps;
     int min_duration, max_duration;
@@ -24,7 +26,7 @@ enum Transfer_Type {
     circfb
 };
 
-enum Transfer_Type final_tt = circcap;
+enum Transfer_Type final_tt = circfb;
 
 void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt, double *all_data);
 struct Ephem get_last_ephem(struct Ephem *ephem, double date);
@@ -35,7 +37,7 @@ double get_min_from_porkchop(double *pc, int index);
 struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor);
 struct OSV default_osv();
 void show_progress(char *text, double progress, double total);
-void get_cheapest_transfer_dates(double **porkchops, double *p_dep, double dv_dep, int index, int num_transfers, double *current_dates, double *jd_dates, double *min);
+void get_cheapest_transfer_dates(double **porkchops, double *p_dep, double dv_dep, int index, int num_transfers, double *current_dates, double *jd_dates, double *min, double *final_porkchop);
 
 
 void simple_transfer() {
@@ -154,7 +156,7 @@ void simple_transfer() {
 
 }
 
-void create_transfer() {
+void create_swing_by_transfer() {
     struct Body *bodies[5] = {EARTH(), JUPITER(), SATURN(), URANUS(), NEPTUNE()};
     int num_bodies = (int) (sizeof(bodies)/sizeof(struct Body*));
 
@@ -170,7 +172,7 @@ void create_transfer() {
 
     int max_total_dur = 0;
     for(int i = 0; i < num_bodies-1; i++) max_total_dur += max_duration[i];
-    double jd_max_arr = convert_date_JD(max_dep_date) + max_total_dur;
+    double jd_max_arr = jd_max_dep + max_total_dur;
 
     int ephem_time_steps = 10;  // [days]
     int num_ephems = (int)(jd_max_arr - jd_min_dep) / ephem_time_steps + 1;
@@ -278,17 +280,27 @@ void create_transfer() {
     double *jd_dates = (double*) malloc(num_bodies*sizeof(double));
     double min = 1e9;
 
+    int min_total_dur = 0;
+    for(int i = 0; i < num_bodies-1; i++) min_total_dur += min_duration[i];
+
+    double *final_porkchop = (double *) malloc((int)(((max_total_dur-min_total_dur)*(jd_max_dep-jd_min_dep))*4+1)*sizeof(double));
+    final_porkchop[0] = 0;
+
     for(int i = 0; i < (int)(porkchops[0][0]/4); i++) {
         show_progress("Looking for cheapest transfer", (double)i, (porkchops[0][0]/4));
         double *p_dep = porkchops[0]+i*4;
         double dv_dep = p_dep[3];
         double *current_dates = (double*) malloc(num_bodies*sizeof(double));
         current_dates[0] = p_dep[1];
-        get_cheapest_transfer_dates(porkchops, p_dep, dv_dep, 1, num_bodies-1, current_dates, jd_dates, &min);
+        get_cheapest_transfer_dates(porkchops, p_dep, dv_dep, 1, num_bodies-1, current_dates, jd_dates, &min, final_porkchop);
         free(current_dates);
     }
     show_progress("Looking for cheapest transfer", 1, 1);
     printf("\n");
+
+    char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
+    write_csv(data_fields, final_porkchop);
+    free(final_porkchop);
 
     for(int i = 0; i < num_bodies; i++) print_date(convert_JD_date(jd_dates[i]),1);
 
@@ -523,19 +535,41 @@ void show_progress(char *text, double progress, double total) {
     fflush(stdout);
 }
 
-void get_cheapest_transfer_dates(double **porkchops, double *p_dep, double dv_dep, int index, int num_transfers, double *current_dates, double *jd_dates, double *min) {
+void get_cheapest_transfer_dates(double **porkchops, double *p_dep, double dv_dep, int index, int num_transfers, double *current_dates, double *jd_dates, double *min, double *final_porkchop) {
     for(int i = 0; i < (int)(porkchops[index][0] / 4); i++) {
         double *p_arr = porkchops[index] + i * 4;
         if(p_dep[1]+p_dep[2] != p_arr[1] || fabs(p_dep[4]-p_arr[3]) > 10) continue;
 
         current_dates[index] = p_arr[1];
         if(index < num_transfers-1) {
-            get_cheapest_transfer_dates(porkchops, p_arr, dv_dep, index + 1, num_transfers, current_dates, jd_dates, min);
+            get_cheapest_transfer_dates(porkchops, p_arr, dv_dep, index + 1, num_transfers, current_dates, jd_dates, min, final_porkchop);
         } else {
             current_dates[index+1] = p_arr[1]+p_arr[2];
+            double dv_arr = p_arr[4];
             if (dv_dep + p_arr[4] < *min) {
                 for(int j = 0; j <= num_transfers; j++) jd_dates[j] = current_dates[j];
-                *min = dv_dep + p_arr[4];
+                *min = dv_dep + dv_arr;
+            }
+
+            int pc_index = (int)final_porkchop[0];
+            for(int j = (int)final_porkchop[0]-4; j >= 0; j -= 4) {
+                if(current_dates[0] != final_porkchop[j+1]) break;
+                if(current_dates[num_transfers] == final_porkchop[j+1]+final_porkchop[j+2]) {
+                    pc_index = j;
+                    break;
+                }
+            }
+            if(pc_index < final_porkchop[0]) {
+                if(dv_dep+dv_arr < final_porkchop[pc_index + 3] + final_porkchop[pc_index + 4]) {
+                    final_porkchop[pc_index + 3] = dv_dep;
+                    final_porkchop[pc_index + 4] = dv_arr;
+                }
+            } else {
+                final_porkchop[pc_index + 1] = current_dates[0];
+                final_porkchop[pc_index + 2] = current_dates[num_transfers] - current_dates[0];
+                final_porkchop[pc_index + 3] = dv_dep;
+                final_porkchop[pc_index + 4] = dv_arr;
+                final_porkchop[0] += 4;
             }
         }
     }
