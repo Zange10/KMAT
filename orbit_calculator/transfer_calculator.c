@@ -114,6 +114,11 @@ void simple_transfer() {
         transfer_data[i*7+7] = osvs[i].v.z;
         transfer_data[0] += 7;
     }
+
+    free(ephems[0]);
+    free(ephems[1]);
+    free(ephems);
+
     char pcsv;
     printf("Write transfer data to .csv (y/Y=yes)? ");
     scanf(" %c", &pcsv);
@@ -272,7 +277,10 @@ void create_swing_by_transfer() {
 
     char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
     write_csv(data_fields, final_porkchop);
+
     free(final_porkchop);
+    for(int i = 0; i < num_bodies-1; i++) free(porkchops[i]);
+    free(porkchops);
 
     for(int i = 0; i < num_bodies; i++) print_date(convert_JD_date(jd_dates[i]),1);
 
@@ -331,6 +339,10 @@ void create_swing_by_transfer() {
             transfer_data[0] += 7;
         }
     }
+
+    for(int i = 0; i < num_bodies; i++) free(ephems[i]);
+    free(ephems);
+    free(jd_dates);
 
     char pcsv;
     printf("Write transfer data to .csv (y/Y=yes)? ");
