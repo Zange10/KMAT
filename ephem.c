@@ -179,5 +179,15 @@ void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_step
     ephem[size_ephem-1].date = -1;  // to know where array ends
     // Close the file when done
     fclose(file);
-    return;
+}
+
+
+
+struct Ephem get_last_ephem(struct Ephem *ephem, double date) {
+    int i = 0;
+    while (ephem[i].date > 0) {
+        if(date < ephem[i].date) return ephem[i-1];
+        i++;
+    }
+    return ephem[i-1];
 }

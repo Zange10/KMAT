@@ -237,6 +237,27 @@ struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt,
     return transfer;
 }
 
+struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, double *data) {
+    double dtheta = angle_vec_vec(r1, r2);
+    if (cross_product(r1, r2).z < 0) dtheta = 2 * M_PI - dtheta;
+    struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
+    struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
+
+    double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
+    double dv1 = tt % 2 == 0 ? dv_capture(dep_body, dep_body->atmo_alt+100e3, v_t1_inf) : dv_circ(dep_body, dep_body->atmo_alt+100e3, v_t1_inf);
+
+    double v_t2_inf = fabs(vector_mag(add_vectors(transfer.v1, scalar_multiply(v2, -1))));
+    double dv2;
+    if(tt < 2)      dv2 = dv_capture(arr_body, arr_body->atmo_alt+100e3, v_t2_inf);
+    else if(tt < 4) dv2 = dv_circ(arr_body, arr_body->atmo_alt+100e3, v_t2_inf);
+    else            dv2 = 0;
+
+    data[0] = dt/(24*60*60);
+    data[1] = dv1;
+    data[2] = dv2;
+    return transfer;
+}
+
 struct Vector2D calc_v_2d(double r_mag, double v_mag, double theta, double gamma) {
     struct Vector2D r_norm = {cos(theta), sin(theta)};
     struct Vector2D r = scalar_multipl2d(r_norm, r_mag);
@@ -392,5 +413,21 @@ struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct B
     v = heliocentric_rot(v_2d, RAAN, arg_peri, i);
 
     struct OSV osv = {r, v};
+    return osv;
+}
+
+struct OSV default_osv() {
+    struct Vector r = {0,0,0};
+    struct Vector v = {0,0,0};
+    struct OSV osv = {r,v};
+    return osv;
+}
+
+struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor) {
+    struct Ephem ephem = get_last_ephem(ephem_list, date);
+    struct Vector r1 = {ephem.x, ephem.y, ephem.z};
+    struct Vector v1 = {ephem.vx, ephem.vy, ephem.vz};
+    double dt1 = (date - ephem.date) * (24 * 60 * 60);
+    struct OSV osv = propagate_orbit(r1, v1, dt1, attractor);
     return osv;
 }
