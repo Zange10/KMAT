@@ -1,13 +1,9 @@
 #include "porkchop_tools.h"
 #include "tool_funcs.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <math.h>
 
 void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt, double *all_data) {
-/*    struct timeval start, end;
-    gettimeofday(&start, NULL);  // Record the starting time*/
-
     int min_duration = pochopro.min_duration;         // [days]
     int max_duration = pochopro.max_duration;         // [days]
     double dep_time_steps = pochopro.dep_time_steps; // [seconds]
@@ -24,9 +20,6 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
     int all_data_size = (int)(data_length*(max_duration-min_duration)/(arr_time_steps/(24*60*60)) * (jd_max_dep - jd_min_dep)/ (dep_time_steps/(24*60*60))) + 1;
 
     all_data[0] = 0;
-
-    int mind = 0;
-    double mindv = 1e9;
 
     char progress_text[100];
     sprintf(progress_text, "Calculating Porkchop (%s -> %s)", pochopro.dep_body->name, pochopro.arr_body->name);
@@ -58,12 +51,6 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
                     if(i == 1) all_data[(int) all_data[0] + i] = t_dep;
                     else all_data[(int) all_data[0] + i] = data[i-2];
                 }
-
-
-                if(data[1]+data[2] < mindv) {
-                    mindv = data[1] + data[2];
-                    mind = (int)(all_data[0]/data_length);
-                }
                 all_data[0] += data_length;
             }
 //            printf(",%f", data[2]);
@@ -75,23 +62,9 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
     }
     show_progress(progress_text, 1, 1);
     printf("\n%d trajectories analyzed\n", (int)(all_data_size-1)/4);
-
-//    char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
-//    write_csv(data_fields, all_data);
-
-
-/*    gettimeofday(&end, NULL);  // Record the ending time
-    double elapsed_time;
-    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-    printf("\n\nElapsed time: %f seconds\n", elapsed_time);*/
-
-    t_dep = all_data[mind*4+1];
-    double t_arr = t_dep + all_data[mind*4+2];
-
-    //free(all_data);
 }
 
-double get_min_from_porkchop(double *pc, int index) {
+double get_min_from_porkchop(const double *pc, int index) {
     double min = 1e20;
     for(int i = 0; i < pc[0]/4; i++) {
         double temp = pc[i*4 + index];
@@ -100,7 +73,7 @@ double get_min_from_porkchop(double *pc, int index) {
     return min;
 }
 
-double get_min_arr_from_porkchop(double *pc) {
+double get_min_arr_from_porkchop(const double *pc) {
     double min = 1e20;
     for(int i = 0; i < pc[0]/4; i++) {
         double arr = pc[i*4 + 1] + pc[i*4 + 2];
@@ -109,11 +82,51 @@ double get_min_arr_from_porkchop(double *pc) {
     return min;
 }
 
-double get_max_arr_from_porkchop(double *pc) {
+double get_max_arr_from_porkchop(const double *pc) {
     double max = -1e20;
     for(int i = 0; i < pc[0]/4; i++) {
         double arr = pc[i*4 + 1] + pc[i*4 + 2];
         if(arr > max) max = arr;
     }
     return max;
+}
+
+void get_cheapest_transfer_dates(double **porkchops, double *p_dep, double dv_dep, int index, int num_transfers, double *current_dates, double *jd_dates, double *min, double *final_porkchop) {
+    for(int i = 0; i < (int)(porkchops[index][0] / 4); i++) {
+        double *p_arr = porkchops[index] + i * 4;
+        if(p_dep[1]+p_dep[2] != p_arr[1] || fabs(p_dep[4]-p_arr[3]) > 10) continue;
+
+        current_dates[index] = p_arr[1];
+        if(index < num_transfers-1) {
+            get_cheapest_transfer_dates(porkchops, p_arr, dv_dep, index + 1, num_transfers, current_dates, jd_dates, min, final_porkchop);
+        } else {
+            current_dates[index+1] = p_arr[1]+p_arr[2];
+            double dv_arr = p_arr[4];
+            if (dv_dep + p_arr[4] < *min) {
+                for(int j = 0; j <= num_transfers; j++) jd_dates[j] = current_dates[j];
+                *min = dv_dep + dv_arr;
+            }
+
+            int pc_index = (int)final_porkchop[0];
+            for(int j = (int)final_porkchop[0]-4; j >= 0; j -= 4) {
+                if(current_dates[0] != final_porkchop[j+1]) break;
+                if(current_dates[num_transfers] == final_porkchop[j+1]+final_porkchop[j+2]) {
+                    pc_index = j;
+                    break;
+                }
+            }
+            if(pc_index < final_porkchop[0]) {
+                if(dv_dep+dv_arr < final_porkchop[pc_index + 3] + final_porkchop[pc_index + 4]) {
+                    final_porkchop[pc_index + 3] = dv_dep;
+                    final_porkchop[pc_index + 4] = dv_arr;
+                }
+            } else {
+                final_porkchop[pc_index + 1] = current_dates[0];
+                final_porkchop[pc_index + 2] = current_dates[num_transfers] - current_dates[0];
+                final_porkchop[pc_index + 3] = dv_dep;
+                final_porkchop[pc_index + 4] = dv_arr;
+                final_porkchop[0] += 4;
+            }
+        }
+    }
 }

@@ -123,10 +123,6 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
 
 
     theta1 -= step; // reset theta1 from last change inside the loop
-//    printf("OUT (%f, %f, %f, %f, %f, %f)\n", rad2deg(theta1), rad2deg(theta2), rad2deg(dtheta), dt/(24*60*60), e, a*1e-9);
-//    printf("\n");
-
-//    printf(",%f", e);
 
     struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
     return transfer;
@@ -228,10 +224,6 @@ struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt,
     }
 
     theta1 -= step; // reset theta1 from last change inside the loop
-//    printf("OUT (%f, %f, %f, %f, %f, %f)\n", rad2deg(theta1), rad2deg(theta2), rad2deg(dtheta), dt/(24*60*60), e, a*1e-9);
-//    printf("\n");
-
-//    printf(",%f", e);
 
     struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
     return transfer;
@@ -413,13 +405,6 @@ struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct B
     v = heliocentric_rot(v_2d, RAAN, arg_peri, i);
 
     struct OSV osv = {r, v};
-    return osv;
-}
-
-struct OSV default_osv() {
-    struct Vector r = {0,0,0};
-    struct Vector v = {0,0,0};
-    struct OSV osv = {r,v};
     return osv;
 }
 

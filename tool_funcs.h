@@ -5,5 +5,5 @@ int user_selection(char *title, char *options, char *question);
 void print_separator(int x);
 // returns 1 if strings are not the same, returns 0 if strings are the same
 int strcicmp(char const *a, char const *b);
-
+// show progress in command line in percent
 void show_progress(char *text, double progress, double total);

@@ -181,8 +181,6 @@ void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_step
     fclose(file);
 }
 
-
-
 struct Ephem get_last_ephem(struct Ephem *ephem, double date) {
     int i = 0;
     while (ephem[i].date > 0) {

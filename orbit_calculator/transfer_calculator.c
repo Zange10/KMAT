@@ -1,15 +1,10 @@
 #include "transfer_calculator.h"
-#include "celestial_bodies.h"
 #include "transfer_tools.h"
-#include "ephem.h"
 #include "csv_writer.h"
 #include "tool_funcs.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
 #include <math.h>
-
-const double DAY = 24*60*60;
 
 enum Transfer_Type final_tt = circfb;
 
@@ -130,13 +125,13 @@ void simple_transfer() {
 }
 
 void create_swing_by_transfer() {
-    struct Body *bodies[5] = {EARTH(), JUPITER(), SATURN(), URANUS(), NEPTUNE()};
+    struct Body *bodies[3] = {EARTH(), JUPITER(), PLUTO()};//, URANUS(), NEPTUNE()};
     int num_bodies = (int) (sizeof(bodies)/sizeof(struct Body*));
 
-    struct Date min_dep_date = {1977, 6, 1, 0, 0, 0};
-    struct Date max_dep_date = {1977, 10, 1, 0, 0, 0};
-    int min_duration[4] = {750, 800, 1800, 1500};         // [days]
-    int max_duration[4] = {900, 1200, 2600, 2200};         // [days]
+    struct Date min_dep_date = {1980, 1, 1, 0, 0, 0};
+    struct Date max_dep_date = {1985, 1, 1, 0, 0, 0};
+    int min_duration[2] = {750, 1000};//, 1800, 1500};         // [days]
+    int max_duration[2] = {1000, 3000};//, 2600, 2200};         // [days]
     double dep_time_steps = 24 * 60 * 60; // [seconds]
     double arr_time_steps = 24 * 60 * 60; // [seconds]
 
@@ -244,6 +239,10 @@ void create_swing_by_transfer() {
                 }
             }
             show_progress("Finding fly-bys", 1, 1);
+            if(temp[0]==0) {
+                printf("\nNo trajectories found\n");
+                return;
+            }
             printf("\nTrajectories remaining: %d\n", (int)temp[0]/4);
             free(porkchops[i]);
             porkchops[i] = realloc(temp, (int)(temp[0]+1)*sizeof(double));
@@ -339,45 +338,5 @@ void create_swing_by_transfer() {
     if (pcsv == 'y' || pcsv == 'Y') {
         char transfer_data_fields[] = "JD,X,Y,Z,VX,VY,VZ";
         write_csv(transfer_data_fields, transfer_data);
-    }
-}
-
-void get_cheapest_transfer_dates(double **porkchops, double *p_dep, double dv_dep, int index, int num_transfers, double *current_dates, double *jd_dates, double *min, double *final_porkchop) {
-    for(int i = 0; i < (int)(porkchops[index][0] / 4); i++) {
-        double *p_arr = porkchops[index] + i * 4;
-        if(p_dep[1]+p_dep[2] != p_arr[1] || fabs(p_dep[4]-p_arr[3]) > 10) continue;
-
-        current_dates[index] = p_arr[1];
-        if(index < num_transfers-1) {
-            get_cheapest_transfer_dates(porkchops, p_arr, dv_dep, index + 1, num_transfers, current_dates, jd_dates, min, final_porkchop);
-        } else {
-            current_dates[index+1] = p_arr[1]+p_arr[2];
-            double dv_arr = p_arr[4];
-            if (dv_dep + p_arr[4] < *min) {
-                for(int j = 0; j <= num_transfers; j++) jd_dates[j] = current_dates[j];
-                *min = dv_dep + dv_arr;
-            }
-
-            int pc_index = (int)final_porkchop[0];
-            for(int j = (int)final_porkchop[0]-4; j >= 0; j -= 4) {
-                if(current_dates[0] != final_porkchop[j+1]) break;
-                if(current_dates[num_transfers] == final_porkchop[j+1]+final_porkchop[j+2]) {
-                    pc_index = j;
-                    break;
-                }
-            }
-            if(pc_index < final_porkchop[0]) {
-                if(dv_dep+dv_arr < final_porkchop[pc_index + 3] + final_porkchop[pc_index + 4]) {
-                    final_porkchop[pc_index + 3] = dv_dep;
-                    final_porkchop[pc_index + 4] = dv_arr;
-                }
-            } else {
-                final_porkchop[pc_index + 1] = current_dates[0];
-                final_porkchop[pc_index + 2] = current_dates[num_transfers] - current_dates[0];
-                final_porkchop[pc_index + 3] = dv_dep;
-                final_porkchop[pc_index + 4] = dv_arr;
-                final_porkchop[0] += 4;
-            }
-        }
     }
 }
