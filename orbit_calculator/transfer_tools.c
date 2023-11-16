@@ -35,7 +35,6 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
         theta1 = pi_norm(theta1);
         theta2 = pi_norm(theta1 + dtheta);
         e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));// break endless loops
-//        printf("(%f, %f, %f, %f) \n", rad2deg(theta1), rad2deg(theta2), e, rad2deg(step));
         if(e < 0){  // not possible
             if(step == 0) theta1 += deg2rad(1);
             else {
@@ -86,10 +85,6 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
             // before periapsis
             else dt = t1-t2;
         }
-//        printf(",%f", rad2deg(theta1));
-//        printf("(%f, %f, %f)", dt/(24*60*60), target_dt/(24*60*60), rad2deg(step));
-//        printf("(%f, %f, %f, %f, %f, %f, %f)\n", rad2deg(theta1), rad2deg(theta2), rad2deg(dtheta), t1/(24*60*60), t2/(24*60*60), (dt-target_dt)/(24*60*60), e);
-
 
         if(isnan(dt)){  // at this theta1 orbit not solvable
             if(step == 0) {
@@ -154,9 +149,6 @@ struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt,
         theta2 = pi_norm(theta1 + dtheta);
         e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));// break endless loops
 
-//        printf("(%f, %f, %f, %f) ", rad2deg(theta1), rad2deg(theta2), e, rad2deg(step));
-
-//        printf("(%f, %f, %f, %f) \n", rad2deg(theta1), rad2deg(theta2), e, rad2deg(step));
         if(e < 0){  // not possible
             if(theta2 > M_PI) {
                 theta1 = M_PI;
@@ -202,10 +194,6 @@ struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt,
                 // before periapsis
             else dt = t1-t2;
         }
-//        printf(",%f", rad2deg(theta1));
-//        printf("(%f, %f, %f)", dt/(24*60*60), target_dt/(24*60*60), rad2deg(step));
-//        printf("(%f, %f, %f, %g, %f, %f) ", rad2deg(theta1), rad2deg(theta2), rad2deg(dtheta), rad2deg(step), dt-target_dt, e);
-
 
         if(isnan(dt)){  // at this theta1 orbit not solvable
             theta1 += step;

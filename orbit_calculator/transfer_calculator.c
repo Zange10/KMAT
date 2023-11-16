@@ -66,17 +66,6 @@ void simple_transfer() {
     double t_arr = t_dep + porkchop[mind*4+2];
 
     free(porkchop);
-/*
-    struct Ephem last_eph0 = get_last_ephem(ephems[0], t_dep);
-    struct Vector r0 = {last_eph0.x, last_eph0.y, last_eph0.z};
-    struct Vector v0 = {last_eph0.vx, last_eph0.vy, last_eph0.vz};
-    double dt0 = (t_dep-last_eph0.date)*(24*60*60);
-    struct OSV s0 = propagate_orbit(r0, v0, dt0, SUN());
-    struct Ephem last_eph1 = get_last_ephem(ephems[1], t_arr);
-    struct Vector r1 = {last_eph1.x, last_eph1.y, last_eph1.z};
-    struct Vector v1 = {last_eph1.vx, last_eph1.vy, last_eph1.vz};
-    double dt1 = (t_arr-last_eph1.date)*(24*60*60);
-    struct OSV s1 = propagate_orbit(r1, v1, dt1, SUN());*/
 
     struct OSV s0 = osv_from_ephem(ephems[0], t_dep, SUN());
     struct OSV s1 = osv_from_ephem(ephems[1], t_arr, SUN());
@@ -152,6 +141,15 @@ void create_swing_by_transfer() {
 
     struct Ephem **ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
     for(int i = 0; i < num_bodies; i++) {
+        int ephem_available = 0;
+        for(int j = 0; j < i; j++) {
+            if(bodies[i] == bodies[j]) {
+                ephems[i] = ephems[j];
+                ephem_available = 1;
+                break;
+            }
+        }
+        if(ephem_available) continue;
         ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
         get_ephem(ephems[i], num_ephems, bodies[i]->id, ephem_time_steps, jd_min_dep, jd_max_arr, 1);
     }
@@ -300,6 +298,8 @@ void create_swing_by_transfer() {
     transfer_data[7] = init_s.v.z;
     transfer_data[0] += 7;
 
+    double dep_dv;
+
     for(int i = 0; i < num_bodies-1; i++) {
         struct OSV s0 = osv_from_ephem(ephems[i], jd_dates[i], SUN());
         struct OSV s1 = osv_from_ephem(ephems[i+1], jd_dates[i+1], SUN());
@@ -313,13 +313,19 @@ void create_swing_by_transfer() {
             transfer = calc_transfer(final_tt, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r, s1.v,
                                      (jd_dates[i + 1] - jd_dates[i]) * (24 * 60 * 60), data);
         }
-        printf("Departure: ");
-        print_date(convert_JD_date(jd_dates[i]), 0);
-        printf(", Arrival: ");
-        print_date(convert_JD_date(jd_dates[i+1]), 0);
-        printf(" (%f days), Delta-v: %f m/s (%f m/s, %f m/s)\n",
-               jd_dates[i+1] - jd_dates[i], data[1] + data[2], data[1], data[2]);
 
+        if(i == 0) {
+            printf("| T+    0 days (");
+            print_date(convert_JD_date(jd_dates[i]),0);
+            char *spacing = "                 ";
+            printf(")%s- %s (%.2f m/s)\n", spacing, bodies[i]->name, data[1]);
+            dep_dv = data[1];
+        }
+        printf("| T+% 5d days (", (int)(jd_dates[i+1]-jd_dates[0]));
+        print_date(convert_JD_date(jd_dates[i+1]),0);
+        printf(") - |% 5d days | - %s", (int)data[0], bodies[i+1]->name);
+        if(i == num_bodies-2) printf(" (%.2f m/s)\nTotal: %.2f m/s\n", data[2], dep_dv+data[2]);
+        else printf("\n");
 
         struct OSV osvs[3];
         osvs[0].r = transfer.r0;
@@ -340,7 +346,18 @@ void create_swing_by_transfer() {
         }
     }
 
-    for(int i = 0; i < num_bodies; i++) free(ephems[i]);
+    for(int i = 0; i < num_bodies; i++) {
+        int ephem_double = 0;
+        for(int j = 0; j < i; j++) {
+            if(bodies[i] == bodies[j]) {
+                ephems[i] = ephems[j];
+                ephem_double = 1;
+                break;
+            }
+        }
+        if(ephem_double) continue;
+        free(ephems[i]);
+    }
     free(ephems);
     free(jd_dates);
 

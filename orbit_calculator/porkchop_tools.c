@@ -32,18 +32,6 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
 
         while(t_arr < t_dep + max_duration) {
             struct OSV s1 = osv_from_ephem(arr_ephem, t_arr, SUN());
-
-//            printf("\n");
-//            print_date(convert_JD_date(t_dep), 0);
-//            printf(" (%f) - ", t_dep);
-//            print_date(convert_JD_date(t_arr), 0);
-//            printf(" (%.2f days)\n", t_arr-t_dep);
-//            print_vector(scalar_multiply(s0.r,1e-9));
-//            print_vector(scalar_multiply(s1.r,1e-9));
-//            print_vector(scalar_multiply(r0,1e-9));
-//            print_vector(scalar_multiply(r1,1e-9));
-//            printf("\n(%f, %f, %f) (%f)\n", s0.r.x*1e-9, s0.r.y*1e-9, s0.r.z*1e-9, vector_mag(s0.r)*1e-9);
-//            printf("(%f, %f, %f) (%f)\n", s1.r.x*1e-9, s1.r.y*1e-9, s1.r.z*1e-9, vector_mag(s1.r)*1e-9);
             double data[3];
             calc_transfer(tt, pochopro.dep_body, pochopro.arr_body, s0.r, s0.v, s1.r, s1.v, (t_arr-t_dep) * (24*60*60), data);
             if(!isnan(data[2])) {
@@ -53,9 +41,6 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
                 }
                 all_data[0] += data_length;
             }
-//            printf(",%f", data[2]);
-//            print_date(convert_JD_date(data[0]), 0);
-//            printf("  %4.1f  %f\n", data[1], data[2]);
             t_arr += (arr_time_steps) / (24 * 60 * 60);
         }
         t_dep += (dep_time_steps) / (24 * 60 * 60);
