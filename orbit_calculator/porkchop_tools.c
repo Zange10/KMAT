@@ -1,6 +1,7 @@
 #include "porkchop_tools.h"
 #include "tool_funcs.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 
 void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt, double *all_data) {
@@ -47,6 +48,73 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
     }
     show_progress(progress_text, 1, 1);
     printf("\n%d trajectories analyzed\n", (int)(all_data_size-1)/4);
+}
+
+void decrease_porkchop_size(int i, double **porkchops, struct Ephem **ephems, struct Body **bodies) {
+    double *temp = (double *) malloc(((int) porkchops[i][0] + 1) * sizeof(double));
+    temp[0] = 0;
+    if (i == 0) {
+        double min_dep_dv = get_min_from_porkchop(porkchops[0], 3);
+        for (int j = 0; j < (int) (porkchops[0][0] / 4); j++) {
+            show_progress("Decreasing Porkchop size", (double) j, (porkchops[0][0] / 4));
+            if (porkchops[0][j * 4 + 3] < 2 * min_dep_dv) {
+                for (int k = 1; k <= 4; k++) {
+                    temp[(int) temp[0] + k] = porkchops[0][j * 4 + k];
+                }
+                temp[0] += 4;
+            }
+        }
+        show_progress("Decreasing Porkchop size", 1, 1);
+        printf("\nTrajectories remaining: %d\n", (int) temp[0] / 4);
+        free(porkchops[0]);
+        porkchops[0] = realloc(temp, (int) (temp[0] + 1) * sizeof(double));
+    } else {
+        for (int j = 0; j < (int) (porkchops[i][0] / 4); j++) {
+            show_progress("Finding fly-bys", (double) j, (porkchops[i][0] / 4));
+            for (int k = 0; k < (int) (porkchops[i - 1][0] / 4); k++) {
+                if (porkchops[i - 1][k * 4 + 1] + porkchops[i - 1][k * 4 + 2] != porkchops[i][j * 4 + 1]) continue;
+                double arr_v = porkchops[i - 1][k * 4 + 4];
+                double dep_v = porkchops[i][j * 4 + 3];
+                if (fabs(arr_v - dep_v) < 10) {
+                    double data[3]; // not used (just as parameter for calc_transfer)
+                    double t_dep = porkchops[i - 1][k * 4 + 1];
+                    double t_arr = porkchops[i][j * 4 + 1];
+                    struct OSV s0 = osv_from_ephem(ephems[i - 1], t_dep, SUN());
+                    struct OSV s1 = osv_from_ephem(ephems[i], t_arr, SUN());
+                    struct Transfer transfer1 = calc_transfer(circcirc, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r,
+                                                              s1.v, (t_arr - t_dep) * (24 * 60 * 60), data);
+
+                    t_dep = porkchops[i][j * 4 + 1];
+                    t_arr = porkchops[i][j * 4 + 1] + porkchops[i][j * 4 + 2];
+                    s0 = s1;
+                    s1 = osv_from_ephem(ephems[i + 1], t_arr, SUN());
+                    struct Transfer transfer2 = calc_transfer(circcirc, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r,
+                                                              s1.v, (t_arr - t_dep) * (24 * 60 * 60), data);
+
+                    struct Vector temp1 = add_vectors(transfer1.v1, scalar_multiply(s0.v, -1));
+                    struct Vector temp2 = add_vectors(transfer2.v0, scalar_multiply(s0.v, -1));
+                    double beta = (M_PI - angle_vec_vec(temp1, temp2)) / 2;
+                    double rp = (1 / cos(beta) - 1) * (bodies[i]->mu / (pow(vector_mag(temp1), 2)));
+                    if (rp > bodies[i]->radius + bodies[i]->atmo_alt) {
+                        for (int l = 1; l <= 4; l++) {
+                            temp[(int) temp[0] + l] = porkchops[i][j * 4 + l];
+                        }
+                        temp[0] += 4;
+                        break;  // only need to store this transfer once
+                    }
+                }
+            }
+        }
+
+        show_progress("Finding fly-bys", 1, 1);
+        if (temp[0] == 0) {
+            printf("\nNo trajectories found\n");
+            return;
+        }
+        printf("\nTrajectories remaining: %d\n", (int) temp[0] / 4);
+        free(porkchops[i]);
+        porkchops[i] = realloc(temp, (int) (temp[0] + 1) * sizeof(double));
+    }
 }
 
 double get_min_from_porkchop(const double *pc, int index) {

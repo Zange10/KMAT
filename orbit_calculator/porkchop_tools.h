@@ -11,6 +11,7 @@ struct Porkchop_Properties {
 };
 
 void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt, double *all_data);
+void decrease_porkchop_size(int i, double **porkchops, struct Ephem **ephems, struct Body **bodies);
 double get_min_arr_from_porkchop(const double *pc);
 double get_max_arr_from_porkchop(const double *pc);
 double get_min_from_porkchop(const double *pc, int index);
