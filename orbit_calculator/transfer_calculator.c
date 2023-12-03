@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <sys/time.h>
 
 enum Transfer_Type final_tt = circfb;
 
@@ -119,6 +120,9 @@ void simple_transfer() {
 }
 
 void create_swing_by_transfer() {
+    struct timeval start, end;
+    double elapsed_time;
+
     struct Body *bodies[3] = {EARTH(), JUPITER(), SATURN()};
     int num_bodies = (int) (sizeof(bodies)/sizeof(struct Body*));
 
@@ -184,10 +188,20 @@ void create_swing_by_transfer() {
                                    (max_dep - min_dep) / (dep_time_steps / (24 * 60 * 60))) + 1;
         porkchops[i] = (double *) malloc(all_data_size * sizeof(double));
 
+        gettimeofday(&start, NULL);  // Record the starting time
         if(i<num_bodies-2) create_porkchop(pochopro, circcirc, porkchops[i]);
         else               create_porkchop(pochopro, final_tt, porkchops[i]);
 
+        gettimeofday(&end, NULL);  // Record the ending time
+        elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+        printf("Elapsed time: %f seconds\n", elapsed_time);
+
+
+        gettimeofday(&start, NULL);  // Record the starting time
         decrease_porkchop_size(i, porkchops, ephems, bodies);
+        gettimeofday(&end, NULL);  // Record the ending time
+        elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+        printf("Elapsed time: %f seconds\n", elapsed_time);
     }
 
     double *jd_dates = (double*) malloc(num_bodies*sizeof(double));
@@ -199,6 +213,7 @@ void create_swing_by_transfer() {
     double *final_porkchop = (double *) malloc((int)(((max_total_dur-min_total_dur)*(jd_max_dep-jd_min_dep))*4+1)*sizeof(double));
     final_porkchop[0] = 0;
 
+    gettimeofday(&start, NULL);  // Record the starting time
     for(int i = 0; i < (int)(porkchops[0][0]/4); i++) {
         show_progress("Looking for cheapest transfer", (double)i, (porkchops[0][0]/4));
         double *p_dep = porkchops[0]+i*4;
@@ -211,14 +226,16 @@ void create_swing_by_transfer() {
     show_progress("Looking for cheapest transfer", 1, 1);
     printf("\n");
 
+    gettimeofday(&end, NULL);  // Record the ending time
+    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+    printf("Elapsed time: %f seconds\n", elapsed_time);
+
     char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
     write_csv(data_fields, final_porkchop);
 
     free(final_porkchop);
     for(int i = 0; i < num_bodies-1; i++) free(porkchops[i]);
     free(porkchops);
-
-    for(int i = 0; i < num_bodies; i++) print_date(convert_JD_date(jd_dates[i]),1);
 
     // 3 states per transfer (departure, arrival and final state)
     // 1 additional for initial start; 7 variables per state
