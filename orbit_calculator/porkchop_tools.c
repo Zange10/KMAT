@@ -5,11 +5,21 @@
 #include <math.h>
 #include <pthread.h>
 
-struct Thread_Args {
+struct Downsizing_Thread_Args {
     int iterators[2];
     double **porkchops;
     struct Body **bodies;
     struct Ephem **ephems;
+};
+
+struct Final_Porkchop_Thread_Args {
+    pthread_t *prev_thread;
+    double dep_time;
+    int ints[3];
+    double *min;
+    double **porkchops;
+    double *jd_dates;
+    double *final_porkchop;
 };
 
 void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt, double *all_data) {
@@ -59,7 +69,7 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
 }
 
 void *decrease_porkchop_size_thread(void *args) {
-    struct Thread_Args *thread_args = (struct Thread_Args *)args;
+    struct Downsizing_Thread_Args *thread_args = (struct Downsizing_Thread_Args *)args;
     int i = thread_args->iterators[0];
     int j = thread_args->iterators[1];
     double **porkchops = thread_args->porkchops;
@@ -122,21 +132,22 @@ void decrease_porkchop_size(int i, double **porkchops, struct Ephem **ephems, st
         porkchops[0] = realloc(temp, (int) (temp[0] + 1) * sizeof(double));
     } else {
         show_progress("Finding fly-bys", 0.0, (porkchops[i][0] / 4));
-        int num_threads = 10000;
+        int num_threads = 3600;
         pthread_t threads[num_threads];
-        struct Thread_Args thread_args[num_threads];
+        struct Downsizing_Thread_Args thread_args[num_threads];
         int max_j = (int) (porkchops[i][0] / 4);
         int counter = 0;
 
         do {
             for (int j = counter; j < max_j; j++) {
-                thread_args[j%num_threads].iterators[0] = i;
-                thread_args[j%num_threads].iterators[1] = j;
-                thread_args[j%num_threads].porkchops = porkchops;
-                thread_args[j%num_threads].bodies = bodies;
-                thread_args[j%num_threads].ephems = ephems;
+                int t_j = j%num_threads;
+                thread_args[t_j].iterators[0] = i;
+                thread_args[t_j].iterators[1] = j;
+                thread_args[t_j].porkchops = porkchops;
+                thread_args[t_j].bodies = bodies;
+                thread_args[t_j].ephems = ephems;
 
-                if (pthread_create(&threads[j%num_threads], NULL, decrease_porkchop_size_thread, &thread_args[j%num_threads]) != 0) {
+                if (pthread_create(&threads[t_j], NULL, decrease_porkchop_size_thread, &thread_args[j%num_threads]) != 0) {
                     perror("pthread_create");
                     exit(EXIT_FAILURE);
                 }
@@ -149,7 +160,7 @@ void decrease_porkchop_size(int i, double **porkchops, struct Ephem **ephems, st
 
                 // Wait for the thread to finish and retrieve the result
                 pthread_join(threads[j%num_threads], (void **) &viable);
-                if (viable) {
+                if (*viable) {
                     for (int l = 1; l <= 4; l++) {
                         temp[(int) temp[0] + l] = porkchops[i][j * 4 + l];
                     }
@@ -239,4 +250,79 @@ void get_cheapest_transfer_dates(double **porkchops, double *p_dep, double dv_de
             }
         }
     }
+}
+
+void *get_cheapest_transfer_dates_thread(void *args) {
+    struct Final_Porkchop_Thread_Args *thread_args = (struct Final_Porkchop_Thread_Args*) args;
+    double dep_time = thread_args->dep_time;
+    int i = thread_args->ints[0];
+    int max_i = thread_args->ints[1];
+    int num_bodies = thread_args->ints[2];
+    double *min = thread_args->min;
+    double **porkchops = thread_args->porkchops;
+    double *jd_dates = thread_args->jd_dates;
+    double *final_porkchop = thread_args->final_porkchop;
+
+    double temp_min = 1e9;
+    double *temp_jd_dates = (double*) malloc(num_bodies*sizeof(double));
+    double *partial_porkchop = (double*) malloc(50000*sizeof(double));
+    partial_porkchop[0] = 0;
+    double *current_dates = (double *) malloc(num_bodies * sizeof(double));
+
+    for(int j = 0; j < porkchops[0][0]/4; j++) {
+        double *p_dep = porkchops[0] + j * 4;
+        if(p_dep[1] != dep_time) continue;
+        double dv_dep = p_dep[3];
+        current_dates[0] = p_dep[1];
+        get_cheapest_transfer_dates(porkchops, p_dep, dv_dep, 1, num_bodies - 1, current_dates, temp_jd_dates,
+                                    &temp_min, partial_porkchop);
+    }
+
+    if (thread_args->prev_thread != NULL) pthread_join(*thread_args->prev_thread, NULL);
+    if (temp_min < *min) {
+        for (int k = 0; k < num_bodies; k++) jd_dates[k] = temp_jd_dates[k];
+        *min = temp_min;
+    }
+    int init_pc_size = (int) final_porkchop[0];
+    for(int j = 1; j <= partial_porkchop[0]; j++) {
+        final_porkchop[init_pc_size + j] = partial_porkchop[j];
+        final_porkchop[0]++;
+    }
+
+    free(partial_porkchop);
+    free(temp_jd_dates);
+    free(current_dates);
+    show_progress("Looking for cheapest transfer", (double) i, (double) max_i);
+    pthread_exit(NULL);
+}
+
+
+void generate_final_porkchop(double **porkchops, int num_bodies, double *jd_dates, double *final_porkchop, const double *dep_dates) {
+    double min = 1e9;
+    int num_deps = (int) dep_dates[0];
+    double dep_time_steps = dep_dates[1];
+    double first_dep = dep_dates[2];
+    pthread_t *threads = (pthread_t*) malloc(num_deps*sizeof(pthread_t));
+    struct Final_Porkchop_Thread_Args *thread_args = (struct Final_Porkchop_Thread_Args*) malloc(num_deps*sizeof(struct Final_Porkchop_Thread_Args));
+
+    for(int i = 0; i < num_deps; i++) {
+        thread_args[i].dep_time = first_dep + i*dep_time_steps/(24*60*60);
+        thread_args[i].ints[0] = i;
+        thread_args[i].ints[1] = num_deps;
+        thread_args[i].ints[2] = num_bodies;
+        thread_args[i].min = &min;
+        thread_args[i].porkchops = porkchops;
+        thread_args[i].jd_dates = jd_dates;
+        thread_args[i].final_porkchop = final_porkchop;
+
+
+        if(i == 0) thread_args[i].prev_thread = NULL;
+        else thread_args[i].prev_thread = &threads[i-1];
+
+        if (pthread_create(&threads[i], NULL, get_cheapest_transfer_dates_thread, &thread_args[i]) != 0) {
+            perror("pthread_create");
+            exit(EXIT_FAILURE);
+        }
+    }
+    pthread_join(threads[(int)dep_dates[0]-1], NULL);
 }

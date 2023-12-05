@@ -7,7 +7,7 @@
 #include <math.h>
 #include <sys/time.h>
 
-enum Transfer_Type final_tt = circfb;
+enum Transfer_Type final_tt = circcap;
 
 void simple_transfer() {
     struct Body *bodies[2] = {EARTH(), JUPITER()};
@@ -205,7 +205,6 @@ void create_swing_by_transfer() {
     }
 
     double *jd_dates = (double*) malloc(num_bodies*sizeof(double));
-    double min = 1e9;
 
     int min_total_dur = 0;
     for(int i = 0; i < num_bodies-1; i++) min_total_dur += min_duration[i];
@@ -214,15 +213,9 @@ void create_swing_by_transfer() {
     final_porkchop[0] = 0;
 
     gettimeofday(&start, NULL);  // Record the starting time
-    for(int i = 0; i < (int)(porkchops[0][0]/4); i++) {
-        show_progress("Looking for cheapest transfer", (double)i, (porkchops[0][0]/4));
-        double *p_dep = porkchops[0]+i*4;
-        double dv_dep = p_dep[3];
-        double *current_dates = (double*) malloc(num_bodies*sizeof(double));
-        current_dates[0] = p_dep[1];
-        get_cheapest_transfer_dates(porkchops, p_dep, dv_dep, 1, num_bodies-1, current_dates, jd_dates, &min, final_porkchop);
-        free(current_dates);
-    }
+    double dep_time_info[] = {(jd_max_dep-jd_min_dep)*86400/dep_time_steps+1, dep_time_steps, jd_min_dep};
+    generate_final_porkchop(porkchops, num_bodies, jd_dates, final_porkchop, dep_time_info);
+
     show_progress("Looking for cheapest transfer", 1, 1);
     printf("\n");
 
