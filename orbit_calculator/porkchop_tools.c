@@ -175,11 +175,8 @@ void decrease_porkchop_size(int i, double **porkchops, struct Ephem **ephems, st
         } while(counter < max_j);
 
         show_progress("Finding fly-bys", 1, 1);
-        if (temp[0] == 0) {
-            printf("\nNo trajectories found\n");
-            return;
-        }
-        printf("\nTrajectories remaining: %d\n", (int) temp[0] / 4);
+        if (temp[0] == 0) printf("\nNo trajectories found\n");
+        else printf("\nTrajectories remaining: %d\n", (int) temp[0] / 4);
         free(porkchops[i]);
         porkchops[i] = realloc(temp, (int) (temp[0] + 1) * sizeof(double));
     }

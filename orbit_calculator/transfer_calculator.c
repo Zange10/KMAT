@@ -123,13 +123,13 @@ void create_swing_by_transfer() {
     struct timeval start, end;
     double elapsed_time;
 
-    struct Body *bodies[3] = {EARTH(), JUPITER(), SATURN()};
+    struct Body *bodies[4] = {EARTH(), VENUS(), JUPITER(), SATURN()};
     int num_bodies = (int) (sizeof(bodies)/sizeof(struct Body*));
 
     struct Date min_dep_date = {1977, 3, 1, 0, 0, 0};
     struct Date max_dep_date = {1977, 11, 1, 0, 0, 0};
-    int min_duration[2] = {500, 700};//, 1800, 1500};         // [days]
-    int max_duration[2] = {1000, 1200};//, 2600, 2200};         // [days]
+    int min_duration[3] = {60, 600, 200};//, 1800, 1500};         // [days]
+    int max_duration[3] = {200, 1800, 500};//, 2600, 2200};         // [days]
     double dep_time_steps = 24 * 60 * 60; // [seconds]
     double arr_time_steps = 24 * 60 * 60; // [seconds]
 
@@ -202,6 +202,10 @@ void create_swing_by_transfer() {
         gettimeofday(&end, NULL);  // Record the ending time
         elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
         printf("Elapsed time: %f seconds\n", elapsed_time);
+
+
+        // if no viable trajectory was found, exit...
+        if(porkchops[i][0] == 0) return;
     }
 
     double *jd_dates = (double*) malloc(num_bodies*sizeof(double));
