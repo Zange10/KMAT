@@ -4,7 +4,6 @@
 #include "tool_funcs.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 #include <sys/time.h>
 
 enum Transfer_Type final_tt = circcap;
@@ -123,13 +122,14 @@ void create_swing_by_transfer() {
     struct timeval start, end;
     double elapsed_time;
 
-    struct Body *bodies[4] = {EARTH(), VENUS(), JUPITER(), SATURN()};
+
+    struct Body *bodies[] = {EARTH(), VENUS(), VENUS()};
     int num_bodies = (int) (sizeof(bodies)/sizeof(struct Body*));
 
-    struct Date min_dep_date = {1977, 3, 1, 0, 0, 0};
-    struct Date max_dep_date = {1977, 11, 1, 0, 0, 0};
-    int min_duration[3] = {60, 600, 200};//, 1800, 1500};         // [days]
-    int max_duration[3] = {200, 1800, 500};//, 2600, 2200};         // [days]
+    struct Date min_dep_date = {1970, 1, 1, 0, 0, 0};
+    struct Date max_dep_date = {1971, 1, 1, 0, 0, 0};
+    int min_duration[] = {60, 200};//, 1800, 1500};         // [days]
+    int max_duration[] = {250, 500};//, 2600, 2200};         // [days]
     double dep_time_steps = 24 * 60 * 60; // [seconds]
     double arr_time_steps = 24 * 60 * 60; // [seconds]
 
@@ -155,9 +155,250 @@ void create_swing_by_transfer() {
         }
         if(ephem_available) continue;
         ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
-        get_ephem(ephems[i], num_ephems, bodies[i]->id, ephem_time_steps, jd_min_dep, jd_max_arr, 1);
+        get_ephem(ephems[i], num_ephems, bodies[i]->id, ephem_time_steps, jd_min_dep, jd_max_arr, 0);
     }
 
+
+    int c = 0;
+
+    int u = 0;
+    int g = 0;
+
+    double x1[50000];
+    double x2[50000];
+    double x3[50000];
+    double x4[50000];
+    double x5[50000];
+    double x6[2];
+    double y1[20000];
+    double y[50000];
+    double *xs[] = {x1,x2,x3,x4,x5,x6,y,y1};
+    int *ints[] = {&c,&u,&g};
+    int max_i = 4;
+    int us[max_i];
+
+    double a1[500];
+    double a2[500];
+    double a3[500];
+    double a4[500];
+    double a5[500];
+    double a6[500];
+
+
+//    for(int i = 0; i < max_i; i++) {
+//        double dep0 = jd_min_dep+240;
+//        double dwb_dur = 415 + i*15;
+//        struct OSV e0 = osv_from_ephem(ephems[0], dep0, SUN());
+//        dep0 = jd_min_dep + 346;
+//        struct OSV p0 = osv_from_ephem(ephems[1], dep0, SUN());
+//        dep0 = jd_min_dep + 346 + dwb_dur;
+//        struct OSV p1 = osv_from_ephem(ephems[1], dep0, SUN());
+//
+//        double temp_data[3];
+//        struct Transfer transfer = calc_transfer(circfb, EARTH(), VENUS(), e0.r, e0.v, p0.r, p0.v, 116.0 * 86400,
+//                                                 temp_data);
+//
+//        struct OSV osv0 = {transfer.r1, transfer.v1};
+//        struct OSV osv1 = {p1.r, rotate_vector_around_axis(scalar_multiply(p1.v, 0.8),p1.r,0)};
+//
+//
+//        printf("\n---------\n\n\n");
+//        printf("%f %f %f\n\n", temp_data[0], temp_data[1], temp_data[2]);
+//        gettimeofday(&start, NULL);  // Record the starting time
+//        calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints);
+//        gettimeofday(&end, NULL);  // Record the ending time
+//        elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+//        printf("Elapsed time: %f seconds\n", elapsed_time);
+//        us[i] = u;
+//    }
+//
+//
+//    if(1) {
+//        printf("x1 = [[");
+//        int counter = 0;
+//        for (int i = 0; i < u; i++) {
+//            if(i == us[counter]) {
+//                printf("],[");
+//                counter++;
+//            } else if (i != 0) printf(", ");
+//            printf("%f", x1[i]);
+//        }
+//        printf("]]\n");
+//        printf("Write transfer data to .csv (y/Y=yes)? ");
+//        char pcsv;
+//        scanf(" %c", &pcsv);
+//        printf("\nx2 = [[");
+//        counter = 0;
+//        for (int i = 0; i < u; i++) {
+//            if(i == us[counter]) {
+//                printf("],[");
+//                counter++;
+//            } else if (i != 0) printf(", ");
+//            printf("%f", x2[i]);
+//        }
+//        printf("]]\n");
+//        printf("Write transfer data to .csv (y/Y=yes)? ");
+//        scanf(" %c", &pcsv);
+//        printf("\nx3 = [[");
+//        counter = 0;
+//        for (int i = 0; i < u; i++) {
+//            if(i == us[counter]) {
+//                printf("],[");
+//                counter++;
+//            } else if (i != 0) printf(", ");
+//            printf("%d", (int)x3[i]);
+//        }
+//        printf("]]\n");
+//        printf("Write transfer data to .csv (y/Y=yes)? ");
+//        scanf(" %c", &pcsv);
+//        printf("\nx4 = [[");
+//        counter = 0;
+//        for (int i = 0; i < u; i++) {
+//            if(i == us[counter]) {
+//                printf("],[");
+//                counter++;
+//            } else if (i != 0) printf(", ");
+//            printf("%d", (int)x4[i]);
+//        }
+//        printf("]]\n");
+//        printf("Write transfer data to .csv (y/Y=yes)? ");
+//        scanf(" %c", &pcsv);
+//        printf("\nx5 = [[");
+//        counter = 0;
+//        for (int i = 0; i < u; i++) {
+//            if(i == us[counter]) {
+//                printf("],[");
+//                counter++;
+//            } else if (i != 0) printf(", ");
+//            printf("%f", x5[i]);
+//        }
+//        printf("]]\n");
+//        printf("Write transfer data to .csv (y/Y=yes)? ");
+//        scanf(" %c", &pcsv);
+//        printf("\ny = [[");
+//        counter = 0;
+//        for (int i = 0; i < u; i++) {
+//            if(i == us[counter]) {
+//                printf("],[");
+//                counter++;
+//            } else if (i != 0) printf(", ");
+//            printf("%f", y[i]);
+//        }/*
+//        printf("]\n\ny1 = [");
+//        for (int i = 0; i < g; i++) {
+//            if (i != 0) printf(", ");
+//            printf("%f", y1[i]);
+//        }*/
+//        printf("]]\n\n");
+//    }
+//
+//    printf("\n%d %d\n", c, u);
+
+    int b = 0;
+
+    for(int i = 0; i < 5; i++) {
+        for(int j = 0; j < 5; j++) {
+            for(int k = 0; k < 5; k++) {
+                double dep0 = jd_min_dep+200+i*20;
+                double dwb_dur = 420 + j * 15;
+                printf("\n-------------\ndep: ");
+                print_date(convert_JD_date(dep0),0);
+                printf("  (i: %d, j: %d, k: %d)\ntransfer duration: %fd, v_factor: %f\n-------------\n", i, j,k,dwb_dur, 0.8+k*0.1);
+
+
+                struct OSV e0 = osv_from_ephem(ephems[0], dep0, SUN());
+                dep0 = jd_min_dep + 346;
+                struct OSV p0 = osv_from_ephem(ephems[1], dep0, SUN());
+                dep0 = jd_min_dep + 346 + dwb_dur;
+                struct OSV p1 = osv_from_ephem(ephems[1], dep0, SUN());
+
+                double temp_data[3];
+                struct Transfer transfer = calc_transfer(circfb, EARTH(), VENUS(), e0.r, e0.v, p0.r, p0.v,
+                                                         116.0 * 86400,
+                                                         temp_data);
+
+                struct OSV osv0 = {transfer.r1, transfer.v1};
+                struct OSV osv1 = {p1.r, rotate_vector_around_axis(scalar_multiply(p1.v, 0.8+k*0.15), p1.r, deg2rad(3))};
+
+
+                //printf("\n---------\n\n\n");
+                //printf("%f %f %f\n\n", temp_data[0], temp_data[1], temp_data[2]);
+                gettimeofday(&start, NULL);  // Record the starting time
+                calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints);
+                gettimeofday(&end, NULL);  // Record the ending time
+                elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+                printf("Elapsed time: %f seconds\n", elapsed_time);
+
+                double min = 1e9;
+                int mind;
+                for(int a = 0; a < u; a++) {
+                    if(y[a] < min) {
+                        min = y[a];
+                        mind = a;
+                    }
+                }
+
+                a1[b] = x1[mind];
+                a2[b] = x2[mind];
+                a3[b] = x3[mind];
+                a4[b] = x4[mind];
+                a5[b] = x5[mind];
+                a6[b] = y[mind];
+
+                u = 0;
+                c = 0;
+                g = 0;
+                b++;
+
+
+
+                if(1) {
+                    printf("x1 = [");
+                    for (int m = 0; m < b; m++) {
+                        if (m != 0) printf(", ");
+                        printf("%f", a1[m]);
+                    }
+                    printf("]\n");
+                    printf("x2 = [");
+                    for (int m = 0; m < b; m++) {
+                        if (m != 0) printf(", ");
+                        printf("%f", a2[m]);
+                    }
+                    printf("]\n");
+                    printf("x3 = [");
+                    for (int m = 0; m < b; m++) {
+                        if (m != 0) printf(", ");
+                        printf("%f", a3[m]);
+                    }
+                    printf("]\n");
+                    printf("x4 = [");
+                    for (int m = 0; m < b; m++) {
+                        if (m != 0) printf(", ");
+                        printf("%f", a4[m]);
+                    }
+                    printf("]\n");
+                    printf("x5 = [");
+                    for (int m = 0; m < b; m++) {
+                        if (m != 0) printf(", ");
+                        printf("%f", a5[m]);
+                    }
+                    printf("]\n");
+                    printf("y = [");
+                    for (int m = 0; m < b; m++) {
+                        if (m != 0) printf(", ");
+                        printf("%f", a6[m]);
+                    }
+                    printf("]\n");
+                }
+            }
+        }
+    }
+
+
+    printf("\n%d %d\n", c, u);
+
+
+    exit(0);
 
     double ** porkchops = (double**) malloc((num_bodies-1) * sizeof(double*));
 

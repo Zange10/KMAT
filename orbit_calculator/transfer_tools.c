@@ -13,22 +13,16 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
     double dt = 1e20;
     double a, e;
 
-    if((r1/r2 > 1.05 || r2/r1 > 1.05) && dtheta > 2*M_PI - deg2rad(1)) return calc_extreme_hyperbola(r1, r2, target_dt, dtheta, attractor);
-
     int c = 0;
 
-    while(fabs(dt-target_dt) > 1e-3) {
+    while(fabs(dt-target_dt) > 1) {
 
         if(c >= 1000) {
-            if(fabs(dt-target_dt) < 100) {
+            if(fabs(dt-target_dt) < 86400 && fabs(step) < 1e-10) {
                 theta1 += step; // will be subtracted again after the loop
                 break;
             }
-            printf("\n");
-            printf("%f, %f, %f", r1, r2, rad2deg(dtheta));
-            printf("\n%f, %f, %f, %f, %f", target_dt/(24*60*60), dt/(24*60*60), fabs(target_dt-dt), rad2deg(theta1), rad2deg(step));
-            fprintf(stderr, "\nMore than 1000 calculations tried (transfer orbit calculation)\n");
-            exit(EXIT_FAILURE);
+            return calc_extreme_hyperbola(r1, r2, target_dt, dtheta, attractor);
         }
         c++;
 
@@ -124,34 +118,36 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
 }
 
 struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt, double dtheta, struct Body *attractor) {
-    double theta1 = deg2rad(180);
-    double theta2 = theta1+dtheta;
+    double theta1 = r1>r2 ? deg2rad(180) : deg2rad(180)-dtheta;
+    double theta2 = r1>r2 ? theta1+dtheta: deg2rad(180);
     double mu = attractor->mu;
     double step = deg2rad(1);
     double dt = 1e20;
     double a, e;
     int c = 0;
 
-    while(fabs(dt-target_dt) > 1e-3) {
-        if(c >= 200) {
-            if(fabs(dt-target_dt) < 100) {
+    while(fabs(dt-target_dt) > 1) {
+        if(c >= 1000) {
+            if(fabs(dt-target_dt) < 86400 && fabs(step) < 1e-10) {
                 theta1 += step; // will be subtracted again after the loop
                 break;
             }
             printf("\n");
             printf("%f, %f, %f", r1, r2, rad2deg(dtheta));
             printf("\n%f, %f, %f, %f, %f", target_dt/(24*60*60), dt/(24*60*60), fabs(target_dt-dt), rad2deg(theta1), rad2deg(step));
-            fprintf(stderr, "\nMore than 200 calculations tried (extreme hyperbola)\n");
-            exit(EXIT_FAILURE);
+            fprintf(stderr, "\nMore than 1000 calculations tried (extreme hyperbola)\n");
+            //exit(EXIT_FAILURE);
+            break;
         }
+
         c++;
         theta1 = pi_norm(theta1);
         theta2 = pi_norm(theta1 + dtheta);
-        e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));// break endless loops
+        e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));
 
         if(e < 0){  // not possible
             if(theta2 > M_PI) {
-                theta1 = M_PI;
+                theta1 = r1>r2 ? M_PI : M_PI - dtheta;
                 step /= 4;
             } else theta1 += step;
             continue;
@@ -174,12 +170,12 @@ struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt,
             dt = theta1 < theta2 ? t2-t1 : T-t1 + t2;
         } else {
             if(theta1 < M_PI) {
-                theta1 = M_PI;
+                theta1 = r1>r2 ? M_PI : M_PI - dtheta;
                 step *= -1;
                 continue;
             }
             if(theta2 >= M_PI) {
-                theta1 = M_PI;
+                theta1 = r1>r2 ? M_PI : M_PI - dtheta;
                 step /= 4;
                 continue;
             }
@@ -223,18 +219,20 @@ struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, stru
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
     struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
 
-    double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
-    double dv1 = tt % 2 == 0 ? dv_capture(dep_body, dep_body->atmo_alt+100e3, v_t1_inf) : dv_circ(dep_body, dep_body->atmo_alt+100e3, v_t1_inf);
+    if(data != NULL) {
+        double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
+        double dv1 = tt % 2 == 0 ? dv_capture(dep_body, dep_body->atmo_alt+100e3, v_t1_inf) : dv_circ(dep_body, dep_body->atmo_alt+100e3, v_t1_inf);
 
-    double v_t2_inf = fabs(vector_mag(add_vectors(transfer.v1, scalar_multiply(v2, -1))));
-    double dv2;
-    if(tt < 2)      dv2 = dv_capture(arr_body, arr_body->atmo_alt+100e3, v_t2_inf);
-    else if(tt < 4) dv2 = dv_circ(arr_body, arr_body->atmo_alt+100e3, v_t2_inf);
-    else            dv2 = 0;
+        double v_t2_inf = fabs(vector_mag(add_vectors(transfer.v1, scalar_multiply(v2, -1))));
+        double dv2;
+        if(tt < 2)      dv2 = dv_capture(arr_body, arr_body->atmo_alt+100e3, v_t2_inf);
+        else if(tt < 4) dv2 = dv_circ(arr_body, arr_body->atmo_alt+100e3, v_t2_inf);
+        else            dv2 = 0;
 
-    data[0] = dt/(24*60*60);
-    data[1] = dv1;
-    data[2] = dv2;
+        data[0] = dt / (24 * 60 * 60);
+        data[1] = dv1;
+        data[2] = dv2;
+    }
     return transfer;
 }
 
@@ -319,6 +317,338 @@ struct Transfer calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1,
     struct Transfer transfer = {r1, v_t1, r2, v_t2};
 
     return transfer;
+}
+
+struct Swingby_Peak_Search_Params {
+    double peak_dur;
+    double transfer_dur;
+    double T;
+    double *interval;
+    double *min;
+    double **xs;
+    double *angles;
+    int **ints;
+    struct Body *body;
+    struct OSV *osvs;
+    struct Vector v_t00;
+};
+
+int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp, int only_right_leg) {
+    double **xs = spsp.xs;
+    double *min = spsp.min;
+    double peak_dur = spsp.peak_dur;
+    double transfer_duration = spsp.transfer_dur;
+    double T = spsp.T;
+    int **ints = spsp.ints;
+    struct Body *body = spsp.body;
+    struct Vector v_t00 = spsp.v_t00;
+
+    struct OSV p0 = spsp.osvs[0];
+    struct OSV s0 = spsp.osvs[1];
+    struct OSV p1 = spsp.osvs[2];
+    struct OSV s1 = spsp.osvs[3];
+
+    double angle = spsp.angles[0];
+    double theta = spsp.angles[1];
+    double phi = spsp.angles[2];
+    double defl = spsp.angles[3];
+
+    double *x1 = xs[0];
+    double *x2 = xs[1];
+    double *x3 = xs[2];
+    double *x4 = xs[3];
+    double *x5 = xs[4];
+    double *x6 = xs[5];
+    double *y = xs[6];
+    double *y1 = xs[7];
+    int *c = ints[0];
+    int *u = ints[1];
+    int *g = ints[2];
+    double min_dur = spsp.interval[0];
+    double max_dur = spsp.interval[1];
+
+
+    double mu = body->orbit.body->mu;
+    int is_edge = 0;
+    int right_leg_only_positive = 1;
+    for(int i = -1 + only_right_leg*2; i <= 1; i+=2) {
+        double step = i*86400.0 * 10;
+        double dur = peak_dur+step;
+        int temp_counter = 0;
+        if(peak_dur < min_dur) {
+            i+=2;
+            if(i>1) break;
+            dur = min_dur;
+            is_edge = 1;
+        }
+        if(peak_dur > max_dur) {
+            if(i==1) break;
+            dur = max_dur;
+            is_edge = 1;
+        }
+        double diff_vinf = 1e9;
+        double last_diff_vinf = 1e9;
+
+        //printf("DUR: %6.2f step: %f i:%d    min_dur: %f    max_dur: %f ----------------------------\n", peak_dur/86400, max_dur/86400, i, min_dur/86400, max_dur/86400);
+        while (fabs(diff_vinf) > 10) {
+            temp_counter++;
+            if(temp_counter > 100) {
+                break; // break endless loop
+            }
+            //if (dur > max_dur) break;
+            struct OSV osv_m0 = propagate_orbit(p0.r, v_t00, dur, SUN());
+            if(rad2deg(angle_vec_vec(osv_m0.r, p1.r)) < 0.5) {
+                dur += step;
+                step += step;
+                continue;
+            }
+
+            struct Transfer transfer = calc_transfer(capfb, body, body, osv_m0.r, osv_m0.v, p1.r, p1.v,
+                                                     transfer_duration * 86400 - dur, NULL);
+            struct Vector temp = add_vectors(transfer.v0, scalar_multiply(osv_m0.v, -1));
+            double mag = vector_mag(temp);
+
+            *c += 1;
+            struct Vector temp1 = add_vectors(transfer.v1, scalar_multiply(p1.v, -1));
+            struct Vector temp2 = add_vectors(s1.v, scalar_multiply(p1.v, -1));
+
+            diff_vinf = vector_mag(temp1) - vector_mag(temp2);
+            //printf("dur: %f, step: %f, diff_vinf: %f\n", dur/86400, step, diff_vinf);
+            if(peak_dur < 0 && dur == min_dur && diff_vinf < 0) return 0;
+            if(peak_dur > max_dur && dur == max_dur && diff_vinf < 0) return 1;
+
+            if (fabs(diff_vinf) < 10) {
+                double a_temp = 1 / (2 / vector_mag(s1.r) - pow(vector_mag(s1.v), 2) / mu);
+                double beta = (M_PI - angle_vec_vec(temp1, temp2)) / 2;
+                double rp = (1 / cos(beta) - 1) * (body->mu / (pow(vector_mag(temp1), 2)));
+                if (rp > body->radius + body->atmo_alt) {
+                    //printf("theta: %6.2f°, phi: %6.2f°, deflection: %5.2f°, beta: %5.2f°, dur: %6.2f, angle: %5.2f°, ", rad2deg(theta), rad2deg(phi), rad2deg(defl), rad2deg(beta), dur/86400, rad2deg(angle));
+                    //printf("T: %3dd, dv: %8.2f, Periapsis: %10.3fkm\n", (int)(T/86400), mag, (rp-body->radius)/1000);
+
+                    x1[*u] = T / 86400;
+                    x2[*u] = dur / 86400;
+                    x3[*u] = rad2deg(theta);
+                    x4[*u] = rad2deg(phi);
+                    x5[*u] = rad2deg(angle);
+                    y[*u] = mag;
+                    *u += 1;
+                    if (mag < min[0]) {
+                        min[0] = mag;
+                        min[1] = dur;
+                        //printf("\n---\ntheta: %6.2f°, phi: %6.2f°, deflection: %5.2f°, beta: %5.2f°, dur: %6.2f, angle: %5.2f°, ",
+                        //       rad2deg(theta), rad2deg(phi), rad2deg(defl), rad2deg(beta), dur / 86400, rad2deg(angle));
+                        //printf("T: %3dd, dv: %8.2f, Periapsis: %10.3fkm\n", (int) (T / 86400), mag,
+                        //       (rp - body->radius) / 1000);
+                        //print_vector(temp);
+                        break;
+                    }
+                }
+            }
+
+            double gradient = (diff_vinf - last_diff_vinf)/step;
+
+            if(diff_vinf > 0) {
+                double max_rel_T_pos = T;
+                if(dur+T > max_dur) max_rel_T_pos = max_dur-dur;
+                if(i == -1 && max_rel_T_pos > peak_dur) max_rel_T_pos = peak_dur;
+                double max_rel_T_neg = -T;
+                if(dur-T < 0) max_rel_T_neg = -dur;
+                if(i == 1 && max_rel_T_neg < peak_dur) max_rel_T_neg = peak_dur;
+                //printf("max_rel(+): %f, max_rel(-): %f, gradient: %f, gradT(+): %f, gradT(-): %f\n", max_rel_T_pos/86400, max_rel_T_neg/86400, gradient, diff_vinf+gradient*max_rel_T_pos, diff_vinf+gradient*max_rel_T_neg);
+                if(diff_vinf+gradient*max_rel_T_pos > 0 && diff_vinf+gradient*max_rel_T_neg > 0 && (fabs(step) < 86400 || is_edge)) {
+                    //printf("GRADIENT: %f, %f, %f, %f\n", gradient, step, gradient*T, diff_vinf);
+                    break;
+                }
+                if(step*i > 0 == gradient*i > 0 && dur != min_dur && dur != max_dur) {
+                    step /= -4;
+                }
+            } else {
+                if(right_leg_only_positive && i == 1) right_leg_only_positive = 0;
+                if(step*i > 0 && dur != min_dur && dur != max_dur && dur != peak_dur) {
+                    step /= -4;
+                }
+            }
+
+            dur += step;
+            if(dur < min_dur) {
+                step /= -4;
+                dur = min_dur;
+            } else if(dur > max_dur) {
+                step /= -4;
+                dur = max_dur;
+            }
+            if(i == 1 && dur < peak_dur && peak_dur > min_dur) {
+                step /= -4;
+                dur = peak_dur;
+            } else if(i == -1 && dur > peak_dur && peak_dur < max_dur) {
+                step /= -4;
+                dur = peak_dur;
+            }
+            last_diff_vinf = diff_vinf;
+        }
+    }
+    return right_leg_only_positive;
+}
+
+void calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV p1, double transfer_duration, struct Body *body, double **xs, int **ints) {
+    double mu = body->orbit.body->mu;
+
+    int deg_prec = 1;
+    double tolerance = 0.05;
+
+    double min_rp = body->radius+body->atmo_alt;
+    double body_T = M_PI*2 * sqrt(pow(body->orbit.a,3)/mu);
+    struct Vector v_soi0 = add_vectors(s0.v, scalar_multiply(p0.v,-1));
+    double v_inf = vector_mag(v_soi0);
+    double min_beta = acos(1 / (1 + (min_rp * pow(v_inf, 2)) / body->mu));
+    double max_defl = M_PI - 2*min_beta;
+    int negative_true_anomaly = ((transfer_duration*86400)/body_T - (int)((transfer_duration*86400)/body_T)) > 0.5;
+
+    printf("\nmin beta: %.2f°; max deflection: %.2f° (vinf: %f m/s)\n\n", rad2deg(min_beta), rad2deg(max_defl), v_inf);
+
+    for(int i = (int) -rad2deg(max_defl) * deg_prec; i < rad2deg(max_defl) * deg_prec; i+=2) {
+        double theta = deg2rad((double) i/deg_prec);
+        //theta = deg2rad((double) 5);
+        struct Vector rot_axis_1 = norm_vector(cross_product(v_soi0, p0.r));
+        struct Vector v_soi_ = rotate_vector_around_axis(v_soi0, rot_axis_1, theta);
+
+        for(int j = (int) -rad2deg(min_beta) * deg_prec; j < rad2deg(min_beta) * deg_prec; j+=2) {
+            double phi = deg2rad((double) j/deg_prec);
+
+            //phi = deg2rad((double) -18);
+
+            double defl = acos(cos(theta)*sin(M_PI_2-phi));
+            if(defl > max_defl) continue;
+
+            struct Vector rot_axis_2 = norm_vector(cross_product(v_soi_, rot_axis_1));
+            struct Vector v_soi = rotate_vector_around_axis(v_soi_, rot_axis_2, phi);
+
+            double angle = angle_vec_vec(v_soi0, v_soi);
+            //printf("(%3d°, %3d°, %6.2f°)  -  %.2f°\n", i, j, rad2deg(beta), rad2deg(angle));
+            //angle = angle_vec_vec(vt_00_norm, p0.v);
+            //printf("%.2f°\n", angle);
+
+            struct Vector v_t00 = add_vectors(v_soi, p0.v);
+            struct Plane plane = constr_plane(vec(0,0,0), p0.r, p1.r);
+            angle = angle_plane_vec(plane, v_t00);
+
+            double a = 1/(2/vector_mag(s0.r) - pow(vector_mag(v_t00),2)/mu);
+            double T = M_PI*2 * sqrt(pow(a,3)/mu);
+            double T_ratio = T / body_T - (int) (T / body_T);
+
+            // maybe think about more resonances in future (not only 1:1, 2:1, 3:1,...)
+            if(T_ratio > tolerance && T_ratio < 1-tolerance) {
+                continue;
+            }
+
+            double theta_temp = angle_vec_vec(p0.r, p1.r);
+            if(negative_true_anomaly) theta_temp *= -1;
+
+            double n = sqrt(mu/ pow(a,3));
+            struct Vector h = cross_product(s0.r, v_t00);
+            struct Vector e_vec = scalar_multiply(
+                    add_vectors(cross_product(v_t00, h), scalar_multiply(s0.r, -mu / vector_mag(s0.r))),1/mu);
+            double e = vector_mag(e_vec);
+            double vr = dot_product(v_t00, s0.r)/vector_mag(s0.r);
+            double theta0 = acos( (dot_product(e_vec,s0.r)) / (e*vector_mag(s0.r)) );
+            if(vr < 0) theta0 = 2*M_PI - theta0;
+            double E0 = acos( (e+cos(theta0)) / (1+e*cos(theta0)) );
+            double t0 = (E0-e*sin(E0))/n;
+            if(theta0 > M_PI) t0 *= -1;
+            //printf("E0: %f, t0: %f, theta: %f\n", E0, t0, rad2deg(theta0));
+
+            theta_temp += theta0;
+            while(theta_temp<0) theta_temp+=M_PI*2;
+            while(theta_temp>M_PI*2) theta_temp-=M_PI*2;
+
+            double t1, t2;
+
+            double E1 = acos( (e+cos(theta_temp)) / (1+e*cos(theta_temp)) );
+            theta_temp += M_PI;
+            double E2 = acos( (e+cos(theta_temp)) / (1+e*cos(theta_temp)) );
+            theta_temp -= M_PI;
+            if(theta_temp < M_PI) {
+                t1 = (E1-e*sin(E1))/n - t0;
+                t2 = T- (E2-e*sin(E2))/n - t0;
+            } else {
+                t1 = T - (E1-e*sin(E1))/n - t0;
+                t2 = (E2-e*sin(E2))/n - t0;
+            }
+
+            while(t1 > T) t1 -= T;
+            while(t2 > T) t2 -= T;
+            while(t1 < 0) t1 += T;
+            while(t2 < 0) t2 += T;
+
+            if(t2 < t1) {
+                double temp = t1;
+                t1 = t2;
+                t2 = temp;
+            }
+
+            double min_temp[] = {1e9, 0};
+            double angles[] = {angle, theta, phi, defl};
+            struct OSV osvs[] = {p0,s0,p1,s1};
+            double interval[2];
+
+            double t = 0;
+            int counter = -1;
+            double max_dur = transfer_duration*86400-T*0.1;
+            double min_dur = 86400;
+            double t1t2 = t2-t1;
+            double t2t1 = (t1+T)-t2;
+
+            int right_leg_only_positive = 0;
+            //printf("theta: %6.2f°, phi: %6.2f°\n", rad2deg(theta), rad2deg(phi));
+            while(t < transfer_duration*86400) {
+                if(counter % 2 == 0) {
+                    t = t1 + T * (counter/2);
+                    interval[0] = t - t2t1;
+                    if(interval[0] < min_dur) interval[0] = min_dur;
+                    interval[1] = t + t1t2;
+                    if(interval[1] > max_dur) interval[1] = max_dur;
+                }
+                else {
+                    t = t2 + T * (counter/2);
+                    if(counter < 0) t -= T;
+                    interval[0] = t - t1t2;
+                    if(interval[0] < min_dur) interval[0] = min_dur;
+                    interval[1] = t + t2t1;
+                    if(interval[1] > max_dur) interval[1] = max_dur;
+                }
+
+
+                counter++;
+
+                struct Swingby_Peak_Search_Params spsp = {
+                        t,
+                        transfer_duration,
+                        T,
+                        interval,
+                        min_temp,
+                        xs,
+                        angles,
+                        ints,
+                        body,
+                        osvs,
+                        v_t00
+                };
+
+                right_leg_only_positive = find_double_swing_by_zero_sec_sb_diff(spsp, right_leg_only_positive);
+                //printf("%f, %f\n", min_temp[0], min_temp[1]);
+                //break;
+            }
+            //exit(0);
+            //break;
+        }
+        //printf("theta: %6.2f°\n", rad2deg(theta));
+        //break;
+    }
+
+    //printf("%f\n", M_PI*2 * sqrt(pow(body->orbit.a,3)/mu) / 86400);
+    //printf("%f\n", 2*M_PI*2 * sqrt(pow(body->orbit.a,3)/mu) / 86400);
+
+    //printf("%f°\n", rad2deg(angle_vec_vec(p0.r, p1.r)));
 }
 
 

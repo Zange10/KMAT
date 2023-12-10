@@ -58,6 +58,8 @@ double angle_vec_vec_2d(struct Vector2D v1, struct Vector2D v2);
 
 struct Vector calc_intersecting_line_dir(struct Plane p1, struct Plane p2);
 
+struct Vector rotate_vector_around_axis(struct Vector v, struct Vector axis, double angle);
+
 void print_vector(struct Vector v);
 
 void print_vector2d(struct Vector2D v);
