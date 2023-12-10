@@ -490,10 +490,9 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
     return right_leg_only_positive;
 }
 
-void calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV p1, double transfer_duration, struct Body *body, double **xs, int **ints) {
+void calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV p1, double transfer_duration, struct Body *body, double **xs, int **ints, int num_angle_analyse, double *angles) {
     double mu = body->orbit.body->mu;
 
-    int deg_prec = 1;
     double tolerance = 0.05;
 
     double min_rp = body->radius+body->atmo_alt;
@@ -506,14 +505,29 @@ void calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OS
 
     printf("\nmin beta: %.2f°; max deflection: %.2f° (vinf: %f m/s)\n\n", rad2deg(min_beta), rad2deg(max_defl), v_inf);
 
-    for(int i = (int) -rad2deg(max_defl) * deg_prec; i < rad2deg(max_defl) * deg_prec; i+=2) {
-        double theta = deg2rad((double) i/deg_prec);
-        //theta = deg2rad((double) 5);
+    double angle_step_size, theta, phi, max_theta, max_phi;
+
+    if(angles == NULL) {
+        angle_step_size = 2*max_defl/num_angle_analyse;
+        if(rad2deg(angle_step_size) < 0.5) angle_step_size = deg2rad(0.5);
+        theta = -max_defl - angle_step_size;
+        max_theta = max_defl;
+    } else {
+        angle_step_size = 2*angles[0]/num_angle_analyse;
+        theta = angles[1]-angles[0] - angle_step_size;
+        max_theta = angles[1]+angles[0];
+    }
+
+
+    while (theta <= max_theta) {
+        theta += angle_step_size;
         struct Vector rot_axis_1 = norm_vector(cross_product(v_soi0, p0.r));
         struct Vector v_soi_ = rotate_vector_around_axis(v_soi0, rot_axis_1, theta);
+        phi = angles == NULL ? -max_defl - angle_step_size : angles[2]-angles[0] - angle_step_size;
+        max_phi = angles == NULL ? max_defl : angles[2]+angles[0];
 
-        for(int j = (int) -rad2deg(min_beta) * deg_prec; j < rad2deg(min_beta) * deg_prec; j+=2) {
-            double phi = deg2rad((double) j/deg_prec);
+        while (phi <= max_phi) {
+            phi += angle_step_size;
 
             //phi = deg2rad((double) -18);
 
