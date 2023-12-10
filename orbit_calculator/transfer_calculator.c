@@ -169,7 +169,7 @@ void create_swing_by_transfer() {
     double x3[50000];
     double x4[50000];
     double x5[50000];
-    double x6[2];
+    double x6[3];
     double y1[20000];
     double y[50000];
     double *xs[] = {x1,x2,x3,x4,x5,x6,y,y1};
@@ -184,9 +184,9 @@ void create_swing_by_transfer() {
     double a5[500];
     double a6[500];
 
-
-    double dep0 = jd_min_dep+240;
-    double dwb_dur = 430;
+if(0) {
+    double dep0 = jd_min_dep + 240;
+    double dwb_dur = 470;
     struct OSV e0 = osv_from_ephem(ephems[0], dep0, SUN());
     dep0 = jd_min_dep + 346;
     struct OSV p0 = osv_from_ephem(ephems[1], dep0, SUN());
@@ -198,62 +198,18 @@ void create_swing_by_transfer() {
                                              temp_data);
 
     struct OSV osv0 = {transfer.r1, transfer.v1};
-    struct OSV osv1 = {p1.r, rotate_vector_around_axis(scalar_multiply(p1.v, 1.2),p1.r,0)};
+    struct OSV osv1 = {p1.r, rotate_vector_around_axis(scalar_multiply(p1.v, 1.2), p1.r, 0)};
 
-
-    double tot_time = 0;
 
     printf("\n---------\n\n\n");
     printf("%f %f %f\n\n", temp_data[0], temp_data[1], temp_data[2]);
     gettimeofday(&start, NULL);  // Record the starting time
-    calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 15, NULL);
+    calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 0);
     gettimeofday(&end, NULL);  // Record the ending time
     elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-    tot_time += elapsed_time;
     printf("Elapsed time: %f seconds\n", elapsed_time);
 
-    double min = 1e9;
-    double angles[3];
-    angles[0] = deg2rad(25);
-    for(int a = 0; a < u; a++) {
-        if(y[a] < min) {
-            min = y[a];
-            angles[1] = deg2rad(x3[a]);
-            angles[2] = deg2rad(x4[a]);
-        }
-    }
-    printf("\n---------\n");
-    printf("%f %f %f\n\n", rad2deg(angles[0]), rad2deg(angles[1]), rad2deg(angles[2]));
-
-    gettimeofday(&start, NULL);  // Record the starting time
-    calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 15, angles);
-    gettimeofday(&end, NULL);  // Record the ending time
-    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-    tot_time += elapsed_time;
-    printf("Elapsed time: %f seconds\n", elapsed_time);
-
-
-    min = 1e9;
-    angles[0] = deg2rad(5);
-    for(int a = 0; a < u; a++) {
-        if(y[a] < min) {
-            min = y[a];
-            angles[1] = deg2rad(x3[a]);
-            angles[2] = deg2rad(x4[a]);
-        }
-    }
-    printf("\n---------\n");
-    printf("%f %f %f\n\n", rad2deg(angles[0]), rad2deg(angles[1]), rad2deg(angles[2]));
-
-    gettimeofday(&start, NULL);  // Record the starting time
-    calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 10, angles);
-    gettimeofday(&end, NULL);  // Record the ending time
-    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-    tot_time += elapsed_time;
-    printf("Elapsed time: %f seconds\n", elapsed_time);
-
-
-    if(1) {
+    if (1) {
         printf("x1a = [");
         for (int i = 0; i < u; i++) {
             if (i != 0) printf(", ");
@@ -295,121 +251,170 @@ void create_swing_by_transfer() {
     printf("\n%d %d\n", c, u);
 
 
-    min = 1e9;
-    for(int a = 0; a < u; a++) {
-        if(y[a] < min) {
+    double min = 1e9;
+    for (int a = 0; a < u; a++) {
+        if (y[a] < min) {
             min = y[a];
         }
     }
-    printf("\n%f\n%f seconds\n", min, tot_time);
+    printf("\n%f\n", min);
+    printf("\n%f %f\n", x6[0], x6[1]);
+} else {
 
-//    int b = 0;
-//    double tot_time = 0;
-//
-//    for(int i = 0; i < 5; i++) {
-//        for(int j = 0; j < 1; j++) {
-//            for(int k = 0; k < 1; k++) {
-//                double dep0 = jd_min_dep+200+i*20;
-//                double dwb_dur = 420 + j * 15;
-//                printf("\n-------------\ndep: ");
-//                print_date(convert_JD_date(dep0),0);
-//                printf("  (i: %d, j: %d, k: %d)\ntransfer duration: %fd, v_factor: %f\n-------------\n", i, j,k,dwb_dur, 0.8+k*0.1);
-//
-//
-//                struct OSV e0 = osv_from_ephem(ephems[0], dep0, SUN());
-//                dep0 = jd_min_dep + 346;
-//                struct OSV p0 = osv_from_ephem(ephems[1], dep0, SUN());
-//                dep0 = jd_min_dep + 346 + dwb_dur;
-//                struct OSV p1 = osv_from_ephem(ephems[1], dep0, SUN());
-//
-//                double temp_data[3];
-//                struct Transfer transfer = calc_transfer(circfb, EARTH(), VENUS(), e0.r, e0.v, p0.r, p0.v,
-//                                                         116.0 * 86400,
-//                                                         temp_data);
-//
-//                struct OSV osv0 = {transfer.r1, transfer.v1};
-//                struct OSV osv1 = {p1.r, rotate_vector_around_axis(scalar_multiply(p1.v, 0.8+k*0.15), p1.r, deg2rad(3))};
-//
-//
-//                //printf("\n---------\n\n\n");
-//                //printf("%f %f %f\n\n", temp_data[0], temp_data[1], temp_data[2]);
-//                gettimeofday(&start, NULL);  // Record the starting time
-//                calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 200);
-//                gettimeofday(&end, NULL);  // Record the ending time
-//                elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-//                tot_time += elapsed_time;
-//                printf("Elapsed time: %f seconds\n", elapsed_time);
-//
-//                double min = 1e9;
-//                int mind;
-//                for(int a = 0; a < u; a++) {
-//                    if(y[a] < min) {
-//                        min = y[a];
-//                        mind = a;
-//                    }
-//                }
-//
-//                a1[b] = x1[mind];
-//                a2[b] = x2[mind];
-//                a3[b] = x3[mind];
-//                a4[b] = x4[mind];
-//                a5[b] = x5[mind];
-//                a6[b] = y[mind];
-//
-//                u = 0;
-//                c = 0;
-//                g = 0;
-//                b++;
-//
-//
-//
-//                if(1) {
-//                    printf("x1 = [");
-//                    for (int m = 0; m < b; m++) {
-//                        if (m != 0) printf(", ");
-//                        printf("%f", a1[m]);
-//                    }
-//                    printf("]\n");
-//                    printf("x2 = [");
-//                    for (int m = 0; m < b; m++) {
-//                        if (m != 0) printf(", ");
-//                        printf("%f", a2[m]);
-//                    }
-//                    printf("]\n");
-//                    printf("x3 = [");
-//                    for (int m = 0; m < b; m++) {
-//                        if (m != 0) printf(", ");
-//                        printf("%f", a3[m]);
-//                    }
-//                    printf("]\n");
-//                    printf("x4 = [");
-//                    for (int m = 0; m < b; m++) {
-//                        if (m != 0) printf(", ");
-//                        printf("%f", a4[m]);
-//                    }
-//                    printf("]\n");
-//                    printf("x5 = [");
-//                    for (int m = 0; m < b; m++) {
-//                        if (m != 0) printf(", ");
-//                        printf("%f", a5[m]);
-//                    }
-//                    printf("]\n");
-//                    printf("y = [");
-//                    for (int m = 0; m < b; m++) {
-//                        if (m != 0) printf(", ");
-//                        printf("%f", a6[m]);
-//                    }
-//                    printf("]\n");
-//
-//                    //exit(0);
-//                }
-//            }
-//        }
-//    }
-//
-//
-//    printf("\n Total time: %f seconds \n", tot_time);
+    int b = 0;
+    int d = 0;
+    double tot_time = 0;
+    double x10[10000];
+    double x11[10000];
+    double x12[10000];
 
+
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++) {
+            for (int k = 0; k < 5; k++) {
+                for (int l = 0; l < 5; l++) {
+                    double dep0 = jd_min_dep + 200 + i * 20;
+                    double first_travel = 300 + l * 20;
+                    double dwb_dur = 420 + j * 20;
+                    printf("\n-------------\ndep: ");
+                    print_date(convert_JD_date(dep0), 0);
+                    printf("   -->  ");
+                    print_date(convert_JD_date(jd_min_dep + first_travel), 0);
+                    printf("  (i: %d, j: %d, k: %d, l: %d)\ntransfer duration: %fd, v_factor: %f\n-------------\n", i,
+                           j, k, l, dwb_dur, 0.75 + k * 0.15);
+
+
+                    struct OSV e0 = osv_from_ephem(ephems[0], dep0, SUN());
+                    dep0 = jd_min_dep + first_travel;
+                    struct OSV p0 = osv_from_ephem(ephems[1], dep0, SUN());
+                    dep0 = jd_min_dep + first_travel + dwb_dur;
+                    struct OSV p1 = osv_from_ephem(ephems[1], dep0, SUN());
+
+                    double temp_data[3];
+                    struct Transfer transfer = calc_transfer(circfb, EARTH(), VENUS(), e0.r, e0.v, p0.r, p0.v,
+                                                             116.0 * 86400,
+                                                             temp_data);
+
+                    struct OSV osv0 = {transfer.r1, transfer.v1};
+                    struct OSV osv1 = {p1.r, rotate_vector_around_axis(scalar_multiply(p1.v, 0.8 + k * 0.15), p1.r,
+                                                                       deg2rad(3))};
+
+
+                    x6[0] = -1;
+                    x6[1] = -1;
+                    x6[2] = -1;
+
+                    //printf("\n---------\n\n\n");
+                    //printf("%f %f %f\n\n", temp_data[0], temp_data[1], temp_data[2]);
+                    gettimeofday(&start, NULL);  // Record the starting time
+                    int via = calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 1);
+                    gettimeofday(&end, NULL);  // Record the ending time
+                    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+                    tot_time += elapsed_time;
+                    printf("Elapsed time: %f seconds\n", elapsed_time);
+
+                    double min = 1e9;
+                    int mind;
+                    for (int a = 0; a < u; a++) {
+                        if (y[a] < min) {
+                            min = y[a];
+                            mind = a;
+                        }
+                    }
+
+                    //a1[b] = x1[mind];
+                    //a2[b] = x2[mind];
+                    //a3[b] = x3[mind];
+                    //a4[b] = x4[mind];
+                    //a5[b] = x5[mind];
+                    //a6[b] = y[mind];
+
+                    if(via) printf("VIABLE   (%f m/s)\n", x6[0]);
+                    else printf("NOT VIABLE\n");
+
+                    if (x6[0] > -1 && x6[1] > -1 && x6[2] > -1) {
+                        x10[d] = x6[0];
+                        x11[d] = x6[1];
+                        x12[d] = x6[2];
+                        d++;
+                    }
+
+                    u = 0;
+                    c = 0;
+                    g = 0;
+                    b++;
+
+
+                    if (1) {
+                        printf("x10 = [");
+                        for (int m = 0; m < d; m++) {
+                            if (m != 0) printf(", ");
+                            printf("%f", x10[m]);
+                        }
+                        printf("]\n");
+                        printf("x11 = [");
+                        for (int m = 0; m < d; m++) {
+                            if (m != 0) printf(", ");
+                            printf("%f", x11[m]);
+                        }
+                        printf("]\n");
+                        printf("x12 = [");
+                        for (int m = 0; m < d; m++) {
+                            if (m != 0) printf(", ");
+                            printf("%f", x12[m]);
+                        }
+                        printf("]\n");
+                    }
+
+                    if (0) {
+                        printf("x1 = [");
+                        for (int m = 0; m < b; m++) {
+                            if (m != 0) printf(", ");
+                            printf("%f", a1[m]);
+                        }
+                        printf("]\n");
+                        printf("x2 = [");
+                        for (int m = 0; m < b; m++) {
+                            if (m != 0) printf(", ");
+                            printf("%f", a2[m]);
+                        }
+                        printf("]\n");
+                        printf("x3 = [");
+                        for (int m = 0; m < b; m++) {
+                            if (m != 0) printf(", ");
+                            printf("%f", a3[m]);
+                        }
+                        printf("]\n");
+                        printf("x4 = [");
+                        for (int m = 0; m < b; m++) {
+                            if (m != 0) printf(", ");
+                            printf("%f", a4[m]);
+                        }
+                        printf("]\n");
+                        printf("x5 = [");
+                        for (int m = 0; m < b; m++) {
+                            if (m != 0) printf(", ");
+                            printf("%f", a5[m]);
+                        }
+                        printf("]\n");
+                        printf("y = [");
+                        for (int m = 0; m < b; m++) {
+                            if (m != 0) printf(", ");
+                            printf("%f", a6[m]);
+                        }
+                        printf("]\n");
+
+                        //exit(0);
+                    }
+                }
+            }
+        }
+    }
+
+
+    printf("\n Total time: %f seconds \n", tot_time);
+
+}
 
     exit(0);
 
