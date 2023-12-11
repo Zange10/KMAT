@@ -271,7 +271,7 @@ if(0) {
 
     for (int i = 0; i < 5; i++) {
         for (int j = 0; j < 5; j++) {
-            for (int k = 0; k < 5; k++) {
+            for (int k = 0; k < 1; k++) {
                 for (int l = 0; l < 5; l++) {
                     double dep0 = jd_min_dep + 200 + i * 20;
                     double first_travel = 300 + l * 20;
@@ -296,18 +296,27 @@ if(0) {
                                                              temp_data);
 
                     struct OSV osv0 = {transfer.r1, transfer.v1};
-                    struct OSV osv1 = {p1.r, rotate_vector_around_axis(scalar_multiply(p1.v, 0.8 + k * 0.15), p1.r,
+                    struct OSV osv1 = {p1.r, rotate_vector_around_axis(scalar_multiply(p1.v, 1.1 + k * 0.15), p1.r,
                                                                        deg2rad(3))};
 
 
-                    x6[0] = -1;
-                    x6[1] = -1;
-                    x6[2] = -1;
+                    x6[0] = -100;
+                    x6[1] = -100;
+                    x6[2] = -100;
 
                     //printf("\n---------\n\n\n");
                     //printf("%f %f %f\n\n", temp_data[0], temp_data[1], temp_data[2]);
                     gettimeofday(&start, NULL);  // Record the starting time
-                    int via = calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 1);
+                    calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 1);
+                    double temp = x6[0];
+                    calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 0);
+
+                    if(x6[2] < 1e9) {
+                        x10[d] = temp;
+                        x11[d] = x6[1];
+                        x12[d] = x6[2];
+                        d++;
+                    }
                     gettimeofday(&end, NULL);  // Record the ending time
                     elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
                     tot_time += elapsed_time;
@@ -329,15 +338,6 @@ if(0) {
                     //a5[b] = x5[mind];
                     //a6[b] = y[mind];
 
-                    if(via) printf("VIABLE   (%f m/s)\n", x6[0]);
-                    else printf("NOT VIABLE\n");
-
-                    if (x6[0] > -1 && x6[1] > -1 && x6[2] > -1) {
-                        x10[d] = x6[0];
-                        x11[d] = x6[1];
-                        x12[d] = x6[2];
-                        d++;
-                    }
 
                     u = 0;
                     c = 0;

@@ -500,7 +500,7 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
     double tol_it1 = 4000;
     double tol_it2 = 500;
     double tolerance = 0.05;
-    int num_angle_analyse = 15;
+    int num_angle_analyse = only_viability ? 10 : 15;
 
     double min_rp = body->radius+body->atmo_alt;
     double body_T = M_PI*2 * sqrt(pow(body->orbit.a,3)/mu);
@@ -678,10 +678,11 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
             //break;
         }
 
-        if(min_dv >= 1e9 ||
+        /*if(min_dv >= 1e9 ||
                 (i == 0 && min_dv >= target_max+tol_it1) ||
                 (i == 1 && min_dv >= target_max+tol_it2) ||
-                only_viability) break;
+                only_viability) break;*/
+        if(only_viability) break;
 
         xs[5][i] = min_dv;
         angles[0] = i == 0 ? max_defl/2 : angles[0]/8;
