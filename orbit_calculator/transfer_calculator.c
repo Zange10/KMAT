@@ -144,6 +144,106 @@ void create_swing_by_transfer() {
     int num_ephems = (int)(jd_max_arr - jd_min_dep) / ephem_time_steps + 1;
 
     struct Ephem **ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
+
+
+
+    int c = 0;
+
+    int u = 0;
+    int g = 0;
+
+    double x1[100000];
+    double x2[100000];
+    double x3[100000];
+    double x4[100000];
+    double x5[100000];
+    double x6[10];
+    double y1[20000];
+    double y[100000];
+    double *xs[] = {x1,x2,x3,x4,x5,x6,y,y1};
+    int *ints[] = {&c,&u,&g};
+    int max_i = 4;
+    int us[max_i];
+
+    double a1[500];
+    double a2[500];
+    double a3[500];
+    double a4[500];
+    double a5[500];
+    double a6[500];
+
+
+    if(0) {
+        bodies[0] = EARTH();
+        bodies[1] = VENUS();
+        bodies[2] = EARTH();
+
+        struct Date dep_date = {1997, 10, 15, 0, 0, 0};
+        struct Date sb1_date = {1998, 04, 26, 0, 0, 0};
+        struct Date sb2_date = {1999, 06, 24, 0, 0, 0};
+        struct Date arr_date = {1999, 8, 18, 0, 0, 0};
+
+        double jd_dep = convert_date_JD(dep_date);
+        double jd_sb1 = convert_date_JD(sb1_date);
+        double jd_sb2 = convert_date_JD(sb2_date);
+        double jd_arr = convert_date_JD(arr_date);
+
+        for(int i = 0; i < num_bodies; i++) {
+            int ephem_available = 0;
+            for(int j = 0; j < i; j++) {
+                if(bodies[i] == bodies[j]) {
+                    ephems[i] = ephems[j];
+                    ephem_available = 1;
+                    break;
+                }
+            }
+            if(ephem_available) continue;
+            ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
+            get_ephem(ephems[i], num_ephems, bodies[i]->id, ephem_time_steps, jd_dep, jd_arr, 0);
+        }
+
+        double dwb_dur = jd_sb2-jd_sb1;
+        struct OSV osv_dep = osv_from_ephem(ephems[0], jd_dep, SUN());
+        struct OSV osv_sb1 = osv_from_ephem(ephems[1], jd_sb1, SUN());
+        struct OSV osv_sb2 = osv_from_ephem(ephems[1], jd_sb2, SUN());
+        struct OSV osv_arr = osv_from_ephem(ephems[2], jd_arr, SUN());
+
+        struct Transfer transfer_dep = calc_transfer(circfb, VENUS(), EARTH(), osv_dep.r, osv_dep.v, osv_sb1.r, osv_sb1.v, (jd_sb1-jd_dep)*86400, NULL);
+        struct Transfer transfer_arr = calc_transfer(circfb, EARTH(), JUPITER(), osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
+
+        struct OSV osv0 = {transfer_dep.r1, transfer_dep.v1};
+        struct OSV osv1 = {transfer_arr.r0, transfer_arr.v0};
+
+
+        gettimeofday(&start, NULL);  // Record the starting time
+        calc_double_swing_by(osv0, osv_sb1, osv1, osv_sb2, dwb_dur, bodies[1], xs, ints, 0);
+        gettimeofday(&end, NULL);  // Record the ending time
+        elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+        printf("Elapsed time: %f seconds\n", elapsed_time);
+
+        printf("\n%d %d\n", c, u);
+        double minabs = 1e9;
+        int mind;
+        for (int a = 0; a < u; a++) {
+            if (y[a] < minabs) {
+                minabs = y[a];
+                mind = a;
+            }
+        }
+        printf("\nOrbital Period: %f\n", x1[mind]);
+        printf("Dur to man: %f\n", x2[mind]);
+        printf("theta: %f°\n", x3[mind]);
+        printf("phi: %f°\n", x4[mind]);
+        printf("Inclination: %f°\n", x5[mind]);
+        printf("mindv: %f\n", y[mind]);
+
+        printf("Targeting date: ");
+        print_date(convert_JD_date(x2[mind]+jd_sb1),1);
+
+        exit(0);
+    }
+
+
     for(int i = 0; i < num_bodies; i++) {
         int ephem_available = 0;
         for(int j = 0; j < i; j++) {
@@ -158,33 +258,7 @@ void create_swing_by_transfer() {
         get_ephem(ephems[i], num_ephems, bodies[i]->id, ephem_time_steps, jd_min_dep, jd_max_arr, 0);
     }
 
-
-    int c = 0;
-
-    int u = 0;
-    int g = 0;
-
-    double x1[50000];
-    double x2[50000];
-    double x3[50000];
-    double x4[50000];
-    double x5[50000];
-    double x6[3];
-    double y1[20000];
-    double y[50000];
-    double *xs[] = {x1,x2,x3,x4,x5,x6,y,y1};
-    int *ints[] = {&c,&u,&g};
-    int max_i = 4;
-    int us[max_i];
-
-    double a1[500];
-    double a2[500];
-    double a3[500];
-    double a4[500];
-    double a5[500];
-    double a6[500];
-
-if(0) {
+if(1) {
     double dep0 = jd_min_dep + 240;
     double dwb_dur = 470;
     struct OSV e0 = osv_from_ephem(ephems[0], dep0, SUN());
@@ -208,39 +282,41 @@ if(0) {
     gettimeofday(&end, NULL);  // Record the ending time
     elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
     printf("Elapsed time: %f seconds\n", elapsed_time);
+    exit(0);
+    char zusatz[] = "a";
 
-    if (1) {
-        printf("x1a = [");
+    if (0) {
+        printf("x1%s = [", zusatz);
         for (int i = 0; i < u; i++) {
             if (i != 0) printf(", ");
             printf("%f", x1[i]);
         }
         printf("]\n");
-        printf("x2a = [");
+        printf("x2%s = [", zusatz);
         for (int i = 0; i < u; i++) {
             if (i != 0) printf(", ");
             printf("%f", x2[i]);
         }
         printf("]\n");
-        printf("x3a = [");
+        printf("x3%s = [", zusatz);
         for (int i = 0; i < u; i++) {
             if (i != 0) printf(", ");
             printf("%f", x3[i]);
         }
         printf("]\n");
-        printf("x4a = [");
+        printf("x4%s = [", zusatz);
         for (int i = 0; i < u; i++) {
             if (i != 0) printf(", ");
             printf("%f", x4[i]);
         }
         printf("]\n");
-        printf("x5a = [");
+        printf("x5%s = [", zusatz);
         for (int i = 0; i < u; i++) {
             if (i != 0) printf(", ");
             printf("%f", x5[i]);
         }
         printf("]\n");
-        printf("ya = [");
+        printf("y%s = [", zusatz);
         for (int i = 0; i < u; i++) {
             if (i != 0) printf(", ");
             printf("%f", y[i]);
@@ -249,16 +325,22 @@ if(0) {
     }
 
     printf("\n%d %d\n", c, u);
-
-
-    double min = 1e9;
+    double minabs = 1e9;
+    int mind;
     for (int a = 0; a < u; a++) {
-        if (y[a] < min) {
-            min = y[a];
+        if (y[a] < minabs) {
+            minabs = y[a];
+            mind = a;
         }
     }
-    printf("\n%f\n", min);
-    printf("\n%f %f\n", x6[0], x6[1]);
+    printf("\nOrbital Period: %f\n", x1[mind]);
+    printf("Dur to man: %f\n", x2[mind]);
+    printf("theta: %f°\n", x3[mind]);
+    printf("phi: %f°\n", x4[mind]);
+    printf("Inclination: %f°\n", x5[mind]);
+    printf("mindv: %f\n", y[mind]);
+    printf("\n%f\n", minabs);
+
 } else {
 
     int b = 0;
@@ -271,7 +353,7 @@ if(0) {
 
     for (int i = 0; i < 5; i++) {
         for (int j = 0; j < 5; j++) {
-            for (int k = 0; k < 1; k++) {
+            for (int k = 0; k < 5; k++) {
                 for (int l = 0; l < 5; l++) {
                     double dep0 = jd_min_dep + 200 + i * 20;
                     double first_travel = 300 + l * 20;
@@ -296,7 +378,7 @@ if(0) {
                                                              temp_data);
 
                     struct OSV osv0 = {transfer.r1, transfer.v1};
-                    struct OSV osv1 = {p1.r, rotate_vector_around_axis(scalar_multiply(p1.v, 1.1 + k * 0.15), p1.r,
+                    struct OSV osv1 = {p1.r, rotate_vector_around_axis(scalar_multiply(p1.v, 0.8 + k * 0.15), p1.r,
                                                                        deg2rad(3))};
 
 
@@ -307,9 +389,9 @@ if(0) {
                     //printf("\n---------\n\n\n");
                     //printf("%f %f %f\n\n", temp_data[0], temp_data[1], temp_data[2]);
                     gettimeofday(&start, NULL);  // Record the starting time
-                    calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 1);
+                    int via = calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 1);
                     double temp = x6[0];
-                    calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 0);
+                    if(via) calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 0);
 
                     if(x6[2] < 1e9) {
                         x10[d] = temp;
@@ -412,7 +494,7 @@ if(0) {
     }
 
 
-    printf("\n Total time: %f seconds \n", tot_time);
+    printf("\n Total time: %f seconds \nb: %d\n", tot_time, b);
 
 }
 

@@ -334,7 +334,13 @@ struct Swingby_Peak_Search_Params {
     struct Vector v_t00;
 };
 
+double test[2];
+
+
+
 int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp, int only_right_leg) {
+    struct timeval start, end;
+    double elapsed_time;
     double **xs = spsp.xs;
     double *min = spsp.min;
     double peak_dur = spsp.peak_dur;
@@ -389,23 +395,33 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
         }
         double diff_vinf = 1e9;
         double last_diff_vinf = 1e9;
-
         //printf("DUR: %6.2f step: %f i:%d    min_dur: %f    max_dur: %f ----------------------------\n", peak_dur/86400, max_dur/86400, i, min_dur/86400, max_dur/86400);
         while (fabs(diff_vinf) > 10) {
+            //printf("\n");
             temp_counter++;
             if(temp_counter > 100) {
                 break; // break endless loop
             }
             //if (dur > max_dur) break;
+            gettimeofday(&start, NULL);  // Record the starting time
             struct OSV osv_m0 = propagate_orbit(p0.r, v_t00, dur, SUN());
+            gettimeofday(&end, NULL);  // Record the ending time
+            elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+            //printf("%6.4f", elapsed_time);
+            test[0] += elapsed_time;
             if(rad2deg(angle_vec_vec(osv_m0.r, p1.r)) < 0.5) {
                 dur += step;
                 step += step;
                 continue;
             }
+            gettimeofday(&start, NULL);  // Record the starting time
 
             struct Transfer transfer = calc_transfer(capfb, body, body, osv_m0.r, osv_m0.v, p1.r, p1.v,
                                                      transfer_duration * 86400 - dur, NULL);
+            gettimeofday(&end, NULL);  // Record the ending time
+            elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+            //printf(" %6.4f", elapsed_time);
+            test[1] += elapsed_time;
             struct Vector temp = add_vectors(transfer.v0, scalar_multiply(osv_m0.v, -1));
             double mag = vector_mag(temp);
 
@@ -417,7 +433,6 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
             //printf("dur: %f, step: %f, diff_vinf: %f\n", dur/86400, step, diff_vinf);
             if(peak_dur < 0 && dur == min_dur && diff_vinf < 0) return 0;
             if(peak_dur > max_dur && dur == max_dur && diff_vinf < 0) return 1;
-
             if (fabs(diff_vinf) < 10) {
                 double a_temp = 1 / (2 / vector_mag(s1.r) - pow(vector_mag(s1.v), 2) / mu);
                 double beta = (M_PI - angle_vec_vec(temp1, temp2)) / 2;
@@ -496,11 +511,15 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
     struct timeval start, end;
     double elapsed_time;
 
+
+    test[0] = 0;
+    test[1] = 0;
+
     double target_max = 2500;
     double tol_it1 = 4000;
     double tol_it2 = 500;
     double tolerance = 0.05;
-    int num_angle_analyse = only_viability ? 10 : 15;
+    int num_angle_analyse = only_viability ? 10 : 20;
 
     double min_rp = body->radius+body->atmo_alt;
     double body_T = M_PI*2 * sqrt(pow(body->orbit.a,3)/mu);
@@ -516,21 +535,25 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
     double angle_step_size, theta, phi, max_theta, max_phi;
     double angles[3];
     double min_dv, min_man_t, min_theta, min_phi;
+    double min_theta_phi[2];
 
-    for(int i = 0; i < 3; i++) {
+    for(int i = 0; i < 4; i++) {
         gettimeofday(&start, NULL);  // Record the starting time
         min_dv = 1e9;
-        int abc = 0;
+        int total_counter = 0;
+        int partial_counter = 0;
         if (i == 0) {
             angle_step_size = 2 * max_defl / num_angle_analyse;
             theta = -max_defl - angle_step_size;
             max_theta = max_defl;
             max_phi = max_defl;
+            min_theta_phi[0] = -max_defl;
         } else {
             angle_step_size = 2 * angles[0] / num_angle_analyse;
             theta = angles[1] - angles[0] - angle_step_size;
             max_theta = angles[1] + angles[0];
             max_phi = angles[2] + angles[0];
+            min_theta_phi[0] = angles[1] - angles[0];
         }
 
         while (theta <= max_theta) {
@@ -538,8 +561,10 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
             struct Vector rot_axis_1 = norm_vector(cross_product(v_soi0, p0.r));
             struct Vector v_soi_ = rotate_vector_around_axis(v_soi0, rot_axis_1, theta);
             phi = i == 0 ? -max_defl - angle_step_size : angles[2] - angles[0] - angle_step_size;
+            min_theta_phi[1] = i == 0 ? -max_defl : angles[2] - angles[0];
 
             while (phi <= max_phi) {
+                total_counter++;
                 phi += angle_step_size;
 
                 double defl = acos(cos(theta) * sin(M_PI_2 - phi));
@@ -625,6 +650,7 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
 
                 int right_leg_only_positive = 0;
                 //printf("theta: %6.2f°, phi: %6.2f°\n", rad2deg(theta), rad2deg(phi));
+                partial_counter++;
                 while (t < transfer_duration * 86400) {
                     if (counter % 2 == 0) {
                         t = t1 + T * (counter / 2);
@@ -678,11 +704,10 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
             //break;
         }
 
-        /*if(min_dv >= 1e9 ||
+        if(min_dv >= 1e9 ||
                 (i == 0 && min_dv >= target_max+tol_it1) ||
                 (i == 1 && min_dv >= target_max+tol_it2) ||
-                only_viability) break;*/
-        if(only_viability) break;
+                only_viability) break;
 
         xs[5][i] = min_dv;
         angles[0] = i == 0 ? max_defl/2 : angles[0]/8;
@@ -696,18 +721,32 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
 
         gettimeofday(&end, NULL);  // Record the ending time
         elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-        printf("%f  (%f°, %f°, %f°)  %d", min_dv, rad2deg(min_theta), rad2deg(min_phi), rad2deg(angle_step_size), abc);
+        printf("%f  (%f°, %f°, %f°)  %d %d", min_dv, rad2deg(min_theta), rad2deg(min_phi), rad2deg(angle_step_size), total_counter, partial_counter);
         printf("    | Elapsed time: %f seconds |\n", elapsed_time);
+        double min_theta_temp, min_phi_temp;
+        if (i == 0) {
+            min_theta_temp = -max_defl - angle_step_size;
+        } else {
+            angle_step_size = 2 * angles[0] / num_angle_analyse;
+            theta = angles[1] - angles[0] - angle_step_size;
+            max_theta = angles[1] + angles[0];
+            max_phi = angles[2] + angles[0];
+        }
+        printf("(%f° %f°) (%f°, %f°)\n", rad2deg(min_theta_phi[0]), rad2deg(max_theta), rad2deg(min_theta_phi[1]), rad2deg(max_phi));
         //printf("%f\n", M_PI*2 * sqrt(pow(body->orbit.a,3)/mu) / 86400);
         //printf("%f\n", 2*M_PI*2 * sqrt(pow(body->orbit.a,3)/mu) / 86400);
 
         //printf("%f°\n", rad2deg(angle_vec_vec(p0.r, p1.r)));
     }
+    printf("%f - %f - %f\n", test[0], test[1], test[0]+test[1]);
     return 0;
 }
 
 
 struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
+    struct timeval start, end;
+    double elapsed_time;
+
     double r_mag = vector_mag(r);
     double v_mag = vector_mag(v);
     double v_r = dot_product(v,r) / r_mag;
@@ -745,8 +784,9 @@ struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct B
     while(target_t > T) target_t -= T;
 
     int c = 0;
+    gettimeofday(&start, NULL);  // Record the starting time
 
-    while(fabs(t-target_t) > 1e-3) {
+    while(fabs(t-target_t) > 1) {
         c++;
         theta = pi_norm(theta);
         E = acos((e_mag + cos(theta)) / (1 + e_mag * cos(theta)));
@@ -767,6 +807,11 @@ struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct B
         }
     }
     theta -= step; // reset theta1 from last change inside the loop
+
+
+    gettimeofday(&end, NULL);  // Record the ending time
+    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000.0;
+    printf("%6.3f   %4d\n", elapsed_time, c);
 
     double gamma = atan(e_mag*sin(theta)/(1+e_mag*cos(theta)));
     r_mag = a*(1-pow(e_mag,2)) / (1+e_mag*cos(theta));
