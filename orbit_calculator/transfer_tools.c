@@ -739,14 +739,13 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
         //printf("%f°\n", rad2deg(angle_vec_vec(p0.r, p1.r)));
     }
     printf("%f - %f - %f\n", test[0], test[1], test[0]+test[1]);
+    exit(0);
     return 0;
 }
 
 
-struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
-    struct timeval start, end;
-    double elapsed_time;
 
+struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
     double r_mag = vector_mag(r);
     double v_mag = vector_mag(v);
     double v_r = dot_product(v,r) / r_mag;
@@ -779,12 +778,13 @@ struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct B
 
     double target_t = t+dt;
     double step = deg2rad(5);
-    theta += step;
+    // if dt is basically 0, only add step, as this gets subtracted after the loop (not going inside loop)
+    theta += fabs(t-target_t) > 1 ? dt/T * M_PI*2 : step;
 
+    theta = pi_norm(theta);
     while(target_t > T) target_t -= T;
 
     int c = 0;
-    gettimeofday(&start, NULL);  // Record the starting time
 
     while(fabs(t-target_t) > 1) {
         c++;
@@ -796,22 +796,23 @@ struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct B
         // prevent endless loops (floating point imprecision can lead to not changing values for very small steps)
         if(c == 500) break;
 
-        if((target_t-t) > 0) {
-            if(step < 0) step *= -1.0/4;
-            while(theta+step > 2*M_PI) step *= 1.0/4;
-            theta += step;
+        // check in which half t is with respect to target_t (forwards or backwards from target_t) and move it closer
+        if(target_t < T/2) {
+            if(t > target_t && t < target_t+T/2) {
+                if (step > 0) step *= -1.0 / 4;
+            } else {
+                if (step < 0) step *= -1.0 / 4;
+            }
         } else {
-            while(theta+step < 0) step *= 1.0/4;
-            if(step > 0) step *= -1.0/4;
-            theta += step;
+            if(t < target_t && t > target_t-T/2) {
+                if (step < 0) step *= -1.0 / 4;
+            } else {
+                if (step > 0) step *= -1.0 / 4;
+            }
         }
+        theta += step;
     }
     theta -= step; // reset theta1 from last change inside the loop
-
-
-    gettimeofday(&end, NULL);  // Record the ending time
-    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000.0;
-    printf("%6.3f   %4d\n", elapsed_time, c);
 
     double gamma = atan(e_mag*sin(theta)/(1+e_mag*cos(theta)));
     r_mag = a*(1-pow(e_mag,2)) / (1+e_mag*cos(theta));
