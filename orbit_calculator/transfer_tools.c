@@ -10,6 +10,8 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
     double theta1 = r1 > r2 ? deg2rad(180) : 0;
     double theta2 = theta1+dtheta;
     double mu = attractor->mu;
+
+    double initial_step = deg2rad(20);
     double step = 0;
     double dt = 1e20;
     double a, e;
@@ -101,16 +103,13 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
             }
         } else {
             if ((dt - target_dt) * (r1 - r2) > 0) {
-                step = deg2rad(1);
+                step = initial_step;
             } else {
-                step = deg2rad(-1);
+                step = -initial_step;
             }
         }
         theta1 += step;
     }
-
-
-
 
     theta1 -= step; // reset theta1 from last change inside the loop
 
@@ -217,6 +216,7 @@ struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt,
 struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, double *data) {
     double dtheta = angle_vec_vec(r1, r2);
     if (cross_product(r1, r2).z < 0) dtheta = 2 * M_PI - dtheta;
+
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
     struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
 
