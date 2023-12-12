@@ -711,9 +711,8 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
 
         xs[5][i] = min_dv;
         angles[0] = i == 0 ? max_defl/2 : angles[0]/8;
-        num_angle_analyse += 5;
-        if(i==0) num_angle_analyse = 20;
-        if(i == 1)num_angle_analyse = 25;
+        num_angle_analyse -= 5;
+        if(i == 0) num_angle_analyse = 25;
         angles[1] = min_theta;
         angles[2] = min_phi;
 
@@ -721,8 +720,8 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
 
         gettimeofday(&end, NULL);  // Record the ending time
         elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-        printf("%f  (%f°, %f°, %f°)  %d %d", min_dv, rad2deg(min_theta), rad2deg(min_phi), rad2deg(angle_step_size), total_counter, partial_counter);
-        printf("    | Elapsed time: %f seconds |\n", elapsed_time);
+        //printf("%f  (%f°, %f°, %f°)  %d %d", min_dv, rad2deg(min_theta), rad2deg(min_phi), rad2deg(angle_step_size), total_counter, partial_counter);
+        //printf("    | Elapsed time: %f seconds |\n", elapsed_time);
         double min_theta_temp, min_phi_temp;
         if (i == 0) {
             min_theta_temp = -max_defl - angle_step_size;
@@ -732,14 +731,13 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
             max_theta = angles[1] + angles[0];
             max_phi = angles[2] + angles[0];
         }
-        printf("(%f° %f°) (%f°, %f°)\n", rad2deg(min_theta_phi[0]), rad2deg(max_theta), rad2deg(min_theta_phi[1]), rad2deg(max_phi));
+        //printf("(%f° %f°) (%f°, %f°)\n", rad2deg(min_theta_phi[0]), rad2deg(max_theta), rad2deg(min_theta_phi[1]), rad2deg(max_phi));
         //printf("%f\n", M_PI*2 * sqrt(pow(body->orbit.a,3)/mu) / 86400);
         //printf("%f\n", 2*M_PI*2 * sqrt(pow(body->orbit.a,3)/mu) / 86400);
 
         //printf("%f°\n", rad2deg(angle_vec_vec(p0.r, p1.r)));
     }
     printf("%f - %f - %f\n", test[0], test[1], test[0]+test[1]);
-    exit(0);
     return 0;
 }
 

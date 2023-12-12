@@ -282,7 +282,7 @@ if(1) {
     gettimeofday(&end, NULL);  // Record the ending time
     elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
     printf("Elapsed time: %f seconds\n", elapsed_time);
-    exit(0);
+
     char zusatz[] = "a";
 
     if (0) {
@@ -385,20 +385,20 @@ if(1) {
                     x6[0] = -100;
                     x6[1] = -100;
                     x6[2] = -100;
+                    x6[3] = -100;
 
                     //printf("\n---------\n\n\n");
                     //printf("%f %f %f\n\n", temp_data[0], temp_data[1], temp_data[2]);
                     gettimeofday(&start, NULL);  // Record the starting time
                     int via = calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 1);
-                    double temp = x6[0];
-                    if(via) calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 0);
 
-                    if(x6[2] < 1e9) {
-                        x10[d] = temp;
-                        x11[d] = x6[1];
-                        x12[d] = x6[2];
+                    if(via) {
+                        calc_double_swing_by(osv0, p0, osv1, p1, dwb_dur, VENUS(), xs, ints, 0);
+                        x10[d] = x6[2];
                         d++;
                     }
+
+
                     gettimeofday(&end, NULL);  // Record the ending time
                     elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
                     tot_time += elapsed_time;
@@ -434,7 +434,7 @@ if(1) {
                             printf("%f", x10[m]);
                         }
                         printf("]\n");
-                        printf("x11 = [");
+                        /*printf("x11 = [");
                         for (int m = 0; m < d; m++) {
                             if (m != 0) printf(", ");
                             printf("%f", x11[m]);
@@ -445,7 +445,7 @@ if(1) {
                             if (m != 0) printf(", ");
                             printf("%f", x12[m]);
                         }
-                        printf("]\n");
+                        printf("]\n");*/
                     }
 
                     if (0) {
