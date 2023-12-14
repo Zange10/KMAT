@@ -7,6 +7,7 @@
 
 struct Downsizing_Thread_Args {
     int iterators[2];
+    double min_max_dsb_duration[2];
     double **porkchops;
     struct Body **bodies;
     struct Ephem **ephems;
@@ -76,45 +77,107 @@ void *decrease_porkchop_size_thread(void *args) {
     struct Body **bodies = thread_args->bodies;
     struct Ephem **ephems = thread_args->ephems;
 
-    int *thread_return = (int*) malloc(sizeof(int));
-    thread_return[0] = 0;
-
+    int *is_viable = (int*) malloc(sizeof(int));
+    is_viable[0] = 0;
     for (int k = 0; k < (int) (porkchops[i - 1][0] / 4); k++) {
         if (porkchops[i - 1][k * 4 + 1] + porkchops[i - 1][k * 4 + 2] != porkchops[i][j * 4 + 1]) continue;
         double arr_v = porkchops[i - 1][k * 4 + 4];
         double dep_v = porkchops[i][j * 4 + 3];
         if (fabs(arr_v - dep_v) < 10) {
-            double data[3]; // not used (just as parameter for calc_transfer)
             double t_dep = porkchops[i - 1][k * 4 + 1];
             double t_arr = porkchops[i][j * 4 + 1];
             struct OSV s0 = osv_from_ephem(ephems[i - 1], t_dep, SUN());
             struct OSV s1 = osv_from_ephem(ephems[i], t_arr, SUN());
             struct Transfer transfer1 = calc_transfer(circcirc, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r,
-                                                      s1.v, (t_arr - t_dep) * (24 * 60 * 60), data);
+                                                      s1.v, (t_arr - t_dep) * (24 * 60 * 60), NULL);
 
             t_dep = porkchops[i][j * 4 + 1];
             t_arr = porkchops[i][j * 4 + 1] + porkchops[i][j * 4 + 2];
             s0 = s1;
             s1 = osv_from_ephem(ephems[i + 1], t_arr, SUN());
             struct Transfer transfer2 = calc_transfer(circcirc, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r,
-                                                      s1.v, (t_arr - t_dep) * (24 * 60 * 60), data);
+                                                      s1.v, (t_arr - t_dep) * (24 * 60 * 60), NULL);
 
             struct Vector temp1 = add_vectors(transfer1.v1, scalar_multiply(s0.v, -1));
             struct Vector temp2 = add_vectors(transfer2.v0, scalar_multiply(s0.v, -1));
             double beta = (M_PI - angle_vec_vec(temp1, temp2)) / 2;
             double rp = (1 / cos(beta) - 1) * (bodies[i]->mu / (pow(vector_mag(temp1), 2)));
             if (rp > bodies[i]->radius + bodies[i]->atmo_alt) {
-                thread_return[0] = 1;
-                return thread_return; // return that viable transfer was found (1)
+                is_viable[0] = 1;
+                return is_viable; // return that viable transfer was found (1)
             }
         }
     }
-    return thread_return; // return that no viable transfer was found (0)
+    return is_viable; // return that no viable transfer was found (0)
 }
 
-void decrease_porkchop_size(int i, double **porkchops, struct Ephem **ephems, struct Body **bodies) {
+void *decrease_porkchop_size_double_swing_by_thread(void *args) {
+    struct Downsizing_Thread_Args *thread_args = (struct Downsizing_Thread_Args *)args;
+    int i = thread_args->iterators[0];
+    int j = thread_args->iterators[1];
+    double min_dsb_duration = thread_args->min_max_dsb_duration[0];
+    double max_dsb_duration = thread_args->min_max_dsb_duration[1];
+    double **porkchops = thread_args->porkchops;
+    struct Body **bodies = thread_args->bodies;
+    struct Ephem **ephems = thread_args->ephems;
+
+
+    int c = 0;
+    int u = 0;
+    int g = 0;
+
+    double x1[100000];
+    double x2[100000];
+    double x3[100000];
+    double x4[100000];
+    double x5[100000];
+    double x6[10];
+    double y1[20000];
+    double y[100000];
+    double *xs[] = {x1,x2,x3,x4,x5,x6,y,y1};
+    int *ints[] = {&c,&u,&g};
+
+    int *is_viable = (int*) malloc(sizeof(int));
+    is_viable[0] = 0;
+
+    for (int k = 0; k < (int) (porkchops[i - 2][0] / 4); k++) {
+        double t_sb1 = porkchops[i - 2][k * 4 + 1] + porkchops[i - 2][k * 4 + 2];
+        double t_sb2_min = t_sb1 + min_dsb_duration;
+        double t_sb2_max = t_sb1 + max_dsb_duration;
+        double t_sb2 = porkchops[i][j * 4 + 1];
+
+        if (t_sb2 < t_sb2_min || t_sb2 > t_sb2_max) continue;
+        double t_dep = porkchops[i - 2][k * 4 + 1];
+        double t_arr = porkchops[i][j * 4 + 1] + porkchops[i][j * 4 + 2];
+
+        struct OSV osv_dep = osv_from_ephem(ephems[i-3], t_dep, SUN());
+        struct OSV osv_sb1 = osv_from_ephem(ephems[i-2], t_sb1, SUN());
+        struct OSV osv_sb2 = osv_from_ephem(ephems[i-1], t_sb2, SUN());
+        struct OSV osv_arr = osv_from_ephem(ephems[i  ], t_arr, SUN());
+
+        struct Transfer trans_to_first_sb = calc_transfer(circfb, bodies[i-3], bodies[i-2], osv_dep.r, osv_dep.v, osv_sb1.r, osv_sb1.v, (t_sb1 - t_dep) * 86400, NULL);
+        struct Transfer trans_from_sec_sb = calc_transfer(circfb, bodies[i-1], bodies[i  ], osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (t_arr - t_sb2) * 86400, NULL);
+
+        struct OSV osv0 = {trans_to_first_sb.r1, trans_to_first_sb.v1};
+        struct OSV osv1 = {trans_from_sec_sb.r0, trans_from_sec_sb.v0};
+
+        if(calc_double_swing_by(osv0, osv_sb1, osv1, osv_sb2, t_sb2-t_sb1, bodies[i-1], xs, ints, 1)) {
+            is_viable[0] = 1;
+            return is_viable; // return that viable transfer was found (1)
+        }
+    }
+    return is_viable; // return that no viable transfer was found (0)
+}
+
+void decrease_porkchop_size(int i, int has_double_swing_by, double **porkchops, struct Ephem **ephems, struct Body **bodies, const double *min_max_dsb_duration) {
     double *temp = (double *) malloc(((int) porkchops[i][0] + 1) * sizeof(double));
     temp[0] = 0;
+    double *temp_dsb;
+    if(has_double_swing_by) {
+        temp_dsb = (double *) malloc(((int) porkchops[i][0] + 1) * sizeof(double));
+        temp_dsb[0] = 0;
+    }
+
     if (i == 0) {
         double min_dep_dv = get_min_from_porkchop(porkchops[0], 3);
         for (int j = 0; j < (int) (porkchops[0][0] / 4); j++) {
@@ -133,8 +196,8 @@ void decrease_porkchop_size(int i, double **porkchops, struct Ephem **ephems, st
     } else {
         show_progress("Finding fly-bys", 0.0, (porkchops[i][0] / 4));
         int num_threads = 3600;
-        pthread_t threads[num_threads];
         struct Downsizing_Thread_Args thread_args[num_threads];
+        pthread_t threads[num_threads];
         int max_j = (int) (porkchops[i][0] / 4);
         int counter = 0;
 
@@ -146,10 +209,18 @@ void decrease_porkchop_size(int i, double **porkchops, struct Ephem **ephems, st
                 thread_args[t_j].porkchops = porkchops;
                 thread_args[t_j].bodies = bodies;
                 thread_args[t_j].ephems = ephems;
-
-                if (pthread_create(&threads[t_j], NULL, decrease_porkchop_size_thread, &thread_args[j%num_threads]) != 0) {
-                    perror("pthread_create");
-                    exit(EXIT_FAILURE);
+                if(!has_double_swing_by) {
+                    if (pthread_create(&threads[t_j], NULL, decrease_porkchop_size_thread, &thread_args[j % num_threads]) != 0) {
+                        perror("pthread_create");
+                        exit(EXIT_FAILURE);
+                    }
+                } else {
+                    thread_args[t_j].min_max_dsb_duration[0] = min_max_dsb_duration[0];
+                    thread_args[t_j].min_max_dsb_duration[1] = min_max_dsb_duration[1];
+                    if (pthread_create(&threads[t_j], NULL, decrease_porkchop_size_double_swing_by_thread, &thread_args[j % num_threads]) != 0) {
+                        perror("pthread_create");
+                        exit(EXIT_FAILURE);
+                    }
                 }
                 if((j+1)%num_threads == 0) break;
             }

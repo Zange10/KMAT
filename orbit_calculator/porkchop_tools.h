@@ -11,7 +11,7 @@ struct Porkchop_Properties {
 };
 
 void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt, double *all_data);
-void decrease_porkchop_size(int i, double **porkchops, struct Ephem **ephems, struct Body **bodies);
+void decrease_porkchop_size(int i, int has_double_swing_by, double **porkchops, struct Ephem **ephems, struct Body **bodies, const double *min_max_dsb_duration);
 void generate_final_porkchop(double **porkchops, int num_bodies, double *jd_dates, double *final_porkchop, const double *dep_dates);
 double get_min_arr_from_porkchop(const double *pc);
 double get_max_arr_from_porkchop(const double *pc);

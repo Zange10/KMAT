@@ -123,13 +123,18 @@ void create_swing_by_transfer() {
     double elapsed_time;
 
 
-    struct Body *bodies[] = {EARTH(), VENUS(), VENUS()};
+    struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH(), JUPITER()};
     int num_bodies = (int) (sizeof(bodies)/sizeof(struct Body*));
 
-    struct Date min_dep_date = {1970, 1, 1, 0, 0, 0};
-    struct Date max_dep_date = {1971, 1, 1, 0, 0, 0};
-    int min_duration[] = {60, 200};//, 1800, 1500};         // [days]
-    int max_duration[] = {250, 500};//, 2600, 2200};         // [days]
+    //struct Date min_dep_date = {1970, 1, 1, 0, 0, 0};
+    //struct Date max_dep_date = {1971, 1, 1, 0, 0, 0};
+    //int min_duration[] = {60, 200};//, 1800, 1500};         // [days]
+    //int max_duration[] = {250, 500};//, 2600, 2200};         // [days]
+    struct Date min_dep_date = {1997, 10, 1, 0, 0, 0};
+    struct Date max_dep_date = {1997, 11, 1, 0, 0, 0};
+    int min_duration[] = {90, 410, 90, 700};
+    int max_duration[] = {250, 430, 150, 900};
+
     double dep_time_steps = 24 * 60 * 60; // [seconds]
     double arr_time_steps = 24 * 60 * 60; // [seconds]
 
@@ -144,9 +149,21 @@ void create_swing_by_transfer() {
     int num_ephems = (int)(jd_max_arr - jd_min_dep) / ephem_time_steps + 1;
 
     struct Ephem **ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
+    for(int i = 0; i < num_bodies; i++) {
+        int ephem_available = 0;
+        for(int j = 0; j < i; j++) {
+            if(bodies[i] == bodies[j]) {
+                ephems[i] = ephems[j];
+                ephem_available = 1;
+                break;
+            }
+        }
+        if(ephem_available) continue;
+        ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
+        get_ephem(ephems[i], num_ephems, bodies[i]->id, ephem_time_steps, jd_min_dep, jd_max_arr, 1);
+    }
 
-
-
+/*
     int c = 0;
 
     int u = 0;
@@ -241,21 +258,6 @@ void create_swing_by_transfer() {
         print_date(convert_JD_date(x2[mind]+jd_sb1),1);
 
         exit(0);
-    }
-
-
-    for(int i = 0; i < num_bodies; i++) {
-        int ephem_available = 0;
-        for(int j = 0; j < i; j++) {
-            if(bodies[i] == bodies[j]) {
-                ephems[i] = ephems[j];
-                ephem_available = 1;
-                break;
-            }
-        }
-        if(ephem_available) continue;
-        ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
-        get_ephem(ephems[i], num_ephems, bodies[i]->id, ephem_time_steps, jd_min_dep, jd_max_arr, 0);
     }
 
 if(1) {
@@ -434,7 +436,7 @@ if(1) {
                             printf("%f", x10[m]);
                         }
                         printf("]\n");
-                        /*printf("x11 = [");
+                        printf("x11 = [");
                         for (int m = 0; m < d; m++) {
                             if (m != 0) printf(", ");
                             printf("%f", x11[m]);
@@ -445,7 +447,7 @@ if(1) {
                             if (m != 0) printf(", ");
                             printf("%f", x12[m]);
                         }
-                        printf("]\n");*/
+                        printf("]\n");
                     }
 
                     if (0) {
@@ -498,19 +500,22 @@ if(1) {
 
 }
 
-    exit(0);
+    exit(0);*/
 
     double ** porkchops = (double**) malloc((num_bodies-1) * sizeof(double*));
 
     for(int i = 0; i < num_bodies-1; i++) {
+        int is_double_sb = bodies[i] == bodies[i+1];
+
         double min_dep, max_dep;
         if(i == 0) {
             min_dep = jd_min_dep;
             max_dep = jd_max_dep;
         } else {
-            min_dep = get_min_arr_from_porkchop(porkchops[i-1]);
-            max_dep = get_max_arr_from_porkchop(porkchops[i-1]);
+            min_dep = get_min_arr_from_porkchop(porkchops[i - 1]) + is_double_sb*min_duration[i];
+            max_dep = get_max_arr_from_porkchop(porkchops[i - 1]) + is_double_sb*max_duration[i];
         }
+        i += is_double_sb;
 
         struct Porkchop_Properties pochopro = {
                 min_dep,
@@ -532,16 +537,19 @@ if(1) {
         gettimeofday(&start, NULL);  // Record the starting time
         if(i<num_bodies-2) create_porkchop(pochopro, circcirc, porkchops[i]);
         else               create_porkchop(pochopro, final_tt, porkchops[i]);
-
         gettimeofday(&end, NULL);  // Record the ending time
-        elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+        elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0; // NOLINT(*-narrowing-conversions)
         printf("Elapsed time: %f seconds\n", elapsed_time);
 
-
         gettimeofday(&start, NULL);  // Record the starting time
-        decrease_porkchop_size(i, porkchops, ephems, bodies);
+        double min_max_dsb_duration[2];
+        if(is_double_sb) {
+            min_max_dsb_duration[0] = min_duration[i-1];
+            min_max_dsb_duration[1] = max_duration[i-1];
+        }
+        decrease_porkchop_size(i, is_double_sb, porkchops, ephems, bodies, min_max_dsb_duration);
         gettimeofday(&end, NULL);  // Record the ending time
-        elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+        elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0; // NOLINT(*-narrowing-conversions)
         printf("Elapsed time: %f seconds\n", elapsed_time);
 
 
@@ -565,7 +573,7 @@ if(1) {
     printf("\n");
 
     gettimeofday(&end, NULL);  // Record the ending time
-    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+    elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0; // NOLINT(*-narrowing-conversions)
     printf("Elapsed time: %f seconds\n", elapsed_time);
 
     char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
@@ -599,6 +607,7 @@ if(1) {
 
         double data[3];
         struct Transfer transfer;
+
         if(i < num_bodies-2) {
             transfer = calc_transfer(circcirc, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r, s1.v,
                                      (jd_dates[i + 1] - jd_dates[i]) * (24 * 60 * 60), data);
