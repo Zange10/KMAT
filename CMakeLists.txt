@@ -35,6 +35,8 @@ add_executable(KSP
         ephem.c
         ephem.h
         orbit_calculator/porkchop_tools.c
-        orbit_calculator/porkchop_tools.h)
+        orbit_calculator/porkchop_tools.h
+        thread_pool.c
+        thread_pool.h)
 
 target_link_libraries(KSP m)
