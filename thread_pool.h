@@ -11,6 +11,7 @@ struct Thread_Pool {
 
 struct Thread_Pool use_thread_pool64(void *thread_method(void*), void *thread_args);
 
+int get_thread_counter();
 
 void join_thread_pool(struct Thread_Pool thread_pool);
 

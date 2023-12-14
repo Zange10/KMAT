@@ -4,10 +4,12 @@
 #include <stdlib.h>
 #include <math.h>
 #include <pthread.h>
+#include "thread_pool.h"
 
 struct Downsizing_Thread_Args {
     int iterators[2];
     double **porkchops;
+    char *valid_trajectories;
     struct Body **bodies;
     struct Ephem **ephems;
 };
@@ -112,6 +114,54 @@ void *decrease_porkchop_size_thread(void *args) {
     return thread_return; // return that no viable transfer was found (0)
 }
 
+void *decrease_porkchop_size_thread_pool(void *args) {
+    struct Downsizing_Thread_Args *thread_args = (struct Downsizing_Thread_Args *)args;
+    int i = thread_args->iterators[0];
+    double **porkchops = thread_args->porkchops;
+    char *valid_traj = thread_args->valid_trajectories;
+    struct Body **bodies = thread_args->bodies;
+    struct Ephem **ephems = thread_args->ephems;
+
+    int index = get_thread_counter();
+
+    while(index < porkchops[i][0]/4) {
+        for (int k = 0; k < (int) (porkchops[i - 1][0] / 4); k++) {
+            if (porkchops[i - 1][k * 4 + 1] + porkchops[i - 1][k * 4 + 2] != porkchops[i][index * 4 + 1]) continue;
+            double arr_v = porkchops[i - 1][k * 4 + 4];
+            double dep_v = porkchops[i][index * 4 + 3];
+            if (fabs(arr_v - dep_v) < 10) {
+                double data[3]; // not used (just as parameter for calc_transfer)
+                double t_dep = porkchops[i - 1][k * 4 + 1];
+                double t_arr = porkchops[i][index * 4 + 1];
+                struct OSV s0 = osv_from_ephem(ephems[i - 1], t_dep, SUN());
+                struct OSV s1 = osv_from_ephem(ephems[i], t_arr, SUN());
+                struct Transfer transfer1 = calc_transfer(circcirc, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r,
+                                                          s1.v, (t_arr - t_dep) * (24 * 60 * 60), data);
+
+                t_dep = porkchops[i][index * 4 + 1];
+                t_arr = porkchops[i][index * 4 + 1] + porkchops[i][index * 4 + 2];
+                s0 = s1;
+                s1 = osv_from_ephem(ephems[i + 1], t_arr, SUN());
+                struct Transfer transfer2 = calc_transfer(circcirc, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r,
+                                                          s1.v, (t_arr - t_dep) * (24 * 60 * 60), data);
+
+                struct Vector temp1 = add_vectors(transfer1.v1, scalar_multiply(s0.v, -1));
+                struct Vector temp2 = add_vectors(transfer2.v0, scalar_multiply(s0.v, -1));
+                double beta = (M_PI - angle_vec_vec(temp1, temp2)) / 2;
+                double rp = (1 / cos(beta) - 1) * (bodies[i]->mu / (pow(vector_mag(temp1), 2)));
+                if (rp > bodies[i]->radius + bodies[i]->atmo_alt) {
+                    valid_traj[index] = 1;
+                    break;
+                }
+            }
+        }
+
+        index = get_thread_counter();
+    }
+
+    return 0;
+}
+
 void decrease_porkchop_size(int i, double **porkchops, struct Ephem **ephems, struct Body **bodies) {
     double *temp = (double *) malloc(((int) porkchops[i][0] + 1) * sizeof(double));
     temp[0] = 0;
@@ -131,54 +181,80 @@ void decrease_porkchop_size(int i, double **porkchops, struct Ephem **ephems, st
         free(porkchops[0]);
         porkchops[0] = realloc(temp, (int) (temp[0] + 1) * sizeof(double));
     } else {
-        show_progress("Finding fly-bys", 0.0, (porkchops[i][0] / 4));
-        int num_threads = 3600;
-        pthread_t threads[num_threads];
-        struct Downsizing_Thread_Args thread_args[num_threads];
-        int max_j = (int) (porkchops[i][0] / 4);
-        int counter = 0;
+        char pool_threaded = 1;
+        if(!pool_threaded) {
+            show_progress("Finding fly-bys", 0.0, (porkchops[i][0] / 4));
+            int num_threads = 3600;
+            pthread_t threads[num_threads];
+            struct Downsizing_Thread_Args thread_args[num_threads];
+            int max_j = (int) (porkchops[i][0] / 4);
+            int counter = 0;
 
-        do {
-            for (int j = counter; j < max_j; j++) {
-                int t_j = j%num_threads;
-                thread_args[t_j].iterators[0] = i;
-                thread_args[t_j].iterators[1] = j;
-                thread_args[t_j].porkchops = porkchops;
-                thread_args[t_j].bodies = bodies;
-                thread_args[t_j].ephems = ephems;
+            do {
+                for (int j = counter; j < max_j; j++) {
+                    int t_j = j % num_threads;
+                    thread_args[t_j].iterators[0] = i;
+                    thread_args[t_j].iterators[1] = j;
+                    thread_args[t_j].porkchops = porkchops;
+                    thread_args[t_j].bodies = bodies;
+                    thread_args[t_j].ephems = ephems;
 
-                if (pthread_create(&threads[t_j], NULL, decrease_porkchop_size_thread, &thread_args[j%num_threads]) != 0) {
-                    perror("pthread_create");
-                    exit(EXIT_FAILURE);
+                    if (pthread_create(&threads[t_j], NULL, decrease_porkchop_size_thread,
+                                       &thread_args[j % num_threads]) != 0) {
+                        perror("pthread_create");
+                        exit(EXIT_FAILURE);
+                    }
+                    if ((j + 1) % num_threads == 0) break;
                 }
-                if((j+1)%num_threads == 0) break;
-            }
 
-            for (int j = counter; j < max_j; j++) {
-                // Declare a pointer to store the thread-specific result
-                int *viable = (int *) malloc(sizeof(int));
+                for (int j = counter; j < max_j; j++) {
+                    // Declare a pointer to store the thread-specific result
+                    int *viable = (int *) malloc(sizeof(int));
 
-                // Wait for the thread to finish and retrieve the result
-                pthread_join(threads[j%num_threads], (void **) &viable);
-                if (*viable) {
+                    // Wait for the thread to finish and retrieve the result
+                    pthread_join(threads[j % num_threads], (void **) &viable);
+                    if (*viable) {
+                        for (int l = 1; l <= 4; l++) {
+                            temp[(int) temp[0] + l] = porkchops[i][j * 4 + l];
+                        }
+                        temp[0] += 4;
+                    }
+                    free(viable);
+                    counter++;
+                    if ((j + 1) % num_threads == 0) break;
+                }
+                show_progress("Finding fly-bys", (double) counter, (porkchops[i][0] / 4));
+
+            } while (counter < max_j);
+
+            show_progress("Finding fly-bys", 1, 1);
+
+            if (temp[0] == 0) printf("\nNo trajectories found\n");
+            else printf("\nTrajectories remaining: %d\n", (int) temp[0] / 4);
+            free(porkchops[i]);
+            porkchops[i] = realloc(temp, (int) (temp[0] + 1) * sizeof(double));
+        } else {
+            struct Downsizing_Thread_Args thread_args;
+            thread_args.iterators[0] = i;
+            thread_args.porkchops = porkchops;
+            thread_args.valid_trajectories = calloc((int)porkchops[i][0]/4, sizeof(char));
+            thread_args.bodies = bodies;
+            thread_args.ephems = ephems;
+            struct Thread_Pool thread_pool = use_thread_pool64(decrease_porkchop_size_thread_pool, &thread_args);
+            join_thread_pool(thread_pool);
+            for(int j = 0; j < (int)porkchops[i][0]/4; j++) {
+                if (thread_args.valid_trajectories[j]) {
                     for (int l = 1; l <= 4; l++) {
                         temp[(int) temp[0] + l] = porkchops[i][j * 4 + l];
                     }
                     temp[0] += 4;
                 }
-                free(viable);
-                counter++;
-                if((j+1)%num_threads == 0) break;
             }
-            show_progress("Finding fly-bys", (double) counter, (porkchops[i][0] / 4));
-
-        } while(counter < max_j);
-
-        show_progress("Finding fly-bys", 1, 1);
-        if (temp[0] == 0) printf("\nNo trajectories found\n");
-        else printf("\nTrajectories remaining: %d\n", (int) temp[0] / 4);
-        free(porkchops[i]);
-        porkchops[i] = realloc(temp, (int) (temp[0] + 1) * sizeof(double));
+            if (temp[0] == 0) printf("\nNo trajectories found\n");
+            else printf("\nTrajectories remaining: %d\n", (int) temp[0] / 4);
+            free(porkchops[i]);
+            porkchops[i] = realloc(temp, (int) (temp[0] + 1) * sizeof(double));
+        }
     }
 }
 
