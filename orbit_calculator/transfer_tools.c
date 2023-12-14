@@ -406,7 +406,7 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
             gettimeofday(&start, NULL);  // Record the starting time
             struct OSV osv_m0 = propagate_orbit(p0.r, v_t00, dur, SUN());
             gettimeofday(&end, NULL);  // Record the ending time
-            elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+            elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000.0;
             //printf("%6.4f", elapsed_time);
             test[0] += elapsed_time;
             if(rad2deg(angle_vec_vec(osv_m0.r, p1.r)) < 0.5) {
@@ -419,7 +419,7 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
             struct Transfer transfer = calc_transfer(capfb, body, body, osv_m0.r, osv_m0.v, p1.r, p1.v,
                                                      transfer_duration * 86400 - dur, NULL);
             gettimeofday(&end, NULL);  // Record the ending time
-            elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+            elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000.0;
             //printf(" %6.4f", elapsed_time);
             test[1] += elapsed_time;
             struct Vector temp = add_vectors(transfer.v0, scalar_multiply(osv_m0.v, -1));
@@ -509,8 +509,9 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
 int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV p1, double transfer_duration, struct Body *body, double **xs, int **ints, int only_viability) {
     double mu = body->orbit.body->mu;
     struct timeval start, end;
-    double elapsed_time;
-
+    unsigned long elapsed_time;
+	
+	gettimeofday(&start, NULL);  // Record the ending time
 
     test[0] = 0;
     test[1] = 0;
@@ -530,7 +531,7 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
     int negative_true_anomaly = ((transfer_duration*86400)/body_T - (int)((transfer_duration*86400)/body_T)) > 0.5;
 
 
-    printf("\nmin beta: %.2f°; max deflection: %.2f° (vinf: %f m/s)\n\n", rad2deg(min_beta), rad2deg(max_defl), v_inf);
+    //printf("\nmin beta: %.2f°; max deflection: %.2f° (vinf: %f m/s)\n\n", rad2deg(min_beta), rad2deg(max_defl), v_inf, num_angle_analyse);
 
     double angle_step_size, theta, phi, max_theta, max_phi;
     double angles[3];
@@ -538,7 +539,6 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
     double min_theta_phi[2];
 
     for(int i = 0; i < 4; i++) {
-        gettimeofday(&start, NULL);  // Record the starting time
         min_dv = 1e9;
         int total_counter = 0;
         int partial_counter = 0;
@@ -703,6 +703,10 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
             //printf("theta: %6.2f°\n", rad2deg(theta));
             //break;
         }
+		gettimeofday(&end, NULL);  // Record the ending time
+		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000.0;
+		//printf("%f  (%f°, %f°, %f°)  %d %d", min_dv, rad2deg(min_theta), rad2deg(min_phi), rad2deg(angle_step_size), total_counter, partial_counter);
+		printf("    | Elapsed time: %12lu seconds |  (%f - %f - %f)\n", elapsed_time, test[0], test[1], test[0]+test[1]);
 
         if(min_dv >= 1e9 ||
                 (i == 0 && min_dv >= target_max+tol_it1) ||
@@ -718,10 +722,6 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
 
 
 
-        gettimeofday(&end, NULL);  // Record the ending time
-        elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-        //printf("%f  (%f°, %f°, %f°)  %d %d", min_dv, rad2deg(min_theta), rad2deg(min_phi), rad2deg(angle_step_size), total_counter, partial_counter);
-        //printf("    | Elapsed time: %f seconds |\n", elapsed_time);
         double min_theta_temp, min_phi_temp;
         if (i == 0) {
             min_theta_temp = -max_defl - angle_step_size;
@@ -737,7 +737,7 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
 
         //printf("%f°\n", rad2deg(angle_vec_vec(p0.r, p1.r)));
     }
-    printf("%f - %f - %f\n", test[0], test[1], test[0]+test[1]);
+    //printf("%f - %f - %f\n", test[0], test[1], test[0]+test[1]);
     return 0;
 }
 

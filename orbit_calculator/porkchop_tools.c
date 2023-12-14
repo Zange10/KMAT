@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <pthread.h>
+#include <sys/time.h>
 #include "thread_pool.h"
 
 struct Downsizing_Thread_Args {
@@ -30,7 +31,7 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
     int max_duration = pochopro.max_duration;         // [days]
     double dep_time_steps = pochopro.dep_time_steps; // [seconds]
     double arr_time_steps = pochopro.arr_time_steps; // [seconds]
-
+	
     double jd_min_dep = pochopro.jd_min_dep;
     double jd_max_dep = pochopro.jd_max_dep;
 
@@ -72,107 +73,8 @@ void create_porkchop(struct Porkchop_Properties pochopro, enum Transfer_Type tt,
 }
 
 void *decrease_porkchop_size_thread(void *args) {
-    struct Downsizing_Thread_Args *thread_args = (struct Downsizing_Thread_Args *)args;
-    int i = thread_args->iterators[0];
-    int j = thread_args->iterators[1];
-    double **porkchops = thread_args->porkchops;
-    struct Body **bodies = thread_args->bodies;
-    struct Ephem **ephems = thread_args->ephems;
-
-    int *thread_return = (int*) malloc(sizeof(int));
-    thread_return[0] = 0;
-
-    for (int k = 0; k < (int) (porkchops[i - 1][0] / 4); k++) {
-        if (porkchops[i - 1][k * 4 + 1] + porkchops[i - 1][k * 4 + 2] != porkchops[i][j * 4 + 1]) continue;
-        double arr_v = porkchops[i - 1][k * 4 + 4];
-        double dep_v = porkchops[i][j * 4 + 3];
-        if (fabs(arr_v - dep_v) < 10) {
-            double t_dep = porkchops[i - 1][k * 4 + 1];
-            double t_arr = porkchops[i][j * 4 + 1];
-            struct OSV s0 = osv_from_ephem(ephems[i - 1], t_dep, SUN());
-            struct OSV s1 = osv_from_ephem(ephems[i], t_arr, SUN());
-            struct Transfer transfer1 = calc_transfer(circcirc, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r,
-                                                      s1.v, (t_arr - t_dep) * (24 * 60 * 60), NULL);
-
-            t_dep = porkchops[i][j * 4 + 1];
-            t_arr = porkchops[i][j * 4 + 1] + porkchops[i][j * 4 + 2];
-            s0 = s1;
-            s1 = osv_from_ephem(ephems[i + 1], t_arr, SUN());
-            struct Transfer transfer2 = calc_transfer(circcirc, bodies[i], bodies[i + 1], s0.r, s0.v, s1.r,
-                                                      s1.v, (t_arr - t_dep) * (24 * 60 * 60), NULL);
-
-            struct Vector temp1 = add_vectors(transfer1.v1, scalar_multiply(s0.v, -1));
-            struct Vector temp2 = add_vectors(transfer2.v0, scalar_multiply(s0.v, -1));
-            double beta = (M_PI - angle_vec_vec(temp1, temp2)) / 2;
-            double rp = (1 / cos(beta) - 1) * (bodies[i]->mu / (pow(vector_mag(temp1), 2)));
-            if (rp > bodies[i]->radius + bodies[i]->atmo_alt) {
-                thread_return[0] = 1;
-                return thread_return; // return that viable transfer was found (1)
-            }
-        }
-    }
-    return thread_return; // return that no viable transfer was found (0)
-}
-
-void *decrease_porkchop_size_double_swing_by_thread(void *args) {
-    struct Downsizing_Thread_Args *thread_args = (struct Downsizing_Thread_Args *)args;
-    int i = thread_args->iterators[0];
-    int j = thread_args->iterators[1];
-    double min_dsb_duration = thread_args->min_max_dsb_duration[0];
-    double max_dsb_duration = thread_args->min_max_dsb_duration[1];
-    double **porkchops = thread_args->porkchops;
-    struct Body **bodies = thread_args->bodies;
-    struct Ephem **ephems = thread_args->ephems;
-
-
-    int c = 0;
-    int u = 0;
-    int g = 0;
-
-    double x1[100000];
-    double x2[100000];
-    double x3[100000];
-    double x4[100000];
-    double x5[100000];
-    double x6[10];
-    double y1[20000];
-    double y[100000];
-    double *xs[] = {x1,x2,x3,x4,x5,x6,y,y1};
-    int *ints[] = {&c,&u,&g};
-
-    int *is_viable = (int*) malloc(sizeof(int));
-    is_viable[0] = 0;
-
-    for (int k = 0; k < (int) (porkchops[i - 2][0] / 4); k++) {
-        double t_sb1 = porkchops[i - 2][k * 4 + 1] + porkchops[i - 2][k * 4 + 2];
-        double t_sb2_min = t_sb1 + min_dsb_duration;
-        double t_sb2_max = t_sb1 + max_dsb_duration;
-        double t_sb2 = porkchops[i][j * 4 + 1];
-
-        if (t_sb2 < t_sb2_min || t_sb2 > t_sb2_max) continue;
-        double t_dep = porkchops[i - 2][k * 4 + 1];
-        double t_arr = porkchops[i][j * 4 + 1] + porkchops[i][j * 4 + 2];
-
-        struct OSV osv_dep = osv_from_ephem(ephems[i-3], t_dep, SUN());
-        struct OSV osv_sb1 = osv_from_ephem(ephems[i-2], t_sb1, SUN());
-        struct OSV osv_sb2 = osv_from_ephem(ephems[i-1], t_sb2, SUN());
-        struct OSV osv_arr = osv_from_ephem(ephems[i  ], t_arr, SUN());
-
-        struct Transfer trans_to_first_sb = calc_transfer(circfb, bodies[i-3], bodies[i-2], osv_dep.r, osv_dep.v, osv_sb1.r, osv_sb1.v, (t_sb1 - t_dep) * 86400, NULL);
-        struct Transfer trans_from_sec_sb = calc_transfer(circfb, bodies[i-1], bodies[i  ], osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (t_arr - t_sb2) * 86400, NULL);
-
-        struct OSV osv0 = {trans_to_first_sb.r1, trans_to_first_sb.v1};
-        struct OSV osv1 = {trans_from_sec_sb.r0, trans_from_sec_sb.v0};
-
-        if(calc_double_swing_by(osv0, osv_sb1, osv1, osv_sb2, t_sb2-t_sb1, bodies[i-1], xs, ints, 1)) {
-            is_viable[0] = 1;
-            return is_viable; // return that viable transfer was found (1)
-        }
-    }
-    return is_viable; // return that no viable transfer was found (0)
-}
-
-void *decrease_porkchop_size_thread_pool(void *args) {
+	struct timeval start, end;
+	long elapsed_time;
     struct Downsizing_Thread_Args *thread_args = (struct Downsizing_Thread_Args *)args;
     int i = thread_args->iterators[0];
     double **porkchops = thread_args->porkchops;
@@ -181,13 +83,19 @@ void *decrease_porkchop_size_thread_pool(void *args) {
     struct Ephem **ephems = thread_args->ephems;
 
     int index = get_thread_counter();
-
+	
+	// i = index of arrival planet
+	// k = index of departure
+	// index = index of arrival
+	
     while(index < porkchops[i][0]/4) {
         for (int k = 0; k < (int) (porkchops[i - 1][0] / 4); k++) {
+			
             if (porkchops[i - 1][k * 4 + 1] + porkchops[i - 1][k * 4 + 2] != porkchops[i][index * 4 + 1]) continue;
             double arr_v = porkchops[i - 1][k * 4 + 4];
             double dep_v = porkchops[i][index * 4 + 3];
             if (fabs(arr_v - dep_v) < 10) {
+				gettimeofday(&start, NULL);  // Record the starting time
                 double data[3]; // not used (just as parameter for calc_transfer)
                 double t_dep = porkchops[i - 1][k * 4 + 1];
                 double t_arr = porkchops[i][index * 4 + 1];
@@ -207,6 +115,10 @@ void *decrease_porkchop_size_thread_pool(void *args) {
                 struct Vector temp2 = add_vectors(transfer2.v0, scalar_multiply(s0.v, -1));
                 double beta = (M_PI - angle_vec_vec(temp1, temp2)) / 2;
                 double rp = (1 / cos(beta) - 1) * (bodies[i]->mu / (pow(vector_mag(temp1), 2)));
+				
+				gettimeofday(&end, NULL);  // Record the ending time
+				elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec);
+				printf("Elapsed time: %9ld ns\n", elapsed_time);
                 if (rp > bodies[i]->radius + bodies[i]->atmo_alt) {
                     valid_traj[index] = 1;
                     break;
@@ -216,8 +128,74 @@ void *decrease_porkchop_size_thread_pool(void *args) {
 
         index = get_thread_counter();
     }
+}
 
-    return 0;
+void *decrease_porkchop_size_double_swing_by_thread(void *args) {
+	struct Downsizing_Thread_Args *thread_args = (struct Downsizing_Thread_Args *)args;
+	int i = thread_args->iterators[0];
+	double min_dsb_duration = thread_args->min_max_dsb_duration[0];
+	double max_dsb_duration = thread_args->min_max_dsb_duration[1];
+	double **porkchops = thread_args->porkchops;
+	char *valid_traj = thread_args->valid_trajectories;
+	struct Body **bodies = thread_args->bodies;
+	struct Ephem **ephems = thread_args->ephems;
+	
+	
+	int c = 0;
+	int u = 0;
+	int g = 0;
+	
+	double x1[100000];
+	double x2[100000];
+	double x3[100000];
+	double x4[100000];
+	double x5[100000];
+	double x6[10];
+	double y1[20000];
+	double y[100000];
+	double *xs[] = {x1,x2,x3,x4,x5,x6,y,y1};
+	int *ints[] = {&c,&u,&g};
+	int index = get_thread_counter();
+	
+	// i = index of arrival planet
+	// k = index of first swing-by date
+	// index = index of second swing-by date
+	
+	while(index < porkchops[i][0]/4) {
+		for (int k = 0; k < (int) (porkchops[i - 2][0] / 4); k++) {
+			double t_sb1 = porkchops[i - 2][k*4 + 1] + porkchops[i - 2][k*4 + 2];
+			double t_sb2_min = t_sb1 + min_dsb_duration;
+			double t_sb2_max = t_sb1 + max_dsb_duration;
+			double t_sb2 = porkchops[i][index*4 + 1];
+			
+			if(t_sb2 < t_sb2_min || t_sb2 > t_sb2_max) continue;
+			double t_dep = porkchops[i - 2][k*4 + 1];
+			double t_arr = porkchops[i][index*4 + 1] + porkchops[i][index*4 + 2];
+			
+			struct OSV osv_dep = osv_from_ephem(ephems[i - 2], t_dep, SUN());
+			struct OSV osv_sb1 = osv_from_ephem(ephems[i - 1], t_sb1, SUN());
+			struct OSV osv_sb2 = osv_from_ephem(ephems[i    ], t_sb2, SUN());
+			struct OSV osv_arr = osv_from_ephem(ephems[i + 1], t_arr, SUN());
+			
+			struct Transfer trans_to_first_sb = calc_transfer(circfb, bodies[i - 3], bodies[i - 2], osv_dep.r,
+															  osv_dep.v, osv_sb1.r, osv_sb1.v, (t_sb1 - t_dep)*86400,
+															  NULL);
+			struct Transfer trans_from_sec_sb = calc_transfer(circfb, bodies[i - 1], bodies[i], osv_sb2.r, osv_sb2.v,
+															  osv_arr.r, osv_arr.v, (t_arr - t_sb2)*86400, NULL);
+			
+			struct OSV osv0 = {trans_to_first_sb.r1, trans_to_first_sb.v1};
+			struct OSV osv1 = {trans_from_sec_sb.r0, trans_from_sec_sb.v0};
+			
+			if(calc_double_swing_by(osv0, osv_sb1, osv1, osv_sb2, t_sb2 - t_sb1, bodies[i - 1], xs, ints, 1)) {
+				if(!valid_traj[index]) valid_traj[index] = 1;
+				break;
+			}
+			
+			
+		}
+		//printf("%d   %d    %d\n",(int)porkchops[i][0]/4, (int) (porkchops[i - 2][0] / 4), index);
+		index = get_thread_counter();
+	}
 }
 
 void decrease_porkchop_size(int i, int has_double_swing_by, double **porkchops, struct Ephem **ephems, struct Body **bodies, const double *min_max_dsb_duration) {
@@ -245,13 +223,15 @@ void decrease_porkchop_size(int i, int has_double_swing_by, double **porkchops, 
         thread_args.valid_trajectories = calloc((int)porkchops[i][0]/4, sizeof(char));
         thread_args.bodies = bodies;
 		thread_args.ephems = ephems;
-        struct Thread_Pool thread_pool;
-		
 		if(has_double_swing_by) {
 			thread_args.min_max_dsb_duration[0] = min_max_dsb_duration[0];
 			thread_args.min_max_dsb_duration[1] = min_max_dsb_duration[1];
 		}
-		thread_pool = use_thread_pool64(decrease_porkchop_size_thread_pool, &thread_args);
+		
+		struct Thread_Pool thread_pool = !has_double_swing_by ?
+				use_thread_pool64(decrease_porkchop_size_thread, &thread_args) :
+			    use_thread_pool64(decrease_porkchop_size_double_swing_by_thread, &thread_args);
+		
 		join_thread_pool(thread_pool);
 		
         for(int j = 0; j < (int)porkchops[i][0]/4; j++) {
