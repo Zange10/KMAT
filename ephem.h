@@ -2,7 +2,7 @@
 #define KSP_EPHEM_H
 
 /**
- * @brief Represents the ephemeral data consisting of date, position, and velocity components.
+ * @brief Represents the ephemeral data consisting of date, position, and velocity components
  */
 struct Ephem {
 	double date; /**< Date associated with the ephemeral data (Julian Date) */
@@ -15,7 +15,7 @@ struct Ephem {
 };
 
 /**
- * @brief Represents a date and time with year, month, day, hour, minute, and second components.
+ * @brief Represents a date and time with year, month, day, hour, minute, and second components
  */
 struct Date {
 	int y;       /**< Year */
@@ -77,6 +77,15 @@ void print_ephem(struct Ephem ephem);
  */
 void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_steps, double jd0, double jd1, int download);
 
+
+/**
+ * @brief Find the last ephemeris before the given date
+ *
+ * @param ephem List of all ephemeral data
+ * @param date The given date (Julian Date)
+ *
+ * @return The last ephemeris before given date
+ */
 struct Ephem get_last_ephem(struct Ephem *ephem, double date);
 
 #endif //KSP_EPHEM_H

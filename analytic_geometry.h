@@ -2,7 +2,7 @@
 #define KSP_ANALYTIC_GEOMETRY_H
 
 /**
- * @brief Represents a 3D vector with x, y, and z components.
+ * @brief Represents a 3D vector with x, y, and z components
  */
 struct Vector {
 	double x; /**< X component of the vector */
@@ -11,7 +11,7 @@ struct Vector {
 };
 
 /**
- * @brief Represents a 2D vector with x and y components.
+ * @brief Represents a 2D vector with x and y components
  */
 struct Vector2D {
 	double x; /**< X component of the 2D vector */
@@ -19,7 +19,7 @@ struct Vector2D {
 };
 
 /**
- * @brief Represents a plane in 3D space defined by a location vector and two directional vectors.
+ * @brief Represents a plane in 3D space defined by a location vector and two directional vectors
  */
 struct Plane {
 	struct Vector loc; /**< Location vector of the plane */
