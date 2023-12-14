@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #include "celestial_bodies.h"
 #include "launch_calculator/launch_calculator.h"
 #include "orbit_calculator/orbit_calculator.h"

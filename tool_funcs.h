@@ -1,7 +1,31 @@
 #include <ctype.h>
-// let user select a given option by index (integer); title, options and question as string with options separarted by ';'
+
+/**
+ * @brief let user select a given option by index (integer)
+ *
+ * @param title The string, which should be placed at the top of the request
+ * @param options The different choosable options (separated by semicolon)
+ * @param question The string, which should be placed at the bottom of the request and to which the user should answer
+ *
+ * @return The index of the option, the user selected
+ */
 int user_selection(char *title, char *options, char *question);
-// prints x amount of underscores and two additional line-breaks
+
+
+/**
+ * @brief prints x amount of underscores and two additional line-breaks
+ *
+ * @param x The amount of underscores to be printed
+ */
 void print_separator(int x);
-// returns 1 if strings are not the same, returns 0 if strings are the same
+
+
+/**
+ * @brief Compares to strings as to whether they are the same or not (not case-sensitive)
+ *
+ * @param a String 1
+ * @param b String 2
+ *
+ * @return Returns 1 if the strings are the same and 0 if not
+ */
 int strcicmp(char const *a, char const *b);

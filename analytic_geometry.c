@@ -34,11 +34,11 @@ struct Vector2D norm_vector2d(struct Vector2D v) {
     return scalar_multipl2d(v, 1 / mag);
 }
 
-struct Vector2D rotate_vector2d(struct Vector2D n, double gamma) {
+struct Vector2D rotate_vector2d(struct Vector2D v, double gamma) {
     struct Vector2D v_rot;
     gamma *= -1; // clockwise rotation
-    v_rot.x = cos(gamma) * n.x - sin(gamma) * n.y;
-    v_rot.y = sin(gamma) * n.x + cos(gamma) * n.y;
+    v_rot.x = cos(gamma)*v.x - sin(gamma)*v.y;
+    v_rot.y = sin(gamma)*v.x + cos(gamma)*v.y;
     return v_rot;
 }
 
@@ -81,12 +81,6 @@ struct Plane constr_plane(struct Vector loc, struct Vector u, struct Vector v) {
 
 struct Vector calc_plane_norm_vector(struct Plane p) {
     return cross_product(p.v, p.u);
-}
-
-struct Vector2D inverse_vector2d(struct Vector2D v) {
-    v.x = 1/v.x;
-    v.y = 1/v.y;
-    return v;
 }
 
 double angle_vec_vec(struct Vector v1, struct Vector v2) {

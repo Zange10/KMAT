@@ -3,13 +3,16 @@
 
 #include "orbit_calculator/orbit.h"
 
-
 // struct Body currently declared in orbit.h (needs to be declared after struct Orbit)
 
-// initialize all celestial bodies
+/**
+ * @brief Initializes all celestial bodies
+ */
 void init_celestial_bodies();
 
-// returns all stored celestial bodies in an array
+/**
+ * @brief Returns all stored celestial bodies
+ */
 struct Body ** all_celest_bodies();
 
 struct Body * SUN();
