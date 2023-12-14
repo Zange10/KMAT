@@ -29,3 +29,13 @@ void print_separator(int x);
  * @return Returns 1 if the strings are the same and 0 if not
  */
 int strcicmp(char const *a, char const *b);
+
+
+/**
+ * @brief show progress in command line in percent
+ *
+ * @param text The descriptive text that is displayed in front of the progress status
+ * @param progress The amount of progress that has been made
+ * @param total The total progress needed for 100%
+ */
+void show_progress(char *text, double progress, double total);

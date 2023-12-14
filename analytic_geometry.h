@@ -86,10 +86,21 @@ struct Vector2D norm_vector2d(struct Vector2D v);
 
 
 /**
+ * @brief Rotates a vector around an axis
+ *
+ * @param v The vector that is to be rotated
+ * @param axis The axis-vector around which the vector is to be rotated
+ * @param angle The angle by which the vector is to be rotated
+ * @return The rotated vector
+ */
+struct Vector rotate_vector_around_axis(struct Vector v, struct Vector axis, double angle);
+
+
+/**
  * @brief Rotates 2D-vector in clock-wise direction
  *
  * @param v The 2D-vector that is to be rotated
- * @param gamma The angle by which the vector should be rotated
+ * @param gamma The angle by which the vector is to be rotated
  * @return The rotated 2D-vector
  */
 struct Vector2D rotate_vector2d(struct Vector2D v, double gamma);

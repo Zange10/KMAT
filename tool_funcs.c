@@ -49,3 +49,10 @@ int strcicmp(char const *a, char const *b)
             return d;
     }
 }
+
+
+void show_progress(char *text, double progress, double total) {
+    double percentage = (progress / total) * 100.0;
+    printf("\r%s: %.2f%%", text, percentage);
+    fflush(stdout);
+}

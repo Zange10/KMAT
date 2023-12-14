@@ -98,20 +98,17 @@ void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_step
         // Construct the URL with your API key and parameters
 
         char url[256];
-        int center = 0;
-        // TODO: correct error due to using sun center instead of barycenter for inner planets + jupiter
-        if (body_code <= 5) center = 10;     // inner planets + jupiter sun center; solar system bary center else
         sprintf(url, "https://ssd.jpl.nasa.gov/api/horizons.api?"
                      "format=text&"
                      "COMMAND='%d'&"
                      "OBJ_DATA='NO'&"
                      "MAKE_EPHEM='YES'&"
                      "EPHEM_TYPE='VECTORS'&"
-                     "CENTER='500@%d'&"
+                     "CENTER='500@10'&"
                      "START_TIME='%s'&"
                      "STOP_TIME='%s'&"
                      "STEP_SIZE='%dd'&"
-                     "VEC_TABLE='2'", body_code, center, d0_s, d1_s, time_steps);
+                     "VEC_TABLE='2'", body_code, d0_s, d1_s, time_steps);
 
         // Construct the wget command
         char wget_command[512];
@@ -179,5 +176,13 @@ void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_step
     ephem[size_ephem-1].date = -1;  // to know where array ends
     // Close the file when done
     fclose(file);
-    return;
+}
+
+struct Ephem get_last_ephem(struct Ephem *ephem, double date) {
+    int i = 0;
+    while (ephem[i].date > 0) {
+        if(date < ephem[i].date) return ephem[i-1];
+        i++;
+    }
+    return ephem[i-1];
 }

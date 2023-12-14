@@ -2,9 +2,9 @@
 #define KSP_TRANSFER_CALCULATOR_H
 
 #include "analytic_geometry.h"
+#include "porkchop_tools.h"
 
-void create_transfer();
-
-struct Transfer calc_transfer(struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, double *data);
+void simple_transfer();
+void create_swing_by_transfer();
 
 #endif //KSP_TRANSFER_CALCULATOR_H

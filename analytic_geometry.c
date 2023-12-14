@@ -138,6 +138,29 @@ struct Vector calc_intersecting_line_dir(struct Plane p1, struct Plane p2) {
     return dir;
 }
 
+struct Vector rotate_vector_around_axis(struct Vector v, struct Vector axis, double angle) {
+    struct Vector u = norm_vector(axis);
+    double ca = cos(angle);
+    double mca = 1-cos(angle);
+    double sa = sin(angle);
+
+    double R[3][3] = {
+            {ca+u.x*u.x*mca,        u.x*u.y*mca-u.z*sa,         u.x*u.z*mca+u.y*sa},
+            {u.y*u.x*mca+u.z*sa,    ca+u.y*u.y*mca,             u.y*u.z*mca-u.x*sa},
+            {u.z*u.x*mca-u.y*sa,    u.z*u.y*mca+u.x*sa,         ca+u.z*u.z*mca}
+    };
+
+    double v_vec[3] = {v.x, v.y, v.z};
+    double rot_v[3] = {0,0,0};
+
+    for(int i = 0; i < 3; i++) {
+        for(int j = 0; j < 3; j++) {
+            rot_v[i] += R[i][j]*v_vec[j];
+        }
+    }
+    struct Vector rotated_vector = {rot_v[0], rot_v[1], rot_v[2]};
+    return rotated_vector;
+}
 
 
 void print_vector(struct Vector v) {

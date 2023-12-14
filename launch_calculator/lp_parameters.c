@@ -10,7 +10,7 @@ struct Lp_Params best_lp_params = {.a1 = 0.00003, .a2 = 0.000004, .b2 = 40, .h =
 struct Launch_Results best_results;
 double min_pe = 180e3;
 
-struct Thread_Args {
+struct Param_Thread_Args {
     double payload_mass;
     struct Lp_Params lp_params;
     struct LV lv;
@@ -18,7 +18,7 @@ struct Thread_Args {
 
 // Launched at every b2 calculation for fixed payload analysis
 void *calc_launch_results(void *arg) {
-    struct Thread_Args *thread_args = (struct Thread_Args *)arg;
+    struct Param_Thread_Args *thread_args = (struct Param_Thread_Args *)arg;
     struct Lp_Params lp_params = thread_args->lp_params;
 
     struct Launch_Results results = calculate_launch(thread_args->lv, thread_args->payload_mass, lp_params, 1);
@@ -57,7 +57,7 @@ void lp_param_fixed_payload_analysis(struct LV lv, double payload_mass, struct L
     printf("\n_________________________________\nAnalyzing %g launches:\n\n", (all_results[0]-1)/6);
 
     pthread_t threads[(int)size_b];
-    struct Thread_Args thread_args[(int)size_b];
+    struct Param_Thread_Args thread_args[(int)size_b];
 
     for(int i = 0; i < (int)size_a1; i++) {
         lp_params.a1 = i*step_size_a + min_a1;
@@ -152,7 +152,7 @@ void lp_param_analysis(struct LV lv, double payload_mass, struct Analysis_Params
     best_results.dv = 10000;
 
     printf("analyzing %g launches:\n\n", size_a1*size_a2*size_b);
-    struct Thread_Args thread_args[(int)size_b];
+    struct Param_Thread_Args thread_args[(int)size_b];
     pthread_t threads[(int)size_b];
 
     for(int i = 0; i < (int)size_a1; i++) {
