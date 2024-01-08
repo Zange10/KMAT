@@ -16,6 +16,13 @@ struct Vector add_vectors(struct Vector v1, struct Vector v2) {
     return v;
 }
 
+struct Vector2D add_vectors2d(struct Vector2D v1, struct Vector2D v2) {
+	struct Vector2D v;
+	v.x = v1.x+v2.x;
+	v.y = v1.y+v2.y;
+	return v;
+}
+
 double vector_mag(struct Vector v) {
     return sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
 }
