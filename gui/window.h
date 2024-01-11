@@ -13,6 +13,6 @@ struct Window {
 	int height
 };
 
-struct Window create_window(int width, int height);
+void create_window();
 
 #endif //KSP_WINDOW_H

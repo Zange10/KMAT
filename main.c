@@ -10,8 +10,7 @@
 
 int main() {
     init_celestial_bodies();
-	struct Window win = create_window(500, 500);
-	struct Window win2 = create_window(500, 500);
+	create_window();
 	return 0;
     if(0)simple_transfer();
     else create_swing_by_transfer();
