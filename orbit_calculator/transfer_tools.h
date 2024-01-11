@@ -33,7 +33,7 @@ struct OSV {
 // calculate the 2-dimensional vector with given magnitude, location, true anomaly and flight path angle
 struct Vector2D calc_v_2d(double r_mag, double v_mag, double theta, double gamma);
 
-// calculate 3D-Vector from vector in orbital plane with given RAAN, Argument of Periapsis and Inclination
+// calculate 3D-Vector from vector in orbital plane with given raan, Argument of Periapsis and Inclination
 struct Vector heliocentric_rot(struct Vector2D v, double RAAN, double w, double inc);
 
 // calculate orbital elements in 2D orbit using the radii of the two transfer points, the target transfer duration and the delta in true anomaly between them
@@ -52,7 +52,10 @@ double dv_circ(struct Body *body, double rp, double vinf);
 double dv_capture(struct Body *body, double rp, double vinf);
 
 // propagate elliptical orbit by time
-struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor);
+struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, struct Body *attractor);
+
+// propagate elliptical orbit by true anomaly
+struct OSV propagate_orbit_theta(struct Vector r, struct Vector v, double dtheta, struct Body *attractor);
 
 // calculate the orbital state vector at the given date for a given ephemeris list
 struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor);

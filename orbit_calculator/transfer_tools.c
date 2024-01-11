@@ -293,12 +293,12 @@ struct Transfer calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1,
     struct Vector2D v_t1_2d = calc_v_2d(vector_mag(r1), v_t1_mag, theta1, gamma1);
     struct Vector2D v_t2_2d = calc_v_2d(vector_mag(r2), v_t2_mag, theta2, gamma2);
 
-    // calculate RAAN, inclination and argument of periapsis
+    // calculate raan, inclination and argument of periapsis
     struct Vector inters_line = calc_intersecting_line_dir(p_0, p_T);
-    if(inters_line.y < 0) inters_line = scalar_multiply(inters_line, -1); // for rotation of RAAN in clock-wise direction
+    if(inters_line.y < 0) inters_line = scalar_multiply(inters_line, -1); // for rotation of raan in clock-wise direction
     struct Vector in_plane_up = cross_product(inters_line, calc_plane_norm_vector(p_T));    // 90° to intersecting line and norm vector of plane
-    if(in_plane_up.z < 0) in_plane_up = scalar_multiply(in_plane_up, -1);   // this vector is always 90° before RAAN for prograde orbits
-    double RAAN = in_plane_up.x <= 0 ? angle_vec_vec(vec(1,0,0), inters_line) : angle_vec_vec(vec(1,0,0), inters_line) + M_PI;   // RAAN 90° behind in_plane_up
+    if(in_plane_up.z < 0) in_plane_up = scalar_multiply(in_plane_up, -1);   // this vector is always 90° before raan for prograde orbits
+    double RAAN = in_plane_up.x <= 0 ? angle_vec_vec(vec(1,0,0), inters_line) : angle_vec_vec(vec(1,0,0), inters_line) + M_PI;   // raan 90° behind in_plane_up
 
     //double i = angle_plane_plane(p_T, p_0);   // can create angles greater than 90°
     double i = angle_plane_vec(p_0, in_plane_up);   // also possible to get angle between p_0 and in_plane_up
@@ -404,7 +404,7 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
             }
             //if (dur > max_dur) break;
             gettimeofday(&start, NULL);  // Record the starting time
-            struct OSV osv_m0 = propagate_orbit(p0.r, v_t00, dur, SUN());
+            struct OSV osv_m0 = propagate_orbit_time(p0.r, v_t00, dur, SUN());
             gettimeofday(&end, NULL);  // Record the ending time
             elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000.0;
             //printf("%6.4f", elapsed_time);
@@ -743,37 +743,22 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
 
 
 
-struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
-    double r_mag = vector_mag(r);
-    double v_mag = vector_mag(v);
-    double v_r = dot_product(v,r) / r_mag;
-    double mu = attractor->mu;
+struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
+    struct Orbit orbit = constr_orbit_from_osv(r,v,attractor);
 
-    double a = 1 / (2/r_mag - pow(v_mag,2)/mu);
-    struct Vector h = cross_product(r,v);
-    struct Vector e = scalar_multiply(add_vectors(cross_product(v,h), scalar_multiply(r, -mu/r_mag)), 1/mu);
-    double e_mag = vector_mag(e);
-
-    struct Vector k = {0,0,1};
-    struct Vector n_vec = cross_product(k, h);
-    struct Vector n_norm = norm_vector(n_vec);
-    double RAAN, i, arg_peri;
-    if(vector_mag(n_vec) != 0) {
-        RAAN = n_norm.y >= 0 ? acos(n_norm.x) : 2 * M_PI - acos(n_norm.x); // if n_norm.y is negative: RAAN > 180°
-        i = acos(dot_product(k, norm_vector(h)));
-        arg_peri = e.z >= 0 ? acos(dot_product(n_norm, e) / e_mag) : 2 * M_PI - acos(dot_product(n_norm, e) / e_mag);  // if r.z is positive: w > 180°
-    } else {
-        RAAN = 0;
-        i = dot_product(k, norm_vector(h)) > 0 ? 0 : M_PI;
-        arg_peri = cross_product(r,v).z * e.y > 0 ? acos(e.x/e_mag) : 2*M_PI - acos(e.x/e_mag);
-    }
-    double theta = v_r >= 0 ? acos(dot_product(e,r) / (e_mag*r_mag)) : 2*M_PI - acos(dot_product(e,r) / (e_mag*r_mag));
-    double E = 2 * atan(sqrt((1-e_mag)/(1+e_mag)) * tan(theta/2));
-    double t = (E-e_mag*sin(E)) / sqrt(mu/ pow(a,3));
-    double n = sqrt(mu / pow(fabs(a),3));
-    double T = 2*M_PI/n;
-    if(t < 0) t += T;
-
+	double theta = orbit.theta;
+	double t = orbit.t;
+	double e = orbit.e;
+	double a = orbit.a;
+	double RAAN = orbit.raan;
+	double arg_peri = orbit.arg_peri;
+	double i = orbit.inclination;
+	double mu = attractor->mu;
+	double T = orbit.period;
+	
+	double n = sqrt(mu / pow(fabs(a),3));
+	
+	
     double target_t = t+dt;
     double step = deg2rad(5);
     // if dt is basically 0, only add step, as this gets subtracted after the loop (not going inside loop)
@@ -787,8 +772,8 @@ struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct B
     while(fabs(t-target_t) > 1) {
         c++;
         theta = pi_norm(theta);
-        E = acos((e_mag + cos(theta)) / (1 + e_mag * cos(theta)));
-        t = (E - e_mag * sin(E)) / n;
+        double E = acos((e + cos(theta)) / (1 + e * cos(theta)));
+        t = (E - e * sin(E)) / n;
         if(theta > M_PI) t = T-t;
 
         // prevent endless loops (floating point imprecision can lead to not changing values for very small steps)
@@ -812,9 +797,9 @@ struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct B
     }
     theta -= step; // reset theta1 from last change inside the loop
 
-    double gamma = atan(e_mag*sin(theta)/(1+e_mag*cos(theta)));
-    r_mag = a*(1-pow(e_mag,2)) / (1+e_mag*cos(theta));
-    v_mag = sqrt(mu*(2/r_mag - 1/a));
+    double gamma = atan(e*sin(theta)/(1+e*cos(theta)));
+    double r_mag = a*(1-pow(e,2)) / (1+e*cos(theta));
+    double v_mag = sqrt(mu*(2/r_mag - 1/a));
     struct Vector2D r_2d = {cos(theta) * r_mag, sin(theta) * r_mag};
     struct Vector2D v_2d = calc_v_2d(r_mag, v_mag, theta, gamma);
 
@@ -825,11 +810,35 @@ struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct B
     return osv;
 }
 
+struct OSV propagate_orbit_theta(struct Vector r, struct Vector v, double dtheta, struct Body *attractor) {
+	struct Orbit orbit = constr_orbit_from_osv(r,v,attractor);
+	
+	double theta = pi_norm(orbit.theta+dtheta);
+	double e = orbit.e;
+	double a = orbit.a;
+	double RAAN = orbit.raan;
+	double arg_peri = orbit.arg_peri;
+	double i = orbit.inclination;
+	double mu = attractor->mu;
+	
+	double gamma = atan(e*sin(theta)/(1+e*cos(theta)));
+	double r_mag = a*(1-pow(e,2)) / (1+e*cos(theta));
+	double v_mag = sqrt(mu*(2/r_mag - 1/a));
+	struct Vector2D r_2d = {cos(theta) * r_mag, sin(theta) * r_mag};
+	struct Vector2D v_2d = calc_v_2d(r_mag, v_mag, theta, gamma);
+	
+	r = heliocentric_rot(r_2d, RAAN, arg_peri, i);
+	v = heliocentric_rot(v_2d, RAAN, arg_peri, i);
+	
+	struct OSV osv = {r, v};
+	return osv;
+}
+
 struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor) {
     struct Ephem ephem = get_last_ephem(ephem_list, date);
     struct Vector r1 = {ephem.x, ephem.y, ephem.z};
     struct Vector v1 = {ephem.vx, ephem.vy, ephem.vz};
     double dt1 = (date - ephem.date) * (24 * 60 * 60);
-    struct OSV osv = propagate_orbit(r1, v1, dt1, attractor);
+    struct OSV osv = propagate_orbit_time(r1, v1, dt1, attractor);
     return osv;
 }

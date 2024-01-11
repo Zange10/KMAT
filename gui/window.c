@@ -3,6 +3,7 @@
 #include "ephem.h"
 #include "celestial_bodies.h"
 #include "orbit_calculator/transfer_tools.h"
+#include "drawing.h"
 
 #include <math.h>
 
@@ -41,16 +42,20 @@ static gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 			if(id == 2) {
 				cairo_set_source_rgb(cr, 0.6, 0.6, 0.2);
 				osv = osv_from_ephem(ephems[0], jd_date, VENUS()->orbit.body);
+				cairo_arc(cr, center.x+osv.r.x/1e9, center.y+osv.r.y/1e9,body_radius,0,M_PI*2);
+				cairo_fill(cr);
+				draw_orbit(cr, center, 1e-9, osv.r, osv.v, VENUS()->orbit.body);
 			} else if(id == 3) {
 				cairo_set_source_rgb(cr, 0, 0, 1);
 				osv = osv_from_ephem(ephems[1], jd_date, EARTH()->orbit.body);
+				cairo_arc(cr, center.x+osv.r.x/1e9, center.y+osv.r.y/1e9,body_radius,0,M_PI*2);
+				cairo_fill(cr);
+				draw_orbit(cr, center, 1e-9, osv.r, osv.v, EARTH()->orbit.body);
 			} else {
 				cairo_set_source_rgb(cr, 1, 1, 1);
 				osv.r = vec(0,0,0);
 				osv.v = vec(0,0,0);
 			}
-			cairo_arc(cr, center.x+osv.r.x/1e9, center.y+osv.r.y/1e9,body_radius,0,M_PI*2);
-			cairo_fill(cr);
 		}
 	}
 	return TRUE;

@@ -10,9 +10,9 @@ struct Orbit constr_orbit(double a, double e, double i, double lan, double arg_o
     new_orbit.a = a;
     new_orbit.e = e;
     new_orbit.inclination = i;
-    new_orbit.lan = lan;
-    new_orbit.arg_of_peri = arg_of_peri;
-    new_orbit.true_anom = 0;
+    new_orbit.raan = lan;
+    new_orbit.arg_peri = arg_of_peri;
+    new_orbit.theta = 0;
     new_orbit.apoapsis  = a*(1+e);
     new_orbit.periapsis = a*(1-e);
     new_orbit.period = 2*M_PI*sqrt(pow(a,3)/body->mu);
@@ -36,13 +36,58 @@ struct Orbit constr_orbit_w_apsides(double apsis1, double apsis2, double inclina
     new_orbit.period = 2*M_PI*sqrt(pow(new_orbit.a,3)/body->mu);
 
     // not given, therefore zero
-    new_orbit.lan = 0;
-    new_orbit.arg_of_peri = 0;
-    new_orbit.true_anom = 0;
+    new_orbit.raan = 0;
+    new_orbit.arg_peri = 0;
+    new_orbit.theta = 0;
 
     return new_orbit;
 }
 
+struct Orbit constr_orbit_from_osv(struct Vector r, struct Vector v, struct Body *attractor) {
+	struct Orbit new_orbit;
+	new_orbit.body = attractor;
+	
+	double r_mag = vector_mag(r);
+	double v_mag = vector_mag(v);
+	double v_r = dot_product(v,r) / r_mag;
+	double mu = attractor->mu;
+	
+	double a = 1 / (2/r_mag - pow(v_mag,2)/mu);
+	struct Vector h = cross_product(r,v);
+	struct Vector e = scalar_multiply(add_vectors(cross_product(v,h), scalar_multiply(r, -mu/r_mag)), 1/mu);
+	double e_mag = vector_mag(e);
+	
+	struct Vector k = {0,0,1};
+	struct Vector n_vec = cross_product(k, h);
+	struct Vector n_norm = norm_vector(n_vec);
+	double RAAN, i, arg_peri;
+	if(vector_mag(n_vec) != 0) {
+		RAAN = n_norm.y >= 0 ? acos(n_norm.x) : 2 * M_PI - acos(n_norm.x); // if n_norm.y is negative: raan > 180°
+		i = acos(dot_product(k, norm_vector(h)));
+		arg_peri = e.z >= 0 ? acos(dot_product(n_norm, e) / e_mag) : 2 * M_PI - acos(dot_product(n_norm, e) / e_mag);  // if r.z is positive: w > 180°
+	} else {
+		RAAN = 0;
+		i = dot_product(k, norm_vector(h)) > 0 ? 0 : M_PI;
+		arg_peri = cross_product(r,v).z * e.y > 0 ? acos(e.x/e_mag) : 2*M_PI - acos(e.x/e_mag);
+	}
+	double theta = v_r >= 0 ? acos(dot_product(e,r) / (e_mag*r_mag)) : 2*M_PI - acos(dot_product(e,r) / (e_mag*r_mag));
+	double E = 2 * atan(sqrt((1-e_mag)/(1+e_mag)) * tan(theta/2));
+	double t = (E-e_mag*sin(E)) / sqrt(mu/ pow(a,3));
+	double n = sqrt(mu / pow(fabs(a),3));
+	double T = 2*M_PI/n;
+	if(t < 0) t += T;
+	
+	new_orbit.a = a;
+	new_orbit.e = e_mag;
+	new_orbit.inclination = i;
+	new_orbit.raan = RAAN;
+	new_orbit.arg_peri = arg_peri;
+	new_orbit.t = t;
+	new_orbit.period = T;
+	new_orbit.theta = theta;
+	
+	return new_orbit;
+}
 
 double calc_orbital_speed(struct Orbit orbit, double r) {
     double v2 = orbit.body->mu * (2/r - 1/orbit.a);

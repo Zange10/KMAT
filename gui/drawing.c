@@ -4,26 +4,23 @@
 
 #include "drawing.h"
 #include "math.h"
+#include "orbit_calculator/transfer_tools.h"
 
 
-void draw_orbit(cairo_t *cr, struct Vector2D center, double a, double e, double mu) {
-	double h = sqrt(mu*a*(1-e*e));
+void draw_orbit(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor) {
 	int steps = 100;
-	for(int i = 0; i < steps; i++) {
+	struct OSV last_osv = {r,v};
+	for(int i = 1; i <= steps; i++) {
 		double theta = 2*M_PI/steps * i;
-		double r = (h*h/mu)/(1+e*cos(theta)) / 1e9;
-		struct Vector2D p0 = {.x = cos(theta)*r, .y = sin(theta)*r};
+		struct OSV osv = propagate_orbit_theta(r,v,theta,attractor);
+		struct Vector2D p1 = {last_osv.r.x, last_osv.r.y};
+		struct Vector2D p2 = {osv.r.x, osv.r.y};
 		
-		theta = 2*M_PI/steps * (i+1);
-		r = (h*h/mu)/(1+e*cos(theta)) / 1e9;
-		struct Vector2D p1 = {.x = cos(theta)*r, .y = sin(theta)*r};
+		p1 = scalar_multipl2d(p1,scale);
+		p2 = scalar_multipl2d(p2,scale);
 		
-		scalar_multipl2d(p0,1e-9);
-		scalar_multipl2d(p1,1e-9);
-		
-		p0 = add_vectors2d(p0, center);
-		p1 = add_vectors2d(p1, center);
-		draw_stroke(cr, p0, p1);
+		draw_stroke(cr, add_vectors2d(p1,center), add_vectors2d(p2,center));
+		last_osv = osv;
 	}
 }
 
