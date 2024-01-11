@@ -6,6 +6,7 @@
 #include "drawing.h"
 
 #include <math.h>
+#include <string.h>
 
 static int counter = 0;
 GObject *drawing_area;
@@ -13,13 +14,13 @@ GObject *lb_date;
 
 gboolean body_show_status[9];
 struct Ephem **ephems;
-int body_radius = 5;
 
 double current_date;
 
 
 void activate(GtkApplication *app, gpointer user_data);
-
+void on_body_toggle(GtkWidget* widget, gpointer data);
+void on_change_date(GtkWidget* widget, gpointer data);
 
 static gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	GtkAllocation allocation;
@@ -33,7 +34,7 @@ static gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	cairo_fill(cr);
 	
 	cairo_set_source_rgb(cr, 1, 1, 0.3);
-	cairo_arc(cr, center.x, center.y,body_radius,0,M_PI*2);
+	draw_body(cr, center, 0, vec(0,0,0));
 	cairo_fill(cr);
 	
 	int highest_id = 0;
@@ -46,20 +47,19 @@ static gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 			if(id == 2) {
 				cairo_set_source_rgb(cr, 0.6, 0.6, 0.2);
 				osv = osv_from_ephem(ephems[0], current_date, VENUS()->orbit.body);
-				cairo_arc(cr, center.x+osv.r.x/1e9, center.y+osv.r.y/1e9,body_radius,0,M_PI*2);
+				draw_body(cr, center, 1e-9, osv.r);
 				cairo_fill(cr);
 				draw_orbit(cr, center, 1e-9, osv.r, osv.v, VENUS()->orbit.body);
 			} else if(id == 3) {
 				cairo_set_source_rgb(cr, 0, 0, 1);
 				osv = osv_from_ephem(ephems[1], current_date, EARTH()->orbit.body);
-				cairo_arc(cr, center.x+osv.r.x/1e9, center.y+osv.r.y/1e9,body_radius,0,M_PI*2);
-				cairo_fill(cr);
+				draw_body(cr, center, 1e-9, osv.r);
 				draw_orbit(cr, center, 1e-9, osv.r, osv.v, EARTH()->orbit.body);
 			} else {
 				cairo_set_source_rgb(cr, 1, 1, 1);
 				osv.r = vec(0,0,0);
 				osv.v = vec(0,0,0);
-				cairo_arc(cr, center.x+osv.r.x/1e9, center.y+osv.r.y/1e9,body_radius,0,M_PI*2);
+				draw_body(cr, center, 1e-9, osv.r);
 				cairo_fill(cr);
 			}
 		}
@@ -113,12 +113,6 @@ void create_window() {
 	g_object_unref (app);
 	free(ephems);
 }
-
-void on_body_toggle(GtkWidget* widget, gpointer data) {
-	int id = (int) gtk_widget_get_name(widget)[0] - 48;
-	body_show_status[id-1] = body_show_status[id-1] ? 0 : 1;
-	gtk_widget_queue_draw(GTK_WIDGET(drawing_area));
-}
 	
 void activate(GtkApplication *app, gpointer user_data) {
 	/* Construct a GtkBuilder instance and load our UI description */
@@ -140,4 +134,27 @@ void activate(GtkApplication *app, gpointer user_data) {
 	
 	/* We do not need the builder anymore */
 	g_object_unref(builder);
+}
+
+
+
+
+
+void on_body_toggle(GtkWidget* widget, gpointer data) {
+	int id = (int) gtk_widget_get_name(widget)[0] - 48;
+	body_show_status[id-1] = body_show_status[id-1] ? 0 : 1;
+	gtk_widget_queue_draw(GTK_WIDGET(drawing_area));
+}
+
+
+void on_change_date(GtkWidget* widget, gpointer data) {
+	const char *name = gtk_widget_get_name(widget);
+	if		(strcmp(name, "+1Y") == 0) current_date = jd_change_date(current_date, 1, 0, 0);
+	else if	(strcmp(name, "+1M") == 0) current_date = jd_change_date(current_date, 0, 1, 0);
+	else if	(strcmp(name, "+1D") == 0) current_date++;
+	else if	(strcmp(name, "-1Y") == 0) current_date = jd_change_date(current_date,-1, 0, 0);
+	else if	(strcmp(name, "-1M") == 0) current_date = jd_change_date(current_date, 0,-1, 0);
+	else if	(strcmp(name, "-1D") == 0) current_date--;
+	update_date_label();
+	gtk_widget_queue_draw(GTK_WIDGET(drawing_area));
 }

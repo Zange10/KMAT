@@ -12,5 +12,6 @@
 
 void draw_stroke(cairo_t *cr, struct Vector2D p1, struct Vector2D p2);
 void draw_orbit(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor);
+void draw_body(cairo_t *cr, struct Vector2D center, double scale, struct Vector r);
 
 #endif //KSP_DRAWING_H

@@ -87,6 +87,23 @@ double convert_date_JD(struct Date date) {
     return J;
 }
 
+double jd_change_date(double jd, int delta_years, int delta_months, double delta_days) {
+	jd += delta_days;
+	struct Date date = convert_JD_date(jd);
+	date.m += delta_months;
+	while(date.m > 12) {
+		date.m -= 12;
+		date.y++;
+	}
+	while(date.m < 1) {
+		date.m += 12;
+		date.y--;
+	}
+	date.y += delta_years;
+	jd = convert_date_JD(date);
+	return jd;
+}
+
 void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_steps, double jd0, double jd1, int download) {
     if(download) {
         struct Date d0 = convert_JD_date(jd0);

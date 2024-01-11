@@ -67,6 +67,16 @@ struct Date convert_JD_date(double JD);
 
 
 /**
+ * @brief changes the Julian Date by the delta time given
+ *
+ * @param delta_years Years to add or subtract
+ * @param delta_months Months to add or subtract
+ * @param delta_days Days to add or subtract
+ */
+double jd_change_date(double jd, int delta_years, int delta_months, double delta_days);
+
+
+/**
  * @brief Prints the date, position and velocity vector of the given ephemeris
  *
  * @param ephem The given ephemeris
