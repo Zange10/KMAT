@@ -17,9 +17,9 @@ void print_date(struct Date date, int line_break) {
     if(line_break) printf("\n");
 }
 
-char * date_to_string(struct Date date, char *s) {
-    sprintf(s,"%4d-%02d-%02d %02d:%02d:%06.3f", date.y, date.m, date.d, date.h, date.min, date.s);
-    return s;
+void date_to_string(struct Date date, char *s, int clocktime) {
+	if(clocktime) sprintf(s,"%4d-%02d-%02d %02d:%02d:%06.3f", date.y, date.m, date.d, date.h, date.min, date.s);
+	else sprintf(s,"%4d-%02d-%02d", date.y, date.m, date.d);
 }
 
 struct Date convert_JD_date(double JD) {
@@ -93,8 +93,8 @@ void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_step
         struct Date d1 = convert_JD_date(jd1);
         char d0_s[32];
         char d1_s[32];
-        date_to_string(d0, d0_s);
-        date_to_string(d1, d1_s);
+        date_to_string(d0, d0_s, 1);
+        date_to_string(d1, d1_s, 1);
         // Construct the URL with your API key and parameters
 
         char url[256];

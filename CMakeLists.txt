@@ -53,3 +53,5 @@ add_executable(KSP
 
 target_link_libraries(KSP m;
         ${GTK3_LIBRARIES})
+
+target_link_options(KSP PRIVATE -rdynamic)

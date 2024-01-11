@@ -37,6 +37,16 @@ void print_date(struct Date date, int line_break);
 
 
 /**
+ * @brief Returns a string with the date (excluding time)
+ *
+ * @param date The date to be converted to a string
+ * @param s The string the date should be saved in
+ * @param clocktime Set to 1 if clocktime should be shown, 0 if only date should be shown
+ */
+void date_to_string(struct Date date, char *s, int clocktime);
+
+
+/**
  * @brief Converts date format to Julian Date
  *
  * @param date The date to be converted
