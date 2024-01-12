@@ -2,7 +2,6 @@
 #include "analytic_geometry.h"
 #include "celestial_bodies.h"
 #include "transfer_tools.h"
-#include "ephem.h"
 #include <stdio.h>
 #include <sys/time.h>
 #include <math.h>
@@ -10,20 +9,22 @@
 
 
 void init_transfer() {
-    struct Ephem ephem[1000];
+    struct Ephem ephem[500];
+	struct Ephem contr_ephem[5000];
     double data[8][1000];
-    int time_steps = 10;
+    int time_steps = 30;
 
     for(int b = 0; b < 8; b++) {
         get_ephem(ephem, sizeof(ephem) / sizeof(struct Ephem), b + 1, time_steps, 1);
-
+		get_ephem(contr_ephem, sizeof(contr_ephem) / sizeof(struct Ephem), b + 1, 1, 1);
+		
+		struct Date date = {1975, 1, 1, 0, 0, 0};
+		double jd_date = convert_date_JD(date);
         for (int i = 1; i < 1000; i++) {
-            printf("\n%d ", i);
-
-            struct Vector r0 = {ephem[i-1].x, ephem[i-1].y, ephem[i-1].z};
-            struct Vector v0 = {ephem[i-1].vx, ephem[i-1].vy, ephem[i-1].vz};
-            struct Orbital_State_Vectors state = propagate_orbit(r0, v0, (time_steps * 24 * 60 * 60), SUN(), i);
-            struct Vector r = {ephem[i].x, ephem[i].y, ephem[i].z};
+			jd_date++;
+            struct Orbital_State_Vectors state = osv_from_ephem(ephem, jd_date, SUN());
+			struct Ephem control_ephem = get_closest_ephem(contr_ephem, jd_date);
+            struct Vector r = {control_ephem.x, control_ephem.y, control_ephem.z};
             struct Vector e = add_vectors(r, scalar_multiply(state.r, -1));
 //            data[i][0] = state.r.x;
 //            data[i][1] = state.r.y;

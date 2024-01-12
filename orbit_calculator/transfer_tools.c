@@ -1,7 +1,6 @@
 #include "transfer_tools.h"
 #include <math.h>
 #include <stdio.h>
-#include "ephem.h"
 
 
 struct Ephem sun_ephem[1000];
@@ -155,17 +154,11 @@ struct Transfer calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1,
 }
 
 
-struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor, int index) {
+struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
     if(!sun_ephem_initialized) {
         get_ephem(sun_ephem,  sizeof(sun_ephem) / sizeof(struct Ephem), 10, 10, 1);
         sun_ephem_initialized = 1;
     }
-    double weight = vector_mag(r)/2e12;
-    if(weight>1) weight = 1;
-
-    r.x -= sun_ephem[index].x * weight;
-    r.y -= sun_ephem[index].y * weight;
-    r.z -= sun_ephem[index].z * weight;
 
     double r_mag = vector_mag(r);
     double v_mag = vector_mag(v);
@@ -202,6 +195,7 @@ struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, d
     theta += step;
 
     while(target_t > T) target_t -= T;
+	while(target_t < 0) target_t += T;
 
     int c = 0;
 
@@ -236,10 +230,15 @@ struct Orbital_State_Vectors propagate_orbit(struct Vector r, struct Vector v, d
     r = heliocentric_rot(r_2d, RAAN, arg_peri, i);
     v = heliocentric_rot(v_2d, RAAN, arg_peri, i);
 
-    r.x += sun_ephem[index].x * weight;
-    r.y += sun_ephem[index].y * weight;
-    r.z += sun_ephem[index].z * weight;
-
     struct Orbital_State_Vectors osv = {r,v};
     return osv;
+}
+
+struct Orbital_State_Vectors osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor) {
+	struct Ephem ephem = get_closest_ephem(ephem_list, date);
+	struct Vector r1 = {ephem.x, ephem.y, ephem.z};
+	struct Vector v1 = {ephem.vx, ephem.vy, ephem.vz};
+	double dt1 = (date - ephem.date) * (24 * 60 * 60);
+	struct Orbital_State_Vectors osv = propagate_orbit(r1, v1, dt1, attractor);
+	return osv;
 }

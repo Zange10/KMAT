@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 void print_ephem(struct Ephem ephem) {
     printf("Date: %f  (", ephem.date);
@@ -87,8 +88,6 @@ void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int time_s
 
     if(download) {
         char url[256];
-        int center = 0;
-        if(body_code <= 5) center = 10;     // inner planets + jupiter sun center; solar system bary center else
         sprintf(url, "https://ssd.jpl.nasa.gov/api/horizons.api?"
                           "format=text&"
                           "COMMAND='%d'&"
@@ -96,8 +95,8 @@ void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int time_s
                           "MAKE_EPHEM='YES'&"
                           "EPHEM_TYPE='VECTORS'&"
                           "CENTER='500@10'&"
-                          "START_TIME='1960-01-01'&"
-                          "STOP_TIME='2010-01-01'&"
+                          "START_TIME='1970-01-01'&"
+                          "STOP_TIME='1980-01-01'&"
                           "STEP_SIZE='%dd'&"
                           "VEC_TABLE='2'", body_code, time_steps);
 
@@ -163,4 +162,17 @@ void get_ephem(struct Ephem *ephem, double size_ephem, int body_code, int time_s
     // Close the file when done
     fclose(file);
     return;
+}
+
+struct Ephem get_closest_ephem(struct Ephem *ephem, double date) {
+	int i = 0;
+	while (ephem[i].date > 0) {
+		if(date < ephem[i].date) {
+			if(i == 0) return ephem[0];
+			if(fabs(ephem[i-1].date - date) < fabs(ephem[i].date-date)) return ephem[i-1];
+			else return ephem[i];
+		}
+		i++;
+	}
+	return ephem[i-1];
 }
