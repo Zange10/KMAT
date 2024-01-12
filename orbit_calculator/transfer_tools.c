@@ -781,6 +781,7 @@ struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct B
 
     theta = pi_norm(theta);
     while(target_t > T) target_t -= T;
+	while(target_t < 0) target_t += T;
 
     int c = 0;
 
@@ -826,7 +827,7 @@ struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct B
 }
 
 struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor) {
-    struct Ephem ephem = get_last_ephem(ephem_list, date);
+    struct Ephem ephem = get_closest_ephem(ephem_list, date);
     struct Vector r1 = {ephem.x, ephem.y, ephem.z};
     struct Vector v1 = {ephem.vx, ephem.vy, ephem.vz};
     double dt1 = (date - ephem.date) * (24 * 60 * 60);

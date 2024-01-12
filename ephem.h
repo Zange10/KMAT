@@ -86,6 +86,6 @@ void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_step
  *
  * @return The last ephemeris before given date
  */
-struct Ephem get_last_ephem(struct Ephem *ephem, double date);
+struct Ephem get_closest_ephem(struct Ephem *ephem, double date);
 
 #endif //KSP_EPHEM_H

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 void print_ephem(struct Ephem ephem) {
     printf("Date: %f  (", ephem.date);
@@ -178,11 +179,15 @@ void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_step
     fclose(file);
 }
 
-struct Ephem get_last_ephem(struct Ephem *ephem, double date) {
-    int i = 0;
-    while (ephem[i].date > 0) {
-        if(date < ephem[i].date) return ephem[i-1];
-        i++;
-    }
-    return ephem[i-1];
+struct Ephem get_closest_ephem(struct Ephem *ephem, double date) {
+	int i = 0;
+	while (ephem[i].date > 0) {
+		if(date < ephem[i].date) {
+			if(i == 0) return ephem[0];
+			if(fabs(ephem[i-1].date - date) < fabs(ephem[i].date-date)) return ephem[i-1];
+			else return ephem[i];
+		}
+		i++;
+	}
+	return ephem[i-1];
 }
