@@ -4,6 +4,7 @@
 #include "celestial_bodies.h"
 #include "orbit_calculator/transfer_tools.h"
 #include "drawing.h"
+#include "orbit_calculator/orbit.h"
 
 #include <math.h>
 #include <string.h>
@@ -17,10 +18,10 @@ struct Ephem **ephems;
 
 double current_date;
 
-
 void activate(GtkApplication *app, gpointer user_data);
 void on_body_toggle(GtkWidget* widget, gpointer data);
 void on_change_date(GtkWidget* widget, gpointer data);
+void on_calendar_selection(GtkWidget* widget, gpointer data);
 
 static gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	GtkAllocation allocation;
@@ -36,32 +37,34 @@ static gboolean on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	cairo_set_source_rgb(cr, 1, 1, 0.3);
 	draw_body(cr, center, 0, vec(0,0,0));
 	cairo_fill(cr);
-	
+	double scale = 1e-9;
 	int highest_id = 0;
 	for(int i = 0; i < 9; i++) if(body_show_status[i]) highest_id = i+1;
+	if(highest_id > 0) {
+		struct Body *body = get_body_from_id(highest_id);
+		double apoapsis = body->orbit.apoapsis;
+		int wh = window_width < window_height ? window_width : window_height;
+		scale = 1/apoapsis*wh/2.2;	// divided by 2.2 because apoapsis is only one side and buffer
+	}
 	
 	for(int i = 0; i < 9; i++) {
 		if(body_show_status[i]) {
 			int id = i+1;
-			struct OSV osv;
-			if(id == 2) {
-				cairo_set_source_rgb(cr, 0.6, 0.6, 0.2);
-				osv = osv_from_ephem(ephems[0], current_date, VENUS()->orbit.body);
-				draw_body(cr, center, 1e-9, osv.r);
-				cairo_fill(cr);
-				draw_orbit(cr, center, 1e-9, osv.r, osv.v, VENUS()->orbit.body);
-			} else if(id == 3) {
-				cairo_set_source_rgb(cr, 0, 0, 1);
-				osv = osv_from_ephem(ephems[1], current_date, EARTH()->orbit.body);
-				draw_body(cr, center, 1e-9, osv.r);
-				draw_orbit(cr, center, 1e-9, osv.r, osv.v, EARTH()->orbit.body);
-			} else {
-				cairo_set_source_rgb(cr, 1, 1, 1);
-				osv.r = vec(0,0,0);
-				osv.v = vec(0,0,0);
-				draw_body(cr, center, 1e-9, osv.r);
-				cairo_fill(cr);
+			switch(id) {
+				case 1: cairo_set_source_rgb(cr, 0.3, 0.3, 0.3); break;
+				case 2: cairo_set_source_rgb(cr, 0.6, 0.6, 0.2); break;
+				case 3: cairo_set_source_rgb(cr, 0.2, 0.2, 1.0); break;
+				case 4: cairo_set_source_rgb(cr, 1.0, 0.2, 0.0); break;
+				case 5: cairo_set_source_rgb(cr, 0.6, 0.4, 0.2); break;
+				case 6: cairo_set_source_rgb(cr, 0.8, 0.8, 0.6); break;
+				case 7: cairo_set_source_rgb(cr, 0.2, 0.6, 1.0); break;
+				case 8: cairo_set_source_rgb(cr, 0.0, 0.0, 1.0); break;
+				case 9: cairo_set_source_rgb(cr, 0.7, 0.7, 0.7); break;
+				default:cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); break;
 			}
+			struct OSV osv = osv_from_ephem(ephems[i], current_date, SUN());
+			draw_body(cr, center, scale, osv.r);
+			draw_orbit(cr, center, scale, osv.r, osv.v, SUN());
 		}
 	}
 	return TRUE;
@@ -74,8 +77,7 @@ void update_date_label() {
 }
 
 void create_window() {
-	struct Body *bodies[] = {VENUS(), EARTH()};
-	int num_bodies = (int) (sizeof(bodies)/sizeof(struct Body*));
+	int num_bodies = 9;
 	struct Date min_date = {1970, 1, 1, 0, 0, 0};
 	struct Date max_date = {1973, 1, 1, 0, 0, 0};
 	
@@ -83,21 +85,12 @@ void create_window() {
 	double jd_max = convert_date_JD(max_date);
 	
 	int ephem_time_steps = 10;  // [days]
-	int num_ephems = (int)(jd_max - jd_min) / ephem_time_steps + 1;
+	int num_ephems = 12*100;
 	
 	ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
 	for(int i = 0; i < num_bodies; i++) {
-		int ephem_available = 0;
-		for(int j = 0; j < i; j++) {
-			if(bodies[i] == bodies[j]) {
-				ephems[i] = ephems[j];
-				ephem_available = 1;
-				break;
-			}
-		}
-		if(ephem_available) continue;
 		ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
-		get_ephem(ephems[i], num_ephems, bodies[i]->id, ephem_time_steps, jd_min, jd_max, 0);
+		get_body_ephem(ephems[i], i+1);
 	}
 	struct Date date = {1971, 5, 1, 0, 0, 0};
 	current_date = convert_date_JD(date);
@@ -155,6 +148,17 @@ void on_change_date(GtkWidget* widget, gpointer data) {
 	else if	(strcmp(name, "-1Y") == 0) current_date = jd_change_date(current_date,-1, 0, 0);
 	else if	(strcmp(name, "-1M") == 0) current_date = jd_change_date(current_date, 0,-1, 0);
 	else if	(strcmp(name, "-1D") == 0) current_date--;
+	update_date_label();
+	gtk_widget_queue_draw(GTK_WIDGET(drawing_area));
+}
+
+
+void on_year_select(GtkWidget* widget, gpointer data) {
+	const char *name = gtk_widget_get_name(widget);
+	int year = atoi(name);
+	struct Date date = {year, 1,1};
+	current_date = convert_date_JD(date);
+	
 	update_date_label();
 	gtk_widget_queue_draw(GTK_WIDGET(drawing_area));
 }

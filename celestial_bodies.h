@@ -15,6 +15,11 @@ void init_celestial_bodies();
  */
 struct Body ** all_celest_bodies();
 
+/**
+ * @brief Finds the celestial body with the given id (if not found, retuns NULL-pointer)
+ */
+struct Body * get_body_from_id(int id);
+
 struct Body * SUN();
 struct Body * MERCURY();
 struct Body * VENUS();
