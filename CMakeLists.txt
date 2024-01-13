@@ -46,8 +46,8 @@ add_executable(KSP
         orbit_calculator/porkchop_tools.h
         thread_pool.c
         thread_pool.h
-        gui/ephem_app.c
-        gui/ephem_app.h
+        gui/transfer_app.c
+        gui/transfer_app.h
         gui/drawing.c
         gui/drawing.h)
 

@@ -1,4 +1,4 @@
-#include "ephem_app.h"
+#include "transfer_app.h"
 #include "analytic_geometry.h"
 #include "ephem.h"
 #include "celestial_bodies.h"
@@ -8,6 +8,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <gtk/gtk.h>
 
 static int counter = 0;
 GObject *drawing_area;
@@ -97,7 +98,7 @@ void on_year_select(GtkWidget* widget, gpointer data) {
 
 
 
-void start_ephem_app() {
+void start_transfer_app() {
 	int num_bodies = 9;
 	int num_ephems = 12*100;	// 12 months for 100 years (1950-2050)
 	

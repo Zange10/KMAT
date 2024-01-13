@@ -3,14 +3,14 @@
 #include "orbit_calculator/orbit_calculator.h"
 #include "orbit_calculator/transfer_calculator.h"
 #include "tool_funcs.h"
-#include "gui/window.h"
+#include "gui/transfer_app.h"
 
 
 // ------------------------------------------------------------
 
 int main() {
     init_celestial_bodies();
-	create_window();
+	start_transfer_app();
 	return 0;
     if(0)simple_transfer();
     else create_swing_by_transfer();
