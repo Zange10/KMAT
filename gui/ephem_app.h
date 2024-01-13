@@ -2,8 +2,8 @@
 // Created by niklas on 08.01.24.
 //
 
-#ifndef KSP_WINDOW_H
-#define KSP_WINDOW_H
+#ifndef KSP_EPHEM_APP_H
+#define KSP_EPHEM_APP_H
 
 #include <gtk/gtk.h>
 
@@ -13,6 +13,6 @@ struct Window {
 	int height
 };
 
-void create_window();
+void start_ephem_app();
 
-#endif //KSP_WINDOW_H
+#endif //KSP_EPHEM_APP_H
