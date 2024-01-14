@@ -71,11 +71,19 @@ struct Orbit constr_orbit_from_osv(struct Vector r, struct Vector v, struct Body
 		arg_peri = cross_product(r,v).z * e.y > 0 ? acos(e.x/e_mag) : 2*M_PI - acos(e.x/e_mag);
 	}
 	double theta = v_r >= 0 ? acos(dot_product(e,r) / (e_mag*r_mag)) : 2*M_PI - acos(dot_product(e,r) / (e_mag*r_mag));
-	double E = 2 * atan(sqrt((1-e_mag)/(1+e_mag)) * tan(theta/2));
-	double t = (E-e_mag*sin(E)) / sqrt(mu/ pow(a,3));
+	
 	double n = sqrt(mu / pow(fabs(a),3));
-	double T = 2*M_PI/n;
-	if(t < 0) t += T;
+	double t, T;
+	if(e_mag < 1) {
+		double E = 2*atan(sqrt((1 - e_mag)/(1 + e_mag))*tan(theta/2));
+		t = (E - e_mag*sin(E))/n;
+		T = 2*M_PI/n;
+		if(t < 0) t += T;
+	} else {
+		double F = acosh((e_mag + cos(theta)) / (1 + e_mag * cos(theta)));
+		t = (e_mag * sinh(F) - F) / n;
+		if(v_r < 0) t *= -1;
+	}
 	
 	new_orbit.a = a;
 	new_orbit.e = e_mag;

@@ -218,7 +218,7 @@ struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, stru
     if (cross_product(r1, r2).z < 0) dtheta = 2 * M_PI - dtheta;
 
     struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
-    struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
+	struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
 
     if(data != NULL) {
         double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
@@ -749,6 +749,7 @@ struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, str
 	double theta = orbit.theta;
 	double t = orbit.t;
 	double e = orbit.e;
+	double target_t = t + dt;
 	double a = orbit.a;
 	double RAAN = orbit.raan;
 	double arg_peri = orbit.arg_peri;
@@ -759,29 +760,43 @@ struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, str
 	double n = sqrt(mu / pow(fabs(a),3));
 	
 	
-    double target_t = t+dt;
+	
+	
     double step = deg2rad(5);
     // if dt is basically 0, only add step, as this gets subtracted after the loop (not going inside loop)
     theta += fabs(t-target_t) > 1 ? dt/T * M_PI*2 : step;
 
     theta = pi_norm(theta);
-    while(target_t > T) target_t -= T;
+    while(target_t > T && e < 1) target_t -= T;
 
     int c = 0;
 
     while(fabs(t-target_t) > 1) {
         c++;
+		// prevent endless loops (floating point imprecision can lead to not changing values for very small steps)
+		if(c == 500) break;
+		
         theta = pi_norm(theta);
-        double E = acos((e + cos(theta)) / (1 + e * cos(theta)));
-        t = (E - e * sin(E)) / n;
-        if(theta > M_PI) t = T-t;
-
-        // prevent endless loops (floating point imprecision can lead to not changing values for very small steps)
-        if(c == 500) break;
+		if(e < 1) {
+			double E = acos((e + cos(theta))/(1 + e*cos(theta)));
+			t = (E - e*sin(E))/n;
+			if(theta > M_PI) t = T-t;
+		} else {
+			//printf("[%f %f %f %f]\n", t/(24*60*60), target_t/(24*60*60), (target_t-t)/(24*60*60), rad2deg(theta));
+			double F = acosh((e + cos(theta))/(1 + e*cos(theta)));
+			t = (e*sinh(F) - F)/n;
+			if(theta > M_PI) t *= -1;
+			if(isnan(t)) {
+				step /= 2;
+				theta -= step;
+				t = 100;	// to not exit the loop;
+				continue;
+			}
+		}
 
         // check in which half t is with respect to target_t (forwards or backwards from target_t) and move it closer
-        if(target_t < T/2) {
-            if(t > target_t && t < target_t+T/2) {
+        if(target_t < T/2 || e > 1) {
+            if(t > target_t && (t < target_t+T/2  || e > 1)) {
                 if (step > 0) step *= -1.0 / 4;
             } else {
                 if (step < 0) step *= -1.0 / 4;
@@ -796,7 +811,7 @@ struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, str
         theta += step;
     }
     theta -= step; // reset theta1 from last change inside the loop
-
+	
     double gamma = atan(e*sin(theta)/(1+e*cos(theta)));
     double r_mag = a*(1-pow(e,2)) / (1+e*cos(theta));
     double v_mag = sqrt(mu*(2/r_mag - 1/a));

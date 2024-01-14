@@ -58,7 +58,7 @@ void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct T
 	tf0->dv = tf0->prev == NULL ? data[1] : 0;
 	tf1->dv = tf1->next == NULL ? data[2] : 0;
 	
-	int steps = 100;
+	int steps = 1000;
 	struct Vector r = transfer.r0;
 	struct Vector v = transfer.v0;
 	struct OSV last_osv = {r,v};
