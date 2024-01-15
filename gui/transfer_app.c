@@ -9,6 +9,7 @@
 #include <math.h>
 #include <string.h>
 #include <gtk/gtk.h>
+#include <locale.h>
 
 
 struct TransferData *curr_transfer;
@@ -30,6 +31,7 @@ double current_date;
 void update();
 void update_date_label();
 void update_transfer_panel();
+void remove_all_transfers();
 void activate(GtkApplication *app, gpointer user_data);
 void on_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
 void on_body_toggle(GtkWidget* widget, gpointer data);
@@ -59,21 +61,22 @@ void start_transfer_app() {
 	}
 	struct Date date = {1977, 8, 20, 0, 0, 0};
 	current_date = convert_date_JD(date);
-
-#ifdef GTK_SRCDIR
-	g_chdir (GTK_SRCDIR);
-#endif
+	for(int i = 0; i < 9; i++) body_show_status[i] = 0;
 	
 	GtkApplication *app = gtk_application_new ("org.gtk.example", G_APPLICATION_FLAGS_NONE);
 	g_signal_connect (app, "activate", G_CALLBACK (activate), NULL);
 	
 	g_application_run (G_APPLICATION (app), 0, NULL);
 	g_object_unref (app);
+	
+	remove_all_transfers();
+	for(int i = 0; i < 9; i++) free(ephems[i]);
 	free(ephems);
 }
 
 void activate(GtkApplication *app, gpointer user_data) {
 	/* Construct a GtkBuilder instance and load our UI description */
+	setlocale(LC_NUMERIC, "C");	// Glade somehow uses commas instead of points for decimals...
 	GtkBuilder *builder = gtk_builder_new ();
 	gtk_builder_add_from_file(builder, "../GUI/transfer.glade", NULL);
 	
@@ -138,6 +141,7 @@ void on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 			int id = i+1;
 			set_cairo_body_color(cr, id);
 			struct OSV osv = osv_from_ephem(ephems[i], current_date, SUN());
+			print_vector(osv.r);
 			draw_body(cr, center, scale, osv.r);
 			draw_orbit(cr, center, scale, osv.r, osv.v, SUN());
 		}
@@ -197,6 +201,17 @@ void sort_transfer_dates() {
 		if(tf->next->date <= tf->date) tf->next->date = tf->date+1;
 		tf = tf->next;
 	}
+}
+
+void remove_all_transfers() {
+	struct TransferData *tf = get_first();
+	if(tf == NULL) return;
+	while(tf->next != NULL) {
+		tf = tf->next;
+		free(tf->prev);
+	}
+	free(tf);
+	curr_transfer = NULL;
 }
 
 void update() {
