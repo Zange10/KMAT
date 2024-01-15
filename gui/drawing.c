@@ -58,6 +58,14 @@ void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct T
 	tf0->dv = tf0->prev == NULL ? data[1] : 0;
 	tf1->dv = tf1->next == NULL ? data[2] : 0;
 	
+	if(tf0->prev != NULL) {
+		double t[3] = {tf0->prev->date, tf0->date, tf1->date};
+		struct OSV osv_prev = osv_from_ephem(ephems[tf0->prev->body->id-1], tf0->prev->date, SUN());
+		struct OSV osvs[3] = {osv_prev, osv0, osv1};
+		struct Body *bodies[3] = {tf0->prev->body, tf0->body, tf1->body};
+		if(!is_flyby_viable(t, osvs, bodies)) cairo_set_source_rgb(cr, 1, 0, 0);
+	}
+	
 	int steps = 1000;
 	struct Vector r = transfer.r0;
 	struct Vector v = transfer.v0;

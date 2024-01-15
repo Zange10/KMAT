@@ -742,10 +742,28 @@ int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV
 }
 
 
+int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body) {
+	double data[3];
+	struct Transfer transfer1 = calc_transfer(circcirc, body[0], body[1], osv[0].r, osv[0].v, osv[1].r,
+											  osv[1].v, (t[1] - t[0]) * (24 * 60 * 60), data);
+	double arr_v = data[2];
+	struct Transfer transfer2 = calc_transfer(circcirc, body[1], body[2], osv[1].r, osv[1].v, osv[2].r,
+											  osv[2].v, (t[2] - t[1]) * (24 * 60 * 60), data);
+	double dep_v = data[1];
+	if (fabs(arr_v - dep_v) > 10) return 0;
+	
+	struct Vector v_arr = add_vectors(transfer1.v1, scalar_multiply(osv[1].v, -1));
+	struct Vector v_dep = add_vectors(transfer2.v0, scalar_multiply(osv[1].v, -1));
+	double beta = (M_PI - angle_vec_vec(v_arr, v_dep))/2;
+	double rp = (1 / cos(beta) - 1) * (body[1]->mu / (pow(vector_mag(v_arr), 2)));
+	if (rp > body[1]->radius + body[1]->atmo_alt) 	return 1;
+	else 											return 0;
+}
+
 
 struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
     struct Orbit orbit = constr_orbit_from_osv(r,v,attractor);
-
+	
 	double theta = orbit.theta;
 	double t = orbit.t;
 	double e = orbit.e;
@@ -759,16 +777,13 @@ struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, str
 	
 	double n = sqrt(mu / pow(fabs(a),3));
 	
-	
-	
-	
     double step = deg2rad(5);
     // if dt is basically 0, only add step, as this gets subtracted after the loop (not going inside loop)
-    theta += fabs(t-target_t) > 1 ? dt/T * M_PI*2 : step;
+    if(e<1) theta += fabs(t-target_t) > 1 ? dt/T * M_PI*2 : step;
 
     theta = pi_norm(theta);
     while(target_t > T && e < 1) target_t -= T;
-
+	
     int c = 0;
 
     while(fabs(t-target_t) > 1) {

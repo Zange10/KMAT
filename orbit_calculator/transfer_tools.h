@@ -51,6 +51,9 @@ double dv_circ(struct Body *body, double rp, double vinf);
 // calculate the delta-v between speed at given Periapsis for excess speed of 0m/s at given Periapsis and speed at given Periapsis for given excess speed
 double dv_capture(struct Body *body, double rp, double vinf);
 
+// returns 1 if flyby is viable, 0 otherwise (all parameters are arrays of size 3)
+int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body);
+
 // propagate elliptical orbit by time
 struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, struct Body *attractor);
 
