@@ -272,6 +272,7 @@ void on_prev_transfer(GtkWidget* widget, gpointer data) {
 	if(curr_transfer == NULL) return;
 	if(curr_transfer->prev != NULL) curr_transfer = curr_transfer->prev;
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
+	current_date = curr_transfer->date;
 	update();
 }
 
@@ -279,6 +280,7 @@ void on_next_transfer(GtkWidget* widget, gpointer data) {
 	if(curr_transfer == NULL) return;
 	if(curr_transfer->next != NULL) curr_transfer = curr_transfer->next;
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
+	current_date = curr_transfer->date;
 	update();
 }
 
@@ -334,6 +336,8 @@ void on_add_transfer(GtkWidget* widget, gpointer data) {
 		new_transfer->date = current_date;
 	}
 	curr_transfer = new_transfer;
+	current_date = curr_transfer->date;
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
 	update();
 }
 
@@ -344,6 +348,8 @@ void on_remove_transfer(GtkWidget* widget, gpointer data) {
 	if(curr_transfer->prev != NULL) curr_transfer->prev->next = curr_transfer->next;
 	curr_transfer = curr_transfer->prev != NULL ? curr_transfer->prev : curr_transfer->next;
 	free(rem_transfer);
+	current_date = curr_transfer->date;
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
 	update();
 }
 
@@ -390,5 +396,6 @@ void on_find_itinerary(GtkWidget* widget, gpointer data) {
 		}
 		dt++;
 	}
+	current_date = curr_transfer->date;
 	update();
 }
