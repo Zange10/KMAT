@@ -760,6 +760,24 @@ int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body) {
 	else 											return 0;
 }
 
+double find_closest_transfer(double *t, struct OSV *osv, struct Body **body, struct Ephem **ephems, double max_dt) {
+	double init_t2 = t[2];
+	double dt = 1;
+	while(dt < max_dt) {
+		if(init_t2 - dt > t[1]) {
+			t[2] = init_t2 - dt;
+			osv[2] = osv_from_ephem(ephems[body[2]->id-1], t[2], SUN());
+			if(is_flyby_viable(t, osv, body)) return t[2];
+		}
+		if(dt < max_dt) {
+			t[2] = init_t2 + dt;
+			osv[2] = osv_from_ephem(ephems[body[2]->id-1], t[2], SUN());
+			if(is_flyby_viable(t, osv, body)) return t[2];
+		}
+		dt++;
+	}
+	return -1;
+}
 
 struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
     struct Orbit orbit = constr_orbit_from_osv(r,v,attractor);

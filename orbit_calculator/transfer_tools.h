@@ -54,6 +54,9 @@ double dv_capture(struct Body *body, double rp, double vinf);
 // returns 1 if flyby is viable, 0 otherwise (all parameters are arrays of size 3)
 int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body);
 
+// find time of closest possible fly by transfer (returns -1 if nothing is found)
+double find_closest_transfer(double *t, struct OSV *osv, struct Body **body, struct Ephem **ephems, double max_dt);
+
 // propagate elliptical orbit by time
 struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, struct Body *attractor);
 

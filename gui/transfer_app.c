@@ -43,6 +43,7 @@ void on_goto_transfer_date(GtkWidget* widget, gpointer data);
 void on_transfer_body_select(GtkWidget* widget, gpointer data);
 void on_add_transfer(GtkWidget* widget, gpointer data);
 void on_remove_transfer(GtkWidget* widget, gpointer data);
+void on_find_closest_transfer(GtkWidget* widget, gpointer data);
 
 
 
@@ -272,6 +273,25 @@ void on_transfer_body_select(GtkWidget* widget, gpointer data) {
 	struct Body *body = get_body_from_id(id);
 	curr_transfer->body = body;
 	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel), "page0");
+	update();
+}
+
+void on_find_closest_transfer(GtkWidget* widget, gpointer data) {
+	if(curr_transfer->prev == NULL || curr_transfer->prev->prev == NULL) return;
+	struct TransferData *tf[3] = {curr_transfer->prev->prev, curr_transfer->prev, curr_transfer};
+	double t[3];
+	struct OSV osvs[3];
+	struct Body *bodies[3];
+	
+	for(int i = 0; i < 3; i++) {
+		t[i] = tf[i]->date;
+		osvs[i] = osv_from_ephem(ephems[tf[i]->body->id-1], tf[i]->date, SUN());
+		bodies[i] = tf[i]->body;
+	}
+	double closest_transfer = find_closest_transfer(t, osvs, bodies, ephems, 10*365);
+	if(closest_transfer < 0) return;
+	current_date = closest_transfer;
+	curr_transfer->date = closest_transfer;
 	update();
 }
 
