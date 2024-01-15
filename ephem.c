@@ -18,9 +18,9 @@ void print_date(struct Date date, int line_break) {
     if(line_break) printf("\n");
 }
 
-char * date_to_string(struct Date date, char *s) {
-    sprintf(s,"%4d-%02d-%02d %02d:%02d:%06.3f", date.y, date.m, date.d, date.h, date.min, date.s);
-    return s;
+void date_to_string(struct Date date, char *s, int clocktime) {
+	if(clocktime) sprintf(s,"%4d-%02d-%02d %02d:%02d:%06.3f", date.y, date.m, date.d, date.h, date.min, date.s);
+	else sprintf(s,"%4d-%02d-%02d", date.y, date.m, date.d);
 }
 
 struct Date convert_JD_date(double JD) {

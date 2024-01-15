@@ -141,7 +141,6 @@ void on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 			int id = i+1;
 			set_cairo_body_color(cr, id);
 			struct OSV osv = osv_from_ephem(ephems[i], current_date, SUN());
-			print_vector(osv.r);
 			draw_body(cr, center, scale, osv.r);
 			draw_orbit(cr, center, scale, osv.r, osv.v, SUN());
 		}
