@@ -348,7 +348,7 @@ void on_remove_transfer(GtkWidget* widget, gpointer data) {
 	if(curr_transfer->prev != NULL) curr_transfer->prev->next = curr_transfer->next;
 	curr_transfer = curr_transfer->prev != NULL ? curr_transfer->prev : curr_transfer->next;
 	free(rem_transfer);
-	current_date = curr_transfer->date;
+	if(curr_transfer != NULL) current_date = curr_transfer->date;
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
 	update();
 }
