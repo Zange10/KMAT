@@ -3,19 +3,16 @@
 #include "orbit_calculator/orbit_calculator.h"
 #include "orbit_calculator/transfer_calculator.h"
 #include "tool_funcs.h"
+#include "gui/transfer_app.h"
 
 
 // ------------------------------------------------------------
 
 int main() {
     init_celestial_bodies();
-    if(0)simple_transfer();
-    else create_swing_by_transfer();
-    return 0;
-
     int selection;
     char title[] = "CHOOSE PROGRAM:";
-    char options[] = "Exit; Launch Calculator; Orbit Calculator; Transfer Calculator";
+    char options[] = "Exit; Launch Calculator; Orbit Calculator; Transfer Calculator; Transfer App";
     char question[] = "Program: ";
 
     do {
@@ -31,6 +28,9 @@ int main() {
         case 3:
             create_swing_by_transfer();
             break;
+		case 4:
+			start_transfer_app();
+			break;
         default:
             break;
         }

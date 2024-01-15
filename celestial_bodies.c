@@ -18,7 +18,7 @@ struct Body *pluto;
 struct Body *kerbol;
 struct Body *kerbin;
 
-struct Body * all_celestial_bodies[];
+struct Body * all_celestial_bodies[20];
 
 
 
@@ -309,6 +309,17 @@ void init_celestial_bodies() {
     init_KERBIN();
 }
 
+
+
+struct Body * get_body_from_id(int id) {
+	struct Body **all_bodies = all_celest_bodies();
+	int i = 0;
+	while(all_bodies[i] != NULL) {
+		if(all_bodies[i]->id == id) return all_bodies[i];
+		i++;
+	}
+	return NULL;
+}
 
 
 

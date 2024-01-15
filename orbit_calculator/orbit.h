@@ -2,15 +2,17 @@
 #define ORBIT
 
 #include "celestial_bodies.h"
+#include "analytic_geometry.h"
 
 struct Orbit {
     struct Body * body; // parent body
     double e;           // eccentricity
     double a;           // semi-major axis
     double inclination; // inclination
-    double lan;         // longitude of ascending node
-    double arg_of_peri; // argument of periapsis
-    double true_anom;   // true anomaly
+    double raan;        // longitude of ascending node
+    double arg_peri; 	// argument of periapsis
+    double theta;   	// true anomaly
+	double t;			// time since periapsis
     double period;      // orbital period
     double apoapsis;    // highest point in orbit
     double periapsis;   // lowest point in orbit
@@ -36,6 +38,8 @@ struct Orbit constr_orbit(double a, double e, double i, double lan, double arg_o
 // constructs orbit using apsides and inclination
 struct Orbit constr_orbit_w_apsides(double apsis1, double apsis2, double inclination, struct Body * body);
 
+// constructs orbit from Orbital State Vector
+struct Orbit constr_orbit_from_osv(struct Vector r, struct Vector v, struct Body *attractor);
 
 
 // calculate the tangential speed at point in orbit (altitude)

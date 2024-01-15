@@ -5,6 +5,14 @@ set(CMAKE_C_STANDARD 11)
 
 include_directories(.)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
+
+include_directories(${GTK3_INCLUDE_DIRS})
+link_directories(${GTK3_LIBRARY_DIRS})
+add_definitions(${GTK3_CFLAGS_OTHER})
+
+
 add_executable(KSP
         celestial_bodies.c
         celestial_bodies.h
@@ -37,6 +45,13 @@ add_executable(KSP
         orbit_calculator/porkchop_tools.c
         orbit_calculator/porkchop_tools.h
         thread_pool.c
-        thread_pool.h)
+        thread_pool.h
+        gui/transfer_app.c
+        gui/transfer_app.h
+        gui/drawing.c
+        gui/drawing.h)
 
-target_link_libraries(KSP m)
+target_link_libraries(KSP m;
+        ${GTK3_LIBRARIES})
+
+target_link_options(KSP PRIVATE -rdynamic)

@@ -88,14 +88,31 @@ double convert_date_JD(struct Date date) {
     return J;
 }
 
+double jd_change_date(double jd, int delta_years, int delta_months, double delta_days) {
+	jd += delta_days;
+	struct Date date = convert_JD_date(jd);
+	date.m += delta_months;
+	while(date.m > 12) {
+		date.m -= 12;
+		date.y++;
+	}
+	while(date.m < 1) {
+		date.m += 12;
+		date.y--;
+	}
+	date.y += delta_years;
+	jd = convert_date_JD(date);
+	return jd;
+}
+
 void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_steps, double jd0, double jd1, int download) {
     if(download) {
         struct Date d0 = convert_JD_date(jd0);
         struct Date d1 = convert_JD_date(jd1);
         char d0_s[32];
         char d1_s[32];
-        date_to_string(d0, d0_s);
-        date_to_string(d1, d1_s);
+        date_to_string(d0, d0_s, 1);
+        date_to_string(d1, d1_s, 1);
         // Construct the URL with your API key and parameters
 
         char url[256];
@@ -177,6 +194,56 @@ void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_step
     ephem[size_ephem-1].date = -1;  // to know where array ends
     // Close the file when done
     fclose(file);
+}
+
+void get_body_ephem(struct Ephem *ephem, int body_code) {
+	for(int a = 0; a < 10; a++) {
+		int year = 1950 + a*10;
+		char file_path[30];
+		sprintf(file_path, "Ephems/%d/%d.ephem", body_code, year);
+		
+		FILE *file;
+		char line[256];  // Assuming lines are no longer than 255 characters
+		
+		file = fopen(file_path, "r");
+		
+		if(file == NULL) {
+			perror("Unable to open file");
+			return;
+		}
+		
+		// Read lines from the file until the end is reached
+		while(fgets(line, sizeof(line), file) != NULL) {
+			line[strcspn(line, "\n")] = '\0';
+			if(strcmp(line, "$$SOE") == 0) {
+				break; // Exit the loop when "$$SOE" is encountered
+			}
+		}
+		
+		for(int i = 0; i < 12*10; i++) {
+			fgets(line, sizeof(line), file);
+			line[strcspn(line, "\n")] = '\0';
+			if(strcmp(line, "$$EOE") == 0) break; // Exit the loop when "$$SOE" is encountered
+			char *endptr;
+			double date = strtod(line, &endptr);
+			
+			fgets(line, sizeof(line), file);
+			double x, y, z;
+			sscanf(line, " X =%lf Y =%lf Z =%lf", &x, &y, &z);
+			fgets(line, sizeof(line), file);
+			double vx, vy, vz;
+			sscanf(line, " VX=%lf VY=%lf VZ=%lf", &vx, &vy, &vz);
+			
+			ephem[a*120 + i].date = date;
+			ephem[a*120 + i].x = x*1e3;
+			ephem[a*120 + i].y = y*1e3;
+			ephem[a*120 + i].z = z*1e3;
+			ephem[a*120 + i].vx = vx*1e3;
+			ephem[a*120 + i].vy = vy*1e3;
+			ephem[a*120 + i].vz = vz*1e3;
+		}
+		fclose(file);
+	}
 }
 
 struct Ephem get_closest_ephem(struct Ephem *ephem, double date) {

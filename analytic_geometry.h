@@ -50,6 +50,15 @@ struct Vector add_vectors(struct Vector v1, struct Vector v2);
 
 
 /**
+ * @brief Adds two 2D vectors and returns the result
+ *
+ * @param v1 The first vector
+ * @param v2 The second vector
+ * @return A 2D Vector where each component of the vectors was added together
+ */
+struct Vector2D add_vectors2d(struct Vector2D v1, struct Vector2D v2);
+
+/**
  * @brief Returns the magnitude of a given vector
  *
  * @param v The vector with respective magnitude
