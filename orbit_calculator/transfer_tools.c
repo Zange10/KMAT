@@ -762,7 +762,7 @@ int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body) {
 
 double find_closest_transfer(double *t, struct OSV *osv, struct Body **body, struct Ephem **ephems, double max_dt) {
 	double init_t2 = t[2];
-	double dt = 1;
+	double dt = 0;
 	while(dt < max_dt) {
 		if(init_t2 - dt > t[1]) {
 			t[2] = init_t2 - dt;
