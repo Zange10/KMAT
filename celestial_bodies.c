@@ -66,7 +66,7 @@ void init_MERCURY() {
         /*  a  */ 57.90917568e+9,
         /*  e  */ 0.20563069,
         /*  i  */ 7.00487,
-        /* lan */ 48.33167,
+        /* raan */ 48.33167,
         /*  ω  */ 77.45645-48.33167,   // longitude of perihelion - longitude of ascending node
         /*pbody*/ SUN()
     );
@@ -86,7 +86,7 @@ void init_VENUS() {
         /*  a  */ 108.2089255e+9,
         /*  e  */ 0.00677323,
         /*  i  */ 3.39471,
-        /* lan */ 76.68069,
+        /* raan */ 76.68069,
         /*  ω  */ 131.53298-76.68069,   // longitude of perihelion - longitude of ascending node
         /*pbody*/ SUN()
     );
@@ -106,7 +106,7 @@ void init_EARTH() {
         /*  a  */ 149.5978872e+9,
         /*  e  */ 0.01671022,
         /*  i  */ 0.00005,
-        /* lan */ -11.26064,
+        /* raan */ -11.26064,
         /*  w  */ 102.94719-(-11.26064),
         /*pbody*/ SUN()
     );
@@ -126,7 +126,7 @@ void init_MOON() {
         /*  a  */ 0.3844e9,
         /*  e  */ 0.0549,
         /*  i  */ 5.145,
-        /* lan */ 0,    // not static
+        /* raan */ 0,    // not static
         /*  w  */ 0,    // not static
         /*pbody*/ EARTH()
     );
@@ -146,7 +146,7 @@ void init_MARS() {
         /*  a  */ 227.9366372e+9,
         /*  e  */ 0.09341233,
         /*  i  */ 1.85061,
-        /* lan */ 49.57854,
+        /* raan */ 49.57854,
         /*  w  */ 336.04084-49.57854,
         /*pbody*/ SUN()
     );
@@ -166,7 +166,7 @@ void init_JUPITER() {
         /*  a  */ 778.4120268e+9,
         /*  e  */ 0.04839266,
         /*  i  */ 1.30530,
-        /* lan */ 100.55615,
+        /* raan */ 100.55615,
         /*  w  */ 14.75385-100.55615,
         /*pbody*/ SUN()
     );
@@ -186,7 +186,7 @@ void init_SATURN() {
         /*  a  */ 1426.725413e+9,
         /*  e  */ 0.05415060,
         /*  i  */ 2.48446,
-        /* lan */ 113.71504,
+        /* raan */ 113.71504,
         /*  w  */ 92.43194-113.71504,
         /*pbody*/ SUN()
     );
@@ -206,7 +206,7 @@ void init_URANUS() {
         /*  a  */ 2870.97222e+9,
         /*  e  */ 0.04716771,
         /*  i  */ 0.76986,
-        /* lan */ 74.22988,
+        /* raan */ 74.22988,
         /*  ω  */ 170.96424-74.22988,   // longitude of perihelion - longitude of ascending node
         /*pbody*/ SUN()
     );
@@ -226,7 +226,7 @@ void init_NEPTUNE() {
         /*  a  */ 4498.2529108e+9,
         /*  e  */ 0.00858587,
         /*  i  */ 1.76917,
-        /* lan */ 131.72169,
+        /* raan */ 131.72169,
         /*  ω  */ 44.97135-131.72169,   // longitude of perihelion - longitude of ascending node
         /*pbody*/ SUN()
     );
@@ -246,7 +246,7 @@ void init_PLUTO() {
         /*  a  */ 5906.3762724e+9,
         /*  e  */ 0.24880766,
         /*  i  */ 17.14175,
-        /* lan */ 110.30347,
+        /* raan */ 110.30347,
         /*  ω  */ 224.06676-110.30347,   // longitude of perihelion - longitude of ascending node
         /*pbody*/ SUN()
     );
@@ -280,7 +280,7 @@ void init_KERBIN() {
         /*  a  */ 13.599840256e9,
         /*  e  */ 0,
         /*  i  */ 0,
-        /* lan */ 0,
+        /* raan */ 0,
         /*  w  */ 0,
         /*pbody*/ KERBOL()
     );
@@ -309,6 +309,17 @@ void init_celestial_bodies() {
     init_KERBIN();
 }
 
+
+
+struct Body * get_body_from_id(int id) {
+	struct Body **all_bodies = all_celest_bodies();
+	int i = 0;
+	while(all_bodies[i] != NULL) {
+		if(all_bodies[i]->id == id) return all_bodies[i];
+		i++;
+	}
+	return NULL;
+}
 
 
 

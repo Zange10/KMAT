@@ -12,7 +12,7 @@
 int main() {
     init_celestial_bodies();
     if(0)simple_transfer();
-    else create_swing_by_transfer();
+    else dsb_test();
     return 0;
 
     int selection = 0;

@@ -20,6 +20,9 @@ void print_ephem(struct Ephem ephem);
 
 void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_steps, double jd0, double jd1, int download);
 
-struct Ephem get_last_ephem(struct Ephem *ephem, double date);
+
+void get_body_ephem(struct Ephem *ephem, int body_code);
+
+struct Ephem get_closest_ephem(struct Ephem *ephem, double date);
 
 #endif //KSP_EPHEM_H

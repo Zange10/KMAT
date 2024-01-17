@@ -12,6 +12,8 @@ void init_celestial_bodies();
 // returns all stored celestial bodies in an array
 struct Body ** all_celest_bodies();
 
+struct Body * get_body_from_id(int id);
+
 struct Body * SUN();
 struct Body * MERCURY();
 struct Body * VENUS();

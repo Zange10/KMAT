@@ -1,5 +1,6 @@
 #include "transfer_calculator.h"
 #include "transfer_tools.h"
+#include "double_swing_by.h"
 #include "csv_writer.h"
 #include "tool_funcs.h"
 #include <stdio.h>
@@ -116,6 +117,55 @@ void simple_transfer() {
         write_csv(transfer_data_fields, transfer_data);
     }
 
+}
+
+void dsb_test() {
+	struct timeval start, end;
+	double elapsed_time;
+	int num_bodies = 9;
+	int num_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	struct Ephem **ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
+	for(int i = 0; i < num_bodies; i++) {
+		ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
+		get_body_ephem(ephems[i], i+1);
+	}
+	
+	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH()};
+	//struct Date min_dep_date = {1997, 10, 1, 0, 0, 0};
+	//struct Date max_dep_date = {1997, 11, 1, 0, 0, 0};
+	struct Date max_dep_date = {1997, 10, 15, 0, 0, 0};
+	//int min_duration[] = {90, 410, 90, 700};
+	//int max_duration[] = {250, 430, 150, 900};
+	int durations[] = {120, 470, 100};
+	
+	double jd_dep = convert_date_JD(max_dep_date);
+	double jd_sb1 = jd_dep + durations[0];
+	double jd_sb2 = jd_sb1 + durations[1];
+	double jd_arr = jd_sb2 + durations[2];
+	
+	struct OSV osv_dep = osv_from_ephem(ephems[bodies[0]->id-1], jd_dep, SUN());
+	struct OSV osv_sb1 = osv_from_ephem(ephems[bodies[1]->id-1], jd_sb1, SUN());
+	struct OSV osv_sb2 = osv_from_ephem(ephems[bodies[2]->id-1], jd_sb2, SUN());
+	struct OSV osv_arr = osv_from_ephem(ephems[bodies[3]->id-1], jd_arr, SUN());
+	
+	struct Transfer transfer_dep = calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v, osv_sb1.r, osv_sb1.v, (jd_sb1-jd_dep)*86400, NULL);
+	struct Transfer transfer_arr = calc_transfer(circfb, VENUS(), EARTH(), osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
+	
+	struct OSV s0 = {transfer_dep.r1, transfer_dep.v1};
+	struct OSV s1 = {transfer_arr.r0, scalar_multiply(osv_sb2.v,1.2)};
+	
+	
+	gettimeofday(&start, NULL);  // Record the ending time
+	struct DSB dsb = calc_double_swing_by(s0, osv_sb1, s1, osv_sb2, durations[1], bodies[1]);
+	
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec);
+	printf("\n----- | Total elapsed time: %.3f ms | ---------\n", (double) elapsed_time / 1000);
+	
+	for(int i = 0; i < num_bodies; i++) {
+		free(ephems[i]);
+	}
+	free(ephems);
 }
 
 void create_swing_by_transfer() {
