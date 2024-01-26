@@ -133,13 +133,14 @@ void dsb_test() {
 	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH()};
 	//struct Date min_dep_date = {1997, 10, 1, 0, 0, 0};
 	//struct Date max_dep_date = {1997, 11, 1, 0, 0, 0};
-	struct Date max_dep_date = {1997, 10, 15, 0, 0, 0};
+	struct Date max_dep_date = {1978, 8, 19, 0, 0, 0};
+	struct Date max_dep_date2 = {1978, 12, 14, 0, 0, 0};
 	//int min_duration[] = {90, 410, 90, 700};
 	//int max_duration[] = {250, 430, 150, 900};
-	int durations[] = {120, 470, 100};
+	int durations[] = {90, 460, 100};
 	
 	double jd_dep = convert_date_JD(max_dep_date);
-	double jd_sb1 = jd_dep + durations[0];
+	double jd_sb1 = convert_date_JD(max_dep_date2);
 	double jd_sb2 = jd_sb1 + durations[1];
 	double jd_arr = jd_sb2 + durations[2];
 	
@@ -159,8 +160,8 @@ void dsb_test() {
 	struct DSB dsb = calc_double_swing_by(s0, osv_sb1, s1, osv_sb2, durations[1], bodies[1]);
 	
 	gettimeofday(&end, NULL);  // Record the ending time
-	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec);
-	printf("\n----- | Total elapsed time: %.3f ms | ---------\n", (double) elapsed_time / 1000);
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("\n----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
 	
 	for(int i = 0; i < num_bodies; i++) {
 		free(ephems[i]);

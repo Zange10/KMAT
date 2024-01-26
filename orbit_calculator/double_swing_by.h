@@ -13,6 +13,7 @@
 struct DSB {
 	struct OSV osv[4];
 	double man_time;
+	double dv;
 };
 
 
