@@ -129,20 +129,36 @@ void dsb_test() {
 		ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
 		get_body_ephem(ephems[i], i+1);
 	}
+
+	struct Body *Galileo_bodies[] = {VENUS(), EARTH(), EARTH(), JUPITER()};
+	struct Date Galileo[4]= {
+			{1990, 2, 10, 0, 0, 0},
+			{1990, 12, 8,0,0,0},
+			{1992, 12, 8,0,0,0},
+			{1995, 12, 7,0,0,0},
+	};
+
+	struct Body *Cassini_bodies[] = {EARTH(), VENUS(), VENUS(), EARTH()};
+	struct Date Cassini[4]= {
+			{1997, 10, 15, 0, 0, 0},
+			{1998, 4, 26,0,0,0},
+			{1999, 6, 24,0,0,0},
+			{1999, 8, 18,0,0,0},
+	};
 	
-	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH()};
-	//struct Date min_dep_date = {1997, 10, 1, 0, 0, 0};
-	//struct Date max_dep_date = {1997, 11, 1, 0, 0, 0};
-	struct Date max_dep_date = {1978, 8, 19, 0, 0, 0};
-	struct Date max_dep_date2 = {1978, 12, 14, 0, 0, 0};
-	//int min_duration[] = {90, 410, 90, 700};
-	//int max_duration[] = {250, 430, 150, 900};
-	int durations[] = {90, 460, 100};
-	
-	double jd_dep = convert_date_JD(max_dep_date);
-	double jd_sb1 = convert_date_JD(max_dep_date2);
-	double jd_sb2 = jd_sb1 + durations[1];
-	double jd_arr = jd_sb2 + durations[2];
+	struct Body **bodies = Cassini_bodies;
+	struct Date *dates = Cassini;
+	struct Date dep_date = dates[0];
+	struct Date sb1_date = dates[1];
+	struct Date sb2_date = dates[2];
+	struct Date arr_date = dates[3];
+
+	double jd_dep = convert_date_JD(dep_date);
+	double jd_sb1 = convert_date_JD(sb1_date);
+	double jd_sb2 = convert_date_JD(sb2_date);
+	double jd_arr = convert_date_JD(arr_date);
+
+	double durations[] = {jd_sb1-jd_dep, jd_sb2-jd_sb1, jd_arr-jd_sb2};
 	
 	struct OSV osv_dep = osv_from_ephem(ephems[bodies[0]->id-1], jd_dep, SUN());
 	struct OSV osv_sb1 = osv_from_ephem(ephems[bodies[1]->id-1], jd_sb1, SUN());
@@ -153,7 +169,7 @@ void dsb_test() {
 	struct Transfer transfer_arr = calc_transfer(circfb, VENUS(), EARTH(), osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
 	
 	struct OSV s0 = {transfer_dep.r1, transfer_dep.v1};
-	struct OSV s1 = {transfer_arr.r0, scalar_multiply(osv_sb2.v,1.2)};
+	struct OSV s1 = {transfer_arr.r0, transfer_arr.v0};
 	
 	
 	gettimeofday(&start, NULL);  // Record the ending time

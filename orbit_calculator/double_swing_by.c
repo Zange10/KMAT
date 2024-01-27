@@ -107,7 +107,8 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
 			}
 			
 			double gradient = (diff_vinf - last_diff_vinf)/step;
-			
+
+			printf("%g %f\n", diff_vinf, dur/86400);
 			if(diff_vinf > 0) {
 				double max_rel_T_pos = T;
 				if(dur+T > max_dur) max_rel_T_pos = max_dur-dur;
@@ -153,6 +154,87 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
 
 
 
+void insert_new_data_point(struct Vector2D data[], struct Vector2D new_data_point) {
+	for (int i = 1; i <= data[0].x; i++) {
+		if (new_data_point.x < data[i].x) {
+
+			for (int j = (int) data[0].x; j >= i; j--) data[j + 1] = data[j];
+
+			data[i] = new_data_point;
+			data[0].x++;
+			return;
+		}
+	}
+
+	data[(int)data[0].x+1] = new_data_point;
+	data[0].x++;
+}
+
+
+int can_be_negative(struct Vector2D *data) {
+	int num_data = (int) data[0].x;
+	if(num_data < 3) return 1;
+
+	int mind = 1;
+	double min = data[1].y;
+	for(int i = 2; i <= num_data; i++) {
+		if(data[i].y < min) { mind = i; min = data[i].y; }
+		if(min < 0) return 1;
+	}
+
+	if(mind == 1) mind++;
+	if(mind == num_data) mind--;
+
+	// gradient on left side and see whether it can get negetive on right side
+	double gradient = (data[mind].y - data[mind - 1].y) / (data[mind].x - data[mind - 1].x);
+	double dx = data[mind+1].x - data[mind].x;
+	if(gradient*dx + data[mind].y < 0) return 1;
+
+	// gradient on right side and see whether it can get negetive on left side
+	gradient = (data[mind].y - data[mind + 1].y) / (data[mind].x - data[mind + 1].x);
+	dx = data[mind-1].x - data[mind].x;
+	if(gradient*dx + data[mind].y < 0) return 1;
+
+	return 0;
+}
+
+double get_next_dtheta_from_data_points(struct Vector2D *data, int branch) {
+	// branch = 0 for left branch, 1 for right branch
+	int num_data = (int) data[0].x;
+	int index;
+
+	// left branch
+	if(branch == 0) {
+		for(int i = 2; i <= num_data; i++) {
+			if(data[i].y < 0)			{ index = i; break; }
+			if(data[i].y > data[i-1].y)	{ break; }
+			else 						{ index = i; }
+		}
+
+	// right branch
+	} else {
+		for(int i = num_data-1; i >= 1; i--) {
+			if(data[i].y < 0)			{ index = i; break; }
+			if(data[i].y > data[i+1].y)	{ break; }
+			else 						{ index = i; }
+		}
+	}
+
+	if(data[index].y < 0) {
+		if(branch == 0) return (data[index].x + data[index-1].x)/2;
+		else 			return (data[index].x + data[index+1].x)/2;
+	}
+
+	if(index == 1)			return (data[1].x + data[2].x)/2;
+	if(index == num_data)	return (data[num_data-1].x + data[num_data].x)/2;
+
+
+
+	return (data[index].x + data[index+1].x)/2;
+}
+
+
+
 int find_double_swing_by_zero_sec_sb_diff2(struct Swingby_Peak_Search_Params spsp, int only_right_leg) {
 	struct timeval start, end;
 	double elapsed_time;
@@ -166,7 +248,7 @@ int find_double_swing_by_zero_sec_sb_diff2(struct Swingby_Peak_Search_Params sps
 	int is_edge = 0;
 	int right_leg_only_positive = 1;
 	for(int i = -1 + only_right_leg*2; i <= 1; i+=2) {
-		double step = deg2rad(5);
+		double step = deg2rad(10)*i;
 		double dtheta = peak_dtheta + step;
 		int temp_counter = 0;
 		if(peak_dtheta < min_dtheta) {
@@ -231,6 +313,7 @@ int find_double_swing_by_zero_sec_sb_diff2(struct Swingby_Peak_Search_Params sps
 
 			double gradient = (diff_vinf - last_diff_vinf)/step;
 
+			printf("%g %f\n", diff_vinf, duration/86400);
 			if(diff_vinf > 0) {
 				double max_rel_T_pos = 2*M_PI;
 				if(dtheta+2*M_PI > max_dtheta) max_rel_T_pos = max_dtheta-dtheta;
@@ -370,6 +453,7 @@ struct DSB temp(struct Vector v_soi) {
 		
 		counter++;
 
+		printf("--- %d %f %f %f (%f %f) --------\n", right_leg_only_positive, interval[0]/86400, t/86400, interval[1]/86400, dsb.dv, dsb.man_time/86400);
 
 		if(0) {
 
@@ -382,7 +466,7 @@ struct DSB temp(struct Vector v_soi) {
 					v_t00
 			};
 
-			int temp_only_right = right_leg_only_positive;
+
 			right_leg_only_positive = find_double_swing_by_zero_sec_sb_diff(spsp, right_leg_only_positive);
 
 		} else {
@@ -411,9 +495,29 @@ struct DSB temp(struct Vector v_soi) {
 }
 
 
-
+double f(double t) {
+	return 4*t*t-3;
+}
 
 struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, struct OSV _p1, double _transfer_duration, struct Body *_body) {
+	struct Vector2D data[30] = { 2, 0, -10, f(-10), 5, f(5)};
+
+	for(int i = 0; i < 10; i++) {
+		if(!can_be_negative(data)) {
+			printf("\nCant be negative!!!\n");
+			break;
+		}
+		double next_x = get_next_dtheta_from_data_points(data, 0);
+		struct Vector2D new_data_point = {next_x, f(next_x)};
+
+		insert_new_data_point(data, new_data_point);
+		printf("%f %f\n", new_data_point.x, new_data_point.y);
+	}
+
+
+
+
+	exit(0);
 	x[0] = 1;
 	struct DSB dsb = {.dv = 1e9};
 	s0 = _s0;
@@ -434,7 +538,7 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 	double target_max = 2500;
 	double tol_it1 = 4000;
 	double tol_it2 = 500;
-	int num_angle_analyse = 200;
+	int num_angle_analyse = 50;
 	
 	double min_rp = body->radius+body->atmo_alt;
 	struct Vector v_soi0 = add_vectors(s0.v, scalar_multiply(p0.v,-1));
@@ -467,7 +571,7 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 		
 		while (phi <= max_phi) {
 			phi += angle_step_size;
-			
+			phi = deg2rad(20);
 			struct Vector rot_axis_1 = norm_vector(cross_product(v_soi0, p0.r));
 			struct Vector v_soi_ = rotate_vector_around_axis(v_soi0, rot_axis_1, phi);
 			kappa = i == 0 ? -max_defl - angle_step_size : angles[2] - angles[0] - angle_step_size;
@@ -476,6 +580,7 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 			printf("%f° %f°\n", rad2deg(phi), rad2deg(max_defl));
 			while (kappa <= max_kappa) {
 				kappa += angle_step_size;
+				kappa = deg2rad(-21);
 				
 				double defl = acos(cos(phi)*sin(M_PI_2 - kappa));
 				if (defl > max_defl) continue;
@@ -500,6 +605,9 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 				if(temp_dsb.man_time>0 && temp_dsb.dv < dsb.dv) {
 					dsb = temp_dsb;
 				}
+
+				printf("%f %f\n", dsb.dv, dsb.man_time/86400);
+				exit(0);
 			}
 		}
 		gettimeofday(&end, NULL);  // Record the ending time
