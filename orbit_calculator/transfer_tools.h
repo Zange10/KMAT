@@ -52,7 +52,10 @@ double dv_circ(struct Body *body, double rp, double vinf);
 double dv_capture(struct Body *body, double rp, double vinf);
 
 // propagate elliptical orbit by time
-struct OSV propagate_orbit(struct Vector r, struct Vector v, double dt, struct Body *attractor);
+struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, struct Body *attractor);
+
+// propagate elliptical orbit by true anomaly
+struct OSV propagate_orbit_theta(struct Vector r, struct Vector v, double dtheta, struct Body *attractor);
 
 // calculate the orbital state vector at the given date for a given ephemeris list
 struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor);
