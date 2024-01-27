@@ -12,7 +12,7 @@
 
 struct Swingby_Peak_Search_Params {
 	double peak_dur;
-	double T;
+	struct Orbit orbit;
 	double *interval;
 	struct DSB *dsb;
 	struct Body *body;
@@ -35,7 +35,7 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
 	struct timeval start, end;
 	double elapsed_time;
 	double peak_dur = spsp.peak_dur;
-	double T = spsp.T;
+	double T = spsp.orbit.period;
 	struct Vector v_t00 = spsp.v_t00;
 	struct DSB *dsb = spsp.dsb;
 	
@@ -151,6 +151,130 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
 }
 
 
+
+int find_double_swing_by_zero_sec_sb_diff2(struct Swingby_Peak_Search_Params spsp, int only_right_leg) {
+	struct timeval start, end;
+	double elapsed_time;
+	double peak_theta = spsp.peak_dur;
+	double T = spsp.orbit.period;
+	struct Vector v_t00 = spsp.v_t00;
+	struct DSB *dsb = spsp.dsb;
+
+	double min_theta = spsp.interval[0];
+	double max_theta = spsp.interval[1];
+
+	int is_edge = 0;
+	int right_leg_only_positive = 1;
+	for(int i = -1 + only_right_leg*2; i <= 1; i+=2) {
+		double step = deg2rad(5);
+		double theta = peak_theta+step;
+		int temp_counter = 0;
+		if(peak_theta < min_theta) {
+			i+=2;
+			if(i>1) break;
+			theta = min_theta;
+			is_edge = 1;
+		}
+		if(peak_theta > max_theta) {
+			if(i==1) break;
+			theta = max_theta;
+			is_edge = 1;
+		}
+		double diff_vinf = 1e9;
+		double last_diff_vinf = 1e9;
+		while (fabs(diff_vinf) > 10) {
+			temp_counter++;
+			if(temp_counter > 1000) {
+				break; // break endless loop
+			}
+			//if (dur > max_dur) break;
+			gettimeofday(&start, NULL);  // Record the starting time
+			struct OSV osv_m0 = propagate_orbit(p0.r, v_t00, dur, SUN());
+			gettimeofday(&end, NULL);  // Record the ending time
+			elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+			test[0] += elapsed_time;
+			if(rad2deg(angle_vec_vec(osv_m0.r, p1.r)) < 0.5) {
+				theta += step;
+				step += step;
+				continue;
+			}
+			gettimeofday(&start, NULL);  // Record the starting time
+
+			struct Transfer transfer = calc_transfer(capfb, body, body, osv_m0.r, osv_m0.v, p1.r, p1.v,
+													 transfer_duration * 86400 - dur, NULL);
+			gettimeofday(&end, NULL);  // Record the ending time
+			elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+			test[1] += elapsed_time;
+			struct Vector temp = add_vectors(transfer.v0, scalar_multiply(osv_m0.v, -1));
+			double mag = vector_mag(temp);
+
+			struct Vector temp1 = add_vectors(transfer.v1, scalar_multiply(p1.v, -1));
+			struct Vector temp2 = add_vectors(s1.v, scalar_multiply(p1.v, -1));
+
+			diff_vinf = vector_mag(temp1) - vector_mag(temp2);
+			if(peak_dur < 0 && dur == min_dur && diff_vinf < 0) return 0;
+			if(peak_dur > max_dur && dur == max_dur && diff_vinf < 0) return 1;
+			if (fabs(diff_vinf) < 10) {
+				double beta = (M_PI - angle_vec_vec(temp1, temp2)) / 2;
+				double rp = (1 / cos(beta) - 1) * (body->mu / (pow(vector_mag(temp1), 2)));
+				if (rp > body->radius + body->atmo_alt) {
+					if (mag < dsb->dv) {
+						dsb->dv = mag;
+						dsb->man_time = dur;	// gets converted to JD time instead of duration later
+					}
+				}
+				break;
+			}
+
+			double gradient = (diff_vinf - last_diff_vinf)/step;
+
+			if(diff_vinf > 0) {
+				double max_rel_T_pos = T;
+				if(dur+T > max_dur) max_rel_T_pos = max_dur-dur;
+				if(i == -1 && max_rel_T_pos > peak_dur) max_rel_T_pos = peak_dur;
+				double max_rel_T_neg = -T;
+				if(dur-T < 0) max_rel_T_neg = -dur;
+				if(i == 1 && max_rel_T_neg < peak_dur) max_rel_T_neg = peak_dur;
+				//printf("max_rel(+): %f, max_rel(-): %f, gradient: %f, gradT(+): %f, gradT(-): %f\n", max_rel_T_pos/86400, max_rel_T_neg/86400, gradient, diff_vinf+gradient*max_rel_T_pos, diff_vinf+gradient*max_rel_T_neg);
+				if(diff_vinf+gradient*max_rel_T_pos > 0 && diff_vinf+gradient*max_rel_T_neg > 0 && (fabs(step) < 86400 || is_edge)) {
+					//printf("GRADIENT: %f, %f, %f, %f\n", gradient, step, gradient*T, diff_vinf);
+					break;
+				}
+				if(step*i > 0 == gradient*i > 0 && dur != min_dur && dur != max_dur) {
+					step /= -4;
+				}
+			} else {
+				if(right_leg_only_positive && i == 1) right_leg_only_positive = 0;
+				if(step*i > 0 && dur != min_dur && dur != max_dur && dur != peak_dur) {
+					step /= -4;
+				}
+			}
+
+			dur += step;
+			if(dur < min_dur) {
+				step /= -4;
+				dur = min_dur;
+			} else if(dur > max_dur) {
+				step /= -4;
+				dur = max_dur;
+			}
+			if(i == 1 && dur < peak_dur && peak_dur > min_dur) {
+				step /= -4;
+				dur = peak_dur;
+			} else if(i == -1 && dur > peak_dur && peak_dur < max_dur) {
+				step /= -4;
+				dur = peak_dur;
+			}
+			last_diff_vinf = diff_vinf;
+		}
+	}
+	return right_leg_only_positive;
+}
+
+
+
+
+
 int c_temp = 0;
 int c_temp_total = 0;
 
@@ -158,8 +282,10 @@ struct DSB temp(struct Vector v_soi) {
 	struct DSB dsb = {.man_time = -1, .dv = 1e9};
 	double mu = body->orbit.body->mu;
 	//double tolerance = 0.05;
+
+    // velocity vector after first swing-by
 	struct Vector v_t00 = add_vectors(v_soi, p0.v);
-	
+	// orbit after first swing-by
 	struct Orbit orbit = constr_orbit_from_osv(s0.r, v_t00, body->orbit.body);
 	double T = orbit.period;
 	
@@ -243,7 +369,7 @@ struct DSB temp(struct Vector v_soi) {
 		
 		struct Swingby_Peak_Search_Params spsp = {
 				t,
-				T,
+				orbit,
 				interval,
 				&dsb,
 				body,
@@ -281,7 +407,7 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 	double target_max = 2500;
 	double tol_it1 = 4000;
 	double tol_it2 = 500;
-	int num_angle_analyse = 50;
+	int num_angle_analyse = 200;
 	
 	double min_rp = body->radius+body->atmo_alt;
 	struct Vector v_soi0 = add_vectors(s0.v, scalar_multiply(p0.v,-1));
@@ -374,8 +500,8 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 			max_kappa = angles[2] + angles[0];
 		}
 	}
-	//char flight_data_fields[] = "Phi,Kappa,DV,Duration";
-	//write_csv(flight_data_fields, x);
+	char flight_data_fields[] = "Phi,Kappa,DV,Duration";
+	write_csv(flight_data_fields, x);
 	
 	return dsb;
 }

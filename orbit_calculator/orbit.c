@@ -73,7 +73,7 @@ struct Orbit constr_orbit_from_osv(struct Vector r, struct Vector v, struct Body
 	double theta = v_r >= 0 ? acos(dot_product(e,r) / (e_mag*r_mag)) : 2*M_PI - acos(dot_product(e,r) / (e_mag*r_mag));
 	
 	double n = sqrt(mu / pow(fabs(a),3));
-	double t, T;
+	double t, T = 0;
 	if(e_mag < 1) {
 		double E = 2*atan(sqrt((1 - e_mag)/(1 + e_mag))*tan(theta/2));
 		t = (E - e_mag*sin(E))/n;
@@ -97,6 +97,59 @@ struct Orbit constr_orbit_from_osv(struct Vector r, struct Vector v, struct Body
 	return new_orbit;
 }
 
+double calc_dtheta_from_dt(struct Orbit orbit, double dt) {
+	double dtheta = 0;
+	if(orbit.e < 1) {
+		double T = orbit.period;
+		double t = orbit.t;
+		double target_t = orbit.t + dt;
+		while(target_t > T) target_t -= T;
+		while(target_t < 0) target_t += T;
+
+		double step = deg2rad(5);
+		double theta = orbit.theta;
+		theta += fabs(t-target_t) > 1 ? dt/T * M_PI*2 : step;
+		theta = pi_norm(theta);
+
+		int c = 0;
+		double e = orbit.e;
+		double E;
+		double n = sqrt(orbit.body->mu / pow(orbit.a,3));
+
+		while(fabs(t-target_t) > 1) {
+			c++;
+			theta = pi_norm(theta);
+			E = acos((e + cos(theta)) / (1 + e * cos(theta)));
+			t = (E - e * sin(E)) / n;
+			if(theta > M_PI) t = T-t;
+
+			// prevent endless loops (floating point imprecision can lead to not changing values for very small steps)
+			if(c == 500) break;
+
+			// check in which half t is with respect to target_t (forwards or backwards from target_t) and move it closer
+			if(target_t < T/2) {
+				if(t > target_t && t < target_t+T/2) {
+					if (step > 0) step *= -1.0 / 4;
+				} else {
+					if (step < 0) step *= -1.0 / 4;
+				}
+			} else {
+				if(t < target_t && t > target_t-T/2) {
+					if (step < 0) step *= -1.0 / 4;
+				} else {
+					if (step > 0) step *= -1.0 / 4;
+				}
+			}
+			theta += step;
+		}
+		theta -= step; // reset theta1 from last change inside the loop
+
+		dtheta = theta-orbit.theta;
+		while(floor(dt/T)   > dtheta/(2*M_PI)) dtheta += 2*M_PI;
+		while(floor(dt/T)+1 < dtheta/(2*M_PI)) dtheta -= 2*M_PI;
+	}
+	return dtheta;
+}
 
 double calc_orbital_speed(struct Orbit orbit, double r) {
     double v2 = orbit.body->mu * (2/r - 1/orbit.a);
