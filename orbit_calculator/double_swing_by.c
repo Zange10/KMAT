@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 
 
@@ -68,7 +69,7 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
 			}
 			//if (dur > max_dur) break;
 			gettimeofday(&start, NULL);  // Record the starting time
-			struct OSV osv_m0 = propagate_orbit(p0.r, v_t00, dur, SUN());
+			struct OSV osv_m0 = propagate_orbit_time(p0.r, v_t00, dur, SUN());
 			gettimeofday(&end, NULL);  // Record the ending time
 			elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
 			test[0] += elapsed_time;
@@ -155,29 +156,28 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
 int find_double_swing_by_zero_sec_sb_diff2(struct Swingby_Peak_Search_Params spsp, int only_right_leg) {
 	struct timeval start, end;
 	double elapsed_time;
-	double peak_theta = spsp.peak_dur;
-	double T = spsp.orbit.period;
+	double peak_dtheta = spsp.peak_dur;
 	struct Vector v_t00 = spsp.v_t00;
 	struct DSB *dsb = spsp.dsb;
 
-	double min_theta = spsp.interval[0];
-	double max_theta = spsp.interval[1];
+	double min_dtheta = spsp.interval[0];
+	double max_dtheta = spsp.interval[1];
 
 	int is_edge = 0;
 	int right_leg_only_positive = 1;
 	for(int i = -1 + only_right_leg*2; i <= 1; i+=2) {
 		double step = deg2rad(5);
-		double theta = peak_theta+step;
+		double dtheta = peak_dtheta + step;
 		int temp_counter = 0;
-		if(peak_theta < min_theta) {
+		if(peak_dtheta < min_dtheta) {
 			i+=2;
 			if(i>1) break;
-			theta = min_theta;
+			dtheta = min_dtheta;
 			is_edge = 1;
 		}
-		if(peak_theta > max_theta) {
+		if(peak_dtheta > max_dtheta) {
 			if(i==1) break;
-			theta = max_theta;
+			dtheta = max_dtheta;
 			is_edge = 1;
 		}
 		double diff_vinf = 1e9;
@@ -189,19 +189,22 @@ int find_double_swing_by_zero_sec_sb_diff2(struct Swingby_Peak_Search_Params sps
 			}
 			//if (dur > max_dur) break;
 			gettimeofday(&start, NULL);  // Record the starting time
-			struct OSV osv_m0 = propagate_orbit(p0.r, v_t00, dur, SUN());
+			struct OSV osv_m0 = propagate_orbit_theta(p0.r, v_t00, dtheta, SUN());
 			gettimeofday(&end, NULL);  // Record the ending time
 			elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
 			test[0] += elapsed_time;
 			if(rad2deg(angle_vec_vec(osv_m0.r, p1.r)) < 0.5) {
-				theta += step;
+				dtheta += step;
 				step += step;
 				continue;
 			}
+
+			double duration = calc_dt_from_dtheta(spsp.orbit, dtheta);
+
 			gettimeofday(&start, NULL);  // Record the starting time
 
 			struct Transfer transfer = calc_transfer(capfb, body, body, osv_m0.r, osv_m0.v, p1.r, p1.v,
-													 transfer_duration * 86400 - dur, NULL);
+													 transfer_duration * 86400 - duration, NULL);
 			gettimeofday(&end, NULL);  // Record the ending time
 			elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
 			test[1] += elapsed_time;
@@ -212,15 +215,15 @@ int find_double_swing_by_zero_sec_sb_diff2(struct Swingby_Peak_Search_Params sps
 			struct Vector temp2 = add_vectors(s1.v, scalar_multiply(p1.v, -1));
 
 			diff_vinf = vector_mag(temp1) - vector_mag(temp2);
-			if(peak_dur < 0 && dur == min_dur && diff_vinf < 0) return 0;
-			if(peak_dur > max_dur && dur == max_dur && diff_vinf < 0) return 1;
+			if(peak_dtheta < 0 && dtheta == min_dtheta && diff_vinf < 0) return 0;
+			if(peak_dtheta > max_dtheta && dtheta == max_dtheta && diff_vinf < 0) return 1;
 			if (fabs(diff_vinf) < 10) {
 				double beta = (M_PI - angle_vec_vec(temp1, temp2)) / 2;
 				double rp = (1 / cos(beta) - 1) * (body->mu / (pow(vector_mag(temp1), 2)));
 				if (rp > body->radius + body->atmo_alt) {
 					if (mag < dsb->dv) {
 						dsb->dv = mag;
-						dsb->man_time = dur;	// gets converted to JD time instead of duration later
+						dsb->man_time = duration;	// gets converted to JD time instead of duration later
 					}
 				}
 				break;
@@ -229,41 +232,41 @@ int find_double_swing_by_zero_sec_sb_diff2(struct Swingby_Peak_Search_Params sps
 			double gradient = (diff_vinf - last_diff_vinf)/step;
 
 			if(diff_vinf > 0) {
-				double max_rel_T_pos = T;
-				if(dur+T > max_dur) max_rel_T_pos = max_dur-dur;
-				if(i == -1 && max_rel_T_pos > peak_dur) max_rel_T_pos = peak_dur;
-				double max_rel_T_neg = -T;
-				if(dur-T < 0) max_rel_T_neg = -dur;
-				if(i == 1 && max_rel_T_neg < peak_dur) max_rel_T_neg = peak_dur;
+				double max_rel_T_pos = 2*M_PI;
+				if(dtheta+2*M_PI > max_dtheta) max_rel_T_pos = max_dtheta-dtheta;
+				if(i == -1 && max_rel_T_pos > peak_dtheta) max_rel_T_pos = peak_dtheta;
+				double max_rel_T_neg = -2*M_PI;
+				if(dtheta-2*M_PI < 0) max_rel_T_neg = -dtheta;
+				if(i == 1 && max_rel_T_neg < peak_dtheta) max_rel_T_neg = peak_dtheta;
 				//printf("max_rel(+): %f, max_rel(-): %f, gradient: %f, gradT(+): %f, gradT(-): %f\n", max_rel_T_pos/86400, max_rel_T_neg/86400, gradient, diff_vinf+gradient*max_rel_T_pos, diff_vinf+gradient*max_rel_T_neg);
 				if(diff_vinf+gradient*max_rel_T_pos > 0 && diff_vinf+gradient*max_rel_T_neg > 0 && (fabs(step) < 86400 || is_edge)) {
 					//printf("GRADIENT: %f, %f, %f, %f\n", gradient, step, gradient*T, diff_vinf);
 					break;
 				}
-				if(step*i > 0 == gradient*i > 0 && dur != min_dur && dur != max_dur) {
+				if(step*i > 0 == gradient*i > 0 && dtheta != min_dtheta && dtheta != max_dtheta) {
 					step /= -4;
 				}
 			} else {
 				if(right_leg_only_positive && i == 1) right_leg_only_positive = 0;
-				if(step*i > 0 && dur != min_dur && dur != max_dur && dur != peak_dur) {
+				if(step*i > 0 && dtheta != min_dtheta && dtheta != max_dtheta && dtheta != peak_dtheta) {
 					step /= -4;
 				}
 			}
 
-			dur += step;
-			if(dur < min_dur) {
+			dtheta += step;
+			if(dtheta < min_dtheta) {
 				step /= -4;
-				dur = min_dur;
-			} else if(dur > max_dur) {
+				dtheta = min_dtheta;
+			} else if(dtheta > max_dtheta) {
 				step /= -4;
-				dur = max_dur;
+				dtheta = max_dtheta;
 			}
-			if(i == 1 && dur < peak_dur && peak_dur > min_dur) {
+			if(i == 1 && dtheta < peak_dtheta && peak_dtheta > min_dtheta) {
 				step /= -4;
-				dur = peak_dur;
-			} else if(i == -1 && dur > peak_dur && peak_dur < max_dur) {
+				dtheta = peak_dtheta;
+			} else if(i == -1 && dtheta > peak_dtheta && peak_dtheta < max_dtheta) {
 				step /= -4;
-				dur = peak_dur;
+				dtheta = peak_dtheta;
 			}
 			last_diff_vinf = diff_vinf;
 		}
@@ -366,17 +369,41 @@ struct DSB temp(struct Vector v_soi) {
 		
 		
 		counter++;
-		
-		struct Swingby_Peak_Search_Params spsp = {
-				t,
-				orbit,
-				interval,
-				&dsb,
-				body,
-				v_t00
-		};
-		
-		right_leg_only_positive = find_double_swing_by_zero_sec_sb_diff(spsp, right_leg_only_positive);
+
+
+		if(0) {
+
+			struct Swingby_Peak_Search_Params spsp = {
+					t,
+					orbit,
+					interval,
+					&dsb,
+					body,
+					v_t00
+			};
+
+			int temp_only_right = right_leg_only_positive;
+			right_leg_only_positive = find_double_swing_by_zero_sec_sb_diff(spsp, right_leg_only_positive);
+
+		} else {
+			interval[0] = calc_dtheta_from_dt(orbit, interval[0]);
+			interval[1] = calc_dtheta_from_dt(orbit, interval[1]);
+			double peak_theta = calc_dtheta_from_dt(orbit, t);
+
+
+			struct Swingby_Peak_Search_Params spsp2 = {
+					peak_theta,
+					orbit,
+					interval,
+					&dsb,
+					body,
+					v_t00
+			};
+
+
+			right_leg_only_positive = find_double_swing_by_zero_sec_sb_diff2(spsp2, right_leg_only_positive);
+			//exit(0);
+		}
 		c_temp_total++;
 	}
 	

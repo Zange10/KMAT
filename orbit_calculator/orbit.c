@@ -151,6 +151,32 @@ double calc_dtheta_from_dt(struct Orbit orbit, double dt) {
 	return dtheta;
 }
 
+double calc_dt_from_dtheta(struct Orbit orbit, double dtheta) {
+	double dt = 0;
+	double e = orbit.e;
+	if(e < 1) {
+		double T = orbit.period;
+		double n = sqrt(orbit.body->mu / pow(orbit.a,3));
+		double E;
+
+		double theta0 = orbit.theta;
+		E = acos((e + cos(theta0)) / (1 + e * cos(theta0)));
+		double t0 = (E - e * sin(E)) / n;
+		if(theta0 > M_PI) t0 = T-t0;
+
+		double theta1 = pi_norm(theta0 + dtheta);
+		E = acos((e + cos(theta1)) / (1 + e * cos(theta1)));
+		double t1 = (E - e * sin(E)) / n;
+		if(theta1 > M_PI) t1 = T-t1;
+
+		dt = t1-t0;
+		//printf("%f° %f° %f %f %f\n", rad2deg(theta0), rad2deg(theta1), t0/86400, t1/86400, dt/86400);
+		while(floor(dtheta/(2*M_PI))   > dt/T) dt += T;
+		while(floor(dtheta/(2*M_PI))+1 < dt/T) dt -= T;
+	}
+	return dt;
+}
+
 double calc_orbital_speed(struct Orbit orbit, double r) {
     double v2 = orbit.body->mu * (2/r - 1/orbit.a);
     return sqrt(v2);
