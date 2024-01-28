@@ -24,9 +24,9 @@ struct Swingby_Peak_Search_Params {
 struct OSV s0,s1,p0,p1;
 double transfer_duration;
 struct Body *body;
+int avg_count[2] = {0,0};
 
-
-double x[1000000];
+double csv_data[1000000];
 
 
 double test[2];
@@ -62,7 +62,9 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
 		}
 		double diff_vinf = 1e9;
 		double last_diff_vinf = 1e9;
+		avg_count[0]++;
 		while (fabs(diff_vinf) > 10) {
+			avg_count[1]++;
 			temp_counter++;
 			if(temp_counter > 1000) {
 				break; // break endless loop
@@ -108,7 +110,7 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
 			
 			double gradient = (diff_vinf - last_diff_vinf)/step;
 
-			printf("%g %f\n", diff_vinf, dur/86400);
+			//printf("%g %f\n", diff_vinf, dur/86400);
 			if(diff_vinf > 0) {
 				double max_rel_T_pos = T;
 				if(dur+T > max_dur) max_rel_T_pos = max_dur-dur;
@@ -154,19 +156,21 @@ int find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp
 
 
 
-void insert_new_data_point(struct Vector2D data[], struct Vector2D new_data_point) {
+void insert_new_data_point(struct Vector2D data[], double x, double y) {
 	for (int i = 1; i <= data[0].x; i++) {
-		if (new_data_point.x < data[i].x) {
+		if (x < data[i].x) {
 
 			for (int j = (int) data[0].x; j >= i; j--) data[j + 1] = data[j];
 
-			data[i] = new_data_point;
+			data[i].x = x;
+			data[i].y = y;
 			data[0].x++;
 			return;
 		}
 	}
 
-	data[(int)data[0].x+1] = new_data_point;
+	data[(int)data[0].x+1].x = x;
+	data[(int)data[0].x+1].y = y;
 	data[0].x++;
 }
 
@@ -211,9 +215,14 @@ double get_next_dtheta_from_data_points(struct Vector2D *data, int branch) {
 	int num_data = (int) data[0].x;
 	int index;
 
+	/*for(int i = 1; i <= num_data; i++) {
+		printf("[%f %f]", data[i].x, data[i].y);
+	}
+	printf("\n");*/
 
 	// left branch
 	if(branch == 0) {
+		index = 1;
 		for(int i = 2; i <= num_data; i++) {
 			if(data[i].y < 0)			{ index = i; break; }
 			if(data[i].y > data[i-1].y)	{ break; }
@@ -222,6 +231,7 @@ double get_next_dtheta_from_data_points(struct Vector2D *data, int branch) {
 
 	// right branch
 	} else {
+		index = num_data;
 		for(int i = num_data-1; i >= 1; i--) {
 			if(data[i].y < 0)			{ index =   i; break; }
 			if(data[i].y > data[i+1].y)	{ index = 1+i; break; }
@@ -251,129 +261,81 @@ double get_next_dtheta_from_data_points(struct Vector2D *data, int branch) {
 
 
 
-int find_double_swing_by_zero_sec_sb_diff2(struct Swingby_Peak_Search_Params spsp, int only_right_leg) {
+int find_double_swing_by_zero_sec_sb_diff2(struct Swingby_Peak_Search_Params spsp) {
 	struct timeval start, end;
 	double elapsed_time;
-	double peak_dtheta = spsp.peak_dur;
 	struct Vector v_t00 = spsp.v_t00;
 	struct DSB *dsb = spsp.dsb;
 
 	double min_dtheta = spsp.interval[0];
 	double max_dtheta = spsp.interval[1];
 
-	int is_edge = 0;
-	int right_leg_only_positive = 1;
-	for(int i = -1 + only_right_leg*2; i <= 1; i+=2) {
-		double step = deg2rad(10)*i;
-		double dtheta = peak_dtheta + step;
-		int temp_counter = 0;
-		if(peak_dtheta < min_dtheta) {
-			i+=2;
-			if(i>1) break;
-			dtheta = min_dtheta;
-			is_edge = 1;
+	int right_side = 0;	// 0 = left, 1 = right
+
+	// x: dtheta, y: diff_vinf
+	struct Vector2D data[201];
+	data[0].x = 0;
+
+	double dtheta;
+
+	double diff_vinf = 1e9;
+	double last_diff_vinf = 1e9;
+	avg_count[0]++;
+	for(int i = 0; i < 200; i++) {
+		avg_count[1]++;
+
+		if(i == 0) dtheta = min_dtheta;
+
+		gettimeofday(&start, NULL);  // Record the starting time
+		struct OSV osv_m0 = propagate_orbit_theta(p0.r, v_t00, dtheta, SUN());
+		gettimeofday(&end, NULL);  // Record the ending time
+		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+		test[0] += elapsed_time;
+
+		double duration = calc_dt_from_dtheta(spsp.orbit, dtheta);
+
+		//printf("%f, %f, %f, %f, %f\n\n", rad2deg(dtheta), rad2deg(min_dtheta), rad2deg(max_dtheta), duration/86400, transfer_duration);
+
+		gettimeofday(&start, NULL);  // Record the starting time
+		struct Transfer transfer = calc_transfer(capfb, body, body, osv_m0.r, osv_m0.v, p1.r, p1.v,
+												 transfer_duration * 86400 - duration, NULL);
+		gettimeofday(&end, NULL);  // Record the ending time
+		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+		test[1] += elapsed_time;
+
+		struct Vector temp = add_vectors(transfer.v0, scalar_multiply(osv_m0.v, -1));
+		double mag = vector_mag(temp);
+
+		struct Vector temp1 = add_vectors(transfer.v1, scalar_multiply(p1.v, -1));
+		struct Vector temp2 = add_vectors(s1.v, scalar_multiply(p1.v, -1));
+
+		diff_vinf = vector_mag(temp1) - vector_mag(temp2);
+		//printf("%d %3d  %g %f\n", right_side, i, diff_vinf, rad2deg(dtheta));
+		if(dtheta == min_dtheta && diff_vinf < 0) right_side = 1;
+		if(dtheta == max_dtheta && diff_vinf < 0) break;
+
+		if (fabs(diff_vinf) < 10) {
+			double beta = (M_PI - angle_vec_vec(temp1, temp2)) / 2;
+			double rp = (1 / cos(beta) - 1) * (body->mu / (pow(vector_mag(temp1), 2)));
+			if (rp > body->radius + body->atmo_alt) {
+				if (mag < dsb->dv) {
+					dsb->dv = mag;
+					dsb->man_time = duration;	// gets converted to JD time instead of duration later
+				}
+			}
+			if(!right_side) right_side = 1;
+			else break;
 		}
-		if(peak_dtheta > max_dtheta) {
-			if(i==1) break;
-			dtheta = max_dtheta;
-			is_edge = 1;
-		}
-		double diff_vinf = 1e9;
-		double last_diff_vinf = 1e9;
-		while (fabs(diff_vinf) > 10) {
-			temp_counter++;
-			if(temp_counter > 1000) {
-				break; // break endless loop
-			}
-			//if (dur > max_dur) break;
-			gettimeofday(&start, NULL);  // Record the starting time
-			struct OSV osv_m0 = propagate_orbit_theta(p0.r, v_t00, dtheta, SUN());
-			gettimeofday(&end, NULL);  // Record the ending time
-			elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-			test[0] += elapsed_time;
-			if(rad2deg(angle_vec_vec(osv_m0.r, p1.r)) < 0.5) {
-				dtheta += step;
-				step += step;
-				continue;
-			}
 
-			double duration = calc_dt_from_dtheta(spsp.orbit, dtheta);
+		insert_new_data_point(data, dtheta, diff_vinf);
 
-			gettimeofday(&start, NULL);  // Record the starting time
+		if(!can_be_negative(data)) break;
 
-			struct Transfer transfer = calc_transfer(capfb, body, body, osv_m0.r, osv_m0.v, p1.r, p1.v,
-													 transfer_duration * 86400 - duration, NULL);
-			gettimeofday(&end, NULL);  // Record the ending time
-			elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-			test[1] += elapsed_time;
-			struct Vector temp = add_vectors(transfer.v0, scalar_multiply(osv_m0.v, -1));
-			double mag = vector_mag(temp);
-
-			struct Vector temp1 = add_vectors(transfer.v1, scalar_multiply(p1.v, -1));
-			struct Vector temp2 = add_vectors(s1.v, scalar_multiply(p1.v, -1));
-
-			diff_vinf = vector_mag(temp1) - vector_mag(temp2);
-			if(peak_dtheta < 0 && dtheta == min_dtheta && diff_vinf < 0) return 0;
-			if(peak_dtheta > max_dtheta && dtheta == max_dtheta && diff_vinf < 0) return 1;
-			if (fabs(diff_vinf) < 10) {
-				double beta = (M_PI - angle_vec_vec(temp1, temp2)) / 2;
-				double rp = (1 / cos(beta) - 1) * (body->mu / (pow(vector_mag(temp1), 2)));
-				if (rp > body->radius + body->atmo_alt) {
-					if (mag < dsb->dv) {
-						dsb->dv = mag;
-						dsb->man_time = duration;	// gets converted to JD time instead of duration later
-					}
-				}
-				break;
-			}
-
-			double gradient = (diff_vinf - last_diff_vinf)/step;
-
-			printf("%g %f\n", diff_vinf, duration/86400);
-			if(diff_vinf > 0) {
-				double max_rel_T_pos = 2*M_PI;
-				if(dtheta+2*M_PI > max_dtheta) max_rel_T_pos = max_dtheta-dtheta;
-				if(i == -1 && max_rel_T_pos > peak_dtheta) max_rel_T_pos = peak_dtheta;
-				double max_rel_T_neg = -2*M_PI;
-				if(dtheta-2*M_PI < 0) max_rel_T_neg = -dtheta;
-				if(i == 1 && max_rel_T_neg < peak_dtheta) max_rel_T_neg = peak_dtheta;
-				//printf("max_rel(+): %f, max_rel(-): %f, gradient: %f, gradT(+): %f, gradT(-): %f\n", max_rel_T_pos/86400, max_rel_T_neg/86400, gradient, diff_vinf+gradient*max_rel_T_pos, diff_vinf+gradient*max_rel_T_neg);
-				if(diff_vinf+gradient*max_rel_T_pos > 0 && diff_vinf+gradient*max_rel_T_neg > 0 && (fabs(step) < 86400 || is_edge)) {
-					//printf("GRADIENT: %f, %f, %f, %f\n", gradient, step, gradient*T, diff_vinf);
-					break;
-				}
-				if(step*i > 0 == gradient*i > 0 && dtheta != min_dtheta && dtheta != max_dtheta) {
-					step /= -4;
-				}
-			} else {
-				if(right_leg_only_positive && i == 1) right_leg_only_positive = 0;
-				if(step*i > 0 && dtheta != min_dtheta && dtheta != max_dtheta && dtheta != peak_dtheta) {
-					step /= -4;
-				}
-			}
-
-			dtheta += step;
-			if(dtheta < min_dtheta) {
-				step /= -4;
-				dtheta = min_dtheta;
-			} else if(dtheta > max_dtheta) {
-				step /= -4;
-				dtheta = max_dtheta;
-			}
-			if(i == 1 && dtheta < peak_dtheta && peak_dtheta > min_dtheta) {
-				step /= -4;
-				dtheta = peak_dtheta;
-			} else if(i == -1 && dtheta > peak_dtheta && peak_dtheta < max_dtheta) {
-				step /= -4;
-				dtheta = peak_dtheta;
-			}
-			last_diff_vinf = diff_vinf;
-		}
+		if(i == 0) dtheta = max_dtheta;
+		else dtheta = get_next_dtheta_from_data_points(data, right_side ? 1:0);
 	}
-	return right_leg_only_positive;
+	return 0;
 }
-
-
 
 
 
@@ -465,45 +427,24 @@ struct DSB temp(struct Vector v_soi) {
 			interval[1] = t + t2t1;
 			if (interval[1] > max_dur) interval[1] = max_dur;
 		}
-		
+
 		
 		counter++;
 
 		printf("--- %d %f %f %f (%f %f) --------\n", right_leg_only_positive, interval[0]/86400, t/86400, interval[1]/86400, dsb.dv, dsb.man_time/86400);
 
-		if(0) {
-
-			struct Swingby_Peak_Search_Params spsp = {
-					t,
-					orbit,
-					interval,
-					&dsb,
-					body,
-					v_t00
-			};
+		struct Swingby_Peak_Search_Params spsp = {
+				t,
+				orbit,
+				interval,
+				&dsb,
+				body,
+				v_t00
+		};
 
 
-			right_leg_only_positive = find_double_swing_by_zero_sec_sb_diff(spsp, right_leg_only_positive);
+		right_leg_only_positive = find_double_swing_by_zero_sec_sb_diff(spsp, right_leg_only_positive);
 
-		} else {
-			interval[0] = calc_dtheta_from_dt(orbit, interval[0]);
-			interval[1] = calc_dtheta_from_dt(orbit, interval[1]);
-			double peak_theta = calc_dtheta_from_dt(orbit, t);
-
-
-			struct Swingby_Peak_Search_Params spsp2 = {
-					peak_theta,
-					orbit,
-					interval,
-					&dsb,
-					body,
-					v_t00
-			};
-
-
-			right_leg_only_positive = find_double_swing_by_zero_sec_sb_diff2(spsp2, right_leg_only_positive);
-			//exit(0);
-		}
 		c_temp_total++;
 	}
 	
@@ -511,43 +452,94 @@ struct DSB temp(struct Vector v_soi) {
 }
 
 
+struct DSB temp2(struct Vector v_soi) {
+	struct DSB dsb = {.man_time = -1, .dv = 1e9};
+	double mu = body->orbit.body->mu;
+	//double tolerance = 0.05;
+
+	// velocity vector after first swing-by
+	struct Vector v_t00 = add_vectors(v_soi, p0.v);
+	// orbit after first swing-by
+	struct Orbit orbit = constr_orbit_from_osv(s0.r, v_t00, body->orbit.body);
+
+	double body_T = M_PI*2 * sqrt(pow(body->orbit.a,3)/mu);
+	// is true, when transfer point goes backwards on body orbit
+	int negative_true_anomaly = ((transfer_duration*86400)/body_T - (int)((transfer_duration*86400)/body_T)) > 0.5;
+
+	// maybe think about more resonances in future (not only 1:1, 2:1, 3:1,...)
+	/*if (T_ratio > tolerance && T_ratio < 1 - tolerance) {
+		dsb.man_time = -1;
+		return dsb;	// skip this iteration
+	}*/
+
+	// dtheta at which conjuction/opposition occurs (Sun, satellite, planet) - set to conj/opp before first fly-by
+	double theta_conj_opp = angle_vec_vec(p0.r, p1.r);
+	if(negative_true_anomaly) theta_conj_opp *= -1;
+	else theta_conj_opp -= M_PI;
+
+	double interval[2];
+
+	int counter = 0;
+	double max_dtheta = calc_dtheta_from_dt(orbit, transfer_duration*86400-86400*3);
+	double min_dtheta = calc_dtheta_from_dt(orbit, 86400*3);
+	double gdsa = calc_dt_from_dtheta(orbit, max_dtheta);
+	//printf("[%f %f %f %f]\n", transfer_duration, gdsa/86400, rad2deg(min_dtheta), rad2deg(max_dtheta));
+	double dtheta0, dtheta1;
+
+	do {
+		dtheta0 = theta_conj_opp + M_PI*(  counter);
+		dtheta1 = theta_conj_opp + M_PI*(1+counter);
+
+		interval[0] = dtheta0;// + deg2rad(0.5);
+		if (interval[0] < min_dtheta) interval[0] = min_dtheta;
+
+		interval[1] = dtheta1;// - deg2rad(0.5);
+		if (interval[1] > max_dtheta) interval[1] = max_dtheta;
+
+
+		/*struct OSV osv_m0 = propagate_orbit_theta(p0.r, v_t00, interval[0], SUN());
+		printf("%f° ", rad2deg(angle_vec_vec(osv_m0.r, p1.r)));
+		osv_m0 = propagate_orbit_theta(p0.r, v_t00, dtheta, SUN());
+		printf("%f° ", rad2deg(angle_vec_vec(osv_m0.r, p1.r)));
+		osv_m0 = propagate_orbit_theta(p0.r, v_t00, interval[1], SUN());
+		printf("%f°   -   ", rad2deg(angle_vec_vec(osv_m0.r, p1.r)));
+
+
+		osv_m0 = propagate_orbit_theta(p0.r, v_t00, dtheta, SUN());
+		printf("%f° ", rad2deg(angle_vec_vec(vec(osv_m0.r.x, osv_m0.r.y, 0), vec(p1.r.x, p1.r.y, 0))));
+		osv_m0 = propagate_orbit_theta(p0.r, v_t00, dtheta, SUN());
+		printf("%f° ", rad2deg(angle_vec_vec(osv_m0.r, p1.r)));
+		osv_m0 = propagate_orbit_theta(p0.r, v_t00, dtheta, SUN());
+		printf("%f° ", rad2deg(angle_vec_vec(vec(osv_m0.r.x, osv_m0.r.y, 0), vec(p1.r.x, p1.r.y, 0))));
+		osv_m0 = propagate_orbit_theta(p0.r, v_t00, dtheta, SUN());
+		printf("%f°\n", rad2deg(angle_vec_vec(osv_m0.r, p1.r)));*/
+
+		counter++;
+
+		struct Swingby_Peak_Search_Params spsp2 = {
+				interval[0]+ rad2deg(2),
+				orbit,
+				interval,
+				&dsb,
+				body,
+				v_t00
+		};
+
+
+		find_double_swing_by_zero_sec_sb_diff2(spsp2);
+		//exit(0);
+		c_temp_total++;
+	} while (dtheta1 < max_dtheta);
+
+	return dsb;
+}
+
 double f(double t) {
 	return 3000*(1/(t*t)+0.01*t*t-0.1);
 }
 
 struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, struct OSV _p1, double _transfer_duration, struct Body *_body) {
-	double tempdata[] = {-40, -0.0001};
-	struct Vector2D data[100] = { 2, 0, tempdata[0], f(tempdata[0]), tempdata[1], f(tempdata[1])};
-	//printf("x = [");
-	int tempc = 0;
-	struct Vector2D rdata = {0,0};
-	for(int i = 0; i < 80; i++) {
-		tempc++;
-		if(!can_be_negative(data)) {
-			printf("\nCant be negative!!!\n");
-			break;
-		}
-		double next_x = get_next_dtheta_from_data_points(data, 1);
-		struct Vector2D new_data_point = {next_x, f(next_x)};
-
-		insert_new_data_point(data, new_data_point);
-		printf("%g %g\n", new_data_point.x, new_data_point.y);
-		//if(i!=0) printf(", ");
-		//printf("%f", new_data_point.x);
-
-		if(fabs(new_data_point.y) < 10) {
-			rdata = new_data_point;
-			break;
-		}
-	}
-	//printf("]\n");
-	printf("x: %f, y: %f, count: %d\n", rdata.x, rdata.y, tempc);
-
-
-
-
-	exit(0);
-	x[0] = 1;
+	csv_data[0] = 1;
 	struct DSB dsb = {.dv = 1e9};
 	s0 = _s0;
 	p0 = _p0;
@@ -567,7 +559,7 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 	double target_max = 2500;
 	double tol_it1 = 4000;
 	double tol_it2 = 500;
-	int num_angle_analyse = 50;
+	int num_angle_analyse = 200;
 	
 	double min_rp = body->radius+body->atmo_alt;
 	struct Vector v_soi0 = add_vectors(s0.v, scalar_multiply(p0.v,-1));
@@ -600,7 +592,7 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 		
 		while (phi <= max_phi) {
 			phi += angle_step_size;
-			phi = deg2rad(20);
+			//phi = deg2rad(20);
 			struct Vector rot_axis_1 = norm_vector(cross_product(v_soi0, p0.r));
 			struct Vector v_soi_ = rotate_vector_around_axis(v_soi0, rot_axis_1, phi);
 			kappa = i == 0 ? -max_defl - angle_step_size : angles[2] - angles[0] - angle_step_size;
@@ -609,7 +601,7 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 			printf("%f° %f°\n", rad2deg(phi), rad2deg(max_defl));
 			while (kappa <= max_kappa) {
 				kappa += angle_step_size;
-				kappa = deg2rad(-21);
+				//kappa = deg2rad(-21);
 				
 				double defl = acos(cos(phi)*sin(M_PI_2 - kappa));
 				if (defl > max_defl) continue;
@@ -621,22 +613,22 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 				
 				//printf("(%3d°, %3d°, %6.2f°)  -  %.2f°\n", i, j, rad2deg(beta), rad2deg(angle));
 				
-				struct DSB temp_dsb = temp(v_soi);
+				struct DSB temp_dsb = temp2(v_soi);
 				
 				if(temp_dsb.dv < 1e8) {
 					c_temp++;
-					x[(int)x[0]    ] = rad2deg(phi);
-					x[(int)x[0] + 1] = rad2deg(kappa);
-					x[(int)x[0] + 2] = temp_dsb.dv;
-					x[(int)x[0] + 3] = temp_dsb.man_time/(86400);
-					x[0] += 4;
+					csv_data[(int)csv_data[0]    ] = rad2deg(phi);
+					csv_data[(int)csv_data[0] + 1] = rad2deg(kappa);
+					csv_data[(int)csv_data[0] + 2] = temp_dsb.dv;
+					csv_data[(int)csv_data[0] + 3] = temp_dsb.man_time / (86400);
+					csv_data[0] += 4;
 				}
 				if(temp_dsb.man_time>0 && temp_dsb.dv < dsb.dv) {
 					dsb = temp_dsb;
 				}
 
-				printf("%f %f\n", dsb.dv, dsb.man_time/86400);
-				exit(0);
+				//printf("\n %f %f\n", dsb.dv, dsb.man_time/86400);
+				//exit(0);
 			}
 		}
 		gettimeofday(&end, NULL);  // Record the ending time
@@ -664,8 +656,9 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 			max_kappa = angles[2] + angles[0];
 		}
 	}
+	printf("%d, %d, %f\n", avg_count[0], avg_count[1], (double) avg_count[1]/avg_count[0]);
 	char flight_data_fields[] = "Phi,Kappa,DV,Duration";
-	write_csv(flight_data_fields, x);
+	write_csv(flight_data_fields, csv_data);
 	
 	return dsb;
 }

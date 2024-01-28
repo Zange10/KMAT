@@ -20,7 +20,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
 
     while(fabs(dt-target_dt) > 1) {
 
-        if(c >= 1000) {
+        if(c >= 250) {
             if(fabs(dt-target_dt) < 86400 && fabs(step) < 1e-10) {
                 theta1 += step; // will be subtracted again after the loop
                 break;
@@ -127,7 +127,7 @@ struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt,
     int c = 0;
 
     while(fabs(dt-target_dt) > 1) {
-        if(c >= 1000) {
+        if(c >= 250) {
             if(fabs(dt-target_dt) < 86400 && fabs(step) < 1e-10) {
                 theta1 += step; // will be subtracted again after the loop
                 break;
@@ -135,7 +135,7 @@ struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt,
             printf("\n");
             printf("%f, %f, %f", r1, r2, rad2deg(dtheta));
             printf("\n%f, %f, %f, %f, %f", target_dt/(24*60*60), dt/(24*60*60), fabs(target_dt-dt), rad2deg(theta1), rad2deg(step));
-            fprintf(stderr, "\nMore than 1000 calculations tried (extreme hyperbola)\n");
+            fprintf(stderr, "\nMore than 500 calculations tried\n");
             //exit(EXIT_FAILURE);
             break;
         }
