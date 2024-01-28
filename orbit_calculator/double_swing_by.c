@@ -23,7 +23,6 @@ struct Swingby_Peak_Search_Params {
 struct OSV s0,s1,p0,p1;
 double transfer_duration;
 struct Body *body;
-int avg_count[2] = {0,0};
 
 double csv_data[1000000];
 
@@ -135,7 +134,6 @@ double get_next_dtheta_from_data_points(struct Vector2D *data, int branch) {
 }
 
 
-
 void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp) {
 	struct timeval start, end;
 	double elapsed_time;
@@ -147,18 +145,13 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 
 	int right_side = 0;	// 0 = left, 1 = right
 
-	// x: dtheta, y: diff_vinf
-	struct Vector2D data[201];
+	// x: dtheta, y: diff_vinf (data[0].x: number of data points beginning at index 1)
+	struct Vector2D data[101];
 	data[0].x = 0;
 
-	double dtheta;
+	double dtheta, diff_vinf = 1e9;
 
-	double diff_vinf = 1e9;
-	double last_diff_vinf = 1e9;
-	avg_count[0]++;
-	for(int i = 0; i < 200; i++) {
-		avg_count[1]++;
-
+	for(int i = 0; i < 100; i++) {
 		if(i == 0) dtheta = min_dtheta;
 
 		gettimeofday(&start, NULL);  // Record the starting time
@@ -194,6 +187,11 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 			double rp = (1 / cos(beta) - 1) * (body->mu / (pow(vector_mag(temp1), 2)));
 			if (rp > body->radius + body->atmo_alt) {
 				if (mag < dsb->dv) {
+					dsb->osv[1] = osv_m0;
+					dsb->osv[2].r = transfer.r0;
+					dsb->osv[2].r = transfer.v0;
+					dsb->osv[3].r = transfer.r1;
+					dsb->osv[3].r = transfer.v1;
 					dsb->dv = mag;
 					dsb->man_time = duration;	// gets converted to JD time instead of duration later
 				}
@@ -212,25 +210,22 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 }
 
 
-
-int c_temp = 0;
-int c_temp_total = 0;
-
-
-struct DSB temp2(struct Vector v_soi) {
+struct DSB calc_man_for_dsb(struct Vector v_soi) {
 	struct DSB dsb = {.man_time = -1, .dv = 1e9};
 	double mu = body->orbit.body->mu;
-	//double tolerance = 0.05;
+	double tolerance = 0.05;
 
 	// velocity vector after first swing-by
 	struct Vector v_t00 = add_vectors(v_soi, p0.v);
 	// orbit after first swing-by
 	struct Orbit orbit = constr_orbit_from_osv(s0.r, v_t00, body->orbit.body);
+	double T = orbit.period;
 
 	double body_T = M_PI*2 * sqrt(pow(body->orbit.a,3)/mu);
 	// is true, when transfer point goes backwards on body orbit
 	int negative_true_anomaly = ((transfer_duration*86400)/body_T - (int)((transfer_duration*86400)/body_T)) > 0.5;
 
+	double T_ratio = T / body_T - (int) (T / body_T);
 	// maybe think about more resonances in future (not only 1:1, 2:1, 3:1,...)
 	/*if (T_ratio > tolerance && T_ratio < 1 - tolerance) {
 		dsb.man_time = -1;
@@ -272,7 +267,6 @@ struct DSB temp2(struct Vector v_soi) {
 
 
 		find_double_swing_by_zero_sec_sb_diff(spsp2);
-		c_temp_total++;
 	} while (dtheta1 < max_dtheta);
 
 	return dsb;
@@ -295,11 +289,8 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 	
 	test[0] = 0;
 	test[1] = 0;
-	
-	double target_max = 2500;
-	double tol_it1 = 4000;
-	double tol_it2 = 500;
-	int num_angle_analyse = 250;
+
+	int num_angle_analyse = 10;
 	
 	double min_rp = body->radius+body->atmo_alt;
 	struct Vector v_soi0 = add_vectors(s0.v, scalar_multiply(p0.v,-1));
@@ -308,14 +299,13 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 	double max_defl = M_PI - 2*min_beta;
 	
 	printf("\nmin beta: %.2f°; max deflection: %.2f° (vinf: %f m/s)\n\n", rad2deg(min_beta), rad2deg(max_defl), v_inf);
-	
+
 	double angle_step_size, phi, kappa, max_phi, max_kappa;
 	double angles[3];
-	double min_dv, min_phi, min_kappa;
+	double min_phi, min_kappa;
 	double min_phi_kappa[2];
 	
 	for(int i = 0; i < 1; i++) {
-		min_dv = 1e9;
 		if (i == 0) {
 			angle_step_size = 2 * max_defl / num_angle_analyse;
 			phi = -max_defl - angle_step_size;
@@ -332,7 +322,6 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 		
 		while (phi <= max_phi) {
 			phi += angle_step_size;
-			//phi = deg2rad(20);
 			struct Vector rot_axis_1 = norm_vector(cross_product(v_soi0, p0.r));
 			struct Vector v_soi_ = rotate_vector_around_axis(v_soi0, rot_axis_1, phi);
 			kappa = i == 0 ? -max_defl - angle_step_size : angles[2] - angles[0] - angle_step_size;
@@ -341,63 +330,108 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 			printf("%f° %f°\n", rad2deg(phi), rad2deg(max_defl));
 			while (kappa <= max_kappa) {
 				kappa += angle_step_size;
-				//kappa = deg2rad(-21);
 				
 				double defl = acos(cos(phi)*sin(M_PI_2 - kappa));
 				if (defl > max_defl) continue;
 				
-				//printf("%f° %f° %f°\n", rad2deg(phi), rad2deg(kappa), rad2deg(defl));
-				
 				struct Vector rot_axis_2 = norm_vector(cross_product(v_soi_, rot_axis_1));
 				struct Vector v_soi = rotate_vector_around_axis(v_soi_, rot_axis_2, kappa);
 				
-				//printf("(%3d°, %3d°, %6.2f°)  -  %.2f°\n", i, j, rad2deg(beta), rad2deg(angle));
-				
-				struct DSB temp_dsb = temp2(v_soi);
+				struct DSB temp_dsb = calc_man_for_dsb(v_soi);
 				
 				if(temp_dsb.dv < 1e8) {
-					c_temp++;
 					csv_data[(int)csv_data[0]    ] = rad2deg(phi);
 					csv_data[(int)csv_data[0] + 1] = rad2deg(kappa);
 					csv_data[(int)csv_data[0] + 2] = temp_dsb.dv;
 					csv_data[(int)csv_data[0] + 3] = temp_dsb.man_time / (86400);
-					csv_data[0] += 4;
+					csv_data[(int)csv_data[0] + 4] = constr_orbit_from_osv(temp_dsb.osv[1].r, temp_dsb.osv[1].v, SUN()).period/86400;
+					csv_data[0] += 5;
 				}
 				if(temp_dsb.man_time>0 && temp_dsb.dv < dsb.dv) {
 					dsb = temp_dsb;
+					min_phi = phi;
+					min_kappa = kappa;
 				}
-
-				//printf("\n %f %f\n", dsb.dv, dsb.man_time/86400);
-				//exit(0);
 			}
 		}
 		gettimeofday(&end, NULL);  // Record the ending time
 		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-		//printf("%f  (%f°, %f°, %f°)  %d %d", min_dv, rad2deg(min_phi), rad2deg(min_kappa), rad2deg(angle_step_size), total_counter, partial_counter);
 		printf("| Elapsed time: %.3f s |  (%f - %f - %f)\n", elapsed_time, test[0], test[1], test[0]+test[1]);
 		printf("min_dv: %f\n", dsb.dv);
-		if(min_dv >= 1e9) break;
-		
-		angles[0] = i == 0 ? max_defl/2 : angles[0]/8;
-		num_angle_analyse -= 5;
-		if(i == 0) num_angle_analyse = 25;
-		angles[1] = min_phi;
-		angles[2] = min_kappa;
-		
-		
-		
-		double min_phi_temp, min_kappa_temp;
-		if (i == 0) {
-			min_phi_temp = -max_defl - angle_step_size;
-		} else {
-			angle_step_size = 2 * angles[0] / num_angle_analyse;
-			phi = angles[1] - angles[0] - angle_step_size;
-			max_phi = angles[1] + angles[0];
-			max_kappa = angles[2] + angles[0];
+		if(dsb.dv >= 1e9) break;
+
+		double phi0, kappa0;
+		double l = 0.5 * max_defl / num_angle_analyse;
+
+		while(l > max_defl/10000) {
+			phi0 = min_phi;
+			kappa0 = min_kappa;
+
+			for(int c = 0; c < 8; c++) {
+				switch(c) {
+					case 0:
+						phi = phi0 + 3*l;
+						kappa = kappa0;
+						break;
+					case 1:
+						phi = phi0 - 3*l;
+						kappa = kappa0;
+						break;
+					case 2:
+						phi = phi0;
+						kappa = kappa0 + 3*l;
+						break;
+					case 3:
+						phi = phi0;
+						kappa = kappa0 - 3*l;
+						break;
+					case 4:
+						phi = phi0 + 2*l;
+						kappa = kappa0 + 2*l;
+						break;
+					case 5:
+						phi = phi0 - 2*l;
+						kappa = kappa0 + 2*l;
+						break;
+					case 6:
+						phi = phi0 + 2*l;
+						kappa = kappa0 - 2*l;
+						break;
+					case 7:
+						phi = phi0 - 2*l;
+						kappa = kappa0 - 2*l;
+						break;
+				}
+
+
+				struct Vector rot_axis_1 = norm_vector(cross_product(v_soi0, p0.r));
+				struct Vector v_soi_ = rotate_vector_around_axis(v_soi0, rot_axis_1, phi);
+
+				struct Vector rot_axis_2 = norm_vector(cross_product(v_soi_, rot_axis_1));
+				struct Vector v_soi = rotate_vector_around_axis(v_soi_, rot_axis_2, kappa);
+
+				struct DSB temp_dsb = calc_man_for_dsb(v_soi);
+
+				if(temp_dsb.man_time > 0 && temp_dsb.dv < dsb.dv) {
+					dsb = temp_dsb;
+					min_phi = phi;
+					min_kappa = kappa;
+					csv_data[(int) csv_data[0]] = rad2deg(min_phi);
+					csv_data[(int) csv_data[0] + 1] = rad2deg(min_kappa);
+					csv_data[(int) csv_data[0] + 2] = dsb.dv;
+					csv_data[(int) csv_data[0] + 3] = dsb.man_time / (86400);
+					csv_data[(int) csv_data[0] + 4] =
+							constr_orbit_from_osv(dsb.osv[1].r, dsb.osv[1].v, SUN()).period / 86400;
+					csv_data[0] += 5;
+					break;
+				}
+			}
+			printf("%f %f %f %f\n", dsb.dv, rad2deg(min_phi), rad2deg(min_kappa), rad2deg(l));
+			if(min_phi == phi0 && min_kappa == kappa0) l /= 2;
 		}
 	}
-	printf("%d, %d, %f\n", avg_count[0], avg_count[1], (double) avg_count[1]/avg_count[0]);
-	char flight_data_fields[] = "Phi,Kappa,DV,Duration";
+
+	char flight_data_fields[] = "Phi,Kappa,DV,Duration,T";
 	write_csv(flight_data_fields, csv_data);
 	
 	return dsb;

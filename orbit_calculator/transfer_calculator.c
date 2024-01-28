@@ -145,9 +145,32 @@ void dsb_test() {
 			{1999, 6, 24,0,0,0},
 			{1999, 8, 18,0,0,0},
 	};
+
+	struct Body *test_bodies[] = {EARTH(), VENUS(), VENUS(), EARTH()};
+	struct Date test[4]= {
+			{1970, 9, 1, 0, 0, 0},
+			{1970, 12, 2,0,0,0},
+			{1972, 4, 3,0,0,0},
+			{1973, 11, 4,0,0,0},
+	};
 	
-	struct Body **bodies = Cassini_bodies;
-	struct Date *dates = Cassini;
+	struct Body **bodies;
+	struct Date *dates;
+
+	int id = 2;
+
+	switch(id) {
+		case 0:
+			bodies = Cassini_bodies;
+			dates = Cassini; break;
+		case 1:
+			bodies = Galileo_bodies;
+			dates = Galileo; break;
+		case 2:
+			bodies = test_bodies;
+			dates = test; break;
+	}
+
 	struct Date dep_date = dates[0];
 	struct Date sb1_date = dates[1];
 	struct Date sb2_date = dates[2];
