@@ -198,10 +198,19 @@ int can_be_negative(struct Vector2D *data) {
 	return 0;
 }
 
+struct Vector2D get_xn(struct Vector2D d0, struct Vector2D d1, double m_l, double m_r) {
+	struct Vector2D xn;
+	xn.x = (d1.y-d0.y + m_l*d0.x - m_r*d1.x) / (m_l-m_r);
+	xn.y = m_l * (xn.x-d0.x) + d0.y;
+	return xn;
+}
+
 double get_next_dtheta_from_data_points(struct Vector2D *data, int branch) {
 	// branch = 0 for left branch, 1 for right branch
+	if(data[0].x == 2) return (data[1].x + data[2].x)/2;
 	int num_data = (int) data[0].x;
 	int index;
+
 
 	// left branch
 	if(branch == 0) {
@@ -214,9 +223,9 @@ double get_next_dtheta_from_data_points(struct Vector2D *data, int branch) {
 	// right branch
 	} else {
 		for(int i = num_data-1; i >= 1; i--) {
-			if(data[i].y < 0)			{ index = i; break; }
-			if(data[i].y > data[i+1].y)	{ break; }
-			else 						{ index = i; }
+			if(data[i].y < 0)			{ index =   i; break; }
+			if(data[i].y > data[i+1].y)	{ index = 1+i; break; }
+			else 						{ index =   i; }
 		}
 	}
 
@@ -225,12 +234,19 @@ double get_next_dtheta_from_data_points(struct Vector2D *data, int branch) {
 		else 			return (data[index].x + data[index+1].x)/2;
 	}
 
-	if(index == 1)			return (data[1].x + data[2].x)/2;
-	if(index == num_data)	return (data[num_data-1].x + data[num_data].x)/2;
+	if(index <= 2)			return (data[1].x + data[2].x)/2;
+	if(index >= num_data-1)	return (data[num_data-1].x + data[num_data].x)/2;
 
 
+	double gradient_l 	= (data[index  ].y - data[index - 1].y) / (data[index  ].x - data[index - 1].x);
+	double gradient_r 	= (data[index  ].y - data[index + 1].y) / (data[index  ].x - data[index + 1].x);
+	double gradient_ll 	= (data[index-1].y - data[index - 2].y) / (data[index-1].x - data[index - 2].x);
+	double gradient_rr 	= (data[index+1].y - data[index + 2].y) / (data[index+1].x - data[index + 2].x);
 
-	return (data[index].x + data[index+1].x)/2;
+	struct Vector2D xn_l = get_xn(data[index-1], data[index  ], gradient_ll, gradient_r);
+	struct Vector2D xn_r = get_xn(data[index  ], data[index+1], gradient_l, gradient_rr);
+
+	return (xn_l.y < xn_r.y) ? xn_l.x : xn_r.x;
 }
 
 
@@ -496,23 +512,36 @@ struct DSB temp(struct Vector v_soi) {
 
 
 double f(double t) {
-	return 4*t*t-3;
+	return 3000*(1/(t*t)+0.01*t*t-0.1);
 }
 
 struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, struct OSV _p1, double _transfer_duration, struct Body *_body) {
-	struct Vector2D data[30] = { 2, 0, -10, f(-10), 5, f(5)};
-
-	for(int i = 0; i < 10; i++) {
+	double tempdata[] = {-40, -0.0001};
+	struct Vector2D data[100] = { 2, 0, tempdata[0], f(tempdata[0]), tempdata[1], f(tempdata[1])};
+	//printf("x = [");
+	int tempc = 0;
+	struct Vector2D rdata = {0,0};
+	for(int i = 0; i < 80; i++) {
+		tempc++;
 		if(!can_be_negative(data)) {
 			printf("\nCant be negative!!!\n");
 			break;
 		}
-		double next_x = get_next_dtheta_from_data_points(data, 0);
+		double next_x = get_next_dtheta_from_data_points(data, 1);
 		struct Vector2D new_data_point = {next_x, f(next_x)};
 
 		insert_new_data_point(data, new_data_point);
-		printf("%f %f\n", new_data_point.x, new_data_point.y);
+		printf("%g %g\n", new_data_point.x, new_data_point.y);
+		//if(i!=0) printf(", ");
+		//printf("%f", new_data_point.x);
+
+		if(fabs(new_data_point.y) < 10) {
+			rdata = new_data_point;
+			break;
+		}
 	}
+	//printf("]\n");
+	printf("x: %f, y: %f, count: %d\n", rdata.x, rdata.y, tempc);
 
 
 
