@@ -150,11 +150,18 @@ void on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	if(curr_transfer != NULL) {
 		struct TransferData *temp_transfer = get_first();
 		while(temp_transfer != NULL) {
+			if(temp_transfer->body == NULL) {
+				temp_transfer = temp_transfer->next;
+				continue;
+			}
 			int id = temp_transfer->body->id;
 			set_cairo_body_color(cr, id);
 			struct OSV osv = osv_from_ephem(ephems[id-1], temp_transfer->date, SUN());
 			draw_transfer(cr, center, scale, osv.r);
-			if(temp_transfer->next != NULL) draw_trajectory(cr, center, scale, temp_transfer, temp_transfer->next, ephems);
+			if(temp_transfer->next != NULL) {
+				if(temp_transfer->next->body != NULL) draw_trajectory(cr, center, scale, temp_transfer, temp_transfer->next, ephems);
+				else if(temp_transfer->next->next != NULL) draw_dsb(cr, center, scale, temp_transfer, temp_transfer->next->next, ephems);
+			}
 			temp_transfer = temp_transfer->next;
 		}
 	}
@@ -318,8 +325,12 @@ void on_goto_transfer_date(GtkWidget* widget, gpointer data) {
 
 void on_transfer_body_select(GtkWidget* widget, gpointer data) {
 	int id = (int) gtk_widget_get_name(widget)[0] - 48;	// char to int
-	struct Body *body = get_body_from_id(id);
-	curr_transfer->body = body;
+	if(id == 0) {
+		curr_transfer->body = NULL;
+	} else {
+		struct Body *body = get_body_from_id(id);
+		curr_transfer->body = body;
+	}
 	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel), "page0");
 	update();
 }

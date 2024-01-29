@@ -187,11 +187,13 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 			double rp = (1 / cos(beta) - 1) * (body->mu / (pow(vector_mag(temp1), 2)));
 			if (rp > body->radius + body->atmo_alt) {
 				if (mag < dsb->dv) {
+					dsb->osv[0].r = p0.r;
+					dsb->osv[0].v = v_t00;
 					dsb->osv[1] = osv_m0;
 					dsb->osv[2].r = transfer.r0;
-					dsb->osv[2].r = transfer.v0;
+					dsb->osv[2].v = transfer.v0;
 					dsb->osv[3].r = transfer.r1;
-					dsb->osv[3].r = transfer.v1;
+					dsb->osv[3].v = transfer.v1;
 					dsb->dv = mag;
 					dsb->man_time = duration;	// gets converted to JD time instead of duration later
 				}
