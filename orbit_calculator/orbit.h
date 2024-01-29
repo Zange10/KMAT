@@ -46,6 +46,10 @@ struct Orbit constr_orbit_from_osv(struct Vector r, struct Vector v, struct Body
 double calc_orbital_speed(struct Orbit orbit, double r);
 
 
+double calc_dtheta_from_dt(struct Orbit orbit, double dt);
+
+double calc_dt_from_dtheta(struct Orbit orbit, double dtheta);
+
 // Prints parameters specific to the orbit
 void print_orbit_info(struct Orbit orbit);
 // Prints apsides (no line-break): "Apoapsis - Periapsis"

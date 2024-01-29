@@ -49,7 +49,10 @@ add_executable(KSP
         gui/transfer_app.c
         gui/transfer_app.h
         gui/drawing.c
-        gui/drawing.h)
+        gui/drawing.h
+        thread_pool.h
+        orbit_calculator/double_swing_by.c
+        orbit_calculator/double_swing_by.h)
 
 target_link_libraries(KSP m;
         ${GTK3_LIBRARIES})

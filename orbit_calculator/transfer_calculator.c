@@ -1,5 +1,6 @@
 #include "transfer_calculator.h"
 #include "transfer_tools.h"
+#include "double_swing_by.h"
 #include "csv_writer.h"
 #include "tool_funcs.h"
 #include <stdio.h>
@@ -116,6 +117,95 @@ void simple_transfer() {
         write_csv(transfer_data_fields, transfer_data);
     }
 
+}
+
+void dsb_test() {
+	struct timeval start, end;
+	double elapsed_time;
+	int num_bodies = 9;
+	int num_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	struct Ephem **ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
+	for(int i = 0; i < num_bodies; i++) {
+		ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
+		get_body_ephem(ephems[i], i+1);
+	}
+
+	struct Body *Galileo_bodies[] = {VENUS(), EARTH(), EARTH(), JUPITER()};
+	struct Date Galileo[4]= {
+			{1990, 2, 10, 0, 0, 0},
+			{1990, 12, 8,0,0,0},
+			{1992, 12, 8,0,0,0},
+			{1995, 12, 7,0,0,0},
+	};
+
+	struct Body *Cassini_bodies[] = {EARTH(), VENUS(), VENUS(), EARTH()};
+	struct Date Cassini[4]= {
+			{1997, 10, 15, 0, 0, 0},
+			{1998, 4, 26,0,0,0},
+			{1999, 6, 24,0,0,0},
+			{1999, 8, 18,0,0,0},
+	};
+
+	struct Body *test_bodies[] = {EARTH(), VENUS(), VENUS(), EARTH()};
+	struct Date test[4]= {
+			{1970, 9, 1, 0, 0, 0},
+			{1970, 12, 2,0,0,0},
+			{1972, 4, 3,0,0,0},
+			{1973, 11, 4,0,0,0},
+	};
+	
+	struct Body **bodies;
+	struct Date *dates;
+
+	int id = 2;
+
+	switch(id) {
+		case 0:
+			bodies = Cassini_bodies;
+			dates = Cassini; break;
+		case 1:
+			bodies = Galileo_bodies;
+			dates = Galileo; break;
+		case 2:
+			bodies = test_bodies;
+			dates = test; break;
+	}
+
+	struct Date dep_date = dates[0];
+	struct Date sb1_date = dates[1];
+	struct Date sb2_date = dates[2];
+	struct Date arr_date = dates[3];
+
+	double jd_dep = convert_date_JD(dep_date);
+	double jd_sb1 = convert_date_JD(sb1_date);
+	double jd_sb2 = convert_date_JD(sb2_date);
+	double jd_arr = convert_date_JD(arr_date);
+
+	double durations[] = {jd_sb1-jd_dep, jd_sb2-jd_sb1, jd_arr-jd_sb2};
+	
+	struct OSV osv_dep = osv_from_ephem(ephems[bodies[0]->id-1], jd_dep, SUN());
+	struct OSV osv_sb1 = osv_from_ephem(ephems[bodies[1]->id-1], jd_sb1, SUN());
+	struct OSV osv_sb2 = osv_from_ephem(ephems[bodies[2]->id-1], jd_sb2, SUN());
+	struct OSV osv_arr = osv_from_ephem(ephems[bodies[3]->id-1], jd_arr, SUN());
+	
+	struct Transfer transfer_dep = calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v, osv_sb1.r, osv_sb1.v, (jd_sb1-jd_dep)*86400, NULL);
+	struct Transfer transfer_arr = calc_transfer(circfb, VENUS(), EARTH(), osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
+	
+	struct OSV s0 = {transfer_dep.r1, transfer_dep.v1};
+	struct OSV s1 = {transfer_arr.r0, transfer_arr.v0};
+	
+	
+	gettimeofday(&start, NULL);  // Record the ending time
+	struct DSB dsb = calc_double_swing_by(s0, osv_sb1, s1, osv_sb2, durations[1], bodies[1]);
+	
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("\n----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+	
+	for(int i = 0; i < num_bodies; i++) {
+		free(ephems[i]);
+	}
+	free(ephems);
 }
 
 void create_swing_by_transfer() {

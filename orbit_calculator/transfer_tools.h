@@ -66,6 +66,4 @@ struct OSV propagate_orbit_theta(struct Vector r, struct Vector v, double dtheta
 // calculate the orbital state vector at the given date for a given ephemeris list
 struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor);
 
-int calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV p1, double transfer_duration, struct Body *body, double **xs, int **ints, int only_viability);
-
 #endif //KSP_TRANSFER_TOOLS_H
