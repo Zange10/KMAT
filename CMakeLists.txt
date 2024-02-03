@@ -52,9 +52,12 @@ add_executable(KSP
         gui/drawing.h
         thread_pool.h
         orbit_calculator/double_swing_by.c
-        orbit_calculator/double_swing_by.h)
+        orbit_calculator/double_swing_by.h
+        database/database.c
+        database/database.h)
 
 target_link_libraries(KSP m;
-        ${GTK3_LIBRARIES})
+        ${GTK3_LIBRARIES};
+        sqlite3)
 
 target_link_options(KSP PRIVATE -rdynamic)
