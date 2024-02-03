@@ -250,7 +250,8 @@ void update_transfer_panel() {
 		char date_string[10];
 		date_to_string(date, date_string, 0);
 		gtk_button_set_label(GTK_BUTTON(tb_tfdate), date_string);
-		gtk_button_set_label(GTK_BUTTON(bt_tfbody), curr_transfer->body->name);
+		if(curr_transfer->body != NULL) gtk_button_set_label(GTK_BUTTON(bt_tfbody), curr_transfer->body->name);
+		else gtk_button_set_label(GTK_BUTTON(bt_tfbody), "Deep-Space Man");
 		char s_dv[20];
 		sprintf(s_dv, "%6.0f m/s", curr_transfer->dv);
 		gtk_label_set_label(GTK_LABEL(lb_transfer_dv), s_dv);
