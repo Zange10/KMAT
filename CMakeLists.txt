@@ -54,7 +54,9 @@ add_executable(KSP
         orbit_calculator/double_swing_by.c
         orbit_calculator/double_swing_by.h
         database/database.c
-        database/database.h)
+        database/database.h
+        gui/database_app.c
+        gui/database_app.h)
 
 target_link_libraries(KSP m;
         ${GTK3_LIBRARIES};

@@ -4,6 +4,7 @@
 #include "orbit_calculator/transfer_calculator.h"
 #include "tool_funcs.h"
 #include "gui/transfer_app.h"
+#include "gui/database_app.h"
 #include "database/database.h"
 
 
@@ -12,8 +13,9 @@
 int main() {
     init_celestial_bodies();
 
-	test_db();
-
+	init_db();
+	start_db_app();
+	close_db();
 	return 0;
 
     int selection;
