@@ -4,9 +4,499 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+int x1[300];
+int x2[550];
+
+
+double y[100000];
+double xt[100000];
+int yc = 0;
+
+int x1c[2];
+int x2c[2];
+
+
 struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt, double dtheta, struct Body *attractor);
 
+
+void print_x() {
+	printf("\nx1 = [");
+	for(int i = 0; i < 300; i++) {
+		if(i!=0) printf(", ");
+		printf("%d", x1[i]);
+	}
+	printf("]\n");
+	printf("x1 avg: %f\n", (double)x1c[1]/x1c[0]);
+	printf("x1 tot: %d / %d\n\n", x1c[1], x1c[0]);
+	printf("x2 = [");
+	for(int i = 0; i < 550; i++) {
+		if(i!=0) printf(", ");
+		printf("%d", x2[i]);
+	}
+	printf("]\n");
+	printf("x2 avg: %f\n", (double)x2c[1]/x2c[0]);
+	printf("x2 tot: %d / %d\n", x2c[1], x2c[0]);
+	printf("\ny = [");
+	for(int i = 0; i < yc; i++) {
+		if(i!=0) printf(", ");
+		printf("%f", y[i]);
+	}
+	printf("]\n");
+	printf("\nxt = [");
+	for(int i = 0; i < yc; i++) {
+		if(i!=0) printf(", ");
+		printf("%f", xt[i]);
+	}
+	printf("]\n");
+}
+
+
+
+
+
+double theta1_at_min_dt(double r0, double r1, double dtheta) {
+	double dthetha_deg = rad2deg(dtheta);
+	if(dthetha_deg >= 180) {
+		double theta1_deg = -0.5*dthetha_deg + 360;
+		return deg2rad(theta1_deg);
+	}
+
+	double r = r1/r0;
+	double m0 = -1/(r-1)-1;
+	double m1 = 1/(r+1)-1;
+	double b = r < 1 ? 270 : 450;
+	double g0 = 270-m1*180;
+	double a = (m0-m1)/(-b+g0);
+	double gy = m1*dthetha_deg+g0;
+	double hy = (b-g0)*exp(-a*dthetha_deg);
+	return deg2rad(gy+hy);
+}
+
+double theta1_at_max_dt(double r0, double r1, double dtheta) {
+	double dthetha_deg = rad2deg(dtheta);
+	double r = r1/r0;
+	double m0 = 1/(sqrt(r)+1)-1;
+	double m1 = -1/(sqrt(r)-1)-1;
+	double b = r < 1 ? 180 : -180;
+	double g360 = m0*360+180;
+	double a = (m1-m0)/(b-g360);
+	double gy = m0*dthetha_deg+180;
+	double hy = (b-g360)*exp(a*(dthetha_deg-360));
+	return deg2rad(gy+hy);
+}
+
+
+
+double det(struct Vector2D v1, struct Vector2D v2) {
+	return v1.x*v2.y - v1.y*v2.x;
+}
+
+void def_2d_transfer_orbit(double r1, double r2, double dtheta, double data[3], struct Body *attractor) {
+	double theta1 = r1 > r2 ? deg2rad(180) : 0;
+	double theta2 = theta1+dtheta;
+	double mu = attractor->mu;
+
+
+	double *y2 = (double*) malloc(360005 * sizeof(double));
+	double *xt2 = (double*) malloc(360005 * sizeof(double));
+	int yc2 = 0;
+
+	theta1 = deg2rad(0);
+	double initial_step = deg2rad(0.01);
+	double step = initial_step;
+	double dt = 1e20;
+	double a, e;
+
+	int c = 0;
+	x1c[0]++;
+	double lasty = 0;
+
+	while(c < 36000) {
+		x1c[1]++;
+		c++;
+
+		theta1 = pi_norm(theta1);
+		theta2 = pi_norm(theta1 + dtheta);
+		e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));// break endless loops
+		if(e < 0){  // not possible
+			theta1 += step;
+			continue;
+		}
+
+		double rp = r1*(1+e*cos(theta1))/(1+e);
+		a = rp/(1-e);
+		double n = sqrt(mu / pow(fabs(a),3));
+
+		double t1,t2;
+		double T = 2*M_PI/n;
+
+		if(e < 1) {
+			double E1 = acos((e + cos(theta1)) / (1 + e * cos(theta1)));
+			t1 = (E1 - e * sin(E1)) / n;
+			if(theta1 > M_PI) t1 = T-t1;
+			double E2 = acos((e + cos(theta2)) / (1 + e * cos(theta2)));
+			t2 = (E2 - e * sin(E2)) / n;
+			if(theta2 > M_PI) t2 = T-t2;
+			dt = theta1 < theta2 ? t2-t1 : T-t1 + t2;
+		} else {
+			// is theta2 reachable?
+			if((theta1 < M_PI  &&  theta2 > M_PI) ||
+			   ((theta1 < M_PI) == (theta2 < M_PI) && (theta1 > theta2))){
+				if(step==0) {
+					// relevant for when looking for hyperbola close to the sun
+					theta1 += step;
+					continue;
+				}
+				theta1 += step;
+				continue;
+			}
+
+			double F1 = acosh((e + cos(theta1)) / (1 + e * cos(theta1)));
+			t1 = (e * sinh(F1) - F1) / n;
+			double F2 = acosh((e + cos(theta2)) / (1 + e * cos(theta2)));
+			t2 = (e * sinh(F2) - F2) / n;
+			// different quadrant
+			if((theta1 < M_PI) != (theta2 < M_PI)) dt = t1+t2;
+				// past periapsis
+			else if(theta1 < M_PI) dt = t2-t1;
+				// before periapsis
+			else dt = t1-t2;
+		}
+
+		if(isnan(dt)){  // at this theta1 orbit not solvable
+			theta1 += step;
+			continue;
+		}
+
+
+		y2[yc2] = dt/86400;
+		xt2[yc2] = rad2deg(theta1);
+		yc2++;
+
+
+		theta1 += step;
+	}
+
+	data[0] = rad2deg(dtheta);
+	double max = -1, min = 1e9;
+	data[1] = -1;
+	data[2] = 400;
+	for(int i = 0; i < yc2; i++) {
+		if(y2[i] < min) {
+			data[1] = xt2[i];
+			min = y2[i];
+		}
+		if(y2[i] > max) {
+			data[2] = xt2[i];
+			max = y2[i];
+		}
+	}
+
+
+
+
+
+	// imprecision around 0°/360* and 180° leads to bad results
+	if(fabs(dtheta) < 0.00001 ||
+	   fabs(dtheta-M_PI) < 0.00001 ||
+	   fabs(dtheta-2*M_PI)) dtheta += 0.0001;
+
+	double max_theta1;
+	if(dtheta < M_PI) {
+		double r = r2/r1;
+		double r1r2 = sqrt(1 + r*r - 2 * r * cos(dtheta));
+		double beta = acos((1 + r1r2 * r1r2 - r * r) / (2 * r1r2));
+		double alpha = M_PI / 2 - beta;
+		max_theta1 = 2*M_PI-alpha;
+	} else {
+		max_theta1 = 2*M_PI-dtheta/2;
+	}
+	max_theta1 = pi_norm(max_theta1);
+
+
+	double min_theta1;
+	struct Vector2D p1 = {r1, 0};
+	struct Vector2D p2 = {cos(dtheta)*r2, sin(dtheta)*r2};
+	double pxr = (p2.x-p1.x)/(r2-r1);
+	double pyr = (p2.y-p1.y)/(r2-r1);
+	double p = (2*pxr)/(pxr*pxr + pyr*pyr);
+	double q = (1-pyr*pyr)/(pxr*pxr + pyr*pyr);
+
+
+	double mx1 = -p/2 - sqrt(p*p/4 - q);
+	double mx2 = -p/2 + sqrt(p*p/4 - q);
+
+
+	struct Vector2D m_n[] = {
+			{mx1, +sqrt(1-mx1*mx1)},
+			{mx1, -sqrt(1-mx1*mx1)},
+			{mx2, +sqrt(1-mx2*mx2)},
+			{mx2, -sqrt(1-mx2*mx2)}
+	};
+
+	double m_ml_dot[4];
+
+	// dot product of m and ml should be 0, due to imprecision not accurately 0 -> find smallest of the pairs
+	// pair (0,1) and (2,3) (see above; two time two solutions of square root)
+	for(int i = 0; i < 4; i++) m_ml_dot[i] = m_n[i].x*m_n[i].x+pxr*m_n[i].x+m_n[i].y*m_n[i].y+pyr*m_n[i].y;
+	if(fabs(m_ml_dot[1]) < fabs(m_ml_dot[0])) m_n[0] = m_n[1];
+	m_n[1] = fabs(m_ml_dot[2]) < fabs(m_ml_dot[3]) ? m_n[2] : m_n[3];
+
+	for(int i = 0; i < 2; i++) {
+		min_theta1 = angle_vec_vec_2d(p1, m_n[i]);
+		if(det(p1, m_n[i]) > 0) min_theta1 *= -1;
+		double min_theta2 = angle_vec_vec_2d(p2, m_n[i]);
+		if(det(p2, m_n[i]) > 0) min_theta2 *= -1;
+		if(min_theta1 > min_theta2) {
+			break;
+		}
+	}
+	min_theta1 = pi_norm(min_theta1);
+
+	data[1] = data[1] - rad2deg(max_theta1);
+	data[2] = data[2] - rad2deg(min_theta1);
+
+
+
+	free(xt2);
+	free(y2);
+}
+
+
+
 struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt, double dtheta, struct Body *attractor) {
+
+	printf("%f°  %f°\n", rad2deg(theta1_at_min_dt(r1, r2, dtheta)), rad2deg(theta1_at_max_dt(r1, r2, dtheta)));
+
+
+	double theta1 = r1 > r2 ? deg2rad(180) : 0;
+	double theta2 = theta1+dtheta;
+	double mu = attractor->mu;
+
+	theta1 = deg2rad(0);
+	double initial_step = deg2rad(0.01);
+	double step = initial_step;
+	double dt = 1e20;
+	double a, e;
+
+	int c = 0;
+	x1c[0]++;
+	double lasty = 0;
+
+	while(c < 36000) {
+		x1c[1]++;
+		c++;
+
+		theta1 = pi_norm(theta1);
+		theta2 = pi_norm(theta1 + dtheta);
+		e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));// break endless loops
+		if(e < 0){  // not possible
+			theta1 += step;
+			continue;
+		}
+
+		double rp = r1*(1+e*cos(theta1))/(1+e);
+		a = rp/(1-e);
+		double n = sqrt(mu / pow(fabs(a),3));
+
+		double t1,t2;
+		double T = 2*M_PI/n;
+
+		if(e < 1) {
+			double E1 = acos((e + cos(theta1)) / (1 + e * cos(theta1)));
+			t1 = (E1 - e * sin(E1)) / n;
+			if(theta1 > M_PI) t1 = T-t1;
+			double E2 = acos((e + cos(theta2)) / (1 + e * cos(theta2)));
+			t2 = (E2 - e * sin(E2)) / n;
+			if(theta2 > M_PI) t2 = T-t2;
+			dt = theta1 < theta2 ? t2-t1 : T-t1 + t2;
+		} else {
+			// is theta2 reachable?
+			if((theta1 < M_PI  &&  theta2 > M_PI) ||
+			   ((theta1 < M_PI) == (theta2 < M_PI) && (theta1 > theta2))){
+				theta1 += step;
+				continue;
+			}
+
+			double F1 = acosh((e + cos(theta1)) / (1 + e * cos(theta1)));
+			t1 = (e * sinh(F1) - F1) / n;
+			double F2 = acosh((e + cos(theta2)) / (1 + e * cos(theta2)));
+			t2 = (e * sinh(F2) - F2) / n;
+			// different quadrant
+			if((theta1 < M_PI) != (theta2 < M_PI)) dt = t1+t2;
+				// past periapsis
+			else if(theta1 < M_PI) dt = t2-t1;
+				// before periapsis
+			else dt = t1-t2;
+		}
+
+		if(isnan(dt)){  // at this theta1 orbit not solvable
+			dt = 100;   // to not exit the loop
+			theta1+=step;
+			continue;
+		}
+
+
+
+		y[yc] = dt/86400;
+		xt[yc] = rad2deg(theta1);
+		yc++;
+
+
+		theta1 += step;
+	}
+
+	theta1 -= step; // reset theta1 from last change inside the loop
+
+	double max = -1, min = 1e9;
+	double mintheta, maxtheta;
+	for(int i = 0; i < yc; i++) {
+		if(y[i] < min) {
+			mintheta = xt[i];
+			min = y[i];
+		}
+		if(y[i] > max) {
+			maxtheta = xt[i];
+			max = y[i];
+		}
+	}
+
+	// imprecision around 0°/360* and 180° leads to bad results
+	if(fabs(dtheta) < 0.00001 ||
+			fabs(dtheta-M_PI) < 0.00001 ||
+			fabs(dtheta-2*M_PI)) dtheta += 0.0001;
+
+	double max_theta1;
+	if(dtheta < M_PI) {
+		double r = r2/r1;
+		double r1r2 = sqrt(1 + r*r - 2 * r * cos(dtheta));
+		double beta = acos((1 + r1r2 * r1r2 - r * r) / (2 * r1r2));
+		double alpha = M_PI / 2 - beta;
+		max_theta1 = 2*M_PI-alpha;
+	} else {
+		max_theta1 = 2*M_PI-dtheta/2;
+	}
+
+
+	double min_theta1;
+	struct Vector2D p1 = {r1, 0};
+	struct Vector2D p2 = {cos(dtheta)*r2, sin(dtheta)*r2};
+	double pxr = (p2.x-p1.x)/(r2-r1);
+	double pyr = (p2.y-p1.y)/(r2-r1);
+	double p = (2*pxr)/(pxr*pxr + pyr*pyr);
+	double q = (1-pyr*pyr)/(pxr*pxr + pyr*pyr);
+
+
+	double mx1 = -p/2 - sqrt(p*p/4 - q);
+	double mx2 = -p/2 + sqrt(p*p/4 - q);
+
+	printf("%g\n", p*p/4 - q);
+
+	struct Vector2D m_n[] = {
+			{mx1, +sqrt(1-mx1*mx1)},
+			{mx1, -sqrt(1-mx1*mx1)},
+			{mx2, +sqrt(1-mx2*mx2)},
+			{mx2, -sqrt(1-mx2*mx2)}
+	};
+
+	printf("%f %f\n", mx1, sqrt(1-mx1*mx1));
+	printf("%f %f\n", mx2, sqrt(1-mx2*mx2));
+	for(int i = 0; i < 4; i++) print_vector2d(m_n[i]);
+
+	double m_ml_dot[4];
+
+	// dot product of m and ml should be 0, due to imprecision not accurately 0 -> find smallest of the pairs
+	// pair (0,1) and (2,3) (see above; two time two solutions of square root)
+	for(int i = 0; i < 4; i++) m_ml_dot[i] = m_n[i].x*m_n[i].x+pxr*m_n[i].x+m_n[i].y*m_n[i].y+pyr*m_n[i].y;
+	if(fabs(m_ml_dot[1]) < fabs(m_ml_dot[0])) m_n[0] = m_n[1];
+	m_n[1] = fabs(m_ml_dot[2]) < fabs(m_ml_dot[3]) ? m_n[2] : m_n[3];
+
+	for(int i = 0; i < 2; i++) {
+		min_theta1 = angle_vec_vec_2d(p1, m_n[i]);
+		if(det(p1, m_n[i]) > 0) min_theta1 *= -1;
+		double min_theta2 = angle_vec_vec_2d(p2, m_n[i]);
+		if(det(p2, m_n[i]) > 0) min_theta2 *= -1;
+		printf("%f %f\n", rad2deg(min_theta1), rad2deg(min_theta2));
+		if(min_theta1 > min_theta2) {
+			printf("Found it\n");
+			break;
+		}
+	}
+	min_theta1 = pi_norm(min_theta1);
+	printf("---\n%f°\n", rad2deg(min_theta1));
+
+
+
+//	struct Vector2D m1 = {mx1, +sqrt(1-mx1*mx1)};
+//	struct Vector2D m2 = {mx1, -sqrt(1-mx1*mx1)};
+//	struct Vector2D m3 = {mx2, +sqrt(1-mx2*mx2)};
+//	struct Vector2D m4 = {mx2, -sqrt(1-mx2*mx2)};
+//	print_vector2d(m1);
+//	print_vector2d(m2);
+//	print_vector2d(m3);
+//	print_vector2d(m4);
+
+
+//	min_theta1 = angle_vec_vec_2d(p1, m1);
+//	struct Vector2D L1 = add_vectors2d(p1, scalar_multipl2d(m1, r1));
+//	struct Vector2D L2 = add_vectors2d(p2, scalar_multipl2d(m1, r2));
+//	struct Vector2D ml = add_vectors2d(L2, scalar_multipl2d(L1,-1));
+//	printf("%f°  %f  %f\n", rad2deg(min_theta1), det(p1,m1), dot_product2d(ml, m1));
+//	printf("%g\n", m1.x*m1.x+pxr*m1.x+m1.y*m1.y+pyr*m1.y);
+//	printf("%d\n", fabs(m1.x*m1.x+pxr*m1.x+m1.y*m1.y+pyr*m1.y)<1);
+//	min_theta1 = angle_vec_vec_2d(p1, m2);
+//	L1 = add_vectors2d(p1, scalar_multipl2d(m2, r1));
+//	L2 = add_vectors2d(p2, scalar_multipl2d(m2, r2));
+//	ml = add_vectors2d(L2, scalar_multipl2d(L1,-1));
+//	printf("%f°  %f  %f\n", rad2deg(min_theta1), det(p1,m2), dot_product2d(ml, m2));
+//	printf("%g\n", m2.x*m2.x+pxr*m2.x+m2.y*m2.y+pyr*m2.y);
+//	printf("%d\n", fabs(m2.x*m2.x+pxr*m2.x+m2.y*m2.y+pyr*m2.y)<1);
+//	min_theta1 = angle_vec_vec_2d(p1, m3);
+//	L1 = add_vectors2d(p1, scalar_multipl2d(m3, r1));
+//	L2 = add_vectors2d(p2, scalar_multipl2d(m3, r2));
+//	ml = add_vectors2d(L2, scalar_multipl2d(L1,-1));
+//	printf("%f°  %f  %f\n", rad2deg(min_theta1), det(p1,m3), dot_product2d(ml, m3));
+//	printf("%g\n", m3.x*m3.x+pxr*m3.x+m3.y*m3.y+pyr*m3.y);
+//	printf("%d\n", fabs(m3.x*m3.x+pxr*m3.x+m3.y*m3.y+pyr*m3.y)<1);
+//	min_theta1 = angle_vec_vec_2d(p1, m4);
+//	L1 = add_vectors2d(p1, scalar_multipl2d(m4, r1));
+//	L2 = add_vectors2d(p2, scalar_multipl2d(m4, r2));
+//	ml = add_vectors2d(L2, scalar_multipl2d(L1,-1));
+//	printf("%f°  %f  %f\n", rad2deg(min_theta1), det(p1,m4), dot_product2d(ml, m4));
+//	printf("%g\n", m4.x*m4.x+pxr*m4.x+m4.y*m4.y+pyr*m4.y);
+//	printf("%d\n", fabs(m4.x*m4.x+pxr*m4.x+m4.y*m4.y+pyr*m4.y)<1);
+//
+//	printf("\n");
+
+
+
+
+
+
+
+
+	printf("%f°\n", rad2deg(max_theta1));
+
+	printf("%f° %f°\n\n", mintheta, maxtheta);
+
+	x1[c]++;
+	struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
+	return transfer;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct Transfer2D calc_2d_transfer_orbit2(double r1, double r2, double target_dt, double dtheta, struct Body *attractor) {
     double theta1 = r1 > r2 ? deg2rad(180) : 0;
     double theta2 = theta1+dtheta;
     double mu = attractor->mu;
@@ -17,14 +507,17 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
     double a, e;
 
     int c = 0;
+	x1c[0]++;
+	double lasty = 0;
 
     while(fabs(dt-target_dt) > 1) {
-
+		x1c[1]++;
         if(c >= 250) {
             if(fabs(dt-target_dt) < 86400 && fabs(step) < 1e-10) {
                 theta1 += step; // will be subtracted again after the loop
                 break;
             }
+			x1[c]++;
             return calc_extreme_hyperbola(r1, r2, target_dt, dtheta, attractor);
         }
         c++;
@@ -83,6 +576,10 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
             else dt = t1-t2;
         }
 
+
+		y[yc] = dt-target_dt;
+		yc++;
+
         if(isnan(dt)){  // at this theta1 orbit not solvable
             if(step == 0) {
                 theta1 += deg2rad(1);
@@ -113,6 +610,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt,
 
     theta1 -= step; // reset theta1 from last change inside the loop
 
+	x1[c]++;
     struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
     return transfer;
 }
@@ -126,16 +624,19 @@ struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt,
     double a, e;
     int c = 0;
 
-    while(fabs(dt-target_dt) > 1) {
+	x2c[0]++;
+
+	while(fabs(dt-target_dt) > 1) {
+		x2c[1]++;
         if(c >= 250) {
             if(fabs(dt-target_dt) < 86400 && fabs(step) < 1e-10) {
                 theta1 += step; // will be subtracted again after the loop
                 break;
             }
-            printf("\n-----!!!!!------   [MORE THAN 500 CALCULATIONS TRIED FOR 2D TRANSFER]  ");
-			printf("%f, %f, %f  |  ", r1, r2, rad2deg(dtheta));
-            printf("%f, %f, %f, %f, %f", target_dt/(24*60*60), dt/(24*60*60), fabs(target_dt-dt), rad2deg(theta1), rad2deg(step));
-			printf("   -----!!!!!------\n");
+//            printf("\n-----!!!!!------   [MORE THAN 500 CALCULATIONS TRIED FOR 2D TRANSFER]  ");
+//			printf("%f, %f, %f  |  ", r1, r2, rad2deg(dtheta));
+//            printf("%f, %f, %f, %f, %f", target_dt/(24*60*60), dt/(24*60*60), fabs(target_dt-dt), rad2deg(theta1), rad2deg(step));
+//			printf("   -----!!!!!------\n");
             //exit(EXIT_FAILURE);
             break;
         }
@@ -209,6 +710,7 @@ struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt,
 
     theta1 -= step; // reset theta1 from last change inside the loop
 
+	x2[c]++;
     struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
     return transfer;
 }

@@ -10,6 +10,9 @@
 
 int main() {
     init_celestial_bodies();
+	dsb_test();
+	return 0;
+
     int selection;
     char title[] = "CHOOSE PROGRAM:";
     char options[] = "Exit; Launch Calculator; Orbit Calculator; Transfer Calculator; Transfer App";

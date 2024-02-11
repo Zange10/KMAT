@@ -300,7 +300,7 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 	double min_beta = acos(1 / (1 + (min_rp * pow(v_inf, 2)) / body->mu));
 	double max_defl = M_PI - 2*min_beta;
 	
-	printf("\nmin beta: %.2f°; max deflection: %.2f° (vinf: %f m/s)\n\n", rad2deg(min_beta), rad2deg(max_defl), v_inf);
+	//printf("\nmin beta: %.2f°; max deflection: %.2f° (vinf: %f m/s)\n\n", rad2deg(min_beta), rad2deg(max_defl), v_inf);
 
 	double angle_step_size, phi, kappa, max_phi, max_kappa;
 	double angles[3];
@@ -329,7 +329,7 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 			kappa = i == 0 ? -max_defl - angle_step_size : angles[2] - angles[0] - angle_step_size;
 			min_phi_kappa[1] = i == 0 ? -max_defl : angles[2] - angles[0];
 			
-			printf("%f° %f°\n", rad2deg(phi), rad2deg(max_defl));
+			//printf("%f° %f°\n", rad2deg(phi), rad2deg(max_defl));
 			while (kappa <= max_kappa) {
 				kappa += angle_step_size;
 				
@@ -358,8 +358,8 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 		}
 		gettimeofday(&end, NULL);  // Record the ending time
 		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-		printf("| Elapsed time: %.3f s |  (%f - %f - %f)\n", elapsed_time, test[0], test[1], test[0]+test[1]);
-		printf("min_dv: %f\n", dsb.dv);
+		//printf("| Elapsed time: %.3f s |  (%f - %f - %f)\n", elapsed_time, test[0], test[1], test[0]+test[1]);
+		//printf("min_dv: %f\n", dsb.dv);
 		if(dsb.dv >= 1e9) break;
 
 		double phi0, kappa0;
@@ -428,7 +428,7 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 					break;
 				}
 			}
-			printf("%f %f %f %f\n", dsb.dv, rad2deg(min_phi), rad2deg(min_kappa), rad2deg(l));
+			//printf("%f %f %f %f\n", dsb.dv, rad2deg(min_phi), rad2deg(min_kappa), rad2deg(l));
 			if(min_phi == phi0 && min_kappa == kappa0) l /= 2;
 		}
 	}

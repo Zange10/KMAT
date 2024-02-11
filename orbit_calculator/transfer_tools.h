@@ -19,7 +19,7 @@ enum Transfer_Type {
     capfb,
     circfb
 };
-
+void print_x();
 // 3-dimensional transfer from point r0 to point r1
 struct Transfer {
     struct Vector r0, v0, r1, v1;
@@ -29,6 +29,8 @@ struct Transfer {
 struct OSV {
     struct Vector r, v;
 };
+
+void def_2d_transfer_orbit(double r1, double r2, double dtheta, double data[3], struct Body *attractor);
 
 // calculate the 2-dimensional vector with given magnitude, location, true anomaly and flight path angle
 struct Vector2D calc_v_2d(double r_mag, double v_mag, double theta, double gamma);

@@ -120,6 +120,155 @@ void simple_transfer() {
 }
 
 void dsb_test() {
+
+	double nums[] = {10000, 1000, 100, 10, 5, 2, 1.5, 1.1, 1.01, 0.99, 0.95, 0.9, 0.75, 0.5, 0.1, 0.01, 0.001};
+	int len = sizeof(nums)/sizeof(double);
+
+	double y1[len][1002];
+	double y2[len][1002];
+	double x[len][1002];
+
+
+	for(int c = 0; c < len; c++) {
+		x[c][0] = 0;
+		for(int i = 1; i < 1000; i++) {
+			printf("%d\n", i);
+			double data[3];
+			def_2d_transfer_orbit(100e9, 100e9*nums[c], deg2rad(360.0 / 1000 * i), data, SUN());
+			if(data[1] > -1 && data[2] < 400) {
+				x[c][(int) x[c][0]+1] = data[0];
+				y1[c][(int) x[c][0]+1] = data[1];
+				y2[c][(int) x[c][0]+1] = data[2];
+				x[c][0]++;
+			}
+		}
+	}
+
+
+	printf("x = [");
+	for(int i = 0; i < len; i++) {
+		if(i != 0) printf(", ");
+		printf("[");
+		for(int j = 1; j <= x[i][0]; j++) {
+			if(j != 1) printf(", ");
+			printf("%f", x[i][j]);
+		}
+		printf("]");
+	}
+	printf("]\n");
+	printf("y1 = [");
+	for(int i = 0; i < len; i++) {
+		if(i != 0) printf(", ");
+		printf("[");
+		for(int j = 1; j <= x[i][0]; j++) {
+			if(j != 1) printf(", ");
+			printf("%f", y1[i][j]);
+		}
+		printf("]");
+	}
+	printf("]\n");
+	printf("y2 = [");
+	for(int i = 0; i < len; i++) {
+		if(i != 0) printf(", ");
+		printf("[");
+		for(int j = 1; j <= x[i][0]; j++) {
+			if(j != 1) printf(", ");
+			printf("%f", y2[i][j]);
+		}
+		printf("]");
+	}
+	printf("]\n");
+
+
+	//calc_2d_transfer_orbit(100e9, 1e9, 100*86400, deg2rad(180.00000001), SUN());
+	//print_x();
+
+	return;
+
+	struct timeval start, end;
+	double elapsed_time;
+	int num_bodies = 9;
+	int num_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	struct Ephem **ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
+	for(int i = 0; i < num_bodies; i++) {
+		ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
+		get_body_ephem(ephems[i], i+1);
+	}
+
+	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH()}; //, JUPITER(), SATURN()};
+
+	struct Date min_dep_date = {1997, 10, 10, 0, 0, 0};
+	struct Date max_dep_date = {1997, 10, 20, 0, 0, 0};
+	double min_dep = convert_date_JD(min_dep_date);
+	double max_dep = convert_date_JD(max_dep_date);
+	int min_duration[] = {190, 425, 53, 480};
+	int max_duration[] = {200, 425, 57, 520};
+
+
+	double min[3] = {1e9, 0, 0};
+	int counter = 0;
+	struct Date date[5];
+
+	gettimeofday(&start, NULL);  // Record the ending time
+	for(int i = 0; i <= max_dep-min_dep; i++) {
+		for(int j = min_duration[0]; j <= max_duration[0]; j++) {
+			for(int k = min_duration[1]; k <= max_duration[1]; k++) {
+				printf("%d/%d   %d/%d   %d/%d\n", i, (int)(max_dep-min_dep), j-min_duration[0], (int)(max_duration[0]-min_duration[0]), k-min_duration[1], (int)(max_duration[1]-min_duration[1]));
+				for(int l = min_duration[2]; l <= max_duration[2]; l++) {
+					double jd_dep = min_dep + i;
+					double jd_sb1 = min_dep + i + j;
+					double jd_sb2 = min_dep + i + j + k;
+					double jd_arr = min_dep + i + j + k + l;
+
+					struct OSV osv_dep = osv_from_ephem(ephems[bodies[0]->id-1], jd_dep, SUN());
+					struct OSV osv_sb1 = osv_from_ephem(ephems[bodies[1]->id-1], jd_sb1, SUN());
+					struct OSV osv_sb2 = osv_from_ephem(ephems[bodies[2]->id-1], jd_sb2, SUN());
+					struct OSV osv_arr = osv_from_ephem(ephems[bodies[3]->id-1], jd_arr, SUN());
+
+					double data[3];
+					struct Transfer transfer_dep = calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v, osv_sb1.r, osv_sb1.v, (jd_sb1-jd_dep)*86400, data);
+					struct Transfer transfer_arr = calc_transfer(circfb, VENUS(), EARTH(), osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
+
+					struct OSV s0 = {transfer_dep.r1, transfer_dep.v1};
+					struct OSV s1 = {transfer_arr.r0, transfer_arr.v0};
+
+
+					struct DSB dsb = calc_double_swing_by(s0, osv_sb1, s1, osv_sb2, k, bodies[1]);
+					counter++;
+					if(dsb.dv + data[1] < min[0]) {
+						min[0] = dsb.dv + data[1];
+						min[1] = data[1];
+						min[2] = dsb.dv;
+						date[0] = convert_JD_date(jd_dep);
+						date[1] = convert_JD_date(jd_sb1);
+						date[2] = convert_JD_date(jd_sb1 + dsb.man_time/86400);
+						date[3] = convert_JD_date(jd_sb2);
+						date[4] = convert_JD_date(jd_arr);
+					}
+				}
+			}
+		}
+	}
+
+
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+
+	printf("%d\n", counter);
+
+	for(int i = 0; i < 5; i++) print_date(date[i], 1);
+	printf("%f.2m/s + %f.2m/s = %f.2m/s\n", min[1], min[2], min[0]);
+
+
+	print_x();
+	for(int i = 0; i < num_bodies; i++) {
+		free(ephems[i]);
+	}
+	free(ephems);
+}
+
+void dsb_test2() {
 	struct timeval start, end;
 	double elapsed_time;
 	int num_bodies = 9;
