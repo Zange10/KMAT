@@ -180,10 +180,10 @@ void dsb_test() {
 //	printf("]\n");
 
 
-	calc_2d_transfer_orbit(100e9, 99.999e9, 100*86400, deg2rad(180.5), SUN());
-	print_x();
-
-	return;
+//	calc_2d_transfer_orbit(116.480641e9, 108.286678e9, 26.894927*86400, deg2rad(359.998644), SUN());
+//	print_x();
+//
+//	return;
 
 	struct timeval start, end;
 	double elapsed_time;
@@ -224,14 +224,13 @@ void dsb_test() {
 					struct OSV osv_sb1 = osv_from_ephem(ephems[bodies[1]->id-1], jd_sb1, SUN());
 					struct OSV osv_sb2 = osv_from_ephem(ephems[bodies[2]->id-1], jd_sb2, SUN());
 					struct OSV osv_arr = osv_from_ephem(ephems[bodies[3]->id-1], jd_arr, SUN());
-
 					double data[3];
+
 					struct Transfer transfer_dep = calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v, osv_sb1.r, osv_sb1.v, (jd_sb1-jd_dep)*86400, data);
 					struct Transfer transfer_arr = calc_transfer(circfb, VENUS(), EARTH(), osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
 
 					struct OSV s0 = {transfer_dep.r1, transfer_dep.v1};
 					struct OSV s1 = {transfer_arr.r0, transfer_arr.v0};
-
 
 					struct DSB dsb = calc_double_swing_by(s0, osv_sb1, s1, osv_sb2, k, bodies[1]);
 					counter++;

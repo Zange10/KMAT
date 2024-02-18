@@ -66,6 +66,11 @@ double determinant2d(struct Vector2D v1, struct Vector2D v2) {
 	return v1.x*v2.y - v1.y*v2.x;
 }
 
+struct Vector2D vec2d_proj(struct Vector2D v1, struct Vector2D v2) {
+	v2 = norm_vector2d(v2);
+	return scalar_multipl2d(v2, dot_product2d(v1,v2));
+}
+
 double dot_product(struct Vector v1, struct Vector v2) {
     return v1.x*v2.x + v1.y*v2.y + v1.z*v2.z;
 }
@@ -95,7 +100,12 @@ struct Vector calc_plane_norm_vector(struct Plane p) {
 }
 
 double angle_vec_vec(struct Vector v1, struct Vector v2) {
-    return fabs(acos(dot_product(v1,v2) / (vector_mag(v1)* vector_mag(v2))));
+	double acos_part = dot_product(v1,v2) / (vector_mag(v1)* vector_mag(v2));
+	// some small imprecisions can lead to acos(1.0000....01) (nan) -> rounding to 1/-1
+	if(acos_part >  1) acos_part = 1;
+	if(acos_part < -1) acos_part = -1;
+	double angle = fabs(acos(acos_part));
+	return angle;
 }
 
 double angle_plane_vec(struct Plane p, struct Vector v) {

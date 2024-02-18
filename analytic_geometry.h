@@ -146,6 +146,16 @@ double determinant2d(struct Vector2D v1, struct Vector2D v2);
 
 
 /**
+ * @brief Calculates the projection of v1 onto v2
+ *
+ * @param v1 vector 1
+ * @param v2 vector 2
+ * @return The projection of v1 onto v2
+ */
+struct Vector2D vec2d_proj(struct Vector2D v1, struct Vector2D v2);
+
+
+/**
  * @brief Calculates the dot product of two vectors
  *
  * @param v1 Vector 1

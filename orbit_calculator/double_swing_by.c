@@ -156,6 +156,7 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 
 		gettimeofday(&start, NULL);  // Record the starting time
 		struct OSV osv_m0 = propagate_orbit_theta(p0.r, v_t00, dtheta, SUN());
+
 		gettimeofday(&end, NULL);  // Record the ending time
 		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
 		test[0] += elapsed_time;
@@ -205,9 +206,9 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 		insert_new_data_point(data, dtheta, diff_vinf);
 
 		if(!can_be_negative(data)) break;
-
 		if(i == 0) dtheta = max_dtheta;
 		else dtheta = get_next_dtheta_from_data_points(data, right_side ? 1:0);
+		if(isnan(dtheta) || isinf(dtheta)) break;
 	}
 }
 
@@ -283,7 +284,7 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 	p1 = _p1;
 	transfer_duration = _transfer_duration;
 	body = _body;
-	
+
 	struct timeval start, end;
 	double elapsed_time;
 	
