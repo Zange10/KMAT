@@ -39,7 +39,7 @@ struct Vector2D calc_v_2d(double r_mag, double v_mag, double theta, double gamma
 struct Vector heliocentric_rot(struct Vector2D v, double RAAN, double w, double inc);
 
 // calculate orbital elements in 2D orbit using the radii of the two transfer points, the target transfer duration and the delta in true anomaly between them
-struct Transfer2D calc_2d_transfer_orbit(double r1, double r2, double target_dt, double dtheta, struct Body *attractor);
+struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt, double dtheta, struct Body *attractor);
 
 // calculate starting velocity and end velocity for transfer between r1 and r2 with given 2D orbital elements
 struct Transfer calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct Vector r2);

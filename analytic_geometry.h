@@ -136,6 +136,16 @@ struct Vector2D scalar_multipl2d(struct Vector2D v, double scalar);
 
 
 /**
+ * @brief Calculates the determinant of two 2D-vectors
+ *
+ * @param v1 vector 1
+ * @param v2 vector 2
+ * @return The determinant of v1 and v2
+ */
+double determinant2d(struct Vector2D v1, struct Vector2D v2);
+
+
+/**
  * @brief Calculates the dot product of two vectors
  *
  * @param v1 Vector 1
@@ -213,6 +223,16 @@ double angle_plane_vec(struct Plane p, struct Vector v);
  * @return The angle between the two planes
  */
 double angle_plane_plane(struct Plane p1, struct Plane p2);
+
+
+/**
+ * @brief Calculates the angle between two 2D-vectors in counterclock-wise direction (-pi < angle < pi)
+ *
+ * @param v1 Vector 1 (2D-vector)
+ * @param v2 Vector 2 (2D-vector)
+ * @return The angle between the two 2D-vectors (signed)
+ */
+double ccw_angle_vec_vec_2d(struct Vector2D v1, struct Vector2D v2);
 
 
 /**

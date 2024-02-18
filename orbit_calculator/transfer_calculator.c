@@ -129,59 +129,59 @@ void dsb_test() {
 	double x[len][1002];
 
 
-	for(int c = 0; c < len; c++) {
-		x[c][0] = 0;
-		for(int i = 1; i < 1000; i++) {
-			printf("%d\n", i);
-			double data[3];
-			def_2d_transfer_orbit(100e9, 100e9*nums[c], deg2rad(360.0 / 1000 * i), data, SUN());
-			if(data[1] > -1 && data[2] < 400) {
-				x[c][(int) x[c][0]+1] = data[0];
-				y1[c][(int) x[c][0]+1] = data[1];
-				y2[c][(int) x[c][0]+1] = data[2];
-				x[c][0]++;
-			}
-		}
-	}
+//	for(int c = 0; c < len; c++) {
+//		x[c][0] = 0;
+//		for(int i = 1; i < 1000; i++) {
+//			printf("%d\n", i);
+//			double data[3];
+//			def_2d_transfer_orbit(100e9, 100e9*nums[c], deg2rad(360.0 / 1000 * i), data, SUN());
+//			if(data[1] > -1 && data[2] < 400) {
+//				x[c][(int) x[c][0]+1] = data[0];
+//				y1[c][(int) x[c][0]+1] = data[1];
+//				y2[c][(int) x[c][0]+1] = data[2];
+//				x[c][0]++;
+//			}
+//		}
+//	}
+//
+//
+//	printf("x = [");
+//	for(int i = 0; i < len; i++) {
+//		if(i != 0) printf(", ");
+//		printf("[");
+//		for(int j = 1; j <= x[i][0]; j++) {
+//			if(j != 1) printf(", ");
+//			printf("%f", x[i][j]);
+//		}
+//		printf("]");
+//	}
+//	printf("]\n");
+//	printf("y1 = [");
+//	for(int i = 0; i < len; i++) {
+//		if(i != 0) printf(", ");
+//		printf("[");
+//		for(int j = 1; j <= x[i][0]; j++) {
+//			if(j != 1) printf(", ");
+//			printf("%f", y1[i][j]);
+//		}
+//		printf("]");
+//	}
+//	printf("]\n");
+//	printf("y2 = [");
+//	for(int i = 0; i < len; i++) {
+//		if(i != 0) printf(", ");
+//		printf("[");
+//		for(int j = 1; j <= x[i][0]; j++) {
+//			if(j != 1) printf(", ");
+//			printf("%f", y2[i][j]);
+//		}
+//		printf("]");
+//	}
+//	printf("]\n");
 
 
-	printf("x = [");
-	for(int i = 0; i < len; i++) {
-		if(i != 0) printf(", ");
-		printf("[");
-		for(int j = 1; j <= x[i][0]; j++) {
-			if(j != 1) printf(", ");
-			printf("%f", x[i][j]);
-		}
-		printf("]");
-	}
-	printf("]\n");
-	printf("y1 = [");
-	for(int i = 0; i < len; i++) {
-		if(i != 0) printf(", ");
-		printf("[");
-		for(int j = 1; j <= x[i][0]; j++) {
-			if(j != 1) printf(", ");
-			printf("%f", y1[i][j]);
-		}
-		printf("]");
-	}
-	printf("]\n");
-	printf("y2 = [");
-	for(int i = 0; i < len; i++) {
-		if(i != 0) printf(", ");
-		printf("[");
-		for(int j = 1; j <= x[i][0]; j++) {
-			if(j != 1) printf(", ");
-			printf("%f", y2[i][j]);
-		}
-		printf("]");
-	}
-	printf("]\n");
-
-
-	//calc_2d_transfer_orbit(100e9, 1e9, 100*86400, deg2rad(180.00000001), SUN());
-	//print_x();
+	calc_2d_transfer_orbit(100e9, 99.999e9, 100*86400, deg2rad(180.5), SUN());
+	print_x();
 
 	return;
 

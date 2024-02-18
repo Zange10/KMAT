@@ -62,6 +62,10 @@ struct Vector2D scalar_multipl2d(struct Vector2D v, double scalar) {
     return v;
 }
 
+double determinant2d(struct Vector2D v1, struct Vector2D v2) {
+	return v1.x*v2.y - v1.y*v2.x;
+}
+
 double dot_product(struct Vector v1, struct Vector v2) {
     return v1.x*v2.x + v1.y*v2.y + v1.z*v2.z;
 }
@@ -107,6 +111,12 @@ double angle_plane_plane(struct Plane p1, struct Plane p2) {
 
 double angle_vec_vec_2d(struct Vector2D v1, struct Vector2D v2) {
     return fabs(acos(dot_product2d(v1,v2) / (vector2d_mag(v1)* vector2d_mag(v2))));
+}
+
+double ccw_angle_vec_vec_2d(struct Vector2D v1, struct Vector2D v2) {
+	double angle = fabs(acos(dot_product2d(v1,v2) / (vector2d_mag(v1)* vector2d_mag(v2))));
+	if(determinant2d(v1, v2) > 0) angle *= -1;
+	return angle;
 }
 
 struct Vector calc_intersecting_line_dir(struct Plane p1, struct Plane p2) {
