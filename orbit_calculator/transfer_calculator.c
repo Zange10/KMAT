@@ -201,8 +201,8 @@ void dsb_test() {
 	struct Date max_dep_date = {1997, 10, 20, 0, 0, 0};
 	double min_dep = convert_date_JD(min_dep_date);
 	double max_dep = convert_date_JD(max_dep_date);
-	int min_duration[] = {190, 425, 53, 480};
-	int max_duration[] = {200, 425, 57, 520};
+	int min_duration[] = {190, 420, 50, 480};
+	int max_duration[] = {200, 430, 60, 520};
 
 
 	double min[3] = {1e9, 0, 0};

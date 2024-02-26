@@ -570,11 +570,11 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 
 	struct Vector2D data[103];
 	data[0].x = 0;
-	insert_new_data_point2(data, min_theta1, r1 / r0 > 1 ? -target_dt : 1e20);
-	insert_new_data_point2(data, max_theta1, r1 / r0 > 1 ? 1e20 : -target_dt);
+	insert_new_data_point2(data, min_theta1, r1 / r0 > 1 ? -target_dt : 1e100);
+	insert_new_data_point2(data, max_theta1, r1 / r0 > 1 ? 1e100 : -target_dt);
 
 	// true anomaly of r0, theta1 not normed to pi and true anomaly of r1
-	double theta1, theta1_pun, theta2;
+	double theta1, theta1_pun, theta2, last_theta1_pun;
     double mu = attractor->mu;
 
     double dt;
@@ -585,14 +585,16 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 
 	for(int i = 0; i < 100; i++) {
 		theta1_pun = get_next_theta1_from_data_points(data, r1 / r0 > 1);
+		if(i > 3 && last_theta1_pun == theta1_pun) break;
 		x1c[1]++;
         c++;
         theta1 = pi_norm(theta1_pun);
         theta2 = pi_norm(theta1 + dtheta);
-        e = (r1 - r0) / (r0 * cos(theta1) - r1 * cos(theta2));// break endless loops
+        e = (r1 - r0) / (r0 * cos(theta1) - r1 * cos(theta2));
         if(e < 0){  // not possible
-//			printf("%f°, %f°, %f, %f, %f, %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
-//			printf("theta1 = [");
+			printf("%.10f°, %f°, %f, %f, %f, %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
+			printf("%f°, %f°, %f\n", rad2deg(min_theta1), rad2deg(max_theta1), e);
+			printf("theta1 = [");
 			for(int j = 1; j <= data[0].x; j++) {
 				if(j!=1) printf(", ");
 				printf("%.1f°", rad2deg(data[j].x));
@@ -605,7 +607,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 			printf("]\n");
 			printf("\n\n!!!!! PANIC e < 0 !!!!!!!!\n");
 			exit(1);
-        }
+        } else if(e==1) e += 1e-10;	// no calculations for parabola -> make it a hyperbola
 
         double rp = r0 * (1 + e * cos(theta1)) / (1 + e);
         a = rp/(1-e);
@@ -626,18 +628,16 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
             // is theta2 reachable?
 			// todo needed?
 
-//            if((theta1 < M_PI  &&  theta2 > M_PI) ||
-//              ((theta1 < M_PI) == (theta2 < M_PI) && (theta1 > theta2))){
-//                if(step==0) {
-//                    // relevant for when looking for hyperbola close to the sun
-//                    if(fabs(theta1 - M_PI) < deg2rad(2) && dtheta > deg2rad(358)) theta1 += fabs(2*M_PI-dtheta)/100;
-//                    else theta1 += deg2rad(1);
-//                    continue;
-//                }
-//                theta1 -= step;
-//                step /= 4;
-//                continue;
-//            }
+            if((theta1 < M_PI  &&  theta2 > M_PI) ||
+              ((theta1 < M_PI) == (theta2 < M_PI) && (theta1 > theta2))){
+				if(theta1 > data[(int) data[0].x-1].x) {
+					data[(int) data[0].x].x = theta1;
+				} else if(theta1 < data[2].x) {
+					data[1].x = theta1;
+				}
+    
+				continue;
+            }
 
             double F1 = acosh((e + cos(theta1)) / (1 + e * cos(theta1)));
             t1 = (e * sinh(F1) - F1) / n;
@@ -652,18 +652,20 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
         }
 
 		// todo needed? (i think so because not perfect setting of boundaries)
-
+		
+		//printf("%f°, %f°, %f, %f, %f, %f\n", rad2deg(theta1), rad2deg(theta2), t1/86400, t2/86400, T/86400, T/2/86400);
         if(isnan(dt)){  // at this theta1 orbit not solvable
-			printf("%f°, %f°, %f, %f, %f, %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
+			printf("%.10f°, %f°, %f, %f, %f, %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
+			printf("%f°, %f°, %f, %f, %f, %f, %f, %f\n", rad2deg(min_theta1), rad2deg(max_theta1), t1/86400, t2/86400, T/86400, T/2/86400, e, a);
 			printf("theta1 = [");
 			for(int j = 1; j <= data[0].x; j++) {
 				if(j!=1) printf(", ");
-				printf("%.1f°", rad2deg(data[j].x));
+				printf("%.10f", rad2deg(data[j].x));
 			}
 			printf("]\ndt = [");
 			for(int j = 1; j <= data[0].x; j++) {
 				if(j!=1) printf(", ");
-				printf("%.2f", data[j].y/86400);
+				printf("%.4f", data[j].y/86400);
 			}
 			printf("]\n");
 			printf("---!!!!   NAN   !!!!---\n");
@@ -672,6 +674,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
         }
 
 		insert_new_data_point2(data, theta1_pun, dt-target_dt);
+		last_theta1_pun = theta1_pun;
 //		printf("theta1 = [");
 //		for(int j = 1; j <= data[0].x; j++) {
 //			if(j!=1) printf(", ");
@@ -684,7 +687,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 //		}
 //		printf("]\n");
 //		printf("test\n");
-
+//
 //		printf("theta1 = [");
 //		for(int j = 1; j <= data[0].x; j++) {
 //			if(j!=1) printf(", ");
@@ -699,108 +702,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 
 		if(fabs(target_dt-dt) < 1) break;
     }
-
 	x1[c]++;
-    struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
-    return transfer;
-}
-
-struct Transfer2D calc_extreme_hyperbola(double r1, double r2, double target_dt, double dtheta, struct Body *attractor) {
-    double theta1 = r1>r2 ? deg2rad(180) : deg2rad(180)-dtheta;
-    double theta2 = r1>r2 ? theta1+dtheta: deg2rad(180);
-    double mu = attractor->mu;
-    double step = deg2rad(1);
-    double dt = 1e20;
-    double a, e;
-    int c = 0;
-
-	x2c[0]++;
-
-	while(fabs(dt-target_dt) > 1) {
-		x2c[1]++;
-        if(c >= 250) {
-            if(fabs(dt-target_dt) < 86400 && fabs(step) < 1e-10) {
-                theta1 += step; // will be subtracted again after the loop
-                break;
-            }
-//            printf("\n-----!!!!!------   [MORE THAN 500 CALCULATIONS TRIED FOR 2D TRANSFER]  ");
-//			printf("%f, %f, %f  |  ", r1, r2, rad2deg(dtheta));
-//            printf("%f, %f, %f, %f, %f", target_dt/(24*60*60), dt/(24*60*60), fabs(target_dt-dt), rad2deg(theta1), rad2deg(step));
-//			printf("   -----!!!!!------\n");
-            //exit(EXIT_FAILURE);
-            break;
-        }
-
-        c++;
-        theta1 = pi_norm(theta1);
-        theta2 = pi_norm(theta1 + dtheta);
-        e = (r2-r1)/(r1*cos(theta1)-r2*cos(theta2));
-
-        if(e < 0){  // not possible
-            if(theta2 > M_PI) {
-                theta1 = r1>r2 ? M_PI : M_PI - dtheta;
-                step /= 4;
-            } else theta1 += step;
-            continue;
-        }
-
-        double rp = r1*(1+e*cos(theta1))/(1+e);
-        a = rp/(1-e);
-        double n = sqrt(mu / pow(fabs(a),3));
-
-        double t1,t2;
-        double T = 2*M_PI/n;
-
-        if(e < 1) {
-            double E1 = acos((e + cos(theta1)) / (1 + e * cos(theta1)));
-            t1 = (E1 - e * sin(E1)) / n;
-            if(theta1 > M_PI) t1 = T-t1;
-            double E2 = acos((e + cos(theta2)) / (1 + e * cos(theta2)));
-            t2 = (E2 - e * sin(E2)) / n;
-            if(theta2 > M_PI) t2 = T-t2;
-            dt = theta1 < theta2 ? t2-t1 : T-t1 + t2;
-        } else {
-            if(theta1 < M_PI) {
-                theta1 = r1>r2 ? M_PI : M_PI - dtheta;
-                step *= -1;
-                continue;
-            }
-            if(theta2 >= M_PI) {
-                theta1 = r1>r2 ? M_PI : M_PI - dtheta;
-                step /= 4;
-                continue;
-            }
-            double F1 = acosh((e + cos(theta1)) / (1 + e * cos(theta1)));
-            t1 = (e * sinh(F1) - F1) / n;
-            double F2 = acosh((e + cos(theta2)) / (1 + e * cos(theta2)));
-            t2 = (e * sinh(F2) - F2) / n;
-            // different quadrant
-            if((theta1 < M_PI) != (theta2 < M_PI)) dt = t1+t2;
-                // past periapsis
-            else if(theta1 < M_PI) dt = t2-t1;
-                // before periapsis
-            else dt = t1-t2;
-        }
-
-        if(isnan(dt)){  // at this theta1 orbit not solvable
-            theta1 += step;
-            dt = 100;   // to not exit the loop
-            continue;
-        }
-
-        if(step != 0) {
-            if ((dt - target_dt) * (r1 - r2) > 0) {
-                if (step < 0) step *= -1.0 / 4;
-            } else {
-                if (step > 0) step *= -1.0 / 4;
-            }
-        }
-        theta1 += step;
-    }
-
-    theta1 -= step; // reset theta1 from last change inside the loop
-
-	x2[c]++;
     struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
     return transfer;
 }

@@ -149,7 +149,7 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 	struct Vector2D data[101];
 	data[0].x = 0;
 
-	double dtheta, diff_vinf = 1e9;
+	double dtheta, last_dtheta, diff_vinf = 1e9;
 
 	for(int i = 0; i < 100; i++) {
 		if(i == 0) dtheta = min_dtheta;
@@ -206,8 +206,12 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 		insert_new_data_point(data, dtheta, diff_vinf);
 
 		if(!can_be_negative(data)) break;
+		last_dtheta = dtheta;
 		if(i == 0) dtheta = max_dtheta;
 		else dtheta = get_next_dtheta_from_data_points(data, right_side ? 1:0);
+		if(i > 3 && dtheta == last_dtheta) break;
+		if(dtheta > max_dtheta) dtheta = (max_dtheta+data[(int) data[0].x].x)/2;
+		if(dtheta < min_dtheta) dtheta = (min_dtheta+data[1].x)/2;
 		if(isnan(dtheta) || isinf(dtheta)) break;
 	}
 }
@@ -243,6 +247,7 @@ struct DSB calc_man_for_dsb(struct Vector v_soi) {
 	double interval[2];
 
 	int counter = 0;
+	// three days buffer after and before fly-bys (~SOI)
 	double max_dtheta = calc_dtheta_from_dt(orbit, transfer_duration*86400-86400*3);
 	double min_dtheta = calc_dtheta_from_dt(orbit, 86400*3);
 
@@ -364,7 +369,7 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 		if(dsb.dv >= 1e9) break;
 
 		double phi0, kappa0;
-		double l = 0.5 * max_defl / num_angle_analyse;
+		double l = 0.25 * max_defl / num_angle_analyse;
 
 		while(l > max_defl/10000) {
 			phi0 = min_phi;
