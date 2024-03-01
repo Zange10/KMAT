@@ -2,7 +2,7 @@
 #include "launch_calculator/launch_calculator.h"
 #include "orbit_calculator/orbit_calculator.h"
 #include "orbit_calculator/transfer_calculator.h"
-#include "tool_funcs.h"
+#include "tools/tool_funcs.h"
 #include "gui/transfer_app.h"
 
 

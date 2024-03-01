@@ -1,7 +1,7 @@
 #ifndef KSP_TRANSFER_CALCULATOR_H
 #define KSP_TRANSFER_CALCULATOR_H
 
-#include "analytic_geometry.h"
+#include "tools/analytic_geometry.h"
 #include "porkchop_tools.h"
 
 void simple_transfer();

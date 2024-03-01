@@ -1,11 +1,11 @@
 #include "porkchop_tools.h"
-#include "tool_funcs.h"
+#include "tools/tool_funcs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <pthread.h>
 #include <sys/time.h>
-#include "thread_pool.h"
+#include "tools/thread_pool.h"
 
 struct Downsizing_Thread_Args {
     int iterators[2];

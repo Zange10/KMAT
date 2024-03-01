@@ -2,8 +2,8 @@
 #define LAUNCH_CALCULATOR
 
 
-#include "csv_writer.h"
-#include "tool_funcs.h"
+#include "tools/csv_writer.h"
+#include "tools/tool_funcs.h"
 #include "lv_profile.h"
 #include "celestial_bodies.h"
 #include "lp_parameters.h"

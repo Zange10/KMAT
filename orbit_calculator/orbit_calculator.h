@@ -2,7 +2,7 @@
 #define ORBIT_CALCULATOR
 
 #include "celestial_bodies.h"
-#include "tool_funcs.h"
+#include "tools/tool_funcs.h"
 #include "orbit.h"
 
 // user chooses, which calculation should be performed

@@ -1,4 +1,5 @@
 #include "transfer_tools.h"
+#include "tools/data_tool.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,60 +16,6 @@ int yc = 0;
 int x1c[2];
 int x2c[2];
 
-
-
-
-
-
-
-
-
-void insert_new_data_point2(struct Vector2D data[], double x, double y) {
-	for (int i = 1; i <= data[0].x; i++) {
-		if (x < data[i].x) {
-
-			for (int j = (int) data[0].x; j >= i; j--) data[j + 1] = data[j];
-
-			data[i].x = x;
-			data[i].y = y;
-			data[0].x++;
-			return;
-		}
-	}
-
-	data[(int)data[0].x+1].x = x;
-	data[(int)data[0].x+1].y = y;
-	data[0].x++;
-}
-
-double get_next_theta1_from_data_points(struct Vector2D *data, int branch) {
-	// branch = 0 for decreasing monotonously, 1 for increasing monotonously
-	if(data[0].x == 2) return (data[1].x + data[2].x)/2;
-	int num_data = (int) data[0].x;
-	int i_n = 2, i_p = 2;	// negative and positive index
-
-	if(branch == 0) {
-		for(int i = 2; i <= num_data; i++) {
-			if(data[i].y < 0)			{ i_n = i; break; }
-		}
-		i_p = i_n-1;
-	} else {
-		for(int i = 2; i <= num_data; i++) {
-			if(data[i].y > 0)			{ i_p = i; break; }
-		}
-		i_n = i_p-1;
-	}
-	if(i_p == 1 || i_p == data[0].x ||
-		i_n == 1 || i_n == data[0].x) return (data[i_p].x+data[i_n].x) / 2;
-
-//	printf("%d %d\n", i_n, i_p);
-
-	double m = (data[i_n].y - data[i_p].y) / (data[i_n].x - data[i_p].x);
-	double n = data[i_p].y - data[i_p].x*m;
-//	printf("[%f° %f] [%f° %f]\n", rad2deg(data[i_p].x), data[i_p].y, rad2deg(data[i_n].x), data[i_n].y);
-//	printf("%f %f %f %f° %f\n\n", m, n, data[i_p].y, rad2deg(-n/m), -n/m);
-	return -n/m;
-}
 
 
 void print_x() {
@@ -170,8 +117,8 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 
 	struct Vector2D data[103];
 	data[0].x = 0;
-	insert_new_data_point2(data, min_theta1, r1 / r0 > 1 ? -target_dt : 1e100);
-	insert_new_data_point2(data, max_theta1, r1 / r0 > 1 ? 1e100 : -target_dt);
+	insert_new_data_point(data, min_theta1, r1/r0 > 1 ? -target_dt : 1e100);
+	insert_new_data_point(data, max_theta1, r1/r0 > 1 ? 1e100 : -target_dt);
 
 	// true anomaly of r0, theta1 not normed to pi and true anomaly of r1
 	double theta1, theta1_pun, theta2, last_theta1_pun;
@@ -184,7 +131,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 	x1c[0]++;
 
 	for(int i = 0; i < 100; i++) {
-		theta1_pun = get_next_theta1_from_data_points(data, r1 / r0 > 1);
+		theta1_pun = root_finder_monot_func_next_x(data, r1/r0 > 1);
 		if(i > 3 && last_theta1_pun == theta1_pun) break;
 		x1c[1]++;
         c++;
@@ -266,8 +213,8 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 			exit(1);
             continue;
         }
-
-		insert_new_data_point2(data, theta1_pun, dt-target_dt);
+		
+		insert_new_data_point(data, theta1_pun, dt - target_dt);
 		last_theta1_pun = theta1_pun;
 
 		if(fabs(target_dt-dt) < 1) break;

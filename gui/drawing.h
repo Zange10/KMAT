@@ -6,7 +6,7 @@
 #define KSP_DRAWING_H
 
 #include <cairo.h>
-#include "analytic_geometry.h"
+#include "tools/analytic_geometry.h"
 #include "celestial_bodies.h"
 #include "orbit_calculator/transfer_tools.h"
 

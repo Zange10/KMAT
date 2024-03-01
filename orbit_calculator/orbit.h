@@ -2,7 +2,7 @@
 #define ORBIT
 
 #include "celestial_bodies.h"
-#include "analytic_geometry.h"
+#include "tools/analytic_geometry.h"
 
 struct Orbit {
     struct Body * body; // parent body

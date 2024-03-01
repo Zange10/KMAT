@@ -2,7 +2,7 @@
 #define KSP_TRANSFER_TOOLS_H
 
 #include "orbit.h"
-#include "analytic_geometry.h"
+#include "tools/analytic_geometry.h"
 #include "ephem.h"
 
 // 2-dimensional transfer orbit with orbital elements

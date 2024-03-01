@@ -5,7 +5,7 @@
 #ifndef KSP_DOUBLE_SWING_BY_H
 #define KSP_DOUBLE_SWING_BY_H
 
-#include "analytic_geometry.h"
+#include "tools/analytic_geometry.h"
 #include "celestial_bodies.h"
 #include "transfer_tools.h"
 
