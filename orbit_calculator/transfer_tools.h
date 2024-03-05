@@ -20,6 +20,7 @@ enum Transfer_Type {
     circfb
 };
 void print_x();
+
 // 3-dimensional transfer from point r0 to point r1
 struct Transfer {
     struct Vector r0, v0, r1, v1;
@@ -28,6 +29,17 @@ struct Transfer {
 // orbital state vector (position vector and velocity vector)
 struct OSV {
     struct Vector r, v;
+};
+
+struct ItinStep {
+	struct Body *body;
+	struct Vector r;
+	struct Vector v_arr, v_body, v_dep;
+	double date;
+	double dv;
+	int num_next_nodes;
+	struct ItinStep *prev;
+	struct ItinStep **next;
 };
 
 void def_2d_transfer_orbit(double r1, double r2, double dtheta, double data[3], struct Body *attractor);

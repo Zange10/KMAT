@@ -56,6 +56,12 @@ struct Vector scalar_multiply(struct Vector v, double scalar) {
     return v;
 }
 
+struct Vector proj_vec_plane(struct Vector v, struct Plane p) {
+	struct Vector n = norm_vector(cross_product(p.u, p.v));
+	struct Vector proj_n = scalar_multiply(n, dot_product(v,n));
+	return add_vectors(v, scalar_multiply(proj_n ,-1));
+}
+
 struct Vector2D scalar_multipl2d(struct Vector2D v, double scalar) {
     v.x *= scalar;
     v.y *= scalar;

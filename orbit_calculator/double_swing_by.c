@@ -162,7 +162,7 @@ struct DSB calc_man_for_dsb(struct Vector v_soi) {
 
 		counter++;
 
-		struct Swingby_Peak_Search_Params spsp2 = {
+		struct Swingby_Peak_Search_Params spsp = {
 				orbit,
 				interval,
 				&dsb,
@@ -171,7 +171,7 @@ struct DSB calc_man_for_dsb(struct Vector v_soi) {
 		};
 
 
-		find_double_swing_by_zero_sec_sb_diff(spsp2);
+		find_double_swing_by_zero_sec_sb_diff(spsp);
 	} while (dtheta1 < max_dtheta);
 
 	return dsb;

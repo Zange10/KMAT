@@ -126,6 +126,15 @@ struct Vector scalar_multiply(struct Vector v, double scalar);
 
 
 /**
+ * @brief Calculates the projection vector of vector on plane
+ *
+ * @param v The vector
+ * @param p The plane
+ * @return The projection vector
+ */
+struct Vector proj_vec_plane(struct Vector v, struct Plane p);
+
+/**
  * @brief Multiplies a 2D-vector by a scalar
  *
  * @param v The 2D-vector that is to be multiplied

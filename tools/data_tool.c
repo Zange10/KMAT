@@ -36,11 +36,6 @@ double root_finder_monot_deriv_next_x(struct Vector2D *data, int branch) {
 	int num_data = (int) data[0].x;
 	int index;
 	
-	/*for(int i = 1; i <= num_data; i++) {
-		printf("[%f %f]", data[i].x, data[i].y);
-	}
-	printf("\n");*/
-	
 	// left branch
 	if(branch == 0) {
 		index = 1;
@@ -50,7 +45,7 @@ double root_finder_monot_deriv_next_x(struct Vector2D *data, int branch) {
 			else 						{ index = i; }
 		}
 		
-		// right branch
+	// right branch
 	} else {
 		index = num_data;
 		for(int i = num_data-1; i >= 1; i--) {

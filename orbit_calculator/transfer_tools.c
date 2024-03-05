@@ -350,6 +350,56 @@ int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body) {
 	else 											return 0;
 }
 
+void find_viable_flybys(struct ItinStep tf, struct Ephem **ephems, struct Body *next_body, double min_dt, double max_dt) {
+	struct OSV osv_dep = osv_from_ephem(ephems[tf.body->id - 1], tf.date, SUN());
+	struct OSV osv_arr0 = osv_from_ephem(ephems[next_body->id - 1], tf.date, SUN());
+	struct Vector proj_vec = proj_vec_plane(osv_dep.r, constr_plane(vec(0,0,0), osv_arr0.r, osv_arr0.v));
+	double theta_conj_opp = angle_vec_vec(proj_vec, osv_arr0.r);
+	if(cross_product(proj_vec, osv_arr0.r).z < 0) theta_conj_opp *= -1;
+	else theta_conj_opp -= 3.14159256;
+	
+	struct OSV osv_arr1 = propagate_orbit_theta(osv_arr0.r, osv_arr0.v, -theta_conj_opp, SUN());
+	struct Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
+	struct Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
+	double dt0 = arr1.t-arr0.t;
+	
+	osv_arr1 = propagate_orbit_theta(osv_arr0.r, osv_arr0.v, -theta_conj_opp+3.14159256, SUN());
+	arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
+	arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
+	double dt1 = arr1.t-arr0.t;
+	while(dt0 < 0) dt0 += arr0.period;
+	while(dt1 < 0) dt1 += arr0.period;
+	if(dt1 < dt0) {
+		double temp = dt0;
+		dt0 = dt1;
+		dt1 = temp;
+	}
+	// | v_arr-v_body |
+	double target_v_inf = vector_mag(add_vectors(tf.v_arr, scalar_multiply(tf.v_body,-1)));
+	
+	int right_side = 0;	// 0 = left, 1 = right
+	
+	// x: dt, y: diff_vinf (data[0].x: number of data points beginning at index 1)
+	struct Vector2D data[101];
+	
+	while(dt1 < min_dt) {
+		double temp = dt1;
+		dt1 = dt0 + arr0.period;
+		dt0 = temp;
+	}
+	while(dt0 < max_dt) {
+		data[0].x = 0;
+		
+		
+		// todo: find algorithm for flyby finding
+		
+		
+		double temp = dt1;
+		dt1 = dt0 + arr0.period;
+		dt0 = temp;
+	}
+}
+
 double find_closest_transfer(double *t, struct OSV *osv, struct Body **body, struct Ephem **ephems, double max_dt) {
 	double init_t2 = t[2];
 	double dt = 0;
