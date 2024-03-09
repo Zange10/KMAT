@@ -27,9 +27,8 @@ struct Date convert_JD_date(double JD) {
     struct Date date = {0,1,1,0,0,0};
     double init_JD = JD;
     JD -= 2451544.5;
-    date.y = JD >= 0 ?  2000 + (int)(JD/365.25) : 2000 + (int)(JD/365.25)-1;
+    date.y = JD >= 0 ?  2000 + (int)(JD/366) : 2000 + (int)(JD/365)-1;	// 366 and 365 seem to work...
     JD = init_JD - convert_date_JD(date);
-
     for(int i = 1; i < 12; i++) {
         int month_days;
         if(i == 1 || i == 3 || i == 5 || i == 7 || i == 8 || i == 10) month_days = 31;
@@ -61,7 +60,8 @@ struct Date convert_JD_date(double JD) {
     JD -= (double)date.h/24;
     date.min = (int) (JD * 24 * 60);
     JD -= (double)date.min/(24*60);
-    date.s = JD;
+    date.s = JD*86400;
+
 
     return date;
 }
