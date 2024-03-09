@@ -393,7 +393,7 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body 
 	// x: dt, y: diff_vinf (data[0].x: number of data points beginning at index 1)
 	struct Vector2D data[101];
 
-	printf("%f %f %f\n---\n", dt0/86400, dt1/86400, arr0.period/86400);
+//	printf("%f %f %f\n---\n", dt0/86400, dt1/86400, arr0.period/86400);
 
 	double t0 = tf->date;
 	double last_dt, dt, t1, diff_vinf;
@@ -426,9 +426,9 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body 
 //				print_vector(scalar_multiply(new_transfer.v0,1e-3));
 				double beta = (M_PI - angle_vec_vec(v_dep, v_init)) / 2;
 				double rp = (1 / cos(beta) - 1) * (tf->body->mu / (pow(vector_mag(v_dep), 2)));
-				printf("||  %f   %f     %f°\n", dt / 86400,  (rp-tf->body->radius - tf->body->atmo_alt)*1e-3, rad2deg(beta));
+//				printf("||  %f   %f     %f°\n", dt / 86400,  (rp-tf->body->radius - tf->body->atmo_alt)*1e-3, rad2deg(beta));
 				if (rp > tf->body->radius + tf->body->atmo_alt) {
-					printf("||    %f\n", rp-tf->body->radius - tf->body->atmo_alt);
+//					printf("||    %f\n", rp-tf->body->radius - tf->body->atmo_alt);
 					new_steps[counter] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 					new_steps[counter]->body = next_body;
 					new_steps[counter]->date = t1;

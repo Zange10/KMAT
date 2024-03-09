@@ -4,6 +4,7 @@
 #include "tools/analytic_geometry.h"
 #include "porkchop_tools.h"
 
+void create_itinerary();
 void simple_transfer();
 void create_swing_by_transfer();
 void dsb_test();

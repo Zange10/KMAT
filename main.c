@@ -10,7 +10,7 @@
 
 int main() {
     init_celestial_bodies();
-	dsb_test();
+	create_itinerary();
 	return 0;
 
     int selection;
