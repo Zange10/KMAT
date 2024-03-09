@@ -68,6 +68,9 @@ double dv_capture(struct Body *body, double rp, double vinf);
 // returns 1 if flyby is viable, 0 otherwise (all parameters are arrays of size 3)
 int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body);
 
+// find viable flybys to next body with a given arrival trajectory
+void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *next_body, double min_dt, double max_dt);
+
 // find time of closest possible fly by transfer (returns -1 if nothing is found)
 double find_closest_transfer(double *t, struct OSV *osv, struct Body **body, struct Ephem **ephems, double max_dt);
 
@@ -79,5 +82,8 @@ struct OSV propagate_orbit_theta(struct Vector r, struct Vector v, double dtheta
 
 // calculate the orbital state vector at the given date for a given ephemeris list
 struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor);
+
+// free to itinerary allocated memory
+void free_itinerary(struct ItinStep *step);
 
 #endif //KSP_TRANSFER_TOOLS_H

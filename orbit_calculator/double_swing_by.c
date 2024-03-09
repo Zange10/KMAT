@@ -107,8 +107,8 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 		if(i == 0) dtheta = max_dtheta;
 		else dtheta = root_finder_monot_deriv_next_x(data, right_side ? 1 : 0);
 		if(i > 3 && dtheta == last_dtheta) break;
-		if(dtheta > max_dtheta) dtheta = (max_dtheta+data[(int) data[0].x].x)/2;
-		if(dtheta < min_dtheta) dtheta = (min_dtheta+data[1].x)/2;
+		if(dtheta > max_dtheta) dtheta = (max_dtheta+data[(int) data[0].x-1].x)/2;
+		if(dtheta < min_dtheta) dtheta = (min_dtheta+data[2].x)/2;
 		if(isnan(dtheta) || isinf(dtheta)) break;
 	}
 }

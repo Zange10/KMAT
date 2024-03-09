@@ -120,15 +120,6 @@ void simple_transfer() {
 }
 
 void dsb_test() {
-	int nums[] = {1,2,3,4,5,6,7,8,9,10,11,12};
-	int len = sizeof(nums)/sizeof(int)*2;
-	
-	double y1[len][1002];
-	double y2[len][1002];
-	double x[len][1002];
-	
-	struct timeval start, end;
-	double elapsed_time;
 	int num_bodies = 9;
 	int num_ephems = 12*100;	// 12 months for 100 years (1950-2050)
 	struct Ephem **ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
@@ -136,95 +127,182 @@ void dsb_test() {
 		ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
 		get_body_ephem(ephems[i], i+1);
 	}
-	
-	struct Body *bodies[] = {EARTH(), VENUS()};
-	int min_duration[] = {1};
-	int max_duration[] = {500};
-	
-	gettimeofday(&start, NULL);  // Record the ending time
-	
-	for(int i = 0; i < len; i+=4) {
-		struct Date min_dep_date = {i <= 11 ? 1997 : 1998, nums[i <= 11 ? i : i-12], 1, 0, 0, 0};
-		double min_dep = convert_date_JD(min_dep_date);
-		double jd_dep = min_dep;
-		struct OSV osv_dep = osv_from_ephem(ephems[bodies[0]->id - 1], jd_dep, SUN());
-		
-		struct OSV osv_arr0 = osv_from_ephem(ephems[bodies[1]->id - 1], jd_dep, SUN());
-		struct Vector proj_vec = proj_vec_plane(osv_dep.r, constr_plane(vec(0,0,0), osv_arr0.r, osv_arr0.v));
-		double theta_conj_opp = angle_vec_vec(proj_vec, osv_arr0.r);
-		if(cross_product(proj_vec, osv_arr0.r).z < 0) theta_conj_opp *= -1;
-		else theta_conj_opp -= 3.14159256;
-		
-		struct OSV osv_arr1 = propagate_orbit_theta(osv_arr0.r, osv_arr0.v, -theta_conj_opp, SUN());
-		struct Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
-		struct Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
-		double dt0 = arr1.t-arr0.t;
-		
-		osv_arr1 = propagate_orbit_theta(osv_arr0.r, osv_arr0.v, -theta_conj_opp+3.14159256, SUN());
-		arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
-		arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
-		double dt1 = arr1.t-arr0.t;
-		while(dt0 < 86400*50) dt0 += arr0.period;
-		while(dt1 < 86400*50) dt1 += arr0.period;
-		//printf("%f %f\n", arr0.t/86400, arr1.t/86400);
-		printf("[%f, %f], ", dt0/86400, dt1/86400);
-		
-		for(int j = min_duration[0]; j <= max_duration[0]; j++) {
-			double jd_arr = jd_dep + j;
-			struct OSV osv_arr = osv_from_ephem(ephems[bodies[1]->id - 1], jd_arr, SUN());
-			double data[3];
-			
-			calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, (jd_arr - jd_dep) * 86400,
-						  data);
-			
-			x[i][0]++;
-			y1[i][(int) x[i][0]] = data[1];
-			x[i][(int) x[i][0]] = j;
+
+	if(1) {
+		struct Body *bodies[] = {EARTH(), VENUS(), MARS(), EARTH()};
+		struct Date dep_date = {1959, 8, 16, 0,0,0};
+		struct Date ven_date = {1960, 2, 7, 0,0,0};
+		double jd_dep = convert_date_JD(dep_date);
+		double jd_ven = convert_date_JD(ven_date);
+
+		struct OSV osv_body0 = osv_from_ephem(ephems[bodies[0]->id-1], jd_dep, SUN());
+		struct OSV osv_body1 = osv_from_ephem(ephems[bodies[1]->id-1], jd_ven, SUN());
+
+		struct Transfer tf0 = calc_transfer(circfb, bodies[0], bodies[1], osv_body0.r, osv_body0.v,
+											osv_body1.r, osv_body1.v, (jd_ven-jd_dep)*86400, NULL);
+
+
+		struct ItinStep *dep_step = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+		dep_step->body = bodies[0];
+		dep_step->date = jd_dep;
+		dep_step->r = osv_body0.r;
+		dep_step->v_body = osv_body0.v;
+		dep_step->num_next_nodes = 1;
+		dep_step->prev = NULL;
+		dep_step->next = NULL;
+
+		struct ItinStep *sec_step = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+		sec_step->body = bodies[1];
+		sec_step->date = jd_ven;
+		sec_step->r = osv_body1.r;
+		sec_step->v_dep = tf0.v0;
+		sec_step->v_arr = tf0.v1;
+		sec_step->v_body = osv_body1.v;
+		sec_step->num_next_nodes = 0;
+		sec_step->prev = dep_step;
+		sec_step->next = NULL;
+
+		dep_step->next = (struct ItinStep**) malloc(sizeof(struct ItinStep*));
+		dep_step->next[0] = sec_step;
+
+//		print_vector(scalar_multiply(itin[0].v_body,1e-3));
+//		print_vector(scalar_multiply(itin[0].r, 1e-9));
+//		print_vector(scalar_multiply(itin[1].v_dep,1e-3));
+//		print_vector(scalar_multiply(itin[1].v_arr, 1e-3));
+//		print_vector(scalar_multiply(itin[1].v_body,1e-3));
+//		print_vector(scalar_multiply(itin[1].r, 1e-9));
+
+
+		struct timeval start, end;
+		double elapsed_time;
+		gettimeofday(&start, NULL);  // Record the ending time
+
+		find_viable_flybys(sec_step, ephems, bodies[2], 20*86400, 400*86400);
+
+		// statement is not always false, despite what some IDE says...
+		for(int i = 0; i < sec_step->num_next_nodes; i++) {
+			find_viable_flybys(sec_step->next[i], ephems, bodies[3], 20*86400, 400*86400);
+
+			printf("test\n");
+			if(sec_step->next[i]->num_next_nodes > 0) {
+				printf("--  %f  --\n", sec_step->next[i]->next[0]->date);
+				print_date(convert_JD_date(dep_step->date), 1);
+				print_date(convert_JD_date(sec_step->date), 1);
+				print_date(convert_JD_date(sec_step->next[i]->date), 1);
+				print_date(convert_JD_date(sec_step->next[i]->next[0]->date), 1);
+			}
 		}
+
+		gettimeofday(&end, NULL);  // Record the ending time
+		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+		printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+
+
+		free_itinerary(dep_step);
+
+	} else {
+
+		int nums[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+		int len = sizeof(nums) / sizeof(int) * 2;
+
+		double y1[len][1002];
+		double y2[len][1002];
+		double x[len][1002];
+
+		struct timeval start, end;
+		double elapsed_time;
+
+		struct Body *bodies[] = {VENUS(), MARS()};
+		int min_duration[] = {1};
+		int max_duration[] = {500};
+
+		gettimeofday(&start, NULL);  // Record the ending time
+
+		for(int i = 0; i < len; i++) {
+			//struct Date min_dep_date = {i <= 11 ? 1997 : 1998, nums[i <= 11 ? i : i - 12], 1, 0, 0, 0};
+			struct Date min_dep_date = {1960, 2, 7, 0,0,0};
+			double min_dep = convert_date_JD(min_dep_date);
+			double jd_dep = min_dep;
+			struct OSV osv_dep = osv_from_ephem(ephems[bodies[0]->id - 1], jd_dep, SUN());
+
+			struct OSV osv_arr0 = osv_from_ephem(ephems[bodies[1]->id - 1], jd_dep, SUN());
+			struct Vector proj_vec = proj_vec_plane(osv_dep.r, constr_plane(vec(0, 0, 0), osv_arr0.r, osv_arr0.v));
+			double theta_conj_opp = angle_vec_vec(proj_vec, osv_arr0.r);
+			if(cross_product(proj_vec, osv_arr0.r).z < 0) theta_conj_opp *= -1;
+			else theta_conj_opp -= 3.14159256;
+
+			struct OSV osv_arr1 = propagate_orbit_theta(osv_arr0.r, osv_arr0.v, -theta_conj_opp, SUN());
+			struct Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
+			struct Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
+			double dt0 = arr1.t - arr0.t;
+
+			osv_arr1 = propagate_orbit_theta(osv_arr0.r, osv_arr0.v, -theta_conj_opp + 3.14159256, SUN());
+			arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
+			arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
+			double dt1 = arr1.t - arr0.t;
+			while(dt0 < 86400 * 50) dt0 += arr0.period;
+			while(dt1 < 86400 * 50) dt1 += arr0.period;
+			//printf("%f %f\n", arr0.t/86400, arr1.t/86400);
+			printf("[%f, %f], ", dt0 / 86400, dt1 / 86400);
+
+			for(int j = min_duration[0]; j <= max_duration[0]; j++) {
+				double jd_arr = jd_dep + j;
+				struct OSV osv_arr = osv_from_ephem(ephems[bodies[1]->id - 1], jd_arr, SUN());
+				double data[3];
+
+				calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v,
+							  (jd_arr - jd_dep) * 86400,
+							  data);
+
+				x[i][0]++;
+				y1[i][(int) x[i][0]] = data[1];
+				x[i][(int) x[i][0]] = j;
+			}
+		}
+
+		gettimeofday(&end, NULL);  // Record the ending time
+		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+		printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+
+		//return;
+		printf("x = [");
+		for(int i = 0; i < len; i++) {
+			if(i != 0) printf(", ");
+			printf("[");
+			for(int j = 1; j <= x[i][0]; j++) {
+				if(j != 1) printf(", ");
+				printf("%f", x[i][j]);
+			}
+			printf("]");
+		}
+		printf("]\n");
+		printf("y1 = [");
+		for(int i = 0; i < len; i++) {
+			if(i != 0) printf(", ");
+			printf("[");
+			for(int j = 1; j <= x[i][0]; j++) {
+				if(j != 1) printf(", ");
+				printf("%f", y1[i][j]);
+			}
+			printf("]");
+		}
+		printf("]\n");
+		printf("y2 = [");
+		for(int i = 0; i < len; i++) {
+			if(i != 0) printf(", ");
+			printf("[");
+			for(int j = 1; j <= x[i][0]; j++) {
+				if(j != 1) printf(", ");
+				printf("%f", y2[i][j]);
+			}
+			printf("]");
+		}
+		printf("]\n");
 	}
-	
-	gettimeofday(&end, NULL);  // Record the ending time
-	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
-	
 	for(int i = 0; i < num_bodies; i++) {
 		free(ephems[i]);
 	}
 	free(ephems);
-	return;
-	printf("x = [");
-	for(int i = 0; i < len; i++) {
-		if(i != 0) printf(", ");
-		printf("[");
-		for(int j = 1; j <= x[i][0]; j++) {
-			if(j != 1) printf(", ");
-			printf("%f", x[i][j]);
-		}
-		printf("]");
-	}
-	printf("]\n");
-	printf("y1 = [");
-	for(int i = 0; i < len; i++) {
-		if(i != 0) printf(", ");
-		printf("[");
-		for(int j = 1; j <= x[i][0]; j++) {
-			if(j != 1) printf(", ");
-			printf("%f", y1[i][j]);
-		}
-		printf("]");
-	}
-	printf("]\n");
-	printf("y2 = [");
-	for(int i = 0; i < len; i++) {
-		if(i != 0) printf(", ");
-		printf("[");
-		for(int j = 1; j <= x[i][0]; j++) {
-			if(j != 1) printf(", ");
-			printf("%f", y2[i][j]);
-		}
-		printf("]");
-	}
-	printf("]\n");
 }
 
 void dsb_test3() {

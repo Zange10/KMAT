@@ -350,53 +350,144 @@ int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body) {
 	else 											return 0;
 }
 
-void find_viable_flybys(struct ItinStep tf, struct Ephem **ephems, struct Body *next_body, double min_dt, double max_dt) {
-	struct OSV osv_dep = osv_from_ephem(ephems[tf.body->id - 1], tf.date, SUN());
-	struct OSV osv_arr0 = osv_from_ephem(ephems[next_body->id - 1], tf.date, SUN());
+void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *next_body, double min_dt, double max_dt) {
+	struct OSV osv_dep = osv_from_ephem(ephems[tf->body->id - 1], tf->date, SUN());
+	struct OSV osv_arr0 = osv_from_ephem(ephems[next_body->id - 1], tf->date, SUN());
 	struct Vector proj_vec = proj_vec_plane(osv_dep.r, constr_plane(vec(0,0,0), osv_arr0.r, osv_arr0.v));
 	double theta_conj_opp = angle_vec_vec(proj_vec, osv_arr0.r);
 	if(cross_product(proj_vec, osv_arr0.r).z < 0) theta_conj_opp *= -1;
-	else theta_conj_opp -= 3.14159256;
-	
+	else theta_conj_opp -= M_PI;
+
+	int max_new_steps = 10;
+	struct ItinStep *new_steps[max_new_steps];
+
+	int counter = 0;
+
 	struct OSV osv_arr1 = propagate_orbit_theta(osv_arr0.r, osv_arr0.v, -theta_conj_opp, SUN());
 	struct Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
 	struct Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
 	double dt0 = arr1.t-arr0.t;
 	
-	osv_arr1 = propagate_orbit_theta(osv_arr0.r, osv_arr0.v, -theta_conj_opp+3.14159256, SUN());
+	osv_arr1 = propagate_orbit_theta(osv_arr0.r, osv_arr0.v, -theta_conj_opp+M_PI, SUN());
 	arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
 	arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
 	double dt1 = arr1.t-arr0.t;
+
 	while(dt0 < 0) dt0 += arr0.period;
 	while(dt1 < 0) dt1 += arr0.period;
-	if(dt1 < dt0) {
+	if(dt0 < dt1) {
 		double temp = dt0;
-		dt0 = dt1;
+		dt0 = dt1-arr0.period;
 		dt1 = temp;
+	} else {
+		dt0 -= arr0.period;
 	}
-	// | v_arr-v_body |
-	double target_v_inf = vector_mag(add_vectors(tf.v_arr, scalar_multiply(tf.v_body,-1)));
-	
-	int right_side = 0;	// 0 = left, 1 = right
-	
-	// x: dt, y: diff_vinf (data[0].x: number of data points beginning at index 1)
-	struct Vector2D data[101];
-	
+
 	while(dt1 < min_dt) {
 		double temp = dt1;
 		dt1 = dt0 + arr0.period;
 		dt0 = temp;
 	}
+
+	
+	// x: dt, y: diff_vinf (data[0].x: number of data points beginning at index 1)
+	struct Vector2D data[101];
+
+	printf("%f %f %f\n---\n", dt0/86400, dt1/86400, arr0.period/86400);
+
+	double t0 = tf->date;
+	double last_dt, dt, t1, diff_vinf;
+
+	struct Vector v_init = add_vectors(tf->v_arr, scalar_multiply(tf->v_body,-1));
+
 	while(dt0 < max_dt) {
 		data[0].x = 0;
-		
-		
-		// todo: find algorithm for flyby finding
-		
+		int right_side = 0;	// 0 = left, 1 = right
+
+		for(int i = 0; i < 100; i++) {
+			if(i == 0) dt = dt0;
+			if(dt < min_dt) dt = min_dt;
+			if(dt > max_dt) dt = max_dt;
+
+			t1 = t0 + dt / 86400;
+
+			struct OSV osv_arr = osv_from_ephem(ephems[next_body->id - 1], t1, SUN());
+
+			struct Transfer new_transfer = calc_transfer(circfb, tf->body, next_body, osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, dt,
+						  NULL);
+
+			struct Vector v_dep = add_vectors(new_transfer.v0, scalar_multiply(tf->v_body, -1));
+
+			diff_vinf = vector_mag(v_dep) - vector_mag(v_init);
+
+			if (fabs(diff_vinf) < 1) {
+//				print_vector(v_init);
+//				print_vector(scalar_multiply(tf.v_arr,1e-3));
+//				print_vector(scalar_multiply(new_transfer.v0,1e-3));
+				double beta = (M_PI - angle_vec_vec(v_dep, v_init)) / 2;
+				double rp = (1 / cos(beta) - 1) * (tf->body->mu / (pow(vector_mag(v_dep), 2)));
+				printf("||  %f   %f     %f°\n", dt / 86400,  (rp-tf->body->radius - tf->body->atmo_alt)*1e-3, rad2deg(beta));
+				if (rp > tf->body->radius + tf->body->atmo_alt) {
+					printf("||    %f\n", rp-tf->body->radius - tf->body->atmo_alt);
+					new_steps[counter] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+					new_steps[counter]->body = next_body;
+					new_steps[counter]->date = t1;
+					new_steps[counter]->r = osv_arr.r;
+					new_steps[counter]->v_dep = new_transfer.v0;
+					new_steps[counter]->v_arr = new_transfer.v1;
+					new_steps[counter]->v_body = osv_arr.v;
+					new_steps[counter]->num_next_nodes = 0;
+					new_steps[counter]->prev = tf;
+					new_steps[counter]->next = NULL;
+					counter++;
+				}
+
+				if(!right_side) right_side = 1;
+				else break;
+			}
+
+
+			insert_new_data_point(data, dt, diff_vinf);
+
+
+//			printf("%f %f %f\n", dt/86400, vector_mag(v_dep), vector_mag(v_init));
+//			printf("dt = [");
+//			for(int j = 1; j <= data[0].x; j++) {
+//				if(j!=1) printf(", ");
+//				printf("% 10.2f", data[j].x/86400);
+//			}
+//			printf("]\ndv = [");
+//			for(int j = 1; j <= data[0].x; j++) {
+//				if(j!=1) printf(", ");
+//				printf("% 10.2f", data[j].y);
+//			}
+//			printf("]\n");
+
+			if(!can_be_negative_monot_deriv(data)) break;
+			last_dt = dt;
+			if(i == 0) dt = dt1;
+			else dt = root_finder_monot_deriv_next_x(data, right_side ? 1 : 0);
+			if(i > 3) {
+				if(dt == last_dt) break;
+				if(dt >= dt1) dt = (dt1+data[(int) data[0].x-1].x)/2;
+				if(dt < dt0) dt = (dt0+data[2].x)/2;
+			}
+			if(isnan(dt) || isinf(dt)) break;
+		}
+
+
 		
 		double temp = dt1;
 		dt1 = dt0 + arr0.period;
 		dt0 = temp;
+	}
+
+
+
+	if(counter > 0) {
+		tf->next = (struct ItinStep **) malloc(counter * sizeof(struct ItinStep *));
+		for(int i = 0; i < counter; i++) tf->next[i] = new_steps[i];
+		tf->num_next_nodes = counter;
 	}
 }
 
@@ -532,4 +623,15 @@ struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *at
     double dt1 = (date - ephem.date) * (24 * 60 * 60);
     struct OSV osv = propagate_orbit_time(r1, v1, dt1, attractor);
     return osv;
+}
+
+
+void free_itinerary(struct ItinStep *step) {
+	if(step->next != NULL) {
+		for(int i = 0; i < step->num_next_nodes; i++) {
+			free_itinerary(step->next[i]);
+		}
+		free(step->next);
+	}
+	free(step);
 }
