@@ -10,34 +10,12 @@
 enum Transfer_Type final_tt = circcap;
 
 
-void print_itinerary(struct ItinStep *itin, double *dates, int step) {
-	dates[step] = itin->date;
-	if(itin->num_next_nodes == 0) {
-		for(int i = 0; i <= step; i++) {
-			if(i != 0) printf(" - ");
-			print_date(convert_JD_date(dates[i]),0);
-		}
-		printf("\n");
-		return;
+void print_itinerary(struct ItinStep *itin) {
+	if(itin->prev != NULL) {
+		print_itinerary(itin->prev);
+		printf(" - ");
 	}
-
-	for(int i = 0; i < itin->num_next_nodes; i++) {
-		print_itinerary(itin->next[i], dates, step+1);
-	}
-}
-
-void print_itinerary2(struct ItinStep *itin, int step) {
-	if(itin->prev != NULL) printf("|");
-	else printf("\n");
-	for(int i = 0; i < step; i++) printf("-");
-	printf("%d\n", itin->num_next_nodes);
-	if(itin->num_next_nodes == 0) {
-		return;
-	}
-
-	for(int i = 0; i < itin->num_next_nodes; i++) {
-		print_itinerary2(itin->next[i], step+1);
-	}
+	print_date(convert_JD_date(itin->date), 0);
 }
 
 int get_number_of_itineraries(struct ItinStep *itin) {
@@ -49,6 +27,33 @@ int get_number_of_itineraries(struct ItinStep *itin) {
 	return counter;
 }
 
+void store_itineraries_in_array(struct ItinStep *itin, struct ItinStep **array, int *index) {
+	if(itin->num_next_nodes == 0) {
+		array[*index] = itin;
+		*index += 1;
+	}
+
+	for(int i = 0; i < itin->num_next_nodes; i++) {
+		store_itineraries_in_array(itin->next[i], array, index);
+	}
+}
+
+double calc_itinerary_dv(struct ItinStep *itin, int circ_cap_fb) {
+	if(itin->num_next_nodes == 0) {
+		double vinf = vector_mag(add_vectors(itin->v_arr, scalar_multiply(itin->v_body,-1)));
+		double dv;
+		if(circ_cap_fb == 0) dv = dv_circ(itin->body, itin->body->atmo_alt+100e3, vinf);
+		else if(circ_cap_fb == 1) dv = dv_capture(itin->body, itin->body->atmo_alt+100e3, vinf);
+		else dv = 0;
+		return dv + calc_itinerary_dv(itin->prev, circ_cap_fb);
+	}
+	if(itin->prev->prev == NULL) {
+		double vinf = vector_mag(add_vectors(itin->v_dep, scalar_multiply(itin->prev->v_body,-1)));
+		return dv_circ(itin->prev->body, itin->prev->body->atmo_alt+100e3, vinf);
+	}
+	return calc_itinerary_dv(itin->prev, circ_cap_fb);
+}
+
 int remove_step_from_itinerary(struct ItinStep *step) {
 	struct ItinStep *prev = step->prev;
 	if(prev->num_next_nodes == 1 && step->prev->prev != NULL) return remove_step_from_itinerary(prev);
@@ -57,29 +62,20 @@ int remove_step_from_itinerary(struct ItinStep *step) {
 	for(int i = 0; i < prev->num_next_nodes; i++) {
 		if(prev->next[i] == step) { index = i; break; }
 	}
-	printf("%d %d %s\n", index, prev->num_next_nodes, prev->body->name);
-	printf("pointer = [");
-	for(int j = 0; j < prev->num_next_nodes; j++) {
-		if(j!=0) printf(", ");
-		printf("%p", prev->next[j]);
-	}
-	printf("]\n");
 	prev->num_next_nodes--;
 	for(int i = index; i < prev->num_next_nodes; i++) {
 		prev->next[i] = prev->next[i+1];
 	}
 	free_itinerary(step);
-	printf("pointer = [");
-	for(int j = 0; j < prev->num_next_nodes; j++) {
-		if(j!=0) printf(", ");
-		printf("%p", prev->next[j]);
-	}
-	printf("]\n");
 
 	return prev->prev == NULL;
 }
 
 void create_itinerary() {
+	struct timeval start, end;
+	double elapsed_time;
+	gettimeofday(&start, NULL);  // Record the ending time
+
 	int num_bodies = 9;
 	int num_ephems = 12*100;	// 12 months for 100 years (1950-2050)
 	struct Ephem **ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
@@ -91,23 +87,24 @@ void create_itinerary() {
 	struct Body *bodies[] = {EARTH(), JUPITER(), SATURN(), URANUS(), NEPTUNE()};
 	int num_steps = sizeof(bodies)/sizeof(struct Body*);
 
-	struct Date min_dep_date = {1977, 3, 15};
-	struct Date max_dep_date = {1977, 3, 21};
+	struct Date min_dep_date = {1976, 5, 15};
+	struct Date max_dep_date = {1978, 10, 21};
 	double jd_min_dep = convert_date_JD(min_dep_date);
 	double jd_max_dep = convert_date_JD(max_dep_date);
 	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
 
-	int min_duration[] = {560, 100, 300, 300};
-	int max_duration[] = {570, 3000, 3000, 3000};
+	int min_duration[] = {400, 100, 300, 300};
+	int max_duration[] = {1000, 3000, 3000, 3000};
 
-	struct ItinStep **itins = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
+	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 
 	for(int i = 0; i < num_deps; i++){
 		double jd_dep = jd_min_dep+i;
+		print_date(convert_JD_date(jd_dep),1);
 		struct OSV osv_body0 = osv_from_ephem(ephems[bodies[0]->id-1], jd_dep, SUN());
 
 		struct ItinStep *curr_step = (struct ItinStep*) malloc(sizeof(struct ItinStep));
-		itins[i] = curr_step;
+		departures[i] = curr_step;
 		curr_step->body = bodies[0];
 		curr_step->date = jd_dep;
 		curr_step->r = osv_body0.r;
@@ -151,40 +148,54 @@ void create_itinerary() {
 
 	// remove departure dates with no valid itinerary
 	for(int i = 0; i < num_deps; i++) {
-		if(itins[i]->num_next_nodes == 0) {
+		if(departures[i]->num_next_nodes == 0) {
 			num_deps--;
 			for(int j = i; j < num_deps; j++) {
-				itins[j] = itins[j+1];
+				departures[j] = departures[j + 1];
 			}
 			i--;
 		}
 	}
 
-	for(int i = 0; i < num_deps; i++) printf("%d ", itins[i]->num_next_nodes);
+	for(int i = 0; i < num_deps; i++) printf("%d ", departures[i]->num_next_nodes);
 	printf("\n");
 
-	printf("pointer = [");
-	for(int j = 0; j < itins[0]->num_next_nodes; j++) {
-		if(j!=0) printf(", ");
-		printf("%p", itins[0]->next[j]);
+	int num_itins = 0;
+	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(departures[i]);
+	printf("\nItineraries: %d\n", num_itins);
+
+	int index = 0;
+	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
+	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(departures[i], arrivals, &index);
+
+	double *dv = (double*) malloc(num_itins * sizeof(double));
+	for(int i = 0; i < num_itins; i++) dv[i] = calc_itinerary_dv(arrivals[i], -1);
+
+	double mindv = dv[0];
+	int mind = 0;
+	for(int i = 1; i < num_itins; i++) {
+		if(dv[i] < mindv) {
+			mindv = dv[i];
+			mind = i;
+		}
 	}
-	printf("]\n");
 
-//	for(int i = 0; i < num_deps; i++) print_itinerary2(itins[i], 0);
+	print_itinerary(arrivals[mind]);
+	printf("  -  %f m/s\n", dv[mind]);
 
-	int counter = 0;
-	for(int i = 0; i < num_deps; i++) counter += get_number_of_itineraries(itins[i]);
-	printf("\n%d\n", counter);
+	for(int i = 0; i < num_deps; i++) free_itinerary(departures[i]);
+	free(departures);
 
-	double *dates = (double*) malloc(num_steps*sizeof(double));
-	for(int i = 0; i < num_deps; i++) print_itinerary(itins[i], dates, 0);
-	free(dates);
-
-	for(int i = 0; i < num_deps; i++) free_itinerary(itins[i]);
-	free(itins);
+	free(arrivals);
+	free(dv);
 
 	for(int i = 0; i < num_bodies; i++) free(ephems[i]);
 	free(ephems);
+
+
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
 }
 
 void simple_transfer() {
