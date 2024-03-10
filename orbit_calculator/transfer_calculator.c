@@ -54,6 +54,28 @@ double calc_itinerary_dv(struct ItinStep *itin, int circ_cap_fb) {
 	return calc_itinerary_dv(itin->prev, circ_cap_fb);
 }
 
+double get_itinerary_duration(struct ItinStep *itin) {
+	double jd1 = itin->date;
+	while(itin->prev != NULL) itin = itin->prev;
+	double jd0 = itin->date;
+	return jd1-jd0;
+}
+
+void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ_cap_fb) {
+	double dv, vinf = vector_mag(add_vectors(itin->v_arr, scalar_multiply(itin->v_body,-1)));
+	if(circ_cap_fb == 0) dv = dv_circ(itin->body, itin->body->atmo_alt+100e3, vinf);
+	else if(circ_cap_fb == 1) dv = dv_capture(itin->body, itin->body->atmo_alt+100e3, vinf);
+	else dv = 0;
+	porkchop[3] = dv;
+	porkchop[1] = get_itinerary_duration(itin);
+
+	while(itin->prev->prev != NULL) itin = itin->prev;
+
+	vinf = vector_mag(add_vectors(itin->v_dep, scalar_multiply(itin->prev->v_body,-1)));
+	porkchop[2] = dv_circ(itin->prev->body, itin->prev->body->atmo_alt+100e3, vinf);
+	porkchop[0] = itin->prev->date;
+}
+
 int remove_step_from_itinerary(struct ItinStep *step) {
 	struct ItinStep *prev = step->prev;
 	if(prev->num_next_nodes == 1 && step->prev->prev != NULL) return remove_step_from_itinerary(prev);
@@ -87,14 +109,14 @@ void create_itinerary() {
 	struct Body *bodies[] = {EARTH(), JUPITER(), SATURN(), URANUS(), NEPTUNE()};
 	int num_steps = sizeof(bodies)/sizeof(struct Body*);
 
-	struct Date min_dep_date = {1976, 5, 15};
-	struct Date max_dep_date = {1978, 10, 21};
+	struct Date min_dep_date = {1977, 5, 15};
+	struct Date max_dep_date = {1977, 10, 21};
 	double jd_min_dep = convert_date_JD(min_dep_date);
 	double jd_max_dep = convert_date_JD(max_dep_date);
 	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
 
-	int min_duration[] = {400, 100, 300, 300};
-	int max_duration[] = {1000, 3000, 3000, 3000};
+	int min_duration[] = {500, 100, 300, 300};
+	int max_duration[] = {800, 3000, 3000, 3000};
 
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 
@@ -168,27 +190,34 @@ void create_itinerary() {
 	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
 	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(departures[i], arrivals, &index);
 
-	double *dv = (double*) malloc(num_itins * sizeof(double));
-	for(int i = 0; i < num_itins; i++) dv[i] = calc_itinerary_dv(arrivals[i], -1);
+	double *porkchop = (double *) malloc((4 * num_itins + 1) * sizeof(double));
+	porkchop[0] = 0;
+	for(int i = 0; i < num_itins; i++) {
+		create_porkchop_point(arrivals[i], &porkchop[i*4+1], -1);
+		porkchop[0] += 4;
+	}
 
-	double mindv = dv[0];
+	char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
+	write_csv(data_fields, porkchop);
+
+	double mindv = porkchop[1+2]+porkchop[1+3];
 	int mind = 0;
 	for(int i = 1; i < num_itins; i++) {
-		if(dv[i] < mindv) {
-			mindv = dv[i];
+		double dv = porkchop[1+i*4+2]+porkchop[1+i*4+3];
+		if(dv < mindv) {
+			mindv = dv;
 			mind = i;
 		}
 	}
 
 	print_itinerary(arrivals[mind]);
-	printf("  -  %f m/s\n", dv[mind]);
+	printf("  -  %f m/s\n", mindv);
+
 
 	for(int i = 0; i < num_deps; i++) free_itinerary(departures[i]);
 	free(departures);
-
 	free(arrivals);
-	free(dv);
-
+	free(porkchop);
 	for(int i = 0; i < num_bodies; i++) free(ephems[i]);
 	free(ephems);
 
