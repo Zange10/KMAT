@@ -27,6 +27,15 @@ int get_number_of_itineraries(struct ItinStep *itin) {
 	return counter;
 }
 
+int get_total_number_of_stored_steps(struct ItinStep *itin) {
+	if(itin->num_next_nodes == 0) return 1;
+	int counter = 1;
+	for(int i = 0; i < itin->num_next_nodes; i++) {
+		counter += get_total_number_of_stored_steps(itin->next[i]);
+	}
+	return counter;
+}
+
 void store_itineraries_in_array(struct ItinStep *itin, struct ItinStep **array, int *index) {
 	if(itin->num_next_nodes == 0) {
 		array[*index] = itin;
@@ -36,22 +45,6 @@ void store_itineraries_in_array(struct ItinStep *itin, struct ItinStep **array, 
 	for(int i = 0; i < itin->num_next_nodes; i++) {
 		store_itineraries_in_array(itin->next[i], array, index);
 	}
-}
-
-double calc_itinerary_dv(struct ItinStep *itin, int circ_cap_fb) {
-	if(itin->num_next_nodes == 0) {
-		double vinf = vector_mag(add_vectors(itin->v_arr, scalar_multiply(itin->v_body,-1)));
-		double dv;
-		if(circ_cap_fb == 0) dv = dv_circ(itin->body, itin->body->atmo_alt+100e3, vinf);
-		else if(circ_cap_fb == 1) dv = dv_capture(itin->body, itin->body->atmo_alt+100e3, vinf);
-		else dv = 0;
-		return dv + calc_itinerary_dv(itin->prev, circ_cap_fb);
-	}
-	if(itin->prev->prev == NULL) {
-		double vinf = vector_mag(add_vectors(itin->v_dep, scalar_multiply(itin->prev->v_body,-1)));
-		return dv_circ(itin->prev->body, itin->prev->body->atmo_alt+100e3, vinf);
-	}
-	return calc_itinerary_dv(itin->prev, circ_cap_fb);
 }
 
 double get_itinerary_duration(struct ItinStep *itin) {
@@ -93,6 +86,34 @@ int remove_step_from_itinerary(struct ItinStep *step) {
 	return prev->prev == NULL;
 }
 
+int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, int num_steps, int step) {
+	if(bodies[step] != bodies[step-1]) find_viable_flybys(curr_step, ephems, bodies[step], min_duration[step-1]*86400, max_duration[step-1]*86400);
+	else {
+		find_viable_dsb_flybys(curr_step, ephems, bodies[step],
+							   min_duration[step-1]*86400, max_duration[step-1]*86400, min_duration[step]*86400, max_duration[step]*86400);
+	}
+
+	if(curr_step->num_next_nodes == 0) {
+		remove_step_from_itinerary(curr_step);
+		return 0;
+	}
+
+	int num_valid = 0;
+
+	if(step < num_steps-1) {
+		for(int i = 0; i < curr_step->num_next_nodes; i++) {
+			num_valid += calc_next_step(curr_step->next[i], ephems, bodies, min_duration, max_duration, num_steps, step+1);
+		}
+	} else return 1;
+
+//	if(bodies[k] != bodies[k-1]) curr_step = curr_step->next[0];
+//	else {
+//		curr_step = curr_step->next[0]->next[0]->next[0];
+//		k++;
+//	}
+	return num_valid > 0;
+}
+
 void create_itinerary() {
 	struct timeval start, end;
 	double elapsed_time;
@@ -117,6 +138,18 @@ void create_itinerary() {
 
 	int min_duration[] = {500, 100, 300, 300};
 	int max_duration[] = {800, 3000, 3000, 3000};
+
+//	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH(), JUPITER(), SATURN()};
+//	int num_steps = sizeof(bodies)/sizeof(struct Body*);
+//
+//	struct Date min_dep_date = {1997, 10, 15};
+//	struct Date max_dep_date = {1997, 10, 15};
+//	double jd_min_dep = convert_date_JD(min_dep_date);
+//	double jd_max_dep = convert_date_JD(max_dep_date);
+//	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
+//
+//	int min_duration[] = {180, 420, 50, 400, 1000};
+//	int max_duration[] = {200, 425, 55, 600, 1500};
 
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 
@@ -157,13 +190,9 @@ void create_itinerary() {
 			curr_step->num_next_nodes = 0;
 			curr_step->next = NULL;
 
-			for(int k = 2; k < num_steps; k++) {
-				find_viable_flybys(curr_step, ephems, bodies[k], min_duration[k-1]*86400, max_duration[k-1]*86400);
-				if(curr_step->num_next_nodes == 0) {
-					fb1_del += remove_step_from_itinerary(curr_step);
-					break;
-				}
-				curr_step = curr_step->next[0];
+			if(!calc_next_step(curr_step, ephems, bodies, min_duration, max_duration, num_steps, 2)){
+				fb1_del++;
+//				printf("-   %d\n", fb1_del);
 			}
 		}
 	}
@@ -179,12 +208,28 @@ void create_itinerary() {
 		}
 	}
 
-	for(int i = 0; i < num_deps; i++) printf("%d ", departures[i]->num_next_nodes);
-	printf("\n");
 
-	int num_itins = 0;
+	int num_itins = 0, tot_num_itins = 0;
 	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(departures[i]);
+	for(int i = 0; i < num_deps; i++) tot_num_itins += get_total_number_of_stored_steps(departures[i]);
+
+
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+
+	if(num_itins == 0) {
+		printf("\nNo itineraries found!\n");
+		for(int i = 0; i < num_deps; i++) free_itinerary(departures[i]);
+		free(departures);
+		for(int i = 0; i < num_bodies; i++) free(ephems[i]);
+		free(ephems);
+		return;
+	}
+
 	printf("\nItineraries: %d\n", num_itins);
+	printf("Stored Steps: %d\n", tot_num_itins);
+	printf("Used Memory: %f MB\n", (double)tot_num_itins*sizeof(struct ItinStep)/1e6);
 
 	int index = 0;
 	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
@@ -220,11 +265,6 @@ void create_itinerary() {
 	free(porkchop);
 	for(int i = 0; i < num_bodies; i++) free(ephems[i]);
 	free(ephems);
-
-
-	gettimeofday(&end, NULL);  // Record the ending time
-	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
 }
 
 void simple_transfer() {
@@ -337,7 +377,7 @@ void simple_transfer() {
 
 }
 
-void dsb_test() {
+void dsb_test3() {
 	int num_bodies = 9;
 	int num_ephems = 12*100;	// 12 months for 100 years (1950-2050)
 	struct Ephem **ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
@@ -519,14 +559,98 @@ void dsb_test() {
 	free(ephems);
 }
 
-void dsb_test3() {
+void dsb_test() {
 
-	int nums[] = {1,2,3,4,5,6,7,8,9,10,11,12};
-	int len = sizeof(nums)/sizeof(int)*2;
+//	int nums[] = {1,2,3,4,5,6,7,8,9,10,11,12};
+//	int len = sizeof(nums)/sizeof(int)*2;
+//
+//	double y1[len][1002];
+//	double y2[len][1002];
+//	double x[len][1002];
+//
+//	struct timeval start, end;
+//	double elapsed_time;
+//	int num_bodies = 9;
+//	int num_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+//	struct Ephem **ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
+//	for(int i = 0; i < num_bodies; i++) {
+//		ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
+//		get_body_ephem(ephems[i], i+1);
+//	}
+//
+//	struct Body *bodies[] = {EARTH(), VENUS()};
+//	int min_duration[] = {1};
+//	int max_duration[] = {500};
+//
+//
+//	double min[3] = {1e9, 0, 0};
+//	int counter = 0;
+//	struct Date date[5];
+//
+//	gettimeofday(&start, NULL);  // Record the ending time
+//
+//	for(int i = 0; i < len; i++) {
+//		struct Date min_dep_date = {i <= 11 ? 1997 : 1998, nums[i <= 11 ? i : i-12], 1, 0, 0, 0};
+//		double min_dep = convert_date_JD(min_dep_date);
+//		double jd_dep = min_dep;
+//		struct OSV osv_dep = osv_from_ephem(ephems[bodies[0]->id - 1], jd_dep, SUN());
+//		for(int j = min_duration[0]; j <= max_duration[0]; j++) {
+//			double jd_arr = jd_dep + j;
+//			struct OSV osv_arr = osv_from_ephem(ephems[bodies[1]->id - 1], jd_arr, SUN());
+//			double data[3];
+//
+//			calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, (jd_arr - jd_dep) * 86400,
+//						  data);
+//
+//			x[i][0]++;
+//			y1[i][(int) x[i][0]] = data[1];
+//			x[i][(int) x[i][0]] = j;
+//		}
+//	}
+//
+//	gettimeofday(&end, NULL);  // Record the ending time
+//	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+//	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+//
+//	for(int i = 0; i < num_bodies; i++) {
+//		free(ephems[i]);
+//	}
+//	free(ephems);
+//
+//	printf("x = [");
+//	for(int i = 0; i < len; i++) {
+//		if(i != 0) printf(", ");
+//		printf("[");
+//		for(int j = 1; j <= x[i][0]; j++) {
+//			if(j != 1) printf(", ");
+//			printf("%f", x[i][j]);
+//		}
+//		printf("]");
+//	}
+//	printf("]\n");
+//	printf("y1 = [");
+//	for(int i = 0; i < len; i++) {
+//		if(i != 0) printf(", ");
+//		printf("[");
+//		for(int j = 1; j <= x[i][0]; j++) {
+//			if(j != 1) printf(", ");
+//			printf("%f", y1[i][j]);
+//		}
+//		printf("]");
+//	}
+//	printf("]\n");
+//	printf("y2 = [");
+//	for(int i = 0; i < len; i++) {
+//		if(i != 0) printf(", ");
+//		printf("[");
+//		for(int j = 1; j <= x[i][0]; j++) {
+//			if(j != 1) printf(", ");
+//			printf("%f", y2[i][j]);
+//		}
+//		printf("]");
+//	}
+//	printf("]\n");
 
-	double y1[len][1002];
-	double y2[len][1002];
-	double x[len][1002];
 
 	struct timeval start, end;
 	double elapsed_time;
@@ -538,9 +662,14 @@ void dsb_test3() {
 		get_body_ephem(ephems[i], i+1);
 	}
 
-	struct Body *bodies[] = {EARTH(), VENUS()};
-	int min_duration[] = {1};
-	int max_duration[] = {500};
+	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH()}; //, JUPITER(), SATURN()};
+
+	struct Date min_dep_date = {1997, 10, 10, 0, 0, 0};
+	struct Date max_dep_date = {1997, 10, 15, 0, 0, 0};
+	double min_dep = convert_date_JD(min_dep_date);
+	double max_dep = convert_date_JD(max_dep_date);
+	int min_duration[] = {198, 425, 55, 480};
+	int max_duration[] = {200, 430, 60, 520};
 
 
 	double min[3] = {1e9, 0, 0};
@@ -548,150 +677,61 @@ void dsb_test3() {
 	struct Date date[5];
 
 	gettimeofday(&start, NULL);  // Record the ending time
-
-	for(int i = 0; i < len; i++) {
-		struct Date min_dep_date = {i <= 11 ? 1997 : 1998, nums[i <= 11 ? i : i-12], 1, 0, 0, 0};
-		double min_dep = convert_date_JD(min_dep_date);
-		double jd_dep = min_dep;
-		struct OSV osv_dep = osv_from_ephem(ephems[bodies[0]->id - 1], jd_dep, SUN());
+	for(int i = 0; i <= max_dep-min_dep; i++) {
 		for(int j = min_duration[0]; j <= max_duration[0]; j++) {
-			double jd_arr = jd_dep + j;
-			struct OSV osv_arr = osv_from_ephem(ephems[bodies[1]->id - 1], jd_arr, SUN());
-			double data[3];
+			for(int k = min_duration[1]; k <= max_duration[1]; k++) {
+				printf("%d/%d   %d/%d   %d/%d\n", i, (int)(max_dep-min_dep), j-min_duration[0], (int)(max_duration[0]-min_duration[0]), k-min_duration[1], (int)(max_duration[1]-min_duration[1]));
+				for(int l = min_duration[2]; l <= max_duration[2]; l++) {
+					double jd_dep = min_dep + i;
+					double jd_sb1 = min_dep + i + j;
+					double jd_sb2 = min_dep + i + j + k;
+					double jd_arr = min_dep + i + j + k + l;
 
-			calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, (jd_arr - jd_dep) * 86400,
-						  data);
+					struct OSV osv_dep = osv_from_ephem(ephems[bodies[0]->id-1], jd_dep, SUN());
+					struct OSV osv_sb1 = osv_from_ephem(ephems[bodies[1]->id-1], jd_sb1, SUN());
+					struct OSV osv_sb2 = osv_from_ephem(ephems[bodies[2]->id-1], jd_sb2, SUN());
+					struct OSV osv_arr = osv_from_ephem(ephems[bodies[3]->id-1], jd_arr, SUN());
+					double data[3];
 
-			x[i][0]++;
-			y1[i][(int) x[i][0]] = data[1];
-			x[i][(int) x[i][0]] = j;
+					struct Transfer transfer_dep = calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v, osv_sb1.r, osv_sb1.v, (jd_sb1-jd_dep)*86400, data);
+					struct Transfer transfer_arr = calc_transfer(circfb, VENUS(), EARTH(), osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
+
+					struct OSV s0 = {transfer_dep.r1, transfer_dep.v1};
+					struct OSV s1 = {transfer_arr.r0, transfer_arr.v0};
+
+					struct DSB dsb = calc_double_swing_by(s0, osv_sb1, s1, osv_sb2, k, bodies[1]);
+					counter++;
+					if(dsb.dv + data[1] < min[0]) {
+						min[0] = dsb.dv + data[1];
+						min[1] = data[1];
+						min[2] = dsb.dv;
+						date[0] = convert_JD_date(jd_dep);
+						date[1] = convert_JD_date(jd_sb1);
+						date[2] = convert_JD_date(jd_sb1 + dsb.man_time/86400);
+						date[3] = convert_JD_date(jd_sb2);
+						date[4] = convert_JD_date(jd_arr);
+					}
+				}
+			}
 		}
 	}
+
 
 	gettimeofday(&end, NULL);  // Record the ending time
 	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
 	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
 
+	printf("%d\n", counter);
+
+	for(int i = 0; i < 5; i++) print_date(date[i], 1);
+	printf("%f.2m/s + %f.2m/s = %f.2m/s\n", min[1], min[2], min[0]);
+
+
+	print_x();
 	for(int i = 0; i < num_bodies; i++) {
 		free(ephems[i]);
 	}
 	free(ephems);
-
-	printf("x = [");
-	for(int i = 0; i < len; i++) {
-		if(i != 0) printf(", ");
-		printf("[");
-		for(int j = 1; j <= x[i][0]; j++) {
-			if(j != 1) printf(", ");
-			printf("%f", x[i][j]);
-		}
-		printf("]");
-	}
-	printf("]\n");
-	printf("y1 = [");
-	for(int i = 0; i < len; i++) {
-		if(i != 0) printf(", ");
-		printf("[");
-		for(int j = 1; j <= x[i][0]; j++) {
-			if(j != 1) printf(", ");
-			printf("%f", y1[i][j]);
-		}
-		printf("]");
-	}
-	printf("]\n");
-	printf("y2 = [");
-	for(int i = 0; i < len; i++) {
-		if(i != 0) printf(", ");
-		printf("[");
-		for(int j = 1; j <= x[i][0]; j++) {
-			if(j != 1) printf(", ");
-			printf("%f", y2[i][j]);
-		}
-		printf("]");
-	}
-	printf("]\n");
-
-
-//	struct timeval start, end;
-//	double elapsed_time;
-//	int num_bodies = 9;
-//	int num_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-//	struct Ephem **ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
-//	for(int i = 0; i < num_bodies; i++) {
-//		ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
-//		get_body_ephem(ephems[i], i+1);
-//	}
-//
-//	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH()}; //, JUPITER(), SATURN()};
-//
-//	struct Date min_dep_date = {1997, 10, 10, 0, 0, 0};
-//	struct Date max_dep_date = {1997, 10, 15, 0, 0, 0};
-//	double min_dep = convert_date_JD(min_dep_date);
-//	double max_dep = convert_date_JD(max_dep_date);
-//	int min_duration[] = {198, 425, 55, 480};
-//	int max_duration[] = {200, 430, 60, 520};
-//
-//
-//	double min[3] = {1e9, 0, 0};
-//	int counter = 0;
-//	struct Date date[5];
-//
-//	gettimeofday(&start, NULL);  // Record the ending time
-//	for(int i = 0; i <= max_dep-min_dep; i++) {
-//		for(int j = min_duration[0]; j <= max_duration[0]; j++) {
-//			for(int k = min_duration[1]; k <= max_duration[1]; k++) {
-//				printf("%d/%d   %d/%d   %d/%d\n", i, (int)(max_dep-min_dep), j-min_duration[0], (int)(max_duration[0]-min_duration[0]), k-min_duration[1], (int)(max_duration[1]-min_duration[1]));
-//				for(int l = min_duration[2]; l <= max_duration[2]; l++) {
-//					double jd_dep = min_dep + i;
-//					double jd_sb1 = min_dep + i + j;
-//					double jd_sb2 = min_dep + i + j + k;
-//					double jd_arr = min_dep + i + j + k + l;
-//
-//					struct OSV osv_dep = osv_from_ephem(ephems[bodies[0]->id-1], jd_dep, SUN());
-//					struct OSV osv_sb1 = osv_from_ephem(ephems[bodies[1]->id-1], jd_sb1, SUN());
-//					struct OSV osv_sb2 = osv_from_ephem(ephems[bodies[2]->id-1], jd_sb2, SUN());
-//					struct OSV osv_arr = osv_from_ephem(ephems[bodies[3]->id-1], jd_arr, SUN());
-//					double data[3];
-//
-//					struct Transfer transfer_dep = calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v, osv_sb1.r, osv_sb1.v, (jd_sb1-jd_dep)*86400, data);
-//					struct Transfer transfer_arr = calc_transfer(circfb, VENUS(), EARTH(), osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
-//
-//					struct OSV s0 = {transfer_dep.r1, transfer_dep.v1};
-//					struct OSV s1 = {transfer_arr.r0, transfer_arr.v0};
-//
-//					struct DSB dsb = calc_double_swing_by(s0, osv_sb1, s1, osv_sb2, k, bodies[1]);
-//					counter++;
-//					if(dsb.dv + data[1] < min[0]) {
-//						min[0] = dsb.dv + data[1];
-//						min[1] = data[1];
-//						min[2] = dsb.dv;
-//						date[0] = convert_JD_date(jd_dep);
-//						date[1] = convert_JD_date(jd_sb1);
-//						date[2] = convert_JD_date(jd_sb1 + dsb.man_time/86400);
-//						date[3] = convert_JD_date(jd_sb2);
-//						date[4] = convert_JD_date(jd_arr);
-//					}
-//				}
-//			}
-//		}
-//	}
-//
-//
-//	gettimeofday(&end, NULL);  // Record the ending time
-//	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-//	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
-//
-//	printf("%d\n", counter);
-//
-//	for(int i = 0; i < 5; i++) print_date(date[i], 1);
-//	printf("%f.2m/s + %f.2m/s = %f.2m/s\n", min[1], min[2], min[0]);
-//
-//
-//	print_x();
-//	for(int i = 0; i < num_bodies; i++) {
-//		free(ephems[i]);
-//	}
-//	free(ephems);
 }
 
 void dsb_test2() {
