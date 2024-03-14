@@ -84,10 +84,15 @@ void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ_cap
 	if(circ_cap_fb == 0) dv = dv_circ(itin->body, itin->body->atmo_alt+100e3, vinf);
 	else if(circ_cap_fb == 1) dv = dv_capture(itin->body, itin->body->atmo_alt+100e3, vinf);
 	else dv = 0;
-	porkchop[3] = dv;
+	porkchop[4] = dv;
 	porkchop[1] = get_itinerary_duration(itin);
 
-	while(itin->prev->prev != NULL) itin = itin->prev;
+	while(itin->prev->prev != NULL) {
+		if(itin->body == NULL) {
+			porkchop[3] = vector_mag(add_vectors(itin->next[0]->v_dep, scalar_multiply(itin->v_arr,-1)));
+		}
+		itin = itin->prev;
+	}
 
 	vinf = vector_mag(add_vectors(itin->v_dep, scalar_multiply(itin->prev->v_body,-1)));
 	porkchop[2] = dv_circ(itin->prev->body, itin->prev->body->atmo_alt+100e3, vinf);
@@ -276,11 +281,11 @@ void create_itinerary() {
 	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
 	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(departures[i], arrivals, &index);
 
-	double *porkchop = (double *) malloc((4 * num_itins + 1) * sizeof(double));
+	double *porkchop = (double *) malloc((5 * num_itins + 1) * sizeof(double));
 	porkchop[0] = 0;
 	for(int i = 0; i < num_itins; i++) {
-		create_porkchop_point(arrivals[i], &porkchop[i*4+1], -1);
-		porkchop[0] += 4;
+		create_porkchop_point(arrivals[i], &porkchop[i*5+1], -1);
+		porkchop[0] += 5;
 	}
 
 	for(int i = 0; i < num_itins; i++) {
@@ -288,13 +293,13 @@ void create_itinerary() {
 		printf("\n");
 	}
 
-//	char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
-//	write_csv(data_fields, porkchop);
+	char data_fields[] = "dep_date,duration,dv_dep,dv_mcc,dv_arr";
+	write_csv(data_fields, porkchop);
 
-	double mindv = porkchop[1+2]+porkchop[1+3];
+	double mindv = porkchop[1+2]+porkchop[1+3]+porkchop[1+4];
 	int mind = 0;
 	for(int i = 1; i < num_itins; i++) {
-		double dv = porkchop[1+i*4+2]+porkchop[1+i*4+3];
+		double dv = porkchop[1+i*5+2]+porkchop[1+i*5+3]+porkchop[1+i*5+4];
 		if(dv < mindv) {
 			mindv = dv;
 			mind = i;
