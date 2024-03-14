@@ -9,6 +9,15 @@
 
 enum Transfer_Type final_tt = circcap;
 
+void print_step(struct ItinStep *step) {
+	printf("%s\n", step->body->name);
+	print_date(convert_JD_date(step->date),1);
+	print_vector(scalar_multiply(step->r,1e-9));
+	print_vector(scalar_multiply(step->v_dep,1e-3));
+	print_vector(scalar_multiply(step->v_arr,1e-3));
+	print_vector(scalar_multiply(step->v_body,1e-3));
+	printf("Num Nodes: %d\n", step->num_next_nodes);
+}
 
 void print_itinerary(struct ItinStep *itin) {
 	if(itin->prev != NULL) {
@@ -16,6 +25,22 @@ void print_itinerary(struct ItinStep *itin) {
 		printf(" - ");
 	}
 	print_date(convert_JD_date(itin->date), 0);
+}
+
+void print_itinerary2(struct ItinStep *itin, int step) {
+//	printf("IN %d\n", step);
+	if(itin->prev != NULL) printf("|");
+	else printf("\n");
+	for(int i = 0; i < step; i++) printf("-");
+	printf("%d\n", itin->num_next_nodes);
+	if(itin->num_next_nodes == 0) {
+		return;
+	}
+
+	for(int i = 0; i < itin->num_next_nodes; i++) {
+		print_itinerary2(itin->next[i], step+1);
+	}
+//	printf("OUT %d\n", step);
 }
 
 int get_number_of_itineraries(struct ItinStep *itin) {
@@ -71,8 +96,10 @@ void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ_cap
 
 int remove_step_from_itinerary(struct ItinStep *step) {
 	struct ItinStep *prev = step->prev;
+//	printf("REM1: %d (%s)\n", prev->num_next_nodes, prev->body->name);
 	if(prev->num_next_nodes == 1 && step->prev->prev != NULL) return remove_step_from_itinerary(prev);
 
+//	printf("REM2: %d (%s)\n", prev->num_next_nodes, prev->body->name);
 	int index = 0;
 	for(int i = 0; i < prev->num_next_nodes; i++) {
 		if(prev->next[i] == step) { index = i; break; }
@@ -83,15 +110,18 @@ int remove_step_from_itinerary(struct ItinStep *step) {
 	}
 	free_itinerary(step);
 
+//	printf("REM3: %d (%s)\n", prev->num_next_nodes, prev->body->name);
 	return prev->prev == NULL;
 }
 
 int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, int num_steps, int step) {
+//	printf("++++  %d %d\n", curr_step->num_next_nodes, step);
 	if(bodies[step] != bodies[step-1]) find_viable_flybys(curr_step, ephems, bodies[step], min_duration[step-1]*86400, max_duration[step-1]*86400);
 	else {
-		find_viable_dsb_flybys(curr_step, ephems, bodies[step],
+		find_viable_dsb_flybys(curr_step, ephems, bodies[step+1],
 							   min_duration[step-1]*86400, max_duration[step-1]*86400, min_duration[step]*86400, max_duration[step]*86400);
 	}
+//	printf("++++  %d %d\n", curr_step->num_next_nodes, step);
 
 	if(curr_step->num_next_nodes == 0) {
 		remove_step_from_itinerary(curr_step);
@@ -99,10 +129,19 @@ int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Bod
 	}
 
 	int num_valid = 0;
+	int init_num_nodes = curr_step->num_next_nodes;
+	int step_del = 0;
+	int result;
 
 	if(step < num_steps-1) {
-		for(int i = 0; i < curr_step->num_next_nodes; i++) {
-			num_valid += calc_next_step(curr_step->next[i], ephems, bodies, min_duration, max_duration, num_steps, step+1);
+		for(int i = 0; i < init_num_nodes; i++) {
+//			printf("STEP: %d, NUM: %d\n", step, curr_step->num_next_nodes);
+//			printf("%d/%d\n", i, curr_step->num_next_nodes);
+			if(bodies[step] != bodies[step-1]) result = calc_next_step(curr_step->next[i-step_del], ephems, bodies, min_duration, max_duration, num_steps, step+1);
+			else result = calc_next_step(curr_step->next[i-step_del]->next[0]->next[0], ephems, bodies, min_duration, max_duration, num_steps, step+2);
+			num_valid += result;
+			if(!result) step_del++;
+//			printf("%d/%d OUT (valid: %d)\n", i, curr_step->num_next_nodes, num_valid);
 		}
 	} else return 1;
 
@@ -127,29 +166,29 @@ void create_itinerary() {
 		get_body_ephem(ephems[i], i+1);
 	}
 
-	struct Body *bodies[] = {EARTH(), JUPITER(), SATURN(), URANUS(), NEPTUNE()};
-	int num_steps = sizeof(bodies)/sizeof(struct Body*);
-
-	struct Date min_dep_date = {1977, 5, 15};
-	struct Date max_dep_date = {1977, 10, 21};
-	double jd_min_dep = convert_date_JD(min_dep_date);
-	double jd_max_dep = convert_date_JD(max_dep_date);
-	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
-
-	int min_duration[] = {500, 100, 300, 300};
-	int max_duration[] = {800, 3000, 3000, 3000};
-
-//	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH(), JUPITER(), SATURN()};
+//	struct Body *bodies[] = {EARTH(), JUPITER(), SATURN(), URANUS(), NEPTUNE()};
 //	int num_steps = sizeof(bodies)/sizeof(struct Body*);
 //
-//	struct Date min_dep_date = {1997, 10, 15};
-//	struct Date max_dep_date = {1997, 10, 15};
+//	struct Date min_dep_date = {1977, 5, 15};
+//	struct Date max_dep_date = {1977, 10, 21};
 //	double jd_min_dep = convert_date_JD(min_dep_date);
 //	double jd_max_dep = convert_date_JD(max_dep_date);
 //	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
 //
-//	int min_duration[] = {180, 420, 50, 400, 1000};
-//	int max_duration[] = {200, 425, 55, 600, 1500};
+//	int min_duration[] = {500, 100, 300, 300};
+//	int max_duration[] = {800, 3000, 3000, 3000};
+
+	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH(), JUPITER(), SATURN()};
+	int num_steps = sizeof(bodies)/sizeof(struct Body*);
+
+	struct Date min_dep_date = {1997, 10, 14};
+	struct Date max_dep_date = {1997, 10, 16};
+	double jd_min_dep = convert_date_JD(min_dep_date);
+	double jd_max_dep = convert_date_JD(max_dep_date);
+	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
+
+	int min_duration[] = {190, 420, 53, 200, 500};
+	int max_duration[] = {200, 430, 58, 1000, 2000};
 
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 
@@ -171,6 +210,7 @@ void create_itinerary() {
 		int fb1_del = 0;
 
 		for(int j = 0; j <= max_duration[0] - min_duration[0]; j++) {
+//			printf("j: %d, write: %d\n", j, j-fb1_del);
 			double jd_arr = jd_dep + min_duration[0] + j;
 			struct OSV osv_body1 = osv_from_ephem(ephems[bodies[1]->id-1], jd_arr, SUN());
 
@@ -178,6 +218,7 @@ void create_itinerary() {
 											   osv_body1.r, osv_body1.v, (jd_arr-jd_dep)*86400, NULL);
 
 			while(curr_step->prev != NULL) curr_step = curr_step->prev;
+//			printf("NUM: %d (%s)\n", curr_step->num_next_nodes, curr_step->body->name);
 			curr_step->next[j-fb1_del] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 			curr_step->next[j-fb1_del]->prev = curr_step;
 			curr_step = curr_step->next[j-fb1_del];
@@ -192,14 +233,14 @@ void create_itinerary() {
 
 			if(!calc_next_step(curr_step, ephems, bodies, min_duration, max_duration, num_steps, 2)){
 				fb1_del++;
-//				printf("-   %d\n", fb1_del);
 			}
+//			printf("|||||  %d  |||||\n", fb1_del);
 		}
 	}
 
 	// remove departure dates with no valid itinerary
 	for(int i = 0; i < num_deps; i++) {
-		if(departures[i]->num_next_nodes == 0) {
+		if(departures[i] == NULL || departures[i]->num_next_nodes == 0) {
 			num_deps--;
 			for(int j = i; j < num_deps; j++) {
 				departures[j] = departures[j + 1];
@@ -209,6 +250,9 @@ void create_itinerary() {
 	}
 
 
+	for(int i = 0; i < num_deps; i++) {
+		print_itinerary2(departures[i], 0);
+	}
 	int num_itins = 0, tot_num_itins = 0;
 	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(departures[i]);
 	for(int i = 0; i < num_deps; i++) tot_num_itins += get_total_number_of_stored_steps(departures[i]);
@@ -227,9 +271,6 @@ void create_itinerary() {
 		return;
 	}
 
-	printf("\nItineraries: %d\n", num_itins);
-	printf("Stored Steps: %d\n", tot_num_itins);
-	printf("Used Memory: %f MB\n", (double)tot_num_itins*sizeof(struct ItinStep)/1e6);
 
 	int index = 0;
 	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
@@ -242,8 +283,13 @@ void create_itinerary() {
 		porkchop[0] += 4;
 	}
 
-	char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
-	write_csv(data_fields, porkchop);
+	for(int i = 0; i < num_itins; i++) {
+		print_itinerary(arrivals[i]);
+		printf("\n");
+	}
+
+//	char data_fields[] = "dep_date,duration,dv_dep,dv_arr";
+//	write_csv(data_fields, porkchop);
 
 	double mindv = porkchop[1+2]+porkchop[1+3];
 	int mind = 0;

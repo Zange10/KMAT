@@ -1,5 +1,6 @@
 #include "transfer_tools.h"
 #include "tools/data_tool.h"
+#include "double_swing_by.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -400,6 +401,7 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body 
 
 	struct Vector v_init = add_vectors(tf->v_arr, scalar_multiply(tf->v_body,-1));
 
+
 	while(dt0 < max_dt) {
 		data[0].x = 0;
 		int right_side = 0;	// 0 = left, 1 = right
@@ -421,14 +423,9 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body 
 			diff_vinf = vector_mag(v_dep) - vector_mag(v_init);
 
 			if (fabs(diff_vinf) < 1) {
-//				print_vector(v_init);
-//				print_vector(scalar_multiply(tf.v_arr,1e-3));
-//				print_vector(scalar_multiply(new_transfer.v0,1e-3));
 				double beta = (M_PI - angle_vec_vec(v_dep, v_init)) / 2;
 				double rp = (1 / cos(beta) - 1) * (tf->body->mu / (pow(vector_mag(v_dep), 2)));
-//				printf("||  %f   %f     %f°\n", dt / 86400,  (rp-tf->body->radius - tf->body->atmo_alt)*1e-3, rad2deg(beta));
 				if (rp > tf->body->radius + tf->body->atmo_alt) {
-//					printf("||    %f\n", rp-tf->body->radius - tf->body->atmo_alt);
 					new_steps[counter] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 					new_steps[counter]->body = next_body;
 					new_steps[counter]->date = t1;
@@ -449,20 +446,6 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body 
 
 			insert_new_data_point(data, dt, diff_vinf);
 
-
-//			printf("%f %f %f\n", dt/86400, vector_mag(v_dep), vector_mag(v_init));
-//			printf("dt = [");
-//			for(int j = 1; j <= data[0].x; j++) {
-//				if(j!=1) printf(", ");
-//				printf("% 10.2f", data[j].x/86400);
-//			}
-//			printf("]\ndv = [");
-//			for(int j = 1; j <= data[0].x; j++) {
-//				if(j!=1) printf(", ");
-//				printf("% 10.2f", data[j].y);
-//			}
-//			printf("]\n");
-
 			if(!can_be_negative_monot_deriv(data)) break;
 			last_dt = dt;
 			if(i == 0) dt = dt1;
@@ -482,7 +465,84 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body 
 		dt0 = temp;
 	}
 
+	if(counter > 0) {
+		tf->next = (struct ItinStep **) malloc(counter * sizeof(struct ItinStep *));
+		for(int i = 0; i < counter; i++) tf->next[i] = new_steps[i];
+		tf->num_next_nodes = counter;
+	}
+}
 
+void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *body1, double min_dt0, double max_dt0, double min_dt1, double max_dt1) {
+	int max_new_steps0 = (int) (max_dt0/86400-min_dt0/86400+1);
+	int max_new_steps1 = (int) (max_dt1/86400-min_dt1/86400+1);
+	struct ItinStep *new_steps[max_new_steps0*max_new_steps1];
+	struct Body *body0 = tf->body;
+
+	int counter = 0;
+
+	struct OSV s0 = {tf->r, tf->v_arr};
+	struct OSV p0 = {tf->r, tf->v_body};
+	struct OSV s1;
+	double dt0, dt1, jd_sb2, jd_arr;
+
+
+	for(int i = 0; i <= max_dt0/86400-min_dt0/86400; i++) {
+
+		dt0 = min_dt0/86400 + i;
+		jd_sb2 = tf->date+dt0;
+		struct OSV osv_sb2 = osv_from_ephem(ephems[body0->id-1], jd_sb2, SUN());
+
+		for(int j = 0; j <= max_dt1/86400-min_dt1/86400; j++) {
+			dt1 = min_dt1/86400 + j;
+			jd_arr = jd_sb2 + dt1;
+
+			struct OSV osv_arr = osv_from_ephem(ephems[body1->id-1], jd_arr, SUN());
+			struct Transfer transfer_after_dsb = calc_transfer(circfb, body0, body1, osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
+
+			s1.r = transfer_after_dsb.r0;
+			s1.v = transfer_after_dsb.v0;
+
+			struct DSB dsb = calc_double_swing_by(s0, p0, s1, osv_sb2, dt0, body0);
+
+			if(dsb.dv < 10000) {
+				new_steps[counter] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+				new_steps[counter]->body = NULL;
+				new_steps[counter]->date = tf->date + dsb.man_time/86400;
+				new_steps[counter]->r = dsb.osv[1].r;
+				new_steps[counter]->v_dep = dsb.osv[0].v;
+				new_steps[counter]->v_arr = dsb.osv[1].v;
+				new_steps[counter]->v_body = vec(0,0,0);
+				new_steps[counter]->num_next_nodes = 1;
+				new_steps[counter]->prev = tf;
+				new_steps[counter]->next = (struct ItinStep**) malloc(sizeof(struct ItinStep*));
+				new_steps[counter]->next[0] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+				new_steps[counter]->next[0]->prev = new_steps[counter];
+
+				struct ItinStep *curr = new_steps[counter]->next[0];
+				curr->body = body0;
+				curr->date = jd_sb2;
+				curr->r = osv_sb2.r;
+				curr->v_dep = dsb.osv[2].v;
+				curr->v_arr = dsb.osv[3].v;
+				curr->v_body = osv_sb2.v;
+				curr->num_next_nodes = 1;
+				curr->next = (struct ItinStep**) malloc(sizeof(struct ItinStep*));
+				curr->next[0] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+				curr->next[0]->prev = curr;
+
+				curr = curr->next[0];
+				curr->body = body1;
+				curr->date = jd_arr;
+				curr->r = osv_arr.r;
+				curr->v_dep = transfer_after_dsb.v0;
+				curr->v_arr = transfer_after_dsb.v1;
+				curr->v_body = osv_arr.v;
+				curr->num_next_nodes = 0;
+				curr->next = NULL;
+				counter++;
+			}
+		}
+	}
 
 	if(counter > 0) {
 		tf->next = (struct ItinStep **) malloc(counter * sizeof(struct ItinStep *));

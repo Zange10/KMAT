@@ -71,6 +71,9 @@ int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body);
 // find viable flybys to next body with a given arrival trajectory
 void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *next_body, double min_dt, double max_dt);
 
+// find viable flybys to next body with a given arrival trajectory
+void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *next_body, double min_dt0, double max_dt0, double min_dt1, double max_dt1);
+
 // find time of closest possible fly by transfer (returns -1 if nothing is found)
 double find_closest_transfer(double *t, struct OSV *osv, struct Body **body, struct Ephem **ephems, double max_dt);
 

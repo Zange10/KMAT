@@ -20,22 +20,25 @@ struct Swingby_Peak_Search_Params {
 	struct Vector v_t00;
 };
 
+struct DSB_Data {
+	struct OSV s0,s1,p0,p1;
+	double transfer_duration;
+	struct Body *body;
+};
 
-struct OSV s0,s1,p0,p1;
-double transfer_duration;
-struct Body *body;
-
-double csv_data[1000000];
+//double csv_data[1000000];
 
 
 double test[2];
 
 
-void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp) {
+void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp, struct DSB_Data dd) {
 	struct timeval start, end;
 	double elapsed_time;
 	struct Vector v_t00 = spsp.v_t00;
 	struct DSB *dsb = spsp.dsb;
+
+	struct Body *body = dd.body;
 
 	double min_dtheta = spsp.interval[0];
 	double max_dtheta = spsp.interval[1];
@@ -52,7 +55,7 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 		if(i == 0) dtheta = min_dtheta;
 
 		gettimeofday(&start, NULL);  // Record the starting time
-		struct OSV osv_m0 = propagate_orbit_theta(p0.r, v_t00, dtheta, SUN());
+		struct OSV osv_m0 = propagate_orbit_theta(dd.p0.r, v_t00, dtheta, SUN());
 
 		gettimeofday(&end, NULL);  // Record the ending time
 		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
@@ -63,8 +66,8 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 		//printf("%f, %f, %f, %f, %f\n\n", rad2deg(dtheta), rad2deg(min_dtheta), rad2deg(max_dtheta), duration/86400, transfer_duration);
 
 		gettimeofday(&start, NULL);  // Record the starting time
-		struct Transfer transfer = calc_transfer(capfb, body, body, osv_m0.r, osv_m0.v, p1.r, p1.v,
-												 transfer_duration * 86400 - duration, NULL);
+		struct Transfer transfer = calc_transfer(capfb, body, body, osv_m0.r, osv_m0.v, dd.p1.r, dd.p1.v,
+												 dd.transfer_duration * 86400 - duration, NULL);
 		gettimeofday(&end, NULL);  // Record the ending time
 		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
 		test[1] += elapsed_time;
@@ -72,8 +75,8 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 		struct Vector temp = add_vectors(transfer.v0, scalar_multiply(osv_m0.v, -1));
 		double mag = vector_mag(temp);
 
-		struct Vector temp1 = add_vectors(transfer.v1, scalar_multiply(p1.v, -1));
-		struct Vector temp2 = add_vectors(s1.v, scalar_multiply(p1.v, -1));
+		struct Vector temp1 = add_vectors(transfer.v1, scalar_multiply(dd.p1.v, -1));
+		struct Vector temp2 = add_vectors(dd.s1.v, scalar_multiply(dd.p1.v, -1));
 
 		diff_vinf = vector_mag(temp1) - vector_mag(temp2);
 
@@ -85,7 +88,7 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 			double rp = (1 / cos(beta) - 1) * (body->mu / (pow(vector_mag(temp1), 2)));
 			if (rp > body->radius + body->atmo_alt) {
 				if (mag < dsb->dv) {
-					dsb->osv[0].r = p0.r;
+					dsb->osv[0].r = dd.p0.r;
 					dsb->osv[0].v = v_t00;
 					dsb->osv[1] = osv_m0;
 					dsb->osv[2].r = transfer.r0;
@@ -114,20 +117,20 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 }
 
 
-struct DSB calc_man_for_dsb(struct Vector v_soi) {
+struct DSB calc_man_for_dsb(struct Vector v_soi, struct DSB_Data dd) {
 	struct DSB dsb = {.man_time = -1, .dv = 1e9};
-	double mu = body->orbit.body->mu;
+	double mu = dd.body->orbit.body->mu;
 	double tolerance = 0.05;
 
 	// velocity vector after first swing-by
-	struct Vector v_t00 = add_vectors(v_soi, p0.v);
+	struct Vector v_t00 = add_vectors(v_soi, dd.p0.v);
 	// orbit after first swing-by
-	struct Orbit orbit = constr_orbit_from_osv(s0.r, v_t00, body->orbit.body);
+	struct Orbit orbit = constr_orbit_from_osv(dd.s0.r, v_t00, dd.body->orbit.body);
 	double T = orbit.period;
 
-	double body_T = M_PI*2 * sqrt(pow(body->orbit.a,3)/mu);
+	double body_T = M_PI*2 * sqrt(pow(dd.body->orbit.a,3)/mu);
 	// is true, when transfer point goes backwards on body orbit
-	int negative_true_anomaly = ((transfer_duration*86400)/body_T - (int)((transfer_duration*86400)/body_T)) > 0.5;
+	int negative_true_anomaly = ((dd.transfer_duration*86400)/body_T - (int)((dd.transfer_duration*86400)/body_T)) > 0.5;
 
 	double T_ratio = T / body_T - (int) (T / body_T);
 	// maybe think about more resonances in future (not only 1:1, 2:1, 3:1,...)
@@ -137,7 +140,7 @@ struct DSB calc_man_for_dsb(struct Vector v_soi) {
 	}*/
 
 	// dtheta at which conjuction/opposition occurs (Sun, satellite, planet) - set to conj/opp before first fly-by
-	double theta_conj_opp = angle_vec_vec(p0.r, p1.r);
+	double theta_conj_opp = angle_vec_vec(dd.p0.r, dd.p1.r);
 	if(negative_true_anomaly) theta_conj_opp *= -1;
 	else theta_conj_opp -= M_PI;
 
@@ -145,7 +148,7 @@ struct DSB calc_man_for_dsb(struct Vector v_soi) {
 
 	int counter = 0;
 	// three days buffer after and before fly-bys (~SOI)
-	double max_dtheta = calc_dtheta_from_dt(orbit, transfer_duration*86400-86400*3);
+	double max_dtheta = calc_dtheta_from_dt(orbit, dd.transfer_duration*86400-86400*3);
 	double min_dtheta = calc_dtheta_from_dt(orbit, 86400*3);
 
 	double dtheta0, dtheta1;
@@ -166,30 +169,26 @@ struct DSB calc_man_for_dsb(struct Vector v_soi) {
 				orbit,
 				interval,
 				&dsb,
-				body,
+				dd.body,
 				v_t00
 		};
 
 
-		find_double_swing_by_zero_sec_sb_diff(spsp);
+		find_double_swing_by_zero_sec_sb_diff(spsp, dd);
 	} while (dtheta1 < max_dtheta);
 
 	return dsb;
 }
 
-struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, struct OSV _p1, double _transfer_duration, struct Body *_body) {
-	csv_data[0] = 1;
+struct DSB calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV p1, double transfer_duration, struct Body *body) {
+//	csv_data[0] = 1;
 	struct DSB dsb = {.dv = 1e9};
-	s0 = _s0;
-	p0 = _p0;
-	s1 = _s1;
-	p1 = _p1;
-	transfer_duration = _transfer_duration;
-	body = _body;
 
 	struct timeval start, end;
 	double elapsed_time;
-	
+
+	struct DSB_Data dsb_data = {s0, s1, p0, p1, transfer_duration, body};
+
 	gettimeofday(&start, NULL);  // Record the ending time
 	
 	test[0] = 0;
@@ -242,15 +241,15 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 				struct Vector rot_axis_2 = norm_vector(cross_product(v_soi_, rot_axis_1));
 				struct Vector v_soi = rotate_vector_around_axis(v_soi_, rot_axis_2, kappa);
 				
-				struct DSB temp_dsb = calc_man_for_dsb(v_soi);
+				struct DSB temp_dsb = calc_man_for_dsb(v_soi, dsb_data);
 				
 				if(temp_dsb.dv < 1e8) {
-					csv_data[(int)csv_data[0]    ] = rad2deg(phi);
-					csv_data[(int)csv_data[0] + 1] = rad2deg(kappa);
-					csv_data[(int)csv_data[0] + 2] = temp_dsb.dv;
-					csv_data[(int)csv_data[0] + 3] = temp_dsb.man_time / (86400);
-					csv_data[(int)csv_data[0] + 4] = constr_orbit_from_osv(temp_dsb.osv[1].r, temp_dsb.osv[1].v, SUN()).period/86400;
-					csv_data[0] += 5;
+//					csv_data[(int)csv_data[0]    ] = rad2deg(phi);
+//					csv_data[(int)csv_data[0] + 1] = rad2deg(kappa);
+//					csv_data[(int)csv_data[0] + 2] = temp_dsb.dv;
+//					csv_data[(int)csv_data[0] + 3] = temp_dsb.man_time / (86400);
+//					csv_data[(int)csv_data[0] + 4] = constr_orbit_from_osv(temp_dsb.osv[1].r, temp_dsb.osv[1].v, SUN()).period/86400;
+//					csv_data[0] += 5;
 				}
 				if(temp_dsb.man_time>0 && temp_dsb.dv < dsb.dv) {
 					dsb = temp_dsb;
@@ -315,19 +314,19 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 				struct Vector rot_axis_2 = norm_vector(cross_product(v_soi_, rot_axis_1));
 				struct Vector v_soi = rotate_vector_around_axis(v_soi_, rot_axis_2, kappa);
 
-				struct DSB temp_dsb = calc_man_for_dsb(v_soi);
+				struct DSB temp_dsb = calc_man_for_dsb(v_soi, dsb_data);
 
 				if(temp_dsb.man_time > 0 && temp_dsb.dv < dsb.dv) {
 					dsb = temp_dsb;
 					min_phi = phi;
 					min_kappa = kappa;
-					csv_data[(int) csv_data[0]] = rad2deg(min_phi);
-					csv_data[(int) csv_data[0] + 1] = rad2deg(min_kappa);
-					csv_data[(int) csv_data[0] + 2] = dsb.dv;
-					csv_data[(int) csv_data[0] + 3] = dsb.man_time / (86400);
-					csv_data[(int) csv_data[0] + 4] =
-							constr_orbit_from_osv(dsb.osv[1].r, dsb.osv[1].v, SUN()).period / 86400;
-					csv_data[0] += 5;
+//					csv_data[(int) csv_data[0]] = rad2deg(min_phi);
+//					csv_data[(int) csv_data[0] + 1] = rad2deg(min_kappa);
+//					csv_data[(int) csv_data[0] + 2] = dsb.dv;
+//					csv_data[(int) csv_data[0] + 3] = dsb.man_time / (86400);
+//					csv_data[(int) csv_data[0] + 4] =
+//							constr_orbit_from_osv(dsb.osv[1].r, dsb.osv[1].v, SUN()).period / 86400;
+//					csv_data[0] += 5;
 					break;
 				}
 			}
@@ -335,9 +334,6 @@ struct DSB calc_double_swing_by(struct OSV _s0, struct OSV _p0, struct OSV _s1, 
 			if(min_phi == phi0 && min_kappa == kappa0) l /= 2;
 		}
 	}
-
-	char flight_data_fields[] = "Phi,Kappa,DV,Duration,T";
-	write_csv(flight_data_fields, csv_data);
 	
 	return dsb;
 }
