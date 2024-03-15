@@ -258,8 +258,8 @@ struct DSB calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, str
 				}
 			}
 		}
-		gettimeofday(&end, NULL);  // Record the ending time
-		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+//		gettimeofday(&end, NULL);  // Record the ending time
+//		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
 		//printf("| Elapsed time: %.3f s |  (%f - %f - %f)\n", elapsed_time, test[0], test[1], test[0]+test[1]);
 		//printf("min_dv: %f\n", dsb.dv);
 		if(dsb.dv >= 1e9) break;

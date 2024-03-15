@@ -64,7 +64,7 @@ int get_total_number_of_stored_steps(struct ItinStep *itin) {
 void store_itineraries_in_array(struct ItinStep *itin, struct ItinStep **array, int *index) {
 	if(itin->num_next_nodes == 0) {
 		array[*index] = itin;
-		*index += 1;
+		(*index)++;
 	}
 
 	for(int i = 0; i < itin->num_next_nodes; i++) {
@@ -99,12 +99,14 @@ void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ_cap
 	porkchop[0] = itin->prev->date;
 }
 
-int remove_step_from_itinerary(struct ItinStep *step) {
+void remove_step_from_itinerary(struct ItinStep *step) {
 	struct ItinStep *prev = step->prev;
-//	printf("REM1: %d (%s)\n", prev->num_next_nodes, prev->body->name);
-	if(prev->num_next_nodes == 1 && step->prev->prev != NULL) return remove_step_from_itinerary(prev);
 
-//	printf("REM2: %d (%s)\n", prev->num_next_nodes, prev->body->name);
+	while(prev->num_next_nodes == 1 && step->prev->prev != NULL) {
+		step = prev;
+		prev = step->prev;
+	}
+
 	int index = 0;
 	for(int i = 0; i < prev->num_next_nodes; i++) {
 		if(prev->next[i] == step) { index = i; break; }
@@ -114,9 +116,6 @@ int remove_step_from_itinerary(struct ItinStep *step) {
 		prev->next[i] = prev->next[i+1];
 	}
 	free_itinerary(step);
-
-//	printf("REM3: %d (%s)\n", prev->num_next_nodes, prev->body->name);
-	return prev->prev == NULL;
 }
 
 int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, int num_steps, int step) {
@@ -192,7 +191,7 @@ void create_itinerary() {
 	double jd_max_dep = convert_date_JD(max_dep_date);
 	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
 
-	int min_duration[] = {190, 420, 53, 200, 500};
+	int min_duration[] = {199, 420, 53, 200, 500};
 	int max_duration[] = {200, 430, 58, 1000, 2000};
 
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
