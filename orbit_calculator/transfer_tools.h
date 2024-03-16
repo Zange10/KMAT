@@ -36,7 +36,6 @@ struct ItinStep {
 	struct Vector r;
 	struct Vector v_arr, v_body, v_dep;
 	double date;
-	double dv;
 	int num_next_nodes;
 	struct ItinStep *prev;
 	struct ItinStep **next;

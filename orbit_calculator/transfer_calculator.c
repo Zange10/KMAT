@@ -87,9 +87,11 @@ void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ_cap
 	porkchop[4] = dv;
 	porkchop[1] = get_itinerary_duration(itin);
 
+	porkchop[3] = 0;
+
 	while(itin->prev->prev != NULL) {
 		if(itin->body == NULL) {
-			porkchop[3] = vector_mag(add_vectors(itin->next[0]->v_dep, scalar_multiply(itin->v_arr,-1)));
+			porkchop[3] += vector_mag(add_vectors(itin->next[0]->v_dep, scalar_multiply(itin->v_arr,-1)));
 		}
 		itin = itin->prev;
 	}
@@ -157,6 +159,54 @@ int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Bod
 	return num_valid > 0;
 }
 
+void store_itineraries_in_file(struct ItinStep *step, FILE *file, int layer, int variation) {
+	fprintf(file, "#%d#%d\n", layer, variation);
+	fprintf(file, "Date: %f\n", step->date);
+	fprintf(file, "r: %lf, %lf, %lf\n", step->r.x, step->r.y, step->r.z);
+	fprintf(file, "v_dep: %f, %f, %f\n", step->v_dep.x, step->v_dep.y, step->v_dep.z);
+	fprintf(file, "v_arr: %f, %f, %f\n", step->v_arr.x, step->v_arr.y, step->v_arr.z);
+	fprintf(file, "v_body: %f, %f, %f\n", step->v_body.x, step->v_body.y, step->v_body.z);
+	fprintf(file, "Next Steps: %d\n", step->num_next_nodes);
+
+	for(int i = 0; i < step->num_next_nodes; i++) {
+		store_itineraries_in_file(step->next[i], file, layer+1, i);
+	}
+}
+
+void store_itineraries_in_file_init(struct ItinStep **departures, int num_nodes, int num_deps, int num_steps) {
+	char filename[19];  // 14 for date + 4 for .csv + 1 for string terminator
+	sprintf(filename, "test.transfer");
+
+	printf("Filesize: ~%f.3 MB", (double)num_nodes*240/1e6);
+
+	FILE *file;
+	file = fopen(filename,"w");
+
+	fprintf(file, "Number of stored nodes: %d\n", num_nodes);
+	fprintf(file, "Number of Departures: %d, Number of Steps: %d\n", num_deps, num_steps);
+
+	struct ItinStep *ptr = departures[0];
+
+	fprintf(file, "Bodies: ");
+	while(ptr != NULL) {
+		if(ptr->body != NULL) fprintf(file, "%d", ptr->body->id);
+		else fprintf(file, "-");
+		if(ptr->next != NULL) {
+			fprintf(file, ",");
+			ptr = ptr->next[0];
+		} else {
+			fprintf(file, "#\n");
+			break;
+		}
+	}
+
+	for(int i = 0; i < num_deps; i++) {
+		store_itineraries_in_file(departures[i], file, 0, i);
+	}
+
+	fclose(file);
+}
+
 void create_itinerary() {
 	struct timeval start, end;
 	double elapsed_time;
@@ -174,25 +224,25 @@ void create_itinerary() {
 //	int num_steps = sizeof(bodies)/sizeof(struct Body*);
 //
 //	struct Date min_dep_date = {1977, 5, 15};
-//	struct Date max_dep_date = {1977, 10, 21};
+//	struct Date max_dep_date = {1977, 11, 21};
 //	double jd_min_dep = convert_date_JD(min_dep_date);
 //	double jd_max_dep = convert_date_JD(max_dep_date);
 //	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
 //
 //	int min_duration[] = {500, 100, 300, 300};
-//	int max_duration[] = {800, 3000, 3000, 3000};
+//	int max_duration[] = {1000, 3000, 3000, 3000};
 
 	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH(), JUPITER(), SATURN()};
 	int num_steps = sizeof(bodies)/sizeof(struct Body*);
 
-	struct Date min_dep_date = {1997, 10, 14};
-	struct Date max_dep_date = {1997, 10, 16};
+	struct Date min_dep_date = {1997, 10, 13};
+	struct Date max_dep_date = {1997, 10, 17};
 	double jd_min_dep = convert_date_JD(min_dep_date);
 	double jd_max_dep = convert_date_JD(max_dep_date);
 	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
 
-	int min_duration[] = {199, 420, 53, 200, 500};
-	int max_duration[] = {200, 430, 58, 1000, 2000};
+	int min_duration[] = {195, 422, 50, 200, 500};
+	int max_duration[] = {196, 428, 60, 1000, 2000};
 
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 
@@ -207,6 +257,8 @@ void create_itinerary() {
 		curr_step->date = jd_dep;
 		curr_step->r = osv_body0.r;
 		curr_step->v_body = osv_body0.v;
+		curr_step->v_dep = vec(0,0,0);
+		curr_step->v_arr = vec(0,0,0);
 		curr_step->num_next_nodes = max_duration[0]-min_duration[0]+1;
 		curr_step->prev = NULL;
 		curr_step->next = (struct ItinStep**) malloc((max_duration[0]-min_duration[0]+1) * sizeof(struct ItinStep*));
@@ -214,7 +266,6 @@ void create_itinerary() {
 		int fb1_del = 0;
 
 		for(int j = 0; j <= max_duration[0] - min_duration[0]; j++) {
-//			printf("j: %d, write: %d\n", j, j-fb1_del);
 			double jd_arr = jd_dep + min_duration[0] + j;
 			struct OSV osv_body1 = osv_from_ephem(ephems[bodies[1]->id-1], jd_arr, SUN());
 
@@ -222,7 +273,6 @@ void create_itinerary() {
 											   osv_body1.r, osv_body1.v, (jd_arr-jd_dep)*86400, NULL);
 
 			while(curr_step->prev != NULL) curr_step = curr_step->prev;
-//			printf("NUM: %d (%s)\n", curr_step->num_next_nodes, curr_step->body->name);
 			curr_step->next[j-fb1_del] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 			curr_step->next[j-fb1_del]->prev = curr_step;
 			curr_step = curr_step->next[j-fb1_del];
@@ -238,7 +288,6 @@ void create_itinerary() {
 			if(!calc_next_step(curr_step, ephems, bodies, min_duration, max_duration, num_steps, 2)){
 				fb1_del++;
 			}
-//			printf("|||||  %d  |||||\n", fb1_del);
 		}
 	}
 
@@ -254,9 +303,9 @@ void create_itinerary() {
 	}
 
 
-	for(int i = 0; i < num_deps; i++) {
-		print_itinerary2(departures[i], 0);
-	}
+//	for(int i = 0; i < num_deps; i++) {
+//		print_itinerary2(departures[i], 0);
+//	}
 	int num_itins = 0, tot_num_itins = 0;
 	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(departures[i]);
 	for(int i = 0; i < num_deps; i++) tot_num_itins += get_total_number_of_stored_steps(departures[i]);
@@ -273,7 +322,7 @@ void create_itinerary() {
 		for(int i = 0; i < num_bodies; i++) free(ephems[i]);
 		free(ephems);
 		return;
-	}
+	} else printf("\n%d itineraries found!\nNumber of Nodes: %d\n", num_itins, tot_num_itins);
 
 
 	int index = 0;
@@ -287,10 +336,10 @@ void create_itinerary() {
 		porkchop[0] += 5;
 	}
 
-	for(int i = 0; i < num_itins; i++) {
-		print_itinerary(arrivals[i]);
-		printf("\n");
-	}
+//	for(int i = 0; i < num_itins; i++) {
+//		print_itinerary(arrivals[i]);
+//		printf("\n");
+//	}
 
 	char data_fields[] = "dep_date,duration,dv_dep,dv_mcc,dv_arr";
 	write_csv(data_fields, porkchop);
@@ -308,6 +357,7 @@ void create_itinerary() {
 	print_itinerary(arrivals[mind]);
 	printf("  -  %f m/s\n", mindv);
 
+//	store_itineraries_in_file_init(departures, tot_num_itins, num_deps, num_steps);
 
 	for(int i = 0; i < num_deps; i++) free_itinerary(departures[i]);
 	free(departures);

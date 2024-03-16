@@ -211,8 +211,8 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 			}
 			printf("]\n");
 			printf("---!!!!   NAN   !!!!---\n");
-			exit(1);
-            continue;
+//			exit(1);
+            break;
         }
 		
 		insert_new_data_point(data, theta1_pun, dt - target_dt);
