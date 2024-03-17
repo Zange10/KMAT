@@ -4,52 +4,6 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
-
-int x1[300];
-int x2[550];
-
-
-double y[100000];
-double xt[100000];
-int yc = 0;
-
-int x1c[2];
-int x2c[2];
-
-
-
-void print_x() {
-	printf("\nx1 = [");
-	for(int i = 0; i < 300; i++) {
-		if(i!=0) printf(", ");
-		printf("%d", x1[i]);
-	}
-	printf("]\n");
-	printf("x1 avg: %f\n", (double)x1c[1]/x1c[0]);
-	printf("x1 tot: %d / %d\n\n", x1c[1], x1c[0]);
-	printf("x2 = [");
-	for(int i = 0; i < 550; i++) {
-		if(i!=0) printf(", ");
-		printf("%d", x2[i]);
-	}
-	printf("]\n");
-	printf("x2 avg: %f\n", (double)x2c[1]/x2c[0]);
-	printf("x2 tot: %d / %d\n", x2c[1], x2c[0]);
-	printf("\ny = [");
-	for(int i = 0; i < yc; i++) {
-		if(i!=0) printf(", ");
-		printf("%f", y[i]);
-	}
-	printf("]\n");
-	printf("\nxt = [");
-	for(int i = 0; i < yc; i++) {
-		if(i!=0) printf(", ");
-		printf("%f", xt[i]);
-	}
-	printf("]\n");
-}
-
 
 
 double theta1_at_min_dt(double r0, double r1, double dtheta) {
@@ -128,14 +82,10 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
     double dt;
     double a, e;
 
-    int c = 0;
-	x1c[0]++;
-
 	for(int i = 0; i < 100; i++) {
 		theta1_pun = root_finder_monot_func_next_x(data, r1/r0 > 1);
 		if(i > 3 && last_theta1_pun == theta1_pun) break;
-		x1c[1]++;
-        c++;
+
         theta1 = pi_norm(theta1_pun);
         theta2 = pi_norm(theta1 + dtheta);
         e = (r1 - r0) / (r0 * cos(theta1) - r1 * cos(theta2));
@@ -211,7 +161,6 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 			}
 			printf("]\n");
 			printf("---!!!!   NAN   !!!!---\n");
-//			exit(1);
             break;
         }
 		
@@ -220,7 +169,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 
 		if(fabs(target_dt-dt) < 1) break;
     }
-	x1[c]++;
+
     struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
     return transfer;
 }

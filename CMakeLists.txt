@@ -42,8 +42,6 @@ add_executable(KSP
         launch_calculator/lp_parameters.h
         ephem.c
         ephem.h
-        orbit_calculator/porkchop_tools.c
-        orbit_calculator/porkchop_tools.h
         tools/thread_pool.c
         tools/thread_pool.h
         gui/transfer_app.c

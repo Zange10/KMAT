@@ -10,8 +10,6 @@
 
 int main() {
     init_celestial_bodies();
-	create_itinerary();
-	return 0;
 
     int selection;
     char title[] = "CHOOSE PROGRAM:";
@@ -29,7 +27,7 @@ int main() {
             orbit_calculator();
             break;
         case 3:
-            create_swing_by_transfer();
+			create_itinerary();
             break;
 		case 4:
 			start_transfer_app();
