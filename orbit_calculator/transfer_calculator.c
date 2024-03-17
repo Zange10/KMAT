@@ -145,6 +145,16 @@ int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Bod
 	return num_valid > 0;
 }
 
+int get_num_of_itin_layers(struct ItinStep *step) {
+	int counter = 0;
+	while(step != NULL) {
+		counter++;
+		if(step->next != NULL) step = step->next[0];
+		else break;
+	}
+	return counter;
+}
+
 void store_itineraries_in_file(struct ItinStep *step, FILE *file, int layer, int variation) {
 	fprintf(file, "#%d#%d\n", layer, variation);
 	fprintf(file, "Date: %f\n", step->date);
@@ -159,11 +169,11 @@ void store_itineraries_in_file(struct ItinStep *step, FILE *file, int layer, int
 	}
 }
 
-void store_itineraries_in_file_init(struct ItinStep **departures, int num_nodes, int num_deps, int num_steps) {
+void store_itineraries_in_file_init(struct ItinStep **departures, int num_nodes, int num_deps) {
 	char filename[19];  // 14 for date + 4 for .csv + 1 for string terminator
 	sprintf(filename, "test.transfer");
-
-	printf("Filesize: ~%f.3 MB", (double)num_nodes*240/1e6);
+	int num_steps = get_num_of_itin_layers(departures[0]);
+	printf("Filesize: ~%.3f MB\n", (double)num_nodes*240/1e6);
 
 	FILE *file;
 	file = fopen(filename,"w");
@@ -188,6 +198,60 @@ void store_itineraries_in_file_init(struct ItinStep **departures, int num_nodes,
 
 	for(int i = 0; i < num_deps; i++) {
 		store_itineraries_in_file(departures[i], file, 0, i);
+	}
+
+	fclose(file);
+}
+
+struct ItinStepBin {
+	struct Vector r;
+	struct Vector v_dep, v_arr, v_body;
+	double date;
+	int num_next_nodes;
+};
+
+struct ItinStepBin convert_ItinStep_bin(struct ItinStep *step) {
+	struct ItinStepBin bin_step = {step->r, step->v_dep, step->v_arr, step->v_body, step->date, step->num_next_nodes};
+	return bin_step;
+}
+
+void store_itineraries_in_bfile(struct ItinStep *step, FILE *file) {
+	struct ItinStepBin bin_step = convert_ItinStep_bin(step);
+	fwrite(&bin_step, sizeof(struct ItinStepBin), 1, file);
+
+	for(int i = 0; i < step->num_next_nodes; i++) {
+		store_itineraries_in_bfile(step->next[i], file);
+	}
+}
+
+void store_itineraries_in_bfile_init(struct ItinStep **departures, int num_nodes, int num_deps) {
+	char filename[19];  // 14 for date + 4 for .csv + 1 for string terminator
+	sprintf(filename, "test.itins");
+
+	printf("Filesize: ~%.3f MB\n", (double)num_nodes*110/1e6);
+
+	int bin_header[] = {num_nodes, num_deps, get_num_of_itin_layers(departures[0])};
+	printf("%d, %d, %d, %lu\n", num_nodes, num_deps, get_num_of_itin_layers(departures[0]), sizeof(struct ItinStepBin));
+	FILE *file;
+	file = fopen(filename,"wb");
+
+	fwrite(bin_header, sizeof(bin_header), 1, file);
+
+	struct ItinStep *ptr = departures[0];
+
+	// same algorithm as layer counter (part of header)
+	while(ptr != NULL) {
+		int body_id = (ptr->body != NULL) ? ptr->body->id : 0;
+		fwrite(&body_id, sizeof(int), 1, file);
+		if(ptr->next != NULL) ptr = ptr->next[0];
+		else break;
+	}
+
+	int end_of_bodies_designator = -1;
+	fwrite(&end_of_bodies_designator, sizeof(int), 1, file);
+
+	for(int i = 0; i < num_deps; i++) {
+		store_itineraries_in_bfile(departures[i], file);
 	}
 
 	fclose(file);
@@ -332,6 +396,7 @@ void create_itinerary() {
 			num_steps
 	};
 
+	show_progress("Transfer Calculation progress: ", 0, 1);
 	struct Thread_Pool thread_pool = use_thread_pool64(calc_from_departure, &thread_args);
 	join_thread_pool(thread_pool);
 	show_progress("Transfer Calculation progress: ", 1, 1);
@@ -403,7 +468,8 @@ void create_itinerary() {
 	print_itinerary(arrivals[mind]);
 	printf("  -  %f m/s\n", mindv);
 
-//	store_itineraries_in_file_init(departures, tot_num_itins, num_deps, num_steps);
+	store_itineraries_in_file_init(departures, tot_num_itins, num_deps);
+	store_itineraries_in_bfile_init(departures, tot_num_itins, num_deps);
 
 	for(int i = 0; i < num_deps; i++) free_itinerary(departures[i]);
 	free(departures);
