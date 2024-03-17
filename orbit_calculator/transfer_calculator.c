@@ -266,6 +266,7 @@ void *calc_from_departure(void *args) {
 		index = get_thread_counter();
 		jd_dep = thread_args->jd_min_dep + index;
 	}
+	return NULL;
 }
 
 void create_itinerary() {
