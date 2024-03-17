@@ -13,14 +13,9 @@
 int main() {
     init_celestial_bodies();
 
-	init_db();
-	start_db_app();
-	close_db();
-	return 0;
-
     int selection;
     char title[] = "CHOOSE PROGRAM:";
-    char options[] = "Exit; Launch Calculator; Orbit Calculator; Transfer Calculator; Transfer App";
+    char options[] = "Exit; Launch Calculator; Orbit Calculator; Transfer Calculator; Transfer App; Database App";
     char question[] = "Program: ";
 
     do {
@@ -38,6 +33,11 @@ int main() {
             break;
 		case 4:
 			start_transfer_app();
+			break;
+		case 5:
+			init_db();
+			start_db_app();
+			close_db();
 			break;
         default:
             break;
