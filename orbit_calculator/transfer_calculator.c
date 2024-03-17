@@ -215,6 +215,16 @@ struct ItinStepBin convert_ItinStep_bin(struct ItinStep *step) {
 	return bin_step;
 }
 
+void convert_bin_ItinStep(struct ItinStepBin bin_step, struct ItinStep *step, struct Body *body) {
+	step->body = body;
+	step->r = bin_step.r;
+	step->v_arr = bin_step.v_arr;
+	step->v_body = bin_step.v_body;
+	step->v_dep = bin_step.v_dep;
+	step->date = bin_step.date;
+	step->num_next_nodes = bin_step.num_next_nodes;
+}
+
 void store_itineraries_in_bfile(struct ItinStep *step, FILE *file) {
 	struct ItinStepBin bin_step = convert_ItinStep_bin(step);
 	fwrite(&bin_step, sizeof(struct ItinStepBin), 1, file);
@@ -255,6 +265,61 @@ void store_itineraries_in_bfile_init(struct ItinStep **departures, int num_nodes
 	}
 
 	fclose(file);
+}
+
+void load_itineraries_from_bfile(struct ItinStep *step, FILE *file, struct Body **body) {
+	struct ItinStepBin bin_step;
+	fread(&bin_step, sizeof(struct ItinStepBin), 1, file);
+	convert_bin_ItinStep(bin_step, step, body[0]);
+	if(step->num_next_nodes > 0) step->next = (struct ItinStep**) malloc(step->num_next_nodes*sizeof(struct ItinStep*));
+	else step->next = NULL;
+
+	for(int i = 0; i < step->num_next_nodes; i++) {
+		step->next[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+		step->next[i]->prev = step;
+		load_itineraries_from_bfile(step->next[i], file, body+1);
+	}
+}
+
+struct ItinStep ** load_itineraries_from_bfile_init() {
+	char filename[19];  // 14 for date + 4 for .csv + 1 for string terminator
+	sprintf(filename, "test.itins");
+
+	int bin_header[3];
+
+	FILE *file;
+	file = fopen(filename,"rb");
+
+	fread(bin_header, sizeof(bin_header), 1, file);
+
+	int *bodies_id = (int*) malloc(bin_header[2] * sizeof(int));
+	fread(bodies_id, sizeof(int), bin_header[2], file);
+
+	int temp;
+	fread(&temp, sizeof(int), 1, file);
+
+	if(temp != -1) {
+		printf("Problems reading itinerary file (Body list or header wrong)\n");
+		fclose(file);
+		return NULL;
+	}
+
+	struct ItinStep **departures = (struct ItinStep**) malloc(bin_header[1] * sizeof(struct ItinStep*));
+
+	struct Body **bodies = (struct Body**) malloc(bin_header[2] * sizeof(struct Body*));
+	for(int i = 0; i < bin_header[2]; i++) bodies[i] = (bodies_id[i] > 0) ? get_body_from_id(bodies_id[i]) : NULL;
+	free(bodies_id);
+
+	for(int i = 0; i < bin_header[1]; i++) {
+		departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+		departures[i]->prev = NULL;
+		load_itineraries_from_bfile(departures[i], file, bodies);
+	}
+
+
+	fclose(file);
+	free(bodies);
+	return departures;
 }
 
 struct Itin_Thread_Args {
@@ -349,14 +414,14 @@ void create_itinerary() {
 	struct Body *bodies[] = {EARTH(), VENUS(), MARS(), EARTH()};
 	int num_steps = sizeof(bodies)/sizeof(struct Body*);
 
-	struct Date min_dep_date = {1958, 1, 1};
-	struct Date max_dep_date = {1963, 12, 31};
+	struct Date min_dep_date = {1959, 1, 1};
+	struct Date max_dep_date = {1959, 12, 31};
 	double jd_min_dep = convert_date_JD(min_dep_date);
 	double jd_max_dep = convert_date_JD(max_dep_date);
 	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
 
-	int min_duration[] = {50, 100, 50};
-	int max_duration[] = {250, 500, 500};
+	int min_duration[] = {150, 100, 50};
+	int max_duration[] = {200, 500, 500};
 
 //	struct Body *bodies[] = {EARTH(), JUPITER(), SATURN(), URANUS(), NEPTUNE()};
 //	int num_steps = sizeof(bodies)/sizeof(struct Body*);
@@ -477,4 +542,59 @@ void create_itinerary() {
 	free(porkchop);
 	for(int i = 0; i < num_bodies; i++) free(ephems[i]);
 	free(ephems);
+
+	departures = load_itineraries_from_bfile_init();
+
+	num_itins = 0, tot_num_itins = 0;
+	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(departures[i]);
+	for(int i = 0; i < num_deps; i++) tot_num_itins += get_total_number_of_stored_steps(departures[i]);
+
+
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+
+	if(num_itins == 0) {
+		printf("\nNo itineraries found!\n");
+		for(int i = 0; i < num_deps; i++) free_itinerary(departures[i]);
+		free(departures);
+		for(int i = 0; i < num_bodies; i++) free(ephems[i]);
+		free(ephems);
+		return;
+	} else printf("\n%d itineraries found!\nNumber of Nodes: %d\n", num_itins, tot_num_itins);
+
+
+	index = 0;
+	arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
+	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(departures[i], arrivals, &index);
+
+	porkchop = (double *) malloc((5 * num_itins + 1) * sizeof(double));
+	porkchop[0] = 0;
+	for(int i = 0; i < num_itins; i++) {
+		create_porkchop_point(arrivals[i], &porkchop[i*5+1], -1);
+		porkchop[0] += 5;
+	}
+
+//	for(int i = 0; i < num_itins; i++) {
+//		print_itinerary(arrivals[i]);
+//		printf("\n");
+//	}
+
+	mindv = porkchop[1+2]+porkchop[1+3]+porkchop[1+4];
+	mind = 0;
+	for(int i = 1; i < num_itins; i++) {
+		double dv = porkchop[1+i*5+2]+porkchop[1+i*5+3]+porkchop[1+i*5+4];
+		if(dv < mindv) {
+			mindv = dv;
+			mind = i;
+		}
+	}
+
+	print_itinerary(arrivals[mind]);
+	printf("  -  %f m/s\n", mindv);
+
+	for(int i = 0; i < num_deps; i++) free_itinerary(departures[i]);
+	free(departures);
+	free(arrivals);
+	free(porkchop);
 }
