@@ -217,8 +217,9 @@ void *calc_from_departure(void *args) {
 	double jd_dep = thread_args->jd_min_dep + index;
 	struct ItinStep *curr_step;
 
+	double jd_diff = thread_args->jd_max_dep-thread_args->jd_min_dep+1;
+
 	while(jd_dep <= thread_args->jd_max_dep) {
-		print_date(convert_JD_date(jd_dep),1);
 		struct OSV osv_body0 = osv_from_ephem(ephems[bodies[0]->id - 1], jd_dep, SUN());
 
 		curr_step = thread_args->departures[index];
@@ -261,7 +262,7 @@ void *calc_from_departure(void *args) {
 				}
 			}
 		}
-
+		show_progress("Transfer Calculation progress: ", index, jd_diff);
 		index = get_thread_counter();
 		jd_dep = thread_args->jd_min_dep + index;
 	}
@@ -332,6 +333,8 @@ void create_itinerary() {
 
 	struct Thread_Pool thread_pool = use_thread_pool64(calc_from_departure, &thread_args);
 	join_thread_pool(thread_pool);
+	show_progress("Transfer Calculation progress: ", 1, 1);
+	printf("\n");
 
 	// remove departure dates with no valid itinerary
 	for(int i = 0; i < num_deps; i++) {
