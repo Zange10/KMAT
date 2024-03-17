@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include "tools/thread_pool.h"
 
 enum Transfer_Type final_tt = circcap;
 
@@ -151,11 +152,6 @@ int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Bod
 		}
 	} else return 1;
 
-//	if(bodies[k] != bodies[k-1]) curr_step = curr_step->next[0];
-//	else {
-//		curr_step = curr_step->next[0]->next[0]->next[0];
-//		k++;
-//	}
 	return num_valid > 0;
 }
 
@@ -207,6 +203,81 @@ void store_itineraries_in_file_init(struct ItinStep **departures, int num_nodes,
 	fclose(file);
 }
 
+struct Itin_Thread_Args {
+	double jd_min_dep;
+	double jd_max_dep;
+	struct ItinStep **departures;
+	struct Ephem **ephems;
+	struct Body **bodies;
+	int *min_duration;
+	int *max_duration;
+	int num_steps;
+};
+
+void *calc_from_departure(void *args) {
+	struct Itin_Thread_Args *thread_args = (struct Itin_Thread_Args *)args;
+
+	int *min_duration = thread_args->min_duration;
+	int *max_duration = thread_args->max_duration;
+	struct Ephem **ephems = thread_args->ephems;
+	struct Body **bodies = thread_args->bodies;
+	int num_steps = thread_args->num_steps;
+
+	int index = get_thread_counter();
+	double jd_dep = thread_args->jd_min_dep + index;
+	struct ItinStep *curr_step;
+
+	while(jd_dep <= thread_args->jd_max_dep) {
+		print_date(convert_JD_date(jd_dep),1);
+
+		struct OSV osv_body0 = osv_from_ephem(ephems[bodies[0]->id - 1], jd_dep, SUN());
+
+		curr_step = thread_args->departures[index];
+		curr_step->body = bodies[0];
+		curr_step->date = jd_dep;
+		curr_step->r = osv_body0.r;
+		curr_step->v_body = osv_body0.v;
+		curr_step->v_dep = vec(0, 0, 0);
+		curr_step->v_arr = vec(0, 0, 0);
+		curr_step->num_next_nodes = max_duration[0] - min_duration[0] + 1;
+		curr_step->prev = NULL;
+		curr_step->next = (struct ItinStep **) malloc(
+				(max_duration[0] - min_duration[0] + 1) * sizeof(struct ItinStep *));
+
+		int fb1_del = 0;
+
+		for(int j = 0; j <= max_duration[0] - min_duration[0]; j++) {
+			double jd_arr = jd_dep + min_duration[0] + j;
+			struct OSV osv_body1 = osv_from_ephem(ephems[bodies[1]->id - 1], jd_arr, SUN());
+
+			struct Transfer tf = calc_transfer(circfb, bodies[0], bodies[1], osv_body0.r, osv_body0.v,
+											   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, NULL);
+
+			while(curr_step->prev != NULL) curr_step = curr_step->prev;
+			curr_step->next[j - fb1_del] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
+			curr_step->next[j - fb1_del]->prev = curr_step;
+			curr_step = curr_step->next[j - fb1_del];
+			curr_step->body = bodies[1];
+			curr_step->date = jd_arr;
+			curr_step->r = osv_body1.r;
+			curr_step->v_dep = tf.v0;
+			curr_step->v_arr = tf.v1;
+			curr_step->v_body = osv_body1.v;
+			curr_step->num_next_nodes = 0;
+			curr_step->next = NULL;
+
+			if(num_steps > 2) {
+				if(!calc_next_step(curr_step, ephems, bodies, min_duration, max_duration, num_steps, 2)) {
+					fb1_del++;
+				}
+			}
+		}
+
+		index = get_thread_counter();
+		jd_dep = thread_args->jd_min_dep + index;
+	}
+}
+
 void create_itinerary() {
 	struct timeval start, end;
 	double elapsed_time;
@@ -220,6 +291,18 @@ void create_itinerary() {
 		get_body_ephem(ephems[i], i+1);
 	}
 
+	struct Body *bodies[] = {EARTH(), VENUS(), MARS(), EARTH()};
+	int num_steps = sizeof(bodies)/sizeof(struct Body*);
+
+	struct Date min_dep_date = {1958, 1, 1};
+	struct Date max_dep_date = {1963, 12, 31};
+	double jd_min_dep = convert_date_JD(min_dep_date);
+	double jd_max_dep = convert_date_JD(max_dep_date);
+	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
+
+	int min_duration[] = {50, 100, 50};
+	int max_duration[] = {250, 500, 500};
+
 //	struct Body *bodies[] = {EARTH(), JUPITER(), SATURN(), URANUS(), NEPTUNE()};
 //	int num_steps = sizeof(bodies)/sizeof(struct Body*);
 //
@@ -232,64 +315,34 @@ void create_itinerary() {
 //	int min_duration[] = {500, 100, 300, 300};
 //	int max_duration[] = {1000, 3000, 3000, 3000};
 
-	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH(), JUPITER(), SATURN()};
-	int num_steps = sizeof(bodies)/sizeof(struct Body*);
-
-	struct Date min_dep_date = {1997, 10, 13};
-	struct Date max_dep_date = {1997, 10, 17};
-	double jd_min_dep = convert_date_JD(min_dep_date);
-	double jd_max_dep = convert_date_JD(max_dep_date);
-	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
-
-	int min_duration[] = {195, 422, 50, 200, 500};
-	int max_duration[] = {196, 428, 60, 1000, 2000};
+//	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH(), JUPITER(), SATURN()};
+//	int num_steps = sizeof(bodies)/sizeof(struct Body*);
+//
+//	struct Date min_dep_date = {1997, 10, 1};
+//	struct Date max_dep_date = {1997, 10, 31};
+//	double jd_min_dep = convert_date_JD(min_dep_date);
+//	double jd_max_dep = convert_date_JD(max_dep_date);
+//	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
+//
+//	int min_duration[] = {195, 422, 50, 200, 500};
+//	int max_duration[] = {196, 428, 60, 1000, 2000};
 
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
+	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 
-	for(int i = 0; i < num_deps; i++){
-		double jd_dep = jd_min_dep+i;
-		print_date(convert_JD_date(jd_dep),1);
-		struct OSV osv_body0 = osv_from_ephem(ephems[bodies[0]->id-1], jd_dep, SUN());
+	struct Itin_Thread_Args thread_args = {
+			jd_min_dep,
+			jd_max_dep,
+			departures,
+			ephems,
+			bodies,
+			min_duration,
+			max_duration,
+			num_steps
+	};
 
-		struct ItinStep *curr_step = (struct ItinStep*) malloc(sizeof(struct ItinStep));
-		departures[i] = curr_step;
-		curr_step->body = bodies[0];
-		curr_step->date = jd_dep;
-		curr_step->r = osv_body0.r;
-		curr_step->v_body = osv_body0.v;
-		curr_step->v_dep = vec(0,0,0);
-		curr_step->v_arr = vec(0,0,0);
-		curr_step->num_next_nodes = max_duration[0]-min_duration[0]+1;
-		curr_step->prev = NULL;
-		curr_step->next = (struct ItinStep**) malloc((max_duration[0]-min_duration[0]+1) * sizeof(struct ItinStep*));
-
-		int fb1_del = 0;
-
-		for(int j = 0; j <= max_duration[0] - min_duration[0]; j++) {
-			double jd_arr = jd_dep + min_duration[0] + j;
-			struct OSV osv_body1 = osv_from_ephem(ephems[bodies[1]->id-1], jd_arr, SUN());
-
-			struct Transfer tf = calc_transfer(circfb, bodies[0], bodies[1], osv_body0.r, osv_body0.v,
-											   osv_body1.r, osv_body1.v, (jd_arr-jd_dep)*86400, NULL);
-
-			while(curr_step->prev != NULL) curr_step = curr_step->prev;
-			curr_step->next[j-fb1_del] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
-			curr_step->next[j-fb1_del]->prev = curr_step;
-			curr_step = curr_step->next[j-fb1_del];
-			curr_step->body = bodies[1];
-			curr_step->date = jd_arr;
-			curr_step->r = osv_body1.r;
-			curr_step->v_dep = tf.v0;
-			curr_step->v_arr = tf.v1;
-			curr_step->v_body = osv_body1.v;
-			curr_step->num_next_nodes = 0;
-			curr_step->next = NULL;
-
-			if(!calc_next_step(curr_step, ephems, bodies, min_duration, max_duration, num_steps, 2)){
-				fb1_del++;
-			}
-		}
-	}
+	struct Thread_Pool thread_pool = use_thread_pool64(calc_from_departure, &thread_args);
+	join_thread_pool(thread_pool);
 
 	// remove departure dates with no valid itinerary
 	for(int i = 0; i < num_deps; i++) {
