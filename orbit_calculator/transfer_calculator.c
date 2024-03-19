@@ -36,7 +36,7 @@ void *calc_from_departure(void *args) {
 	double jd_diff = thread_args->jd_max_dep-thread_args->jd_min_dep+1;
 
 	while(jd_dep <= thread_args->jd_max_dep) {
-		struct OSV osv_body0 = osv_from_ephem(ephems[bodies[0]->id - 1], jd_dep, SUN());
+		struct OSV osv_body0 = osv_from_ephem(ephems[0], jd_dep, SUN());
 
 		curr_step = thread_args->departures[index];
 		curr_step->body = bodies[0];
@@ -54,7 +54,7 @@ void *calc_from_departure(void *args) {
 
 		for(int j = 0; j <= max_duration[0] - min_duration[0]; j++) {
 			double jd_arr = jd_dep + min_duration[0] + j;
-			struct OSV osv_body1 = osv_from_ephem(ephems[bodies[1]->id - 1], jd_arr, SUN());
+			struct OSV osv_body1 = osv_from_ephem(ephems[1], jd_arr, SUN());
 
 			struct Transfer tf = calc_transfer(circfb, bodies[0], bodies[1], osv_body0.r, osv_body0.v,
 											   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, NULL);
@@ -122,23 +122,6 @@ void create_itinerary() {
 //	int min_duration[] = {500, 100, 300, 300};
 //	int max_duration[] = {1000, 3000, 3000, 3000};
 
-/*
-
-141 itineraries found!
-Number of Nodes: 741
-
-Best for capture:
-1997-10-14 00:00:00.000 - 1998-04-26 00:00:00.000 - 1998-12-26 06:29:12.287 - 1999-06-25 00:00:00.000 - 1999-08-19 00:00:00.000 - 2001-02-20 13:30:00.000 - 2005-12-35 08:54:22.500  -  4659.345284 m/s
-
-Best for fly-by:
-1997-10-14 00:00:00.000 - 1998-04-26 00:00:00.000 - 1998-12-26 06:29:12.287 - 1999-06-25 00:00:00.000 - 1999-08-19 00:00:00.000 - 2001-02-20 13:30:00.000 - 2005-12-35 08:54:22.500  -  4380.412542 m/s
-
-Filesize: ~0.082 MB
-Number of stored nodes: 741
-Number of Departures: 6, Number of Steps: 7
-
- */
-
 
 	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH(), JUPITER(), SATURN()};
 	int num_steps = sizeof(bodies)/sizeof(struct Body*);
@@ -173,7 +156,7 @@ Number of Departures: 6, Number of Steps: 7
 			jd_min_dep,
 			jd_max_dep,
 			departures,
-			body_ephems,
+			ephems,
 			bodies,
 			min_duration,
 			max_duration,
@@ -210,7 +193,8 @@ Number of Departures: 6, Number of Steps: 7
 		printf("\nNo itineraries found!\n");
 		for(int i = 0; i < num_deps; i++) free_itinerary(departures[i]);
 		free(departures);
-		for(int i = 0; i < num_bodies; i++) free(ephems[i]);
+		for(int i = 0; i < num_bodies; i++) free(body_ephems[i]);
+		free(body_ephems);
 		free(ephems);
 		return;
 	} else printf("\n%d itineraries found!\nNumber of Nodes: %d\n", num_itins, tot_num_itins);

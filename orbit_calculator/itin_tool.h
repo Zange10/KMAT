@@ -22,7 +22,7 @@ struct ItinStep {
 
 
 // find viable flybys to next body with a given arrival trajectory
-void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *next_body, double min_dt, double max_dt);
+void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, struct Body *next_body, double min_dt, double max_dt);
 
 // find viable flybys to next body with a given arrival trajectory
 void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *next_body, double min_dt0, double max_dt0, double min_dt1, double max_dt1);

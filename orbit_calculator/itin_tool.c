@@ -11,9 +11,9 @@
 #include <stdlib.h>
 
 
-void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *next_body, double min_dt, double max_dt) {
-	struct OSV osv_dep = osv_from_ephem(ephems[tf->body->id - 1], tf->date, SUN());
-	struct OSV osv_arr0 = osv_from_ephem(ephems[next_body->id - 1], tf->date, SUN());
+void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, struct Body *next_body, double min_dt, double max_dt) {
+	struct OSV osv_dep = {tf->r, tf->v_body};
+	struct OSV osv_arr0 = osv_from_ephem(next_body_ephems, tf->date, SUN());
 	struct Vector proj_vec = proj_vec_plane(osv_dep.r, constr_plane(vec(0,0,0), osv_arr0.r, osv_arr0.v));
 	double theta_conj_opp = angle_vec_vec(proj_vec, osv_arr0.r);
 	if(cross_product(proj_vec, osv_arr0.r).z < 0) theta_conj_opp *= -1;
@@ -71,7 +71,7 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body 
 
 			t1 = t0 + dt / 86400;
 
-			struct OSV osv_arr = osv_from_ephem(ephems[next_body->id - 1], t1, SUN());
+			struct OSV osv_arr = osv_from_ephem(next_body_ephems, t1, SUN());
 
 			struct Transfer new_transfer = calc_transfer(circfb, tf->body, next_body, osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, dt,
 														 NULL);
@@ -149,13 +149,13 @@ void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct B
 
 		dt0 = min_dt0/86400 + i;
 		jd_sb2 = tf->date+dt0;
-		struct OSV osv_sb2 = osv_from_ephem(ephems[body0->id-1], jd_sb2, SUN());
+		struct OSV osv_sb2 = osv_from_ephem(ephems[0], jd_sb2, SUN());
 
 		for(int j = 0; j <= max_dt1/86400-min_dt1/86400; j++) {
 			dt1 = min_dt1/86400 + j;
 			jd_arr = jd_sb2 + dt1;
 
-			struct OSV osv_arr = osv_from_ephem(ephems[body1->id-1], jd_arr, SUN());
+			struct OSV osv_arr = osv_from_ephem(ephems[1], jd_arr, SUN());
 			struct Transfer transfer_after_dsb = calc_transfer(circfb, body0, body1, osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
 
 			s1.r = transfer_after_dsb.r0;
@@ -279,9 +279,9 @@ void create_porkchop_point(struct ItinStep *itin, double* porkchop) {
 }
 
 int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, int num_steps, int step) {
-	if(bodies[step] != bodies[step-1]) find_viable_flybys(curr_step, ephems, bodies[step], min_duration[step-1]*86400, max_duration[step-1]*86400);
+	if(bodies[step] != bodies[step-1]) find_viable_flybys(curr_step, ephems[step], bodies[step], min_duration[step-1]*86400, max_duration[step-1]*86400);
 	else {
-		find_viable_dsb_flybys(curr_step, ephems, bodies[step+1],
+		find_viable_dsb_flybys(curr_step, &ephems[step], bodies[step+1],
 							   min_duration[step-1]*86400, max_duration[step-1]*86400, min_duration[step]*86400, max_duration[step]*86400);
 	}
 
