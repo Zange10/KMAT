@@ -11,9 +11,6 @@
 #include <stdlib.h>
 
 
-
-
-
 void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *next_body, double min_dt, double max_dt) {
 	struct OSV osv_dep = osv_from_ephem(ephems[tf->body->id - 1], tf->date, SUN());
 	struct OSV osv_arr0 = osv_from_ephem(ephems[next_body->id - 1], tf->date, SUN());
@@ -56,8 +53,6 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body 
 
 	// x: dt, y: diff_vinf (data[0].x: number of data points beginning at index 1)
 	struct Vector2D data[101];
-
-//	printf("%f %f %f\n---\n", dt0/86400, dt1/86400, arr0.period/86400);
 
 	double t0 = tf->date;
 	double last_dt, dt, t1, diff_vinf;
@@ -135,6 +130,7 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body 
 	}
 }
 
+
 void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *body1, double min_dt0, double max_dt0, double min_dt1, double max_dt1) {
 	int max_new_steps0 = (int) (max_dt0/86400-min_dt0/86400+1);
 	int max_new_steps1 = (int) (max_dt1/86400-min_dt1/86400+1);
@@ -207,12 +203,16 @@ void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct B
 		}
 	}
 
+	// if there were next nodes found, store them
 	if(counter > 0) {
 		tf->next = (struct ItinStep **) malloc(counter * sizeof(struct ItinStep *));
 		for(int i = 0; i < counter; i++) tf->next[i] = new_steps[i];
 		tf->num_next_nodes = counter;
 	}
 }
+
+
+
 
 void print_itinerary(struct ItinStep *itin) {
 	if(itin->prev != NULL) {
@@ -258,12 +258,10 @@ double get_itinerary_duration(struct ItinStep *itin) {
 	return jd1-jd0;
 }
 
-void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ_cap_fb) {
-	double dv, vinf = vector_mag(add_vectors(itin->v_arr, scalar_multiply(itin->v_body,-1)));
-	if(circ_cap_fb == 0) dv = dv_circ(itin->body, itin->body->atmo_alt+100e3, vinf);
-	else if(circ_cap_fb == 1) dv = dv_capture(itin->body, itin->body->atmo_alt+100e3, vinf);
-	else dv = 0;
-	porkchop[4] = dv;
+void create_porkchop_point(struct ItinStep *itin, double* porkchop) {
+	double vinf = vector_mag(add_vectors(itin->v_arr, scalar_multiply(itin->v_body,-1)));
+
+	porkchop[4] = dv_capture(itin->body, itin->body->atmo_alt+100e3, vinf);
 	porkchop[1] = get_itinerary_duration(itin);
 
 	porkchop[3] = 0;
@@ -319,7 +317,7 @@ int get_num_of_itin_layers(struct ItinStep *step) {
 	return counter;
 }
 
-void store_itineraries_in_file(struct ItinStep *step, FILE *file, int layer, int variation) {
+void store_step_in_file(struct ItinStep *step, FILE *file, int layer, int variation) {
 	fprintf(file, "#%d#%d\n", layer, variation);
 	fprintf(file, "Date: %f\n", step->date);
 	fprintf(file, "r: %lf, %lf, %lf\n", step->r.x, step->r.y, step->r.z);
@@ -329,11 +327,11 @@ void store_itineraries_in_file(struct ItinStep *step, FILE *file, int layer, int
 	fprintf(file, "Next Steps: %d\n", step->num_next_nodes);
 
 	for(int i = 0; i < step->num_next_nodes; i++) {
-		store_itineraries_in_file(step->next[i], file, layer+1, i);
+		store_step_in_file(step->next[i], file, layer + 1, i);
 	}
 }
 
-void store_itineraries_in_file_init(struct ItinStep **departures, int num_nodes, int num_deps) {
+void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int num_deps) {
 	char filename[19];  // 14 for date + 4 for .csv + 1 for string terminator
 	sprintf(filename, "test.transfer");
 	int num_steps = get_num_of_itin_layers(departures[0]);
@@ -361,11 +359,15 @@ void store_itineraries_in_file_init(struct ItinStep **departures, int num_nodes,
 	}
 
 	for(int i = 0; i < num_deps; i++) {
-		store_itineraries_in_file(departures[i], file, 0, i);
+		store_step_in_file(departures[i], file, 0, i);
 	}
 
 	fclose(file);
 }
+
+struct ItinStepBinHeader {
+	int num_nodes, num_deps, num_layers;
+};
 
 struct ItinStepBin {
 	struct Vector r;
@@ -389,27 +391,29 @@ void convert_bin_ItinStep(struct ItinStepBin bin_step, struct ItinStep *step, st
 	step->num_next_nodes = bin_step.num_next_nodes;
 }
 
-void store_itineraries_in_bfile(struct ItinStep *step, FILE *file) {
+void store_step_in_bfile(struct ItinStep *step, FILE *file) {
 	struct ItinStepBin bin_step = convert_ItinStep_bin(step);
 	fwrite(&bin_step, sizeof(struct ItinStepBin), 1, file);
 
 	for(int i = 0; i < step->num_next_nodes; i++) {
-		store_itineraries_in_bfile(step->next[i], file);
+		store_step_in_bfile(step->next[i], file);
 	}
 }
 
-void store_itineraries_in_bfile_init(struct ItinStep **departures, int num_nodes, int num_deps) {
+void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps) {
 	char filename[19];  // 14 for date + 4 for .csv + 1 for string terminator
 	sprintf(filename, "test.itins");
 
 	printf("Filesize: ~%.3f MB\n", (double)num_nodes*110/1e6);
 
-	int bin_header[] = {num_nodes, num_deps, get_num_of_itin_layers(departures[0])};
-	printf("%d, %d, %d, %lu\n", num_nodes, num_deps, get_num_of_itin_layers(departures[0]), sizeof(struct ItinStepBin));
+	struct ItinStepBinHeader bin_header = {num_nodes, num_deps, get_num_of_itin_layers(departures[0])};
+
+	printf("Number of stored nodes: %d\n", num_nodes);
+	printf("Number of Departures: %d, Number of Steps: %d\n", num_deps, bin_header.num_layers);
 	FILE *file;
 	file = fopen(filename,"wb");
 
-	fwrite(bin_header, sizeof(bin_header), 1, file);
+	fwrite(&bin_header, sizeof(struct ItinStepBinHeader), 1, file);
 
 	struct ItinStep *ptr = departures[0];
 
@@ -425,7 +429,7 @@ void store_itineraries_in_bfile_init(struct ItinStep **departures, int num_nodes
 	fwrite(&end_of_bodies_designator, sizeof(int), 1, file);
 
 	for(int i = 0; i < num_deps; i++) {
-		store_itineraries_in_bfile(departures[i], file);
+		store_step_in_bfile(departures[i], file);
 	}
 
 	fclose(file);
@@ -449,32 +453,32 @@ struct ItinStep ** load_itineraries_from_bfile_init() {
 	char filename[19];  // 14 for date + 4 for .csv + 1 for string terminator
 	sprintf(filename, "test.itins");
 
-	int bin_header[3];
+	struct ItinStepBinHeader bin_header;
 
 	FILE *file;
 	file = fopen(filename,"rb");
 
-	fread(bin_header, sizeof(bin_header), 1, file);
+	fread(&bin_header, sizeof(struct ItinStepBinHeader), 1, file);
 
-	int *bodies_id = (int*) malloc(bin_header[2] * sizeof(int));
-	fread(bodies_id, sizeof(int), bin_header[2], file);
+	int *bodies_id = (int*) malloc(bin_header.num_layers * sizeof(int));
+	fread(bodies_id, sizeof(int), bin_header.num_layers, file);
 
-	int temp;
-	fread(&temp, sizeof(int), 1, file);
+	int buf;
+	fread(&buf, sizeof(int), 1, file);
 
-	if(temp != -1) {
+	if(buf != -1) {
 		printf("Problems reading itinerary file (Body list or header wrong)\n");
 		fclose(file);
 		return NULL;
 	}
 
-	struct ItinStep **departures = (struct ItinStep**) malloc(bin_header[1] * sizeof(struct ItinStep*));
+	struct ItinStep **departures = (struct ItinStep**) malloc(bin_header.num_deps * sizeof(struct ItinStep*));
 
-	struct Body **bodies = (struct Body**) malloc(bin_header[2] * sizeof(struct Body*));
-	for(int i = 0; i < bin_header[2]; i++) bodies[i] = (bodies_id[i] > 0) ? get_body_from_id(bodies_id[i]) : NULL;
+	struct Body **bodies = (struct Body**) malloc(bin_header.num_layers * sizeof(struct Body*));
+	for(int i = 0; i < bin_header.num_layers; i++) bodies[i] = (bodies_id[i] > 0) ? get_body_from_id(bodies_id[i]) : NULL;
 	free(bodies_id);
 
-	for(int i = 0; i < bin_header[1]; i++) {
+	for(int i = 0; i < bin_header.num_deps; i++) {
 		departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 		departures[i]->prev = NULL;
 		load_itineraries_from_bfile(departures[i], file, bodies);

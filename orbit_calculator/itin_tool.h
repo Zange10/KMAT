@@ -43,7 +43,7 @@ void store_itineraries_in_array(struct ItinStep *itin, struct ItinStep **array, 
 double get_itinerary_duration(struct ItinStep *itin);
 
 // add itinerary departure date, duration, departure dv, deep-space maneuvre dv and arrival dv in porkchop array
-void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ_cap_fb);
+void create_porkchop_point(struct ItinStep *itin, double* porkchop);
 
 // from current step and given information, initiate calculation of next steps
 int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, int num_steps, int step);
@@ -52,10 +52,10 @@ int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Bod
 int get_num_of_itin_layers(struct ItinStep *step);
 
 // store itineraries in text file from multiple departures (pre-order storing)
-void store_itineraries_in_file_init(struct ItinStep **departures, int num_nodes, int num_deps);
+void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int num_deps);
 
 // store itineraries in binary file from multiple departures (pre-order storing)
-void store_itineraries_in_bfile_init(struct ItinStep **departures, int num_nodes, int num_deps);
+void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps);
 
 // load itineraries from binary file for multiple departures (from pre-order storing)
 struct ItinStep ** load_itineraries_from_bfile_init();
