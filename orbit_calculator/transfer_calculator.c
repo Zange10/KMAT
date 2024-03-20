@@ -29,7 +29,10 @@ void *calc_from_departure(void *args) {
 	struct Body **bodies = thread_args->bodies;
 	int num_steps = thread_args->num_steps;
 
-	int index = get_thread_counter();
+	int index = get_thread_counter(0);
+	// increase finished counter to 1 (first finished should reflect a num of finished of 1)
+	if(index == 0) get_thread_counter(1);
+
 	double jd_dep = thread_args->jd_min_dep + index;
 	struct ItinStep *curr_step;
 
@@ -78,8 +81,8 @@ void *calc_from_departure(void *args) {
 				}
 			}
 		}
-		show_progress("Transfer Calculation progress: ", index, jd_diff);
-		index = get_thread_counter();
+		show_progress("Transfer Calculation progress: ", get_thread_counter(1), jd_diff);
+		index = get_thread_counter(0);
 		jd_dep = thread_args->jd_min_dep + index;
 	}
 	return NULL;
@@ -126,8 +129,8 @@ void create_itinerary() {
 	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH(), JUPITER(), SATURN()};
 	int num_steps = sizeof(bodies)/sizeof(struct Body*);
 
-	struct Date min_dep_date = {1997, 10, 12};
-	struct Date max_dep_date = {1997, 10, 17};
+	struct Date min_dep_date = {1997, 10, 10};
+	struct Date max_dep_date = {1997, 10, 25};
 	double jd_min_dep = convert_date_JD(min_dep_date);
 	double jd_max_dep = convert_date_JD(max_dep_date);
 	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
