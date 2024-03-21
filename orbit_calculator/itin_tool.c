@@ -317,6 +317,31 @@ int get_num_of_itin_layers(struct ItinStep *step) {
 	return counter;
 }
 
+void update_itin_body_osvs(struct ItinStep *step, struct Ephem **body_ephems) {
+	struct OSV body_osv;
+	while(step != NULL) {
+		if(step->body != NULL) {
+			body_osv = osv_from_ephem(body_ephems[step->body->id-1], step->date, SUN());
+			step->r = body_osv.r;
+			step->v_body = body_osv.v;
+		} else step->v_body = vec(0, 0, 0);
+		step = step->next != NULL ? step->next[0] : NULL;
+	}
+}
+
+void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step) {
+	if(step == NULL) return;
+	struct ItinStep *next;
+	while(step->next != NULL) {
+		next = step->next[0];
+		double dt = (next->date-step->date)*86400;
+		struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r, next->v_body, dt, NULL);
+		next->v_dep = transfer.v0;
+		next->v_arr = transfer.v1;
+		step = next;
+	}
+}
+
 void store_step_in_file(struct ItinStep *step, FILE *file, int layer, int variation) {
 	fprintf(file, "#%d#%d\n", layer, variation);
 	fprintf(file, "Date: %f\n", step->date);

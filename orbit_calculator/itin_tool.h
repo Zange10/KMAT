@@ -51,6 +51,12 @@ int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Bod
 // get the number of layers/steps in the given itinerary (departure first)
 int get_num_of_itin_layers(struct ItinStep *step);
 
+// update r and v_body vectors of itinerary steps (departure first)
+void update_itin_body_osvs(struct ItinStep *step, struct Ephem **body_ephems);
+
+// calculate from velocity vectors for itinerary steps from date and r vector (departure first)
+void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step);
+
 // store itineraries in text file from multiple departures (pre-order storing)
 void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int num_deps);
 

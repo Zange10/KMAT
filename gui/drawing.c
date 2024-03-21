@@ -36,7 +36,7 @@ void draw_body(cairo_t *cr, struct Vector2D center, double scale, struct Vector 
 	cairo_fill(cr);
 }
 
-void draw_transfer(cairo_t *cr, struct Vector2D center, double scale, struct Vector r) {
+void draw_transfer_point(cairo_t *cr, struct Vector2D center, double scale, struct Vector r) {
 	int cross_length = 4;
 	cairo_set_source_rgb(cr, 1, 0, 0);
 	r = scalar_multiply(r, scale);
@@ -49,28 +49,28 @@ void draw_transfer(cairo_t *cr, struct Vector2D center, double scale, struct Vec
 	}
 }
 
-void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct TransferData *tf0, struct TransferData *tf1, struct Ephem **ephems) {
+
+
+
+// Rework trajectory drawing -> OSV + dt   ----------------------------------------------
+void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf) {
 	cairo_set_source_rgb(cr, 0, 1, 0);
-	struct OSV osv0 = osv_from_ephem(ephems[tf0->body->id-1], tf0->date, SUN());
-	struct OSV osv1 = osv_from_ephem(ephems[tf1->body->id-1], tf1->date, SUN());
-	double dt = (tf1->date-tf0->date)*24*60*60;
-	double data[3];
+	struct ItinStep *prev = tf->prev;
+	double dt = (tf->date-prev->date)*24*60*60;
 
-	struct Transfer transfer = calc_transfer(circcap, tf0->body, tf1->body, osv0.r, osv0.v, osv1.r, osv1.v, dt, data);
-	tf0->dv = tf0->prev == NULL ? data[1] : 0;
-	tf1->dv = tf1->next == NULL ? data[2] : 0;
-
-	if(tf0->prev != NULL && tf0->prev->body != NULL) {
-		double t[3] = {tf0->prev->date, tf0->date, tf1->date};
-		struct OSV osv_prev = osv_from_ephem(ephems[tf0->prev->body->id-1], tf0->prev->date, SUN());
-		struct OSV osvs[3] = {osv_prev, osv0, osv1};
-		struct Body *bodies[3] = {tf0->prev->body, tf0->body, tf1->body};
+	if(prev->prev != NULL && prev->body != NULL) {
+		double t[3] = {prev->prev->date, prev->date, tf->date};
+		struct OSV osv0 = {prev->prev->r, prev->prev->v_body};
+		struct OSV osv1 = {prev->r, prev->v_body};
+		struct OSV osv2 = {tf->r, tf->v_body};
+		struct OSV osvs[3] = {osv0, osv1, osv2};
+		struct Body *bodies[3] = {prev->prev->body, prev->body, tf->body};
 		if(!is_flyby_viable(t, osvs, bodies)) cairo_set_source_rgb(cr, 1, 0, 0);
 	}
 
 	int steps = 1000;
-	struct Vector r = transfer.r0;
-	struct Vector v = transfer.v0;
+	struct Vector r = prev->r;
+	struct Vector v = tf->v_dep;
 	struct OSV last_osv = {r,v};
 	for(int i = 1; i <= steps; i++) {
 		double time = dt/steps * i;
@@ -87,82 +87,86 @@ void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct T
 	}
 }
 
-void draw_dsb(cairo_t *cr, struct Vector2D center, double scale, struct TransferData *tf0, struct TransferData *tf1, struct Ephem **ephems) {
-	if(tf1->next == NULL) {
-		draw_trajectory(cr, center, scale, tf0, tf1, ephems);
-		return;
-	}
+//void draw_dsb(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf0, struct ItinStep *tf1, struct Ephem **ephems) {
+//	if(tf1->next == NULL) {
+//		draw_trajectory(cr, center, scale, tf0, tf1, ephems);
+//		return;
+//	}
+//
+//	cairo_set_source_rgb(cr, 0, 1, 0);
+//
+//	struct Body *bodies[] = {tf0->prev->body, tf0->body, tf1->next[0]->body};
+//
+//	double jd_dep = tf0->prev->date;
+//	double jd_sb1 = tf0->date;
+//	double jd_sb2 = tf1->date;
+//	double jd_arr = tf1->next[0]->date;
+//
+//	struct OSV osv_dep = osv_from_ephem(ephems[bodies[0]->id-1], jd_dep, SUN());
+//	struct OSV osv_sb1 = osv_from_ephem(ephems[bodies[1]->id-1], jd_sb1, SUN());
+//	struct OSV osv_sb2 = osv_from_ephem(ephems[bodies[1]->id-1], jd_sb2, SUN());
+//	struct OSV osv_arr = osv_from_ephem(ephems[bodies[2]->id-1], jd_arr, SUN());
+//
+//	struct Transfer transfer_dep = calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v, osv_sb1.r, osv_sb1.v, (jd_sb1-jd_dep)*86400, NULL);
+//	struct Transfer transfer_arr = calc_transfer(circfb, VENUS(), EARTH(), osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
+//
+//	struct OSV s0 = {transfer_dep.r1, transfer_dep.v1};
+//	struct OSV s1 = {transfer_arr.r0, transfer_arr.v0};
+//
+//	struct DSB dsb = calc_double_swing_by(s0, osv_sb1, s1, osv_sb2, jd_sb2-jd_sb1, bodies[1]);
+//
+//	print_vector(scalar_multiply(dsb.osv[0].r,1e-9));
+//	print_vector(scalar_multiply(dsb.osv[1].r,1e-9));
+//	print_vector(scalar_multiply(dsb.osv[2].r,1e-9));
+//	print_vector(scalar_multiply(dsb.osv[3].r,1e-9));
+//
+//	tf0->next[0]->date = tf0->date + dsb.man_time/86400;
+//	draw_transfer_point(cr, center, scale, dsb.osv[1].r);
+//	cairo_set_source_rgb(cr, 0, 1, 0);
+//
+//	print_date(convert_JD_date(jd_sb1),1);
+//	print_date(convert_JD_date(tf0->date),1);
+//	print_date(convert_JD_date(tf0->next[0]->date),1);
+//	print_date(convert_JD_date(jd_sb2),1);
+//	print_date(convert_JD_date(tf1->date),1);
+//	double times[3] = {jd_sb1, tf0->next[0]->date, jd_sb2};
+//
+//	for(int c = 0; c < 2; c++) {
+//		double dt = (times[c+1]-times[c])*86400;
+//
+//		if(c == 0) {
+//			double t[3] = {tf0->prev->date, tf0->date, tf0->next[0]->date};
+//			struct OSV osv_prev = osv_from_ephem(ephems[tf0->prev->body->id - 1], tf0->prev->date, SUN());
+//			struct OSV osvs[3] = {osv_prev, osv_sb1, dsb.osv[2]};
+//			struct Body *temp_bodies[3] = {tf0->prev->body, tf0->body, tf1->body};
+//			if(!is_flyby_viable(t, osvs, temp_bodies)) cairo_set_source_rgb(cr, 1, 0, 0);
+//		}
+//
+//		int steps = 1000;
+//		struct Vector r = dsb.osv[c*2].r;
+//		struct Vector v = dsb.osv[c*2].v;
+//		struct OSV last_osv = {r, v};
+//		printf("%f\n", dt/86400);
+//		for(int i = 1; i <= steps; i++) {
+//			double time = dt / steps * i;
+//			struct OSV osv = propagate_orbit_time(r, v, time, SUN());
+//			// y negative, because in GUI y gets bigger downwards
+//			struct Vector2D p1 = {last_osv.r.x, -last_osv.r.y};
+//			struct Vector2D p2 = {osv.r.x, -osv.r.y};
+//
+//			p1 = scalar_multipl2d(p1, scale);
+//			p2 = scalar_multipl2d(p2, scale);
+//
+//			draw_stroke(cr, add_vectors2d(p1, center), add_vectors2d(p2, center));
+//			last_osv = osv;
+//		}
+//	}
+//}
+// Rework trajectory drawing -> OSV + dt   ----------------------------------------------
 
-	cairo_set_source_rgb(cr, 0, 1, 0);
 
-	struct Body *bodies[] = {tf0->prev->body, tf0->body, tf1->next->body};
 
-	double jd_dep = tf0->prev->date;
-	double jd_sb1 = tf0->date;
-	double jd_sb2 = tf1->date;
-	double jd_arr = tf1->next->date;
 
-	struct OSV osv_dep = osv_from_ephem(ephems[bodies[0]->id-1], jd_dep, SUN());
-	struct OSV osv_sb1 = osv_from_ephem(ephems[bodies[1]->id-1], jd_sb1, SUN());
-	struct OSV osv_sb2 = osv_from_ephem(ephems[bodies[1]->id-1], jd_sb2, SUN());
-	struct OSV osv_arr = osv_from_ephem(ephems[bodies[2]->id-1], jd_arr, SUN());
-
-	struct Transfer transfer_dep = calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v, osv_sb1.r, osv_sb1.v, (jd_sb1-jd_dep)*86400, NULL);
-	struct Transfer transfer_arr = calc_transfer(circfb, VENUS(), EARTH(), osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
-
-	struct OSV s0 = {transfer_dep.r1, transfer_dep.v1};
-	struct OSV s1 = {transfer_arr.r0, transfer_arr.v0};
-
-	struct DSB dsb = calc_double_swing_by(s0, osv_sb1, s1, osv_sb2, jd_sb2-jd_sb1, bodies[1]);
-
-	print_vector(scalar_multiply(dsb.osv[0].r,1e-9));
-	print_vector(scalar_multiply(dsb.osv[1].r,1e-9));
-	print_vector(scalar_multiply(dsb.osv[2].r,1e-9));
-	print_vector(scalar_multiply(dsb.osv[3].r,1e-9));
-
-	tf0->next->dv = dsb.dv;
-	tf0->next->date = tf0->date + dsb.man_time/86400;
-	draw_transfer(cr, center, scale, dsb.osv[1].r);
-	cairo_set_source_rgb(cr, 0, 1, 0);
-
-	print_date(convert_JD_date(jd_sb1),1);
-	print_date(convert_JD_date(tf0->date),1);
-	print_date(convert_JD_date(tf0->next->date),1);
-	print_date(convert_JD_date(jd_sb2),1);
-	print_date(convert_JD_date(tf1->date),1);
-	double times[3] = {jd_sb1, tf0->next->date, jd_sb2};
-
-	for(int c = 0; c < 2; c++) {
-		double dt = (times[c+1]-times[c])*86400;
-
-		if(c == 0) {
-			double t[3] = {tf0->prev->date, tf0->date, tf0->next->date};
-			struct OSV osv_prev = osv_from_ephem(ephems[tf0->prev->body->id - 1], tf0->prev->date, SUN());
-			struct OSV osvs[3] = {osv_prev, osv_sb1, dsb.osv[2]};
-			struct Body *temp_bodies[3] = {tf0->prev->body, tf0->body, tf1->body};
-			if(!is_flyby_viable(t, osvs, temp_bodies)) cairo_set_source_rgb(cr, 1, 0, 0);
-		}
-
-		int steps = 1000;
-		struct Vector r = dsb.osv[c*2].r;
-		struct Vector v = dsb.osv[c*2].v;
-		struct OSV last_osv = {r, v};
-		printf("%f\n", dt/86400);
-		for(int i = 1; i <= steps; i++) {
-			double time = dt / steps * i;
-			struct OSV osv = propagate_orbit_time(r, v, time, SUN());
-			// y negative, because in GUI y gets bigger downwards
-			struct Vector2D p1 = {last_osv.r.x, -last_osv.r.y};
-			struct Vector2D p2 = {osv.r.x, -osv.r.y};
-
-			p1 = scalar_multipl2d(p1, scale);
-			p2 = scalar_multipl2d(p2, scale);
-
-			draw_stroke(cr, add_vectors2d(p1, center), add_vectors2d(p2, center));
-			last_osv = osv;
-		}
-	}
-}
 
 void draw_stroke(cairo_t *cr, struct Vector2D p1, struct Vector2D p2) {
 	cairo_set_line_width(cr, 1);
