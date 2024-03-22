@@ -342,6 +342,30 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step) {
 	}
 }
 
+void copy_step_body_vectors_and_date(struct ItinStep *orig_step, struct ItinStep *step_copy) {
+	step_copy->body = orig_step->body;
+	step_copy->r = orig_step->r;
+	step_copy->v_body = orig_step->v_body;
+	step_copy->v_arr = orig_step->v_arr;
+	step_copy->v_dep = orig_step->v_dep;
+	step_copy->date = orig_step->date;
+}
+
+struct ItinStep * create_itin_copy(struct ItinStep *step) {
+	struct ItinStep *new_step = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+	copy_step_body_vectors_and_date(step, new_step);
+	new_step->prev = NULL;
+	new_step->num_next_nodes = step->num_next_nodes;
+	if(step->num_next_nodes > 0) {
+		new_step->next = (struct ItinStep **) malloc(step->num_next_nodes * sizeof(struct ItinStep *));
+		for(int i = 0; i < new_step->num_next_nodes; i++) {
+			new_step->next[i] = create_itin_copy(step->next[i]);
+			new_step->next[i]->prev = new_step;
+		}
+	} else new_step->next = NULL;
+	return new_step;
+}
+
 void store_step_in_file(struct ItinStep *step, FILE *file, int layer, int variation) {
 	fprintf(file, "#%d#%d\n", layer, variation);
 	fprintf(file, "Date: %f\n", step->date);

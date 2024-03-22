@@ -57,6 +57,12 @@ void update_itin_body_osvs(struct ItinStep *step, struct Ephem **body_ephems);
 // calculate from velocity vectors for itinerary steps from date and r vector (departure first)
 void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step);
 
+// copy the body reference, r and v vectors and date from orig_step to step_copy
+void copy_step_body_vectors_and_date(struct ItinStep *orig_step, struct ItinStep *step_copy);
+
+// create and return copy of itinerary from given step (rising date)
+struct ItinStep * create_itin_copy(struct ItinStep *step);
+
 // store itineraries in text file from multiple departures (pre-order storing)
 void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int num_deps);
 

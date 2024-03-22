@@ -68,7 +68,7 @@ void start_transfer_app() {
 	
 	g_application_run (G_APPLICATION (app), 0, NULL);
 	g_object_unref (app);
-	
+
 	remove_all_transfers();
 	for(int i = 0; i < 9; i++) free(ephems[i]);
 	free(ephems);
@@ -179,33 +179,13 @@ double calc_total_dv() {
 	return porkchop[2]+porkchop[3]+porkchop[4];
 }
 
-//int find_closest_transfer_from_transfer(struct ItinStep *transfer) {
-//	if(transfer->prev == NULL || transfer->prev->prev == NULL) return 1;
-//	struct TransferData *tf[3] = {transfer->prev->prev, transfer->prev, transfer};
-//	double t[3];
-//	struct OSV osvs[3];
-//	struct Body *bodies[3];
-//
-//	for(int i = 0; i < 3; i++) {
-//		t[i] = tf[i]->date;
-//		osvs[i] = osv_from_ephem(ephems[tf[i]->body->id-1], tf[i]->date, SUN());
-//		bodies[i] = tf[i]->body;
-//	}
-//	double closest_transfer = find_closest_transfer(t, osvs, bodies, ephems, 10*365);
-//	if(closest_transfer < 0) return 0;
-//	current_date = closest_transfer;
-//	transfer->date = closest_transfer;
-//	return 1;
-//}
-
 void update_itinerary() {
 	update_itin_body_osvs(get_first(), ephems);
 	calc_itin_v_vectors_from_dates_and_r(get_first());
 	update();
 }
 
-void sort_transfer_dates() {
-	struct ItinStep *tf = get_first();
+void sort_transfer_dates(struct ItinStep *tf) {
 	if(tf == NULL) return;
 	while(tf->next != NULL) {
 		if(tf->next[0]->date <= tf->date) tf->next[0]->date = tf->date+1;
@@ -273,7 +253,7 @@ void on_change_date(GtkWidget* widget, gpointer data) {
 			return;
 		}
 		curr_transfer->date = current_date;
-		sort_transfer_dates();
+		sort_transfer_dates(get_first());
 	}
 
 	update_itinerary();
@@ -407,42 +387,63 @@ void on_remove_transfer(GtkWidget* widget, gpointer data) {
 	update();
 }
 
-
-
-void on_find_closest_transfer(GtkWidget* widget, gpointer data) {
-	if(curr_transfer == NULL || curr_transfer->prev == NULL || curr_transfer->prev->prev == NULL) return;
-	struct ItinStep *prev = curr_transfer->prev;
+int find_closest_transfer(struct ItinStep *step) {
+	if(step == NULL || step->prev == NULL || step->prev->prev == NULL) return 0;
+	struct ItinStep *prev = step->prev;
 	struct ItinStep *temp = (struct ItinStep*) malloc(sizeof(struct ItinStep));
-	temp->body = prev->body;
-	temp->r = prev->r;
-	temp->v_body = prev->v_body;
-	temp->v_arr = prev->v_arr;
-	temp->v_dep = prev->v_dep;
-	temp->date = prev->date;
+	copy_step_body_vectors_and_date(prev, temp);
 	temp->next = NULL;
 	temp->prev = NULL;
 	temp->num_next_nodes = 0;
-	find_viable_flybys(temp, ephems[curr_transfer->body->id-1], curr_transfer->body, 86400, 86400*365.25*50);
+	find_viable_flybys(temp, ephems[step->body->id-1], step->body, 86400, 86400*365.25*50);
 
 	if(temp->next != NULL) {
 		struct ItinStep *new_step = temp->next[0];
-		curr_transfer->r = new_step->r;
-		curr_transfer->v_body = new_step->v_body;
-		curr_transfer->v_dep = new_step->v_dep;
-		curr_transfer->v_arr = new_step->v_arr;
-		curr_transfer->date = new_step->date;
-		curr_transfer->v_body = new_step->v_body;
+		copy_step_body_vectors_and_date(new_step, step);
 		for(int i = 0; i < temp->num_next_nodes; i++) free(temp->next[i]);
 		free(temp->next);
-		current_date = curr_transfer->date;
+		current_date = step->date;
+		free(temp);
+		sort_transfer_dates(step);
+		return 1;
+	} else {
+		free(temp);
+		return 0;
 	}
+}
 
-	sort_transfer_dates();
-
-	free(temp);
-	update_itinerary();
+void on_find_closest_transfer(GtkWidget* widget, gpointer data) {
+	int success = find_closest_transfer(curr_transfer);
+	if(success) update_itinerary();
 }
 
 void on_find_itinerary(GtkWidget* widget, gpointer data) {
+	struct ItinStep *itin_copy = create_itin_copy(get_first());
+	if(itin_copy == NULL || itin_copy->next == NULL || itin_copy->next[0]->next == NULL) return;
 
+	itin_copy = itin_copy->next[0];
+	int success = 1;
+
+	while(itin_copy->next != NULL) {
+		itin_copy = itin_copy->next[0];
+		success = find_closest_transfer(itin_copy);
+		if(!success) break;
+	}
+
+	if(success) {
+		while(itin_copy->prev != NULL) itin_copy = itin_copy->prev;
+		struct ItinStep *itin = get_first();
+		while(itin != NULL) {
+			copy_step_body_vectors_and_date(itin_copy, itin);
+			if(itin->next != NULL) {
+				itin = itin->next[0];
+				itin_copy = itin_copy->next[0];
+			} else {
+				itin = NULL;
+			}
+		}
+		update_itinerary();
+	}
+
+	free_itinerary(itin_copy);
 }
