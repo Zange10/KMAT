@@ -161,6 +161,7 @@ void on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 				int id = temp_transfer->body->id;
 				set_cairo_body_color(cr, id);
 				draw_transfer_point(cr, center, scale, temp_transfer->r);
+				// skip not working or draw working double swing-by
 			} else if(temp_transfer->body == NULL && temp_transfer->v_body.x == 1)
 				draw_transfer_point(cr, center, scale, temp_transfer->r);
 			if(temp_transfer->prev != NULL) draw_trajectory(cr, center, scale, temp_transfer);
@@ -172,9 +173,8 @@ void on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 }
 
 double calc_total_dv() {
-	if(curr_transfer == NULL) return 0;
+	if(curr_transfer == NULL || !is_valid_itinerary(get_last())) return 0;
 	struct ItinStep *temp_transfer = get_last();
-	return 0;
 	double porkchop[5];
 	create_porkchop_point(temp_transfer, porkchop);
 	return porkchop[2]+porkchop[3]+porkchop[4];
@@ -294,8 +294,8 @@ void on_transfer_body_change(GtkWidget* widget, gpointer data) {
 }
 
 void on_toggle_transfer_date_lock(GtkWidget* widget, gpointer data) {
-	if(curr_transfer != NULL && curr_transfer->body != NULL &&
-			gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tfdate)))
+	if(curr_transfer->body == NULL) gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
+	if(curr_transfer != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tfdate)))
 		current_date = curr_transfer->date;
 	update_itinerary();
 }

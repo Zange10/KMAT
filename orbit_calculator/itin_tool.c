@@ -411,6 +411,16 @@ struct ItinStep * create_itin_copy(struct ItinStep *step) {
 	return new_step;
 }
 
+int is_valid_itinerary(struct ItinStep *step) {
+	if(step == NULL || step->body == NULL || step->prev == NULL) return 0;
+	while(step != NULL) {
+		if(step->body == NULL && step->v_body.x == 0) return 0;
+		step = step->prev;
+	}
+
+	return 1;
+}
+
 void store_step_in_file(struct ItinStep *step, FILE *file, int layer, int variation) {
 	fprintf(file, "#%d#%d\n", layer, variation);
 	fprintf(file, "Date: %f\n", step->date);

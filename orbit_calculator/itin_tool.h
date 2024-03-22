@@ -63,6 +63,9 @@ void copy_step_body_vectors_and_date(struct ItinStep *orig_step, struct ItinStep
 // create and return copy of itinerary from given step (rising date)
 struct ItinStep * create_itin_copy(struct ItinStep *step);
 
+// returns 1 if itinerary is valid and 0 if not
+int is_valid_itinerary(struct ItinStep *step);
+
 // store itineraries in text file from multiple departures (pre-order storing)
 void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int num_deps);
 
