@@ -324,7 +324,7 @@ void update_itin_body_osvs(struct ItinStep *step, struct Ephem **body_ephems) {
 			body_osv = osv_from_ephem(body_ephems[step->body->id-1], step->date, SUN());
 			step->r = body_osv.r;
 			step->v_body = body_osv.v;
-		} else step->v_body = vec(0, 0, 0);
+		} else step->v_body = vec(0, 0, 0);	// don't draw the trajectory (except changed in later calc)
 		step = step->next != NULL ? step->next[0] : NULL;
 	}
 }
@@ -334,10 +334,55 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step) {
 	struct ItinStep *next;
 	while(step->next != NULL) {
 		next = step->next[0];
-		double dt = (next->date-step->date)*86400;
-		struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r, next->v_body, dt, NULL);
-		next->v_dep = transfer.v0;
-		next->v_arr = transfer.v1;
+
+		if(next->body == NULL) {
+			if(next->next == NULL) {
+				step = next;
+				continue;
+			} else if(next->next[0]->next == NULL) {
+				next = next->next[0];
+				double dt = (next->date - step->date) * 86400;
+				struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
+														 next->v_body, dt, NULL);
+				next->v_dep = transfer.v0;
+				next->v_arr = transfer.v1;
+			} else {
+				struct ItinStep *sb2 = next->next[0];
+				struct ItinStep *arr = next->next[0]->next[0];
+				struct OSV osv_sb2 = {next->next[0]->r, next->next[0]->v_body};
+				struct OSV osv_arr = {next->next[0]->next[0]->r, next->next[0]->next[0]->v_body};
+				struct Transfer transfer_after_dsb = calc_transfer(circfb, sb2->body, arr->body, osv_sb2.r, osv_sb2.v,
+																   osv_arr.r, osv_arr.v,
+																   (arr->date - sb2->date) * 86400, NULL);
+
+				struct OSV s0 = {step->r, step->v_arr};
+				struct OSV p0 = {step->r, step->v_body};
+				struct OSV s1 = {transfer_after_dsb.r0, transfer_after_dsb.v0};
+
+				double dt = sb2->date - step->date;
+				struct DSB dsb = calc_double_swing_by(s0, p0, s1, osv_sb2, dt, sb2->body);
+				if(dsb.dv < 10000) {
+					next->r = dsb.osv[1].r;
+					next->v_dep = dsb.osv[0].v;
+					next->v_arr = dsb.osv[1].v;
+					next->date = step->date + dsb.man_time / 86400;
+					next->v_body = vec(1, 0, 0);    // draw the trajectory
+				} else {
+					next = next->next[0];
+					dt = (next->date - step->date) * 86400;
+					struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
+															 next->v_body, dt, NULL);
+					next->v_dep = transfer.v0;
+					next->v_arr = transfer.v1;
+				}
+			}
+		} else {
+			double dt = (next->date - step->date) * 86400;
+			struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
+													 next->v_body, dt, NULL);
+			next->v_dep = transfer.v0;
+			next->v_arr = transfer.v1;
+		}
 		step = next;
 	}
 }

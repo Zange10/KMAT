@@ -54,8 +54,13 @@ void draw_transfer_point(cairo_t *cr, struct Vector2D center, double scale, stru
 
 // Rework trajectory drawing -> OSV + dt   ----------------------------------------------
 void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf) {
+	// if double swing-by is not worth drawing
+	if(tf->body == NULL && tf->v_body.x == 0) return;
+
 	cairo_set_source_rgb(cr, 0, 1, 0);
 	struct ItinStep *prev = tf->prev;
+	// skip not working double swing-by
+	if(tf->prev->body == NULL && tf->prev->v_body.x == 0) prev = tf->prev->prev;
 	double dt = (tf->date-prev->date)*24*60*60;
 
 	if(prev->prev != NULL && prev->body != NULL) {

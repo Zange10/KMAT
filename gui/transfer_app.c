@@ -161,7 +161,8 @@ void on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 				int id = temp_transfer->body->id;
 				set_cairo_body_color(cr, id);
 				draw_transfer_point(cr, center, scale, temp_transfer->r);
-			}
+			} else if(temp_transfer->body == NULL && temp_transfer->v_body.x == 1)
+				draw_transfer_point(cr, center, scale, temp_transfer->r);
 			if(temp_transfer->prev != NULL) draw_trajectory(cr, center, scale, temp_transfer);
 			temp_transfer = temp_transfer->next != NULL ? temp_transfer->next[0] : NULL;
 		}
@@ -293,7 +294,8 @@ void on_transfer_body_change(GtkWidget* widget, gpointer data) {
 }
 
 void on_toggle_transfer_date_lock(GtkWidget* widget, gpointer data) {
-	if(curr_transfer != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tfdate)))
+	if(curr_transfer != NULL && curr_transfer->body != NULL &&
+			gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tfdate)))
 		current_date = curr_transfer->date;
 	update_itinerary();
 }
@@ -418,19 +420,23 @@ void on_find_closest_transfer(GtkWidget* widget, gpointer data) {
 }
 
 void on_find_itinerary(GtkWidget* widget, gpointer data) {
-	struct ItinStep *itin_copy = create_itin_copy(get_first());
+	struct ItinStep *itin_copy = create_itin_copy(get_last());
+	while(itin_copy->prev != NULL) {
+		if(itin_copy->prev->body == NULL) return;	// double swing-by not implemented
+		itin_copy = itin_copy->prev;
+	}
 	if(itin_copy == NULL || itin_copy->next == NULL || itin_copy->next[0]->next == NULL) return;
 
 	itin_copy = itin_copy->next[0];
-	int success = 1;
+	int status = 1;
 
 	while(itin_copy->next != NULL) {
 		itin_copy = itin_copy->next[0];
-		success = find_closest_transfer(itin_copy);
-		if(!success) break;
+		status = find_closest_transfer(itin_copy);
+		if(!status) break;
 	}
 
-	if(success) {
+	if(status) {
 		while(itin_copy->prev != NULL) itin_copy = itin_copy->prev;
 		struct ItinStep *itin = get_first();
 		while(itin != NULL) {

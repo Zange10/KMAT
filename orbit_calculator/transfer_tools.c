@@ -182,15 +182,20 @@ struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, stru
 	struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
 
     if(data != NULL) {
-        double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
-        double dv1 = tt % 2 == 0 ? dv_capture(dep_body, dep_body->atmo_alt+100e3, v_t1_inf) : dv_circ(dep_body, dep_body->atmo_alt+100e3, v_t1_inf);
+		double dv1, dv2;
+		if(dep_body != NULL) {
+			double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
+			dv1 = tt % 2 == 0 ? dv_capture(dep_body, dep_body->atmo_alt + 100e3, v_t1_inf) : dv_circ(dep_body,dep_body->atmo_alt + 100e3,v_t1_inf);
+		} else dv1 = vector_mag(v1);
 
-        double v_t2_inf = fabs(vector_mag(add_vectors(transfer.v1, scalar_multiply(v2, -1))));
-        double dv2;
-        if(tt < 2)      dv2 = dv_capture(arr_body, arr_body->atmo_alt+100e3, v_t2_inf);
-        else if(tt < 4) dv2 = dv_circ(arr_body, arr_body->atmo_alt+100e3, v_t2_inf);
-        else            dv2 = 0;
-
+		if(arr_body != NULL) {
+			double v_t2_inf = fabs(vector_mag(add_vectors(transfer.v1, scalar_multiply(v2, -1))));
+			if(tt < 2) dv2 = dv_capture(arr_body, arr_body->atmo_alt + 100e3, v_t2_inf);
+			else if(tt < 4) dv2 = dv_circ(arr_body, arr_body->atmo_alt + 100e3, v_t2_inf);
+			else dv2 = 0;
+		} else {
+			dv2 = vector_mag(v2);
+		}
         data[0] = dt / (24 * 60 * 60);
         data[1] = dv1;
         data[2] = dv2;
