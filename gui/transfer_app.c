@@ -232,15 +232,6 @@ void update_date_label() {
 }
 
 void update_transfer_panel() {
-	if(curr_transfer != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tfdate))) {
-		if((curr_transfer->next != NULL && current_date >= curr_transfer->next[0]->date) ||
-		   (curr_transfer->prev != NULL && current_date <= curr_transfer->prev->date)) {
-			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
-			return;
-		}
-		curr_transfer->date = current_date;
-	}
-	
 	if(curr_transfer == NULL) {
 		gtk_button_set_label(GTK_BUTTON(tb_tfdate), "0000-00-00");
 		gtk_button_set_label(GTK_BUTTON(bt_tfbody), "Planet");
@@ -275,8 +266,17 @@ void on_change_date(GtkWidget* widget, gpointer data) {
 	else if	(strcmp(name, "-1Y") == 0) current_date = jd_change_date(current_date,-1, 0, 0);
 	else if	(strcmp(name, "-1M") == 0) current_date = jd_change_date(current_date, 0,-1, 0);
 	else if	(strcmp(name, "-1D") == 0) current_date--;
-	if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tfdate))) update();
-	else update_itinerary();
+
+	if(curr_transfer != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tfdate))) {
+		if(curr_transfer->prev != NULL && current_date <= curr_transfer->prev->date) {
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
+			return;
+		}
+		curr_transfer->date = current_date;
+		sort_transfer_dates();
+	}
+
+	update_itinerary();
 }
 
 
@@ -348,7 +348,7 @@ void on_add_transfer(GtkWidget* widget, gpointer data) {
 	// date
 	new_transfer->date = current_date;
 	if(curr_transfer != NULL) {
-		if(current_date > curr_transfer->date) new_transfer->date = curr_transfer->date + 1;
+		if(current_date <= curr_transfer->date) new_transfer->date = curr_transfer->date + 1;
 		if(next != NULL) {
 			if(next->date - curr_transfer->date < 2) {
 				free(new_transfer);
@@ -379,7 +379,7 @@ void on_add_transfer(GtkWidget* widget, gpointer data) {
 	curr_transfer = new_transfer;
 	current_date = curr_transfer->date;
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
-	update();
+	update_itinerary();
 }
 
 void on_remove_transfer(GtkWidget* widget, gpointer data) {
@@ -391,6 +391,7 @@ void on_remove_transfer(GtkWidget* widget, gpointer data) {
 			curr_transfer->prev->next[0] = curr_transfer->next[0];
 		} else {
 			free(curr_transfer->prev->next);
+			curr_transfer->prev->next = NULL;
 			curr_transfer->prev->num_next_nodes = 0;
 		}
 	}
@@ -431,10 +432,12 @@ void on_find_closest_transfer(GtkWidget* widget, gpointer data) {
 		curr_transfer->v_arr = new_step->v_arr;
 		curr_transfer->date = new_step->date;
 		curr_transfer->v_body = new_step->v_body;
-
 		for(int i = 0; i < temp->num_next_nodes; i++) free(temp->next[i]);
 		free(temp->next);
+		current_date = curr_transfer->date;
 	}
+
+	sort_transfer_dates();
 
 	free(temp);
 	update_itinerary();
