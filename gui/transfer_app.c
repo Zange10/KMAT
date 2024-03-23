@@ -14,7 +14,6 @@
 
 struct ItinStep *curr_transfer;
 
-static int counter = 0;
 GObject *drawing_area;
 GObject *lb_date;
 GObject *tb_tfdate;
@@ -25,6 +24,8 @@ GObject *transfer_panel;
 
 gboolean body_show_status[9];
 struct Ephem **ephems;
+enum LastTransferType {FLYBY, CAPTURE, CIRC};
+enum LastTransferType last_transfer_type = FLYBY;
 
 double current_date;
 
@@ -40,6 +41,7 @@ void on_calendar_selection(GtkWidget* widget, gpointer data);
 void on_prev_transfer(GtkWidget* widget, gpointer data);
 void on_next_transfer(GtkWidget* widget, gpointer data);
 void on_transfer_body_change(GtkWidget* widget, gpointer data);
+void on_last_transfer_type_changed(GtkWidget* widget, gpointer data);
 void on_toggle_transfer_date_lock(GtkWidget* widget, gpointer data);
 void on_goto_transfer_date(GtkWidget* widget, gpointer data);
 void on_transfer_body_select(GtkWidget* widget, gpointer data);
@@ -69,7 +71,7 @@ void start_transfer_app() {
 	g_application_run (G_APPLICATION (app), 0, NULL);
 	g_object_unref (app);
 
-	remove_all_transfers();
+	if(curr_transfer != NULL) remove_all_transfers();
 	for(int i = 0; i < 9; i++) free(ephems[i]);
 	free(ephems);
 }
@@ -172,29 +174,34 @@ void on_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	update_transfer_panel();	// Seems redundant, but necessary for updating dv numbers
 }
 
-double calc_total_dv() {
-	if(curr_transfer == NULL || !is_valid_itinerary(get_last())) return 0;
-	struct ItinStep *temp_transfer = get_last();
-	double porkchop[5];
-	create_porkchop_point(temp_transfer, porkchop);
-	return porkchop[2]+porkchop[3]+porkchop[4];
-}
-
-double calc_current_dv() {
-	if(curr_transfer == NULL || (curr_transfer->prev == NULL && curr_transfer->next == NULL)) return 0;
-	if(curr_transfer->body == NULL) {
-		if(curr_transfer->next == NULL || curr_transfer->next[0]->next == NULL || curr_transfer->prev == NULL)
+double calc_step_dv(struct ItinStep *step) {
+	if(step == NULL || (step->prev == NULL && step->next == NULL)) return 0;
+	if(step->body == NULL) {
+		if(step->next == NULL || step->next[0]->next == NULL || step->prev == NULL)
 			return 0;
-		if(curr_transfer->v_body.x == 0) return 0;
-		return vector_mag(subtract_vectors(curr_transfer->v_arr, curr_transfer->next[0]->v_dep));
-	} else if(curr_transfer->prev == NULL) {
-		double vinf = vector_mag(subtract_vectors(curr_transfer->next[0]->v_dep, curr_transfer->v_body));
-		return dv_circ(curr_transfer->body, curr_transfer->body->atmo_alt+100e3, vinf);
-	} else if(curr_transfer->next == NULL) {
-		double vinf = vector_mag(subtract_vectors(curr_transfer->v_arr, curr_transfer->v_body));
-		return dv_capture(curr_transfer->body, curr_transfer->body->atmo_alt+100e3, vinf);
+		if(step->v_body.x == 0) return 0;
+		return vector_mag(subtract_vectors(step->v_arr, step->next[0]->v_dep));
+	} else if(step->prev == NULL) {
+		double vinf = vector_mag(subtract_vectors(step->next[0]->v_dep, step->v_body));
+		return dv_circ(step->body, step->body->atmo_alt+100e3, vinf);
+	} else if(step->next == NULL) {
+		if(last_transfer_type == FLYBY) return 0;
+		double vinf = vector_mag(subtract_vectors(step->v_arr, step->v_body));
+		if(last_transfer_type == CAPTURE) return dv_capture(step->body, step->body->atmo_alt+100e3, vinf);
+		else if(last_transfer_type == CIRC) return dv_circ(step->body, step->body->atmo_alt+100e3, vinf);
 	}
 	return 0;
+}
+
+double calc_total_dv() {
+	if(curr_transfer == NULL || !is_valid_itinerary(get_last())) return 0;
+	double dv = 0;
+	struct ItinStep *step = get_last();
+	while(step != NULL) {
+		dv += calc_step_dv(step);
+		step = step->prev;
+	}
+	return dv;
 }
 
 void update_itinerary() {
@@ -241,7 +248,7 @@ void update_transfer_panel() {
 		if(curr_transfer->body != NULL) gtk_button_set_label(GTK_BUTTON(bt_tfbody), curr_transfer->body->name);
 		else gtk_button_set_label(GTK_BUTTON(bt_tfbody), "Deep-Space Man");
 		char s_dv[20];
-		sprintf(s_dv, "%6.0f m/s", calc_current_dv());
+		sprintf(s_dv, "%6.0f m/s", calc_step_dv(curr_transfer));
 		gtk_label_set_label(GTK_LABEL(lb_transfer_dv), s_dv);
 		sprintf(s_dv, "%6.0f m/s", calc_total_dv());
 		gtk_label_set_label(GTK_LABEL(lb_total_dv), s_dv);
@@ -308,6 +315,15 @@ void on_transfer_body_change(GtkWidget* widget, gpointer data) {
 	if(curr_transfer==NULL) return;
 	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel), "page1");
 	update_itinerary();
+}
+
+void on_last_transfer_type_changed(GtkWidget* widget, gpointer data) {
+	if(!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) return;
+	const char *name = gtk_widget_get_name(widget);
+	if		(strcmp(name, "fb") == 0) last_transfer_type = FLYBY;
+	else if	(strcmp(name, "capture") == 0) last_transfer_type = CAPTURE;
+	else if	(strcmp(name, "circ") == 0) last_transfer_type = CIRC;
+	update_transfer_panel();
 }
 
 void on_toggle_transfer_date_lock(GtkWidget* widget, gpointer data) {
