@@ -63,7 +63,7 @@ void copy_step_body_vectors_and_date(struct ItinStep *orig_step, struct ItinStep
 // create and return copy of itinerary from given step (rising date)
 struct ItinStep * create_itin_copy(struct ItinStep *step);
 
-// returns 1 if itinerary is valid and 0 if not
+// returns 1 if itinerary is valid and 0 if not (arrival first)
 int is_valid_itinerary(struct ItinStep *step);
 
 // store itineraries in text file from multiple departures (pre-order storing)
@@ -73,7 +73,13 @@ void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int 
 void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps);
 
 // load itineraries from binary file for multiple departures (from pre-order storing)
-struct ItinStep ** load_itineraries_from_bfile_init();
+struct ItinStep ** load_itineraries_from_bfile();
+
+// stores single itinerary (first branches in tree) (departure first)
+void store_single_itinerary_in_bfile(struct ItinStep *itin);
+
+// loads single itinerary (first branches in tree) (departure first)
+struct ItinStep * load_single_itinerary_from_bfile();
 
 // removes this and all now unneeded steps from itineraries (no next node before arrival)
 void remove_step_from_itinerary(struct ItinStep *step);

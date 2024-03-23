@@ -505,7 +505,7 @@ void store_step_in_bfile(struct ItinStep *step, FILE *file) {
 }
 
 void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps) {
-	char filename[19];  // 14 for date + 4 for .csv + 1 for string terminator
+	char filename[19];
 	sprintf(filename, "test.itins");
 
 	printf("Filesize: ~%.3f MB\n", (double)num_nodes*110/1e6);
@@ -539,7 +539,7 @@ void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int
 	fclose(file);
 }
 
-void load_itineraries_from_bfile(struct ItinStep *step, FILE *file, struct Body **body) {
+void load_step_from_bfile(struct ItinStep *step, FILE *file, struct Body **body) {
 	struct ItinStepBin bin_step;
 	fread(&bin_step, sizeof(struct ItinStepBin), 1, file);
 	convert_bin_ItinStep(bin_step, step, body[0]);
@@ -549,12 +549,12 @@ void load_itineraries_from_bfile(struct ItinStep *step, FILE *file, struct Body 
 	for(int i = 0; i < step->num_next_nodes; i++) {
 		step->next[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 		step->next[i]->prev = step;
-		load_itineraries_from_bfile(step->next[i], file, body+1);
+		load_step_from_bfile(step->next[i], file, body + 1);
 	}
 }
 
-struct ItinStep ** load_itineraries_from_bfile_init() {
-	char filename[19];  // 14 for date + 4 for .csv + 1 for string terminator
+struct ItinStep ** load_itineraries_from_bfile() {
+	char filename[19];
 	sprintf(filename, "test.itins");
 
 	struct ItinStepBinHeader bin_header;
@@ -585,7 +585,7 @@ struct ItinStep ** load_itineraries_from_bfile_init() {
 	for(int i = 0; i < bin_header.num_deps; i++) {
 		departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 		departures[i]->prev = NULL;
-		load_itineraries_from_bfile(departures[i], file, bodies);
+		load_step_from_bfile(departures[i], file, bodies);
 	}
 
 
@@ -593,6 +593,98 @@ struct ItinStep ** load_itineraries_from_bfile_init() {
 	free(bodies);
 	return departures;
 }
+
+void store_single_itinerary_in_bfile(struct ItinStep *itin) {
+	if(itin == NULL) return;
+	char filename[19];
+	sprintf(filename, "test.itin");
+
+	int num_nodes = get_num_of_itin_layers(itin);
+
+	printf("Number of stored nodes: %d\n", num_nodes);
+
+	FILE *file;
+	file = fopen(filename,"wb");
+
+	fwrite(&num_nodes, sizeof(int), 1, file);
+
+	struct ItinStep *ptr = itin;
+
+	// same algorithm as layer counter (part of header)
+	while(ptr != NULL) {
+		int body_id = (ptr->body != NULL) ? ptr->body->id : 0;
+		fwrite(&body_id, sizeof(int), 1, file);
+		if(ptr->next != NULL) ptr = ptr->next[0];
+		else break;
+	}
+
+	int end_of_bodies_designator = -1;
+	fwrite(&end_of_bodies_designator, sizeof(int), 1, file);
+
+	ptr = itin;
+	while(ptr != NULL) {
+		struct ItinStepBin bin_step = convert_ItinStep_bin(ptr);
+		fwrite(&bin_step, sizeof(struct ItinStepBin), 1, file);
+		if(ptr->next != NULL) ptr = ptr->next[0];
+		else break;
+	}
+
+	fclose(file);
+}
+
+struct ItinStep * load_single_itinerary_from_bfile() {
+	char filename[19];
+	sprintf(filename, "test.itin");
+
+	int num_nodes;
+
+	FILE *file;
+	file = fopen(filename,"rb");
+
+	fread(&num_nodes, sizeof(int), 1, file);
+
+	int *bodies_id = (int*) malloc(num_nodes * sizeof(int));
+	fread(bodies_id, sizeof(int), num_nodes, file);
+
+	int buf;
+	fread(&buf, sizeof(int), 1, file);
+
+	if(buf != -1) {
+		printf("Problems reading itinerary file (Body list or header wrong)\n");
+		fclose(file);
+		return NULL;
+	}
+
+
+	struct Body **bodies = (struct Body**) malloc(num_nodes * sizeof(struct Body*));
+	for(int i = 0; i < num_nodes; i++) bodies[i] = (bodies_id[i] > 0) ? get_body_from_id(bodies_id[i]) : NULL;
+	free(bodies_id);
+
+	struct ItinStep *itin;
+	struct ItinStepBin bin_step;
+	struct ItinStep *last_step = NULL;
+
+	for(int i = 0; i < num_nodes; i++) {
+		itin = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+		fread(&bin_step, sizeof(struct ItinStepBin), 1, file);
+		convert_bin_ItinStep(bin_step, itin, bodies[i]);
+		itin->prev = last_step;
+		itin->next = NULL;
+		if(last_step != NULL) {
+			last_step->next = (struct ItinStep**) malloc(sizeof(struct ItinStep*));
+			last_step->next[0] = itin;
+		}
+		last_step = itin;
+	}
+
+	fclose(file);
+	free(bodies);
+	return itin;
+}
+
+
+
+
 
 void remove_step_from_itinerary(struct ItinStep *step) {
 	struct ItinStep *prev = step->prev;

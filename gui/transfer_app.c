@@ -49,6 +49,8 @@ void on_add_transfer(GtkWidget* widget, gpointer data);
 void on_remove_transfer(GtkWidget* widget, gpointer data);
 void on_find_closest_transfer(GtkWidget* widget, gpointer data);
 void on_find_itinerary(GtkWidget* widget, gpointer data);
+void on_save_itinerary(GtkWidget* widget, gpointer data);
+void on_load_itinerary(GtkWidget* widget, gpointer data);
 
 
 
@@ -453,7 +455,7 @@ void on_find_closest_transfer(GtkWidget* widget, gpointer data) {
 }
 
 void on_find_itinerary(GtkWidget* widget, gpointer data) {
-	struct ItinStep *itin_copy = create_itin_copy(get_last());
+	struct ItinStep *itin_copy = create_itin_copy(get_first());
 	while(itin_copy->prev != NULL) {
 		if(itin_copy->prev->body == NULL) return;	// double swing-by not implemented
 		itin_copy = itin_copy->prev;
@@ -485,4 +487,18 @@ void on_find_itinerary(GtkWidget* widget, gpointer data) {
 	}
 
 	free_itinerary(itin_copy);
+}
+
+void on_save_itinerary(GtkWidget* widget, gpointer data) {
+	struct ItinStep *first = get_first();
+	if(first == NULL || !is_valid_itinerary(get_last())) return;
+	store_single_itinerary_in_bfile(first);
+}
+
+void on_load_itinerary(GtkWidget* widget, gpointer data) {
+	if(curr_transfer != NULL) free_itinerary(get_first());
+	curr_transfer = load_single_itinerary_from_bfile();
+	current_date = curr_transfer->date;
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
+	update_itinerary();
 }
