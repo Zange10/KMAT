@@ -2,7 +2,6 @@
 #include <math.h>
 #include <stdbool.h>
 #include "orbit_calculator.h"
-#include "tools/analytic_geometry.h"
 
 struct ManeuverPlan {
     double dV1;

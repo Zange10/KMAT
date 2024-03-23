@@ -1,7 +1,3 @@
-//
-// Created by niklas on 08.01.24.
-//
-#include <stdlib.h>
 #include <stdio.h>
 
 #include "drawing.h"

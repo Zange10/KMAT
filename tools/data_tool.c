@@ -1,7 +1,3 @@
-//
-// Created by niklas on 01.03.24.
-//
-
 #include "data_tool.h"
 
 void insert_new_data_point(struct Vector2D data[], double x, double y) {

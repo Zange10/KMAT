@@ -1,7 +1,3 @@
-//
-// Created by niklas on 17.01.24.
-//
-
 #ifndef KSP_DOUBLE_SWING_BY_H
 #define KSP_DOUBLE_SWING_BY_H
 

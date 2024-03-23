@@ -1,7 +1,3 @@
-//
-// Created by niklas on 03.02.24.
-//
-
 #include "database_app.h"
 #include "database/database.h"
 #include <gtk/gtk.h>

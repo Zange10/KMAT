@@ -1,7 +1,3 @@
-//
-// Created by niklas on 18.03.24.
-//
-
 #ifndef KSP_ITIN_TOOL_H
 #define KSP_ITIN_TOOL_H
 

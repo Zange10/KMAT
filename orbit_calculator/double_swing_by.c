@@ -1,14 +1,8 @@
-//
-// Created by niklas on 17.01.24.
-//
-
 #include "double_swing_by.h"
-#include "tools/csv_writer.h"
 #include <sys/time.h>
 #include <math.h>
 #include <stdio.h>
 #include "tools/data_tool.h"
-#include <stdlib.h>
 
 
 

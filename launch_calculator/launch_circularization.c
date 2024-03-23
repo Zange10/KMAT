@@ -1,6 +1,5 @@
 #include "launch_circularization.h"
 #include <math.h>
-#include <stdio.h>
 
 double calc_gravity(double mu, double r) {
     return mu/pow(r,2);

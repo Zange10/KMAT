@@ -1,7 +1,3 @@
-//
-// Created by niklas on 18.03.24.
-//
-
 #include "itin_tool.h"
 #include "orbit.h"
 #include "transfer_tools.h"

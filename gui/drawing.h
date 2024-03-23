@@ -1,7 +1,3 @@
-//
-// Created by niklas on 08.01.24.
-//
-
 #ifndef KSP_DRAWING_H
 #define KSP_DRAWING_H
 

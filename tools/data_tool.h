@@ -1,7 +1,3 @@
-//
-// Created by niklas on 01.03.24.
-//
-
 #ifndef KSP_DATA_TOOL_H
 #define KSP_DATA_TOOL_H
 
