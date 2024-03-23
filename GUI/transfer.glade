@@ -129,7 +129,7 @@
             <property name="visible">True</property>
             <property name="can-focus">False</property>
             <child>
-              <object class="GtkDrawingArea" id="drawing_area">
+              <object class="GtkDrawingArea" id="draw_transfer_planner">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
                 <property name="hexpand">True</property>
@@ -793,7 +793,7 @@
                   <object class="GtkGrid">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
-                    <property name="column-spacing">30</property>
+                    <property name="column-spacing">50</property>
                     <child>
                       <object class="GtkButtonBox">
                         <property name="visible">True</property>

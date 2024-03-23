@@ -10,35 +10,35 @@
 #include <locale.h>
 
 
-struct ItinStep *curr_transfer;
+struct ItinStep *curr_transfer_tp;
 
-GObject *drawing_area;
-GObject *lb_date;
-GObject *tb_tfdate;
-GObject *bt_tfbody;
-GObject *lb_transfer_dv;
-GObject *lb_total_dv;
-GObject *transfer_panel;
-gboolean body_show_status[9];
-double current_date;
+GObject *drawing_area_tp;
+GObject *lb_date_tp;
+GObject *tb_tfdate_tp;
+GObject *bt_tfbody_tp;
+GObject *lb_transfer_dv_tp;
+GObject *lb_total_dv_tp;
+GObject *transfer_panel_tp;
+gboolean body_show_status_tp[9];
+double current_date_tp;
 
-enum LastTransferType last_transfer_type;
+enum LastTransferType last_transfer_type_tp;
 
 
 void init_transfer_planner(GtkBuilder *builder) {
-	tb_tfdate = gtk_builder_get_object(builder, "tb_tfdate");
-	bt_tfbody = gtk_builder_get_object(builder, "bt_change_tf_body");
-	lb_transfer_dv = gtk_builder_get_object(builder, "lb_transfer_dv");
-	lb_total_dv = gtk_builder_get_object(builder, "lb_total_dv");
-	transfer_panel = gtk_builder_get_object(builder, "transfer_panel");
-	lb_date = gtk_builder_get_object(builder, "lb_date");
-	drawing_area = gtk_builder_get_object(builder, "drawing_area");
+	tb_tfdate_tp = gtk_builder_get_object(builder, "tb_tfdate");
+	bt_tfbody_tp = gtk_builder_get_object(builder, "bt_change_tf_body");
+	lb_transfer_dv_tp = gtk_builder_get_object(builder, "lb_transfer_dv");
+	lb_total_dv_tp = gtk_builder_get_object(builder, "lb_total_dv");
+	transfer_panel_tp = gtk_builder_get_object(builder, "transfer_panel");
+	lb_date_tp = gtk_builder_get_object(builder, "lb_date");
+	drawing_area_tp = gtk_builder_get_object(builder, "draw_transfer_planner");
 
 	struct Date date = {1977, 8, 20, 0, 0, 0};
-	current_date = convert_date_JD(date);
-	for(int i = 0; i < 9; i++) body_show_status[i] = 0;
+	current_date_tp = convert_date_JD(date);
+	for(int i = 0; i < 9; i++) body_show_status_tp[i] = 0;
 	remove_all_transfers();
-	last_transfer_type = TF_FLYBY;
+	last_transfer_type_tp = TF_FLYBY;
 
 	update_date_label();
 	update_transfer_panel();
@@ -47,15 +47,15 @@ void init_transfer_planner(GtkBuilder *builder) {
 
 
 struct ItinStep * get_first() {
-	if(curr_transfer == NULL) return NULL;
-	struct ItinStep *tf = curr_transfer;
+	if(curr_transfer_tp == NULL) return NULL;
+	struct ItinStep *tf = curr_transfer_tp;
 	while(tf->prev != NULL) tf = tf->prev;
 	return tf;
 }
 
 struct ItinStep * get_last() {
-	if(curr_transfer == NULL) return NULL;
-	struct ItinStep *tf = curr_transfer;
+	if(curr_transfer_tp == NULL) return NULL;
+	struct ItinStep *tf = curr_transfer_tp;
 	while(tf->next != NULL) tf = tf->next[0];
 	return tf;
 }
@@ -75,7 +75,7 @@ void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
 	// Scale
 	int highest_id = 0;
-	for(int i = 0; i < 9; i++) if(body_show_status[i]) highest_id = i+1;
+	for(int i = 0; i < 9; i++) if(body_show_status_tp[i]) highest_id = i + 1;
 	double scale = calc_scale(area_width, area_height, highest_id);
 
 	// Sun
@@ -85,17 +85,17 @@ void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
 	// Planets
 	for(int i = 0; i < 9; i++) {
-		if(body_show_status[i]) {
+		if(body_show_status_tp[i]) {
 			int id = i+1;
 			set_cairo_body_color(cr, id);
-			struct OSV osv = osv_from_ephem(get_body_ephems()[i], current_date, SUN());
+			struct OSV osv = osv_from_ephem(get_body_ephems()[i], current_date_tp, SUN());
 			draw_body(cr, center, scale, osv.r);
 			draw_orbit(cr, center, scale, osv.r, osv.v, SUN());
 		}
 	}
 
 	// Transfers
-	if(curr_transfer != NULL) {
+	if(curr_transfer_tp != NULL) {
 		struct ItinStep *temp_transfer = get_first();
 		while(temp_transfer != NULL) {
 			if(temp_transfer->body != NULL) {
@@ -124,16 +124,16 @@ double calc_step_dv(struct ItinStep *step) {
 		double vinf = vector_mag(subtract_vectors(step->next[0]->v_dep, step->v_body));
 		return dv_circ(step->body, step->body->atmo_alt+100e3, vinf);
 	} else if(step->next == NULL) {
-		if(last_transfer_type == TF_FLYBY) return 0;
+		if(last_transfer_type_tp == TF_FLYBY) return 0;
 		double vinf = vector_mag(subtract_vectors(step->v_arr, step->v_body));
-		if(last_transfer_type == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt+100e3, vinf);
-		else if(last_transfer_type == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt+100e3, vinf);
+		if(last_transfer_type_tp == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + 100e3, vinf);
+		else if(last_transfer_type_tp == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + 100e3, vinf);
 	}
 	return 0;
 }
 
 double calc_total_dv() {
-	if(curr_transfer == NULL || !is_valid_itinerary(get_last())) return 0;
+	if(curr_transfer_tp == NULL || !is_valid_itinerary(get_last())) return 0;
 	double dv = 0;
 	struct ItinStep *step = get_last();
 	while(step != NULL) {
@@ -159,65 +159,65 @@ void sort_transfer_dates(struct ItinStep *tf) {
 }
 
 void remove_all_transfers() {
-	if(curr_transfer == NULL) return;
+	if(curr_transfer_tp == NULL) return;
 	free_itinerary(get_first());
-	curr_transfer = NULL;
+	curr_transfer_tp = NULL;
 }
 
 void update() {
 	update_date_label();
 	update_transfer_panel();
-	gtk_widget_queue_draw(GTK_WIDGET(drawing_area));
+	gtk_widget_queue_draw(GTK_WIDGET(drawing_area_tp));
 }
 
 void update_date_label() {
 	char date_string[10];
-	date_to_string(convert_JD_date(current_date), date_string, 0);
-	gtk_label_set_text(GTK_LABEL(lb_date), date_string);
+	date_to_string(convert_JD_date(current_date_tp), date_string, 0);
+	gtk_label_set_text(GTK_LABEL(lb_date_tp), date_string);
 }
 
 void update_transfer_panel() {
-	if(curr_transfer == NULL) {
-		gtk_button_set_label(GTK_BUTTON(tb_tfdate), "0000-00-00");
-		gtk_button_set_label(GTK_BUTTON(bt_tfbody), "Planet");
+	if(curr_transfer_tp == NULL) {
+		gtk_button_set_label(GTK_BUTTON(tb_tfdate_tp), "0000-00-00");
+		gtk_button_set_label(GTK_BUTTON(bt_tfbody_tp), "Planet");
 	} else {
-		struct Date date = convert_JD_date(curr_transfer->date);
+		struct Date date = convert_JD_date(curr_transfer_tp->date);
 		char date_string[10];
 		date_to_string(date, date_string, 0);
-		gtk_button_set_label(GTK_BUTTON(tb_tfdate), date_string);
-		if(curr_transfer->body != NULL) gtk_button_set_label(GTK_BUTTON(bt_tfbody), curr_transfer->body->name);
-		else gtk_button_set_label(GTK_BUTTON(bt_tfbody), "Deep-Space Man");
+		gtk_button_set_label(GTK_BUTTON(tb_tfdate_tp), date_string);
+		if(curr_transfer_tp->body != NULL) gtk_button_set_label(GTK_BUTTON(bt_tfbody_tp), curr_transfer_tp->body->name);
+		else gtk_button_set_label(GTK_BUTTON(bt_tfbody_tp), "Deep-Space Man");
 		char s_dv[20];
-		sprintf(s_dv, "%6.0f m/s", calc_step_dv(curr_transfer));
-		gtk_label_set_label(GTK_LABEL(lb_transfer_dv), s_dv);
+		sprintf(s_dv, "%6.0f m/s", calc_step_dv(curr_transfer_tp));
+		gtk_label_set_label(GTK_LABEL(lb_transfer_dv_tp), s_dv);
 		sprintf(s_dv, "%6.0f m/s", calc_total_dv());
-		gtk_label_set_label(GTK_LABEL(lb_total_dv), s_dv);
+		gtk_label_set_label(GTK_LABEL(lb_total_dv_tp), s_dv);
 	}
 }
 
 
 void on_body_toggle(GtkWidget* widget, gpointer data) {
 	int id = (int) gtk_widget_get_name(widget)[0] - 48;	// char to int
-	body_show_status[id-1] = body_show_status[id-1] ? 0 : 1;
-	gtk_widget_queue_draw(GTK_WIDGET(drawing_area));
+	body_show_status_tp[id - 1] = body_show_status_tp[id - 1] ? 0 : 1;
+	gtk_widget_queue_draw(GTK_WIDGET(drawing_area_tp));
 }
 
 
 void on_change_date(GtkWidget* widget, gpointer data) {
 	const char *name = gtk_widget_get_name(widget);
-	if		(strcmp(name, "+1Y") == 0) current_date = jd_change_date(current_date, 1, 0, 0);
-	else if	(strcmp(name, "+1M") == 0) current_date = jd_change_date(current_date, 0, 1, 0);
-	else if	(strcmp(name, "+1D") == 0) current_date++;
-	else if	(strcmp(name, "-1Y") == 0) current_date = jd_change_date(current_date,-1, 0, 0);
-	else if	(strcmp(name, "-1M") == 0) current_date = jd_change_date(current_date, 0,-1, 0);
-	else if	(strcmp(name, "-1D") == 0) current_date--;
+	if		(strcmp(name, "+1Y") == 0) current_date_tp = jd_change_date(current_date_tp, 1, 0, 0);
+	else if	(strcmp(name, "+1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 1, 0);
+	else if	(strcmp(name, "+1D") == 0) current_date_tp++;
+	else if	(strcmp(name, "-1Y") == 0) current_date_tp = jd_change_date(current_date_tp, -1, 0, 0);
+	else if	(strcmp(name, "-1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, -1, 0);
+	else if	(strcmp(name, "-1D") == 0) current_date_tp--;
 
-	if(curr_transfer != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tfdate))) {
-		if(curr_transfer->prev != NULL && current_date <= curr_transfer->prev->date) {
-			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
+	if(curr_transfer_tp != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tfdate_tp))) {
+		if(curr_transfer_tp->prev != NULL && current_date_tp <= curr_transfer_tp->prev->date) {
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate_tp), 0);
 			return;
 		}
-		curr_transfer->date = current_date;
+		curr_transfer_tp->date = current_date_tp;
 		sort_transfer_dates(get_first());
 	}
 
@@ -229,65 +229,65 @@ void on_year_select(GtkWidget* widget, gpointer data) {
 	const char *name = gtk_widget_get_name(widget);
 	int year = atoi(name);
 	struct Date date = {year, 1,1};
-	current_date = convert_date_JD(date);
+	current_date_tp = convert_date_JD(date);
 	update_itinerary();
 }
 
 
 
 void on_prev_transfer(GtkWidget* widget, gpointer data) {
-	if(curr_transfer == NULL) return;
-	if(curr_transfer->prev != NULL) curr_transfer = curr_transfer->prev;
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
-	current_date = curr_transfer->date;
+	if(curr_transfer_tp == NULL) return;
+	if(curr_transfer_tp->prev != NULL) curr_transfer_tp = curr_transfer_tp->prev;
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate_tp), 0);
+	current_date_tp = curr_transfer_tp->date;
 	update();
 }
 
 void on_next_transfer(GtkWidget* widget, gpointer data) {
-	if(curr_transfer == NULL) return;
-	if(curr_transfer->next != NULL) curr_transfer = curr_transfer->next[0];
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
-	current_date = curr_transfer->date;
+	if(curr_transfer_tp == NULL) return;
+	if(curr_transfer_tp->next != NULL) curr_transfer_tp = curr_transfer_tp->next[0];
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate_tp), 0);
+	current_date_tp = curr_transfer_tp->date;
 	update();
 }
 
 void on_transfer_body_change(GtkWidget* widget, gpointer data) {
-	if(curr_transfer==NULL) return;
-	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel), "page1");
+	if(curr_transfer_tp == NULL) return;
+	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel_tp), "page1");
 	update_itinerary();
 }
 
 void on_last_transfer_type_changed(GtkWidget* widget, gpointer data) {
 	if(!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) return;
 	const char *name = gtk_widget_get_name(widget);
-	if		(strcmp(name, "fb") == 0) last_transfer_type = TF_FLYBY;
-	else if	(strcmp(name, "capture") == 0) last_transfer_type = TF_CAPTURE;
-	else if	(strcmp(name, "circ") == 0) last_transfer_type = TF_CIRC;
+	if		(strcmp(name, "fb") == 0) last_transfer_type_tp = TF_FLYBY;
+	else if	(strcmp(name, "capture") == 0) last_transfer_type_tp = TF_CAPTURE;
+	else if	(strcmp(name, "circ") == 0) last_transfer_type_tp = TF_CIRC;
 	update_transfer_panel();
 }
 
 void on_toggle_transfer_date_lock(GtkWidget* widget, gpointer data) {
-	if(curr_transfer->body == NULL) gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
-	if(curr_transfer != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tfdate)))
-		current_date = curr_transfer->date;
+	if(curr_transfer_tp->body == NULL) gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate_tp), 0);
+	if(curr_transfer_tp != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tfdate_tp)))
+		current_date_tp = curr_transfer_tp->date;
 	update_itinerary();
 }
 
 void on_goto_transfer_date(GtkWidget* widget, gpointer data) {
-	if(curr_transfer == NULL) return;
-	current_date = curr_transfer->date;
+	if(curr_transfer_tp == NULL) return;
+	current_date_tp = curr_transfer_tp->date;
 	update_itinerary();
 }
 
 void on_transfer_body_select(GtkWidget* widget, gpointer data) {
 	int id = (int) gtk_widget_get_name(widget)[0] - 48;	// char to int
 	if(id == 0) {
-		curr_transfer->body = NULL;
+		curr_transfer_tp->body = NULL;
 	} else {
 		struct Body *body = get_body_from_id(id);
-		curr_transfer->body = body;
+		curr_transfer_tp->body = body;
 	}
-	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel), "page0");
+	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel_tp), "page0");
 	update_itinerary();
 }
 
@@ -298,14 +298,14 @@ void on_add_transfer(GtkWidget* widget, gpointer data) {
 	new_transfer->next = NULL;
 	new_transfer->num_next_nodes = 0;
 
-	struct ItinStep *next = (curr_transfer != NULL && curr_transfer->next != NULL) ? curr_transfer->next[0] : NULL;
+	struct ItinStep *next = (curr_transfer_tp != NULL && curr_transfer_tp->next != NULL) ? curr_transfer_tp->next[0] : NULL;
 
 	// date
-	new_transfer->date = current_date;
-	if(curr_transfer != NULL) {
-		if(current_date <= curr_transfer->date) new_transfer->date = curr_transfer->date + 1;
+	new_transfer->date = current_date_tp;
+	if(curr_transfer_tp != NULL) {
+		if(current_date_tp <= curr_transfer_tp->date) new_transfer->date = curr_transfer_tp->date + 1;
 		if(next != NULL) {
-			if(next->date - curr_transfer->date < 2) {
+			if(next->date - curr_transfer_tp->date < 2) {
 				free(new_transfer);
 				return;    // no space between this and next transfer...
 			}
@@ -314,51 +314,51 @@ void on_add_transfer(GtkWidget* widget, gpointer data) {
 	}
 
 	// next and prev pointers
-	if(curr_transfer != NULL) {
+	if(curr_transfer_tp != NULL) {
 		if(next != NULL) {
 			next->prev = new_transfer;
 			new_transfer->next = (struct ItinStep**) malloc(sizeof(struct ItinStep*));
 			new_transfer->next[0] = next;
 			new_transfer->num_next_nodes = 1;
 		} else {
-			curr_transfer->next = (struct ItinStep**) malloc(sizeof(struct ItinStep*));
-			curr_transfer->num_next_nodes = 1;
+			curr_transfer_tp->next = (struct ItinStep**) malloc(sizeof(struct ItinStep*));
+			curr_transfer_tp->num_next_nodes = 1;
 		}
-		new_transfer->prev = curr_transfer;
-		curr_transfer->next[0] = new_transfer;
+		new_transfer->prev = curr_transfer_tp;
+		curr_transfer_tp->next[0] = new_transfer;
 	}
 
 	// Location and Velocity vectors
 	update_itinerary();
 
-	curr_transfer = new_transfer;
-	current_date = curr_transfer->date;
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
+	curr_transfer_tp = new_transfer;
+	current_date_tp = curr_transfer_tp->date;
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate_tp), 0);
 	update_itinerary();
 }
 
 void on_remove_transfer(GtkWidget* widget, gpointer data) {
-	if(curr_transfer == NULL) return;
-	struct ItinStep *rem_transfer = curr_transfer;
-	if(curr_transfer->next != NULL) curr_transfer->next[0]->prev = curr_transfer->prev;
-	if(curr_transfer->prev != NULL) {
-		if(curr_transfer->next != NULL) {
-			curr_transfer->prev->next[0] = curr_transfer->next[0];
+	if(curr_transfer_tp == NULL) return;
+	struct ItinStep *rem_transfer = curr_transfer_tp;
+	if(curr_transfer_tp->next != NULL) curr_transfer_tp->next[0]->prev = curr_transfer_tp->prev;
+	if(curr_transfer_tp->prev != NULL) {
+		if(curr_transfer_tp->next != NULL) {
+			curr_transfer_tp->prev->next[0] = curr_transfer_tp->next[0];
 		} else {
-			free(curr_transfer->prev->next);
-			curr_transfer->prev->next = NULL;
-			curr_transfer->prev->num_next_nodes = 0;
+			free(curr_transfer_tp->prev->next);
+			curr_transfer_tp->prev->next = NULL;
+			curr_transfer_tp->prev->num_next_nodes = 0;
 		}
 	}
 
-	if(curr_transfer->prev != NULL) 		curr_transfer = curr_transfer->prev;
-	else if(curr_transfer->next != NULL) 	curr_transfer = curr_transfer->next[0];
-	else 									curr_transfer = NULL;
+	if(curr_transfer_tp->prev != NULL) curr_transfer_tp = curr_transfer_tp->prev;
+	else if(curr_transfer_tp->next != NULL) curr_transfer_tp = curr_transfer_tp->next[0];
+	else curr_transfer_tp = NULL;
 
 	free(rem_transfer->next);
 	free(rem_transfer);
-	if(curr_transfer != NULL) current_date = curr_transfer->date;
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
+	if(curr_transfer_tp != NULL) current_date_tp = curr_transfer_tp->date;
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate_tp), 0);
 	update();
 }
 
@@ -377,7 +377,7 @@ int find_closest_transfer(struct ItinStep *step) {
 		copy_step_body_vectors_and_date(new_step, step);
 		for(int i = 0; i < temp->num_next_nodes; i++) free(temp->next[i]);
 		free(temp->next);
-		current_date = step->date;
+		current_date_tp = step->date;
 		free(temp);
 		sort_transfer_dates(step);
 		return 1;
@@ -388,7 +388,7 @@ int find_closest_transfer(struct ItinStep *step) {
 }
 
 void on_find_closest_transfer(GtkWidget* widget, gpointer data) {
-	int success = find_closest_transfer(curr_transfer);
+	int success = find_closest_transfer(curr_transfer_tp);
 	if(success) update_itinerary();
 }
 
@@ -493,10 +493,10 @@ void on_load_itinerary(GtkWidget* widget, gpointer data) {
 		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
 		filepath = gtk_file_chooser_get_filename(chooser);
 
-		if(curr_transfer != NULL) free_itinerary(get_first());
-		curr_transfer = load_single_itinerary_from_bfile(filepath);
-		current_date = curr_transfer->date;
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
+		if(curr_transfer_tp != NULL) free_itinerary(get_first());
+		curr_transfer_tp = load_single_itinerary_from_bfile(filepath);
+		current_date_tp = curr_transfer_tp->date;
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate_tp), 0);
 		update_itinerary();
 		g_free(filepath);
 	}
