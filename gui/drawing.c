@@ -2,6 +2,7 @@
 
 #include "drawing.h"
 #include "math.h"
+#include <stdlib.h>
 
 
 void draw_orbit(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor) {
@@ -116,5 +117,116 @@ void set_cairo_body_color(cairo_t *cr, int id) {
 		case 8: cairo_set_source_rgb(cr, 0.0, 0.0, 1.0); break;	// Neptune
 		case 9: cairo_set_source_rgb(cr, 0.7, 0.7, 0.7); break;	// Pluto
 		default:cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); break;
+	}
+}
+
+void draw_center_aligned_text(cairo_t *cr, double x, double y, char *text) {
+	// Calculate text width
+	cairo_text_extents_t extents;
+	cairo_text_extents(cr, text, &extents);
+	double text_width = extents.width;
+
+	// Position and draw text to the left
+	cairo_move_to(cr, x - text_width/2, y); // adjust starting position to the left
+	cairo_show_text(cr, text);
+}
+
+void draw_right_aligned_text(cairo_t *cr, double x, double y, char *text) {
+	// Calculate text width
+	cairo_text_extents_t extents;
+	cairo_text_extents(cr, text, &extents);
+	double text_width = extents.width;
+
+	// Position and draw text to the left
+	cairo_move_to(cr, x - text_width, y); // adjust starting position to the left
+	cairo_show_text(cr, text);
+}
+
+void draw_right_aligned_int(cairo_t *cr, double x, double y, int number) {
+	char text[16];
+	sprintf(text, "%d", number);
+	draw_right_aligned_text(cr, x, y, text);
+}
+
+void draw_data_point(cairo_t *cr, double x, double y) {
+	cairo_arc(cr, x, y,5,0,M_PI*2);
+	cairo_fill(cr);
+}
+
+void draw_porkchop(cairo_t *cr, double width, double height) {
+	// Set font options
+	cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+	cairo_set_font_size(cr, 12.0);
+	int half_font_size = 5;
+
+
+	double min_duration = 495.32, max_duration = 502.398;
+	double min_date = 2448176.86, max_date = 2448197.23;
+
+	int min_x = (int) min_date;
+	int min_y = (int) min_duration;
+
+
+	double y_step = 1, x_step = 1;
+	int num_durs = 8;
+	int num_dates = 8;
+
+	while(min_y + (num_durs - 1) * y_step < max_duration) y_step *= 2;
+	while(min_x + (num_dates - 1) * x_step < max_date) x_step *= 2;
+
+	struct Vector2D origin = {45, height-40};
+	double y_label_x = 40,	x_label_y = height - 15;
+
+	double min_y_label_y = 20, max_y_label_y = origin.y;
+	double y_label_step = (double)(max_y_label_y-min_y_label_y+1)/(num_durs-1);
+	double y_gradient = -(y_label_step*(num_durs-1)) / (y_step*(num_durs-1));
+
+	double min_x_label_x = origin.x, max_x_label_x = width-40;
+	double x_label_step = (double)(max_x_label_x-min_x_label_x+1)/(num_dates-1);
+	double x_gradient = (x_label_step*(num_dates-1)) / (x_step*(num_dates-1));
+
+	// Set text color
+	cairo_set_source_rgb(cr, 1, 1, 1);
+
+	// coordinate system
+	draw_stroke(cr, vec2D(origin.x, 0), vec2D(origin.x, origin.y));
+	draw_stroke(cr, vec2D(origin.x, origin.y), vec2D(width, origin.y));
+
+	// y-labels and y grid
+	for(int i = 0; i < num_durs; i++) {
+		double y = max_y_label_y-y_label_step*i;
+		if(i > 0) draw_right_aligned_int(cr, y_label_x, y+half_font_size, min_y + i * y_step);
+		draw_stroke(cr, vec2D(origin.x, y), vec2D(width, y));
+	}
+
+	// x-labels and x grid
+	char date_string[32];
+	for(int i = 0; i < num_dates; i++) {
+		double x = min_x_label_x+x_label_step*i;
+		date_to_string(convert_JD_date(min_x + i * x_step), date_string, 0);
+		if(i > 0) draw_center_aligned_text(cr, x, x_label_y, date_string);
+		draw_stroke(cr, vec2D(x, origin.y), vec2D(x, 0));
+	}
+
+
+
+	// data
+	struct Vector data[] = {
+			vec(min_date, min_duration, 2000),
+			vec(max_date, max_duration, 2500),
+			vec(2448200, 499, 2700),
+			vec(2448200, 500, 1800),
+	};
+
+	double min_dv = 1800;
+	double max_dv = 2700;
+
+
+
+	for(int i = 0; i < 4; i++) {
+		double color_bias = (data[i].z - min_dv) / (max_dv - min_dv);
+		cairo_set_source_rgb(cr, color_bias, 1-color_bias/2, 1-color_bias);
+		struct Vector2D data_point = vec2D(origin.x + x_gradient*(data[i].x - min_x), origin.y + y_gradient * (data[i].y - min_y));
+		draw_data_point(cr, data_point.x, data_point.y);
 	}
 }

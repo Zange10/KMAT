@@ -34,11 +34,12 @@
             <property name="visible">True</property>
             <property name="can-focus">False</property>
             <child>
-              <object class="GtkDrawingArea">
+              <object class="GtkDrawingArea" id="da_pa_porkchop">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
                 <property name="hexpand">True</property>
                 <property name="vexpand">True</property>
+                <signal name="draw" handler="on_porkchop_draw" swapped="no"/>
               </object>
               <packing>
                 <property name="left-attach">0</property>
@@ -60,6 +61,7 @@
             <child>
               <object class="GtkButton">
                 <property name="label" translatable="yes">button</property>
+                <property name="width-request">350</property>
                 <property name="visible">True</property>
                 <property name="can-focus">True</property>
                 <property name="receives-default">True</property>

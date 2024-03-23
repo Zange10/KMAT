@@ -40,6 +40,16 @@ struct Vector vec(double x, double y, double z);
 
 
 /**
+ * @brief Creates a 2D-vector with given x and y components
+ *
+ * @param x component of the vector
+ * @param y component of the vector
+ * @return A struct Vector2D initialized with the given components
+ */
+struct Vector2D vec2D(double x, double y);
+
+
+/**
  * @brief Adds two vectors and returns the result
  *
  * @param v1 The first vector

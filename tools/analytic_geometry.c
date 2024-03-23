@@ -8,6 +8,11 @@ struct Vector vec(double x, double y, double z) {
     return v;
 }
 
+struct Vector2D vec2D(double x, double y) {
+	struct Vector2D v = {x, y};
+	return v;
+}
+
 struct Vector add_vectors(struct Vector v1, struct Vector v2) {
     struct Vector v;
     v.x = v1.x+v2.x;

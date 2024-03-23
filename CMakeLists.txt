@@ -61,7 +61,9 @@ add_executable(KSP
         orbit_calculator/itin_tool.c
         orbit_calculator/itin_tool.h
         gui/transfer_app/transfer_planner.c
-        gui/transfer_app/transfer_planner.h)
+        gui/transfer_app/transfer_planner.h
+        gui/transfer_app/porkchop_analyzer.c
+        gui/transfer_app/porkchop_analyzer.h)
 
 target_link_libraries(KSP m;
         ${GTK3_LIBRARIES};
