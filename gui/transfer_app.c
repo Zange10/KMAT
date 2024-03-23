@@ -67,7 +67,7 @@ void start_transfer_app() {
 	current_date = convert_date_JD(date);
 	for(int i = 0; i < 9; i++) body_show_status[i] = 0;
 	
-	GtkApplication *app = gtk_application_new ("org.gtk.example", G_APPLICATION_FLAGS_NONE);
+	GtkApplication *app = gtk_application_new ("org.gtk.example", G_APPLICATION_DEFAULT_FLAGS);
 	g_signal_connect (app, "activate", G_CALLBACK (activate), NULL);
 	
 	g_application_run (G_APPLICATION (app), 0, NULL);
