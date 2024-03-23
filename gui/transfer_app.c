@@ -34,6 +34,7 @@ void start_transfer_app() {
 	g_object_unref (app);
 
 	remove_all_transfers();
+	free_all_porkchop_analyzer_itins();
 	for(int i = 0; i < 9; i++) free(body_ephems[i]);
 	free(body_ephems);
 }

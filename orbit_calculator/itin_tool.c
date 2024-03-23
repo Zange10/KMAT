@@ -267,10 +267,10 @@ double get_itinerary_duration(struct ItinStep *itin) {
 	return jd1-jd0;
 }
 
-void create_porkchop_point(struct ItinStep *itin, double* porkchop) {
+void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_cap1) {
 	double vinf = vector_mag(subtract_vectors(itin->v_arr, itin->v_body));
 
-	porkchop[4] = dv_capture(itin->body, itin->body->atmo_alt+100e3, vinf);
+	porkchop[4] = circ0_cap1 == 0 ? dv_circ(itin->body, itin->body->atmo_alt+100e3, vinf) : dv_capture(itin->body, itin->body->atmo_alt+100e3, vinf);
 	porkchop[1] = get_itinerary_duration(itin);
 
 	porkchop[3] = 0;
@@ -562,14 +562,11 @@ void load_step_from_bfile(struct ItinStep *step, FILE *file, struct Body **body)
 	}
 }
 
-struct ItinStep ** load_itineraries_from_bfile() {
-	char filename[50];
-	sprintf(filename, "./Itineraries/test.itins");
-
+struct ItinStep ** load_itineraries_from_bfile(char *filepath) {
 	struct ItinStepBinHeader bin_header;
 
 	FILE *file;
-	file = fopen(filename,"rb");
+	file = fopen(filepath,"rb");
 
 	fread(&bin_header, sizeof(struct ItinStepBinHeader), 1, file);
 
@@ -601,6 +598,17 @@ struct ItinStep ** load_itineraries_from_bfile() {
 	fclose(file);
 	free(bodies);
 	return departures;
+}
+
+int get_num_of_deps_of_itinerary_from_bfile(char *filepath) {
+	struct ItinStepBinHeader bin_header;
+
+	FILE *file;
+	file = fopen(filepath,"rb");
+
+	fread(&bin_header, sizeof(struct ItinStepBinHeader), 1, file);
+	fclose(file);
+	return bin_header.num_deps;
 }
 
 void store_single_itinerary_in_bfile(struct ItinStep *itin, char *filepath) {

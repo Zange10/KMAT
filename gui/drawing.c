@@ -148,20 +148,54 @@ void draw_right_aligned_int(cairo_t *cr, double x, double y, int number) {
 	draw_right_aligned_text(cr, x, y, text);
 }
 
-void draw_data_point(cairo_t *cr, double x, double y) {
-	cairo_arc(cr, x, y,5,0,M_PI*2);
+void draw_data_point(cairo_t *cr, double x, double y, double radius) {
+	cairo_arc(cr, x, y, radius,0,M_PI*2);
 	cairo_fill(cr);
 }
 
-void draw_porkchop(cairo_t *cr, double width, double height) {
+void draw_porkchop(cairo_t *cr, double width, double height, const double *porkchop, int fb0_pow1) {
+	// Set text color
+	cairo_set_source_rgb(cr, 1, 1, 1);
+
+	// coordinate system
+	struct Vector2D origin = {45, height-40};
+	draw_stroke(cr, vec2D(origin.x, 0), vec2D(origin.x, origin.y));
+	draw_stroke(cr, vec2D(origin.x, origin.y), vec2D(width, origin.y));
+
+	if(porkchop == NULL) return;
+
 	// Set font options
 	cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
 	cairo_set_font_size(cr, 12.0);
 	int half_font_size = 5;
 
 
-	double min_duration = 495.32, max_duration = 502.398;
-	double min_date = 2448176.86, max_date = 2448197.23;
+	int num_itins = (int) (porkchop[0]/5);
+
+
+	double min_duration = porkchop[1+1], max_duration = porkchop[1+1];
+	double min_date = porkchop[0+1], max_date = porkchop[0+1];
+	double min_dv = porkchop[2+1]+porkchop[3+1]*fb0_pow1+porkchop[4+1];
+	double max_dv = porkchop[2+1]+porkchop[3+1]*fb0_pow1+porkchop[4+1];
+	int min_dv_ind = 0;
+	double dv, date, dur;
+
+	for(int i = 1; i < num_itins; i++) {
+		int index = 1+i*5;
+		dv = porkchop[index+2]+porkchop[index+3]*fb0_pow1+porkchop[index+4];
+		date = porkchop[index+0];
+		dur = porkchop[index+1];
+
+		if(dv < min_dv) {
+			min_dv = dv;
+			min_dv_ind = i;
+		}
+		else if(dv > max_dv) max_dv = dv;
+		if(date < min_date) min_date = date;
+		else if(date > max_date) max_date = date;
+		if(dur < min_duration) min_duration = dur;
+		else if(dur > max_duration) max_duration = dur;
+	}
 
 	int min_x = (int) min_date;
 	int min_y = (int) min_duration;
@@ -174,23 +208,15 @@ void draw_porkchop(cairo_t *cr, double width, double height) {
 	while(min_y + (num_durs - 1) * y_step < max_duration) y_step *= 2;
 	while(min_x + (num_dates - 1) * x_step < max_date) x_step *= 2;
 
-	struct Vector2D origin = {45, height-40};
 	double y_label_x = 40,	x_label_y = height - 15;
 
-	double min_y_label_y = 20, max_y_label_y = origin.y;
+	double min_y_label_y = 20, max_y_label_y = origin.y-20;
 	double y_label_step = (double)(max_y_label_y-min_y_label_y+1)/(num_durs-1);
 	double y_gradient = -(y_label_step*(num_durs-1)) / (y_step*(num_durs-1));
 
-	double min_x_label_x = origin.x, max_x_label_x = width-40;
+	double min_x_label_x = origin.x+20, max_x_label_x = width-40;
 	double x_label_step = (double)(max_x_label_x-min_x_label_x+1)/(num_dates-1);
 	double x_gradient = (x_label_step*(num_dates-1)) / (x_step*(num_dates-1));
-
-	// Set text color
-	cairo_set_source_rgb(cr, 1, 1, 1);
-
-	// coordinate system
-	draw_stroke(cr, vec2D(origin.x, 0), vec2D(origin.x, origin.y));
-	draw_stroke(cr, vec2D(origin.x, origin.y), vec2D(width, origin.y));
 
 	// y-labels and y grid
 	for(int i = 0; i < num_durs; i++) {
@@ -209,24 +235,23 @@ void draw_porkchop(cairo_t *cr, double width, double height) {
 	}
 
 
-
 	// data
-	struct Vector data[] = {
-			vec(min_date, min_duration, 2000),
-			vec(max_date, max_duration, 2500),
-			vec(2448200, 499, 2700),
-			vec(2448200, 500, 1800),
-	};
+	double color_bias;
+	for(int i = 0; i <= num_itins; i++) {
+		int index = i < num_itins ? 1+i*5 : 1+min_dv_ind*5;
 
-	double min_dv = 1800;
-	double max_dv = 2700;
+		dv = porkchop[index+2]+porkchop[index+3]*fb0_pow1+porkchop[index+4];
+		date = porkchop[index+0];
+		dur = porkchop[index+1];
 
+		// color coding
+		color_bias = (dv - min_dv) / (max_dv - min_dv);
+		double r = i == num_itins ? 1 : color_bias;
+		double g = i == num_itins ? 0 : 1-color_bias;
+		double b = i == num_itins ? 0 : 4*pow(color_bias-0.5,2);
+		cairo_set_source_rgb(cr, r,g,b);
 
-
-	for(int i = 0; i < 4; i++) {
-		double color_bias = (data[i].z - min_dv) / (max_dv - min_dv);
-		cairo_set_source_rgb(cr, color_bias, 1-color_bias/2, 1-color_bias);
-		struct Vector2D data_point = vec2D(origin.x + x_gradient*(data[i].x - min_x), origin.y + y_gradient * (data[i].y - min_y));
-		draw_data_point(cr, data_point.x, data_point.y);
+		struct Vector2D data_point = vec2D(min_x_label_x + x_gradient*(date - min_x), max_y_label_y + y_gradient * (dur - min_y));
+		draw_data_point(cr, data_point.x, data_point.y, i < num_itins ? 2 : 5);
 	}
 }

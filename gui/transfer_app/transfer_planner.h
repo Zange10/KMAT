@@ -17,7 +17,7 @@ void on_calendar_selection(GtkWidget* widget, gpointer data);
 void on_prev_transfer(GtkWidget* widget, gpointer data);
 void on_next_transfer(GtkWidget* widget, gpointer data);
 void on_transfer_body_change(GtkWidget* widget, gpointer data);
-void on_last_transfer_type_changed(GtkWidget* widget, gpointer data);
+void on_last_transfer_type_changed_tp(GtkWidget* widget, gpointer data);
 void on_toggle_transfer_date_lock(GtkWidget* widget, gpointer data);
 void on_goto_transfer_date(GtkWidget* widget, gpointer data);
 void on_transfer_body_select(GtkWidget* widget, gpointer data);

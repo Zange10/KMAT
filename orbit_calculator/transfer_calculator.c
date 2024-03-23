@@ -116,8 +116,8 @@ void create_itinerary() {
 //	struct Body *bodies[] = {EARTH(), JUPITER(), SATURN(), URANUS(), NEPTUNE()};
 //	int num_steps = sizeof(bodies)/sizeof(struct Body*);
 //
-//	struct Date min_dep_date = {1977, 5, 15};
-//	struct Date max_dep_date = {1977, 11, 21};
+//	struct Date min_dep_date = {1976, 5, 15};
+//	struct Date max_dep_date = {1979, 11, 21};
 //	double jd_min_dep = convert_date_JD(min_dep_date);
 //	double jd_max_dep = convert_date_JD(max_dep_date);
 //	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
@@ -129,14 +129,14 @@ void create_itinerary() {
 	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH(), JUPITER(), SATURN()};
 	int num_steps = sizeof(bodies)/sizeof(struct Body*);
 
-	struct Date min_dep_date = {1997, 10, 10};
-	struct Date max_dep_date = {1997, 10, 25};
+	struct Date min_dep_date = {1997, 10, 1};
+	struct Date max_dep_date = {1997, 10, 31};
 	double jd_min_dep = convert_date_JD(min_dep_date);
 	double jd_max_dep = convert_date_JD(max_dep_date);
 	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
 
-	int min_duration[] = {194, 422, 52, 200, 500};
-	int max_duration[] = {198, 427, 57, 1000, 2000};
+	int min_duration[] = {190, 415, 50, 200, 500};
+	int max_duration[] = {205, 435, 60, 1000, 2000};
 
 	struct Ephem **ephems = (struct Ephem**) malloc(num_steps*sizeof(struct Ephem*));
 	for(int i = 0; i < num_steps; i++) {
@@ -210,7 +210,7 @@ void create_itinerary() {
 	double *porkchop = (double *) malloc((5 * num_itins + 1) * sizeof(double));
 	porkchop[0] = 0;
 	for(int i = 0; i < num_itins; i++) {
-		create_porkchop_point(arrivals[i], &porkchop[i*5+1]);
+		create_porkchop_point(arrivals[i], &porkchop[i*5+1], 1);
 		porkchop[0] += 5;
 	}
 

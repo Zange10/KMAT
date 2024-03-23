@@ -22,7 +22,7 @@ GObject *transfer_panel_tp;
 gboolean body_show_status_tp[9];
 double current_date_tp;
 
-enum LastTransferType last_transfer_type_tp;
+enum LastTransferType tp_last_transfer_type;
 
 
 void init_transfer_planner(GtkBuilder *builder) {
@@ -30,7 +30,7 @@ void init_transfer_planner(GtkBuilder *builder) {
 	current_date_tp = convert_date_JD(date);
 	for(int i = 0; i < 9; i++) body_show_status_tp[i] = 0;
 	remove_all_transfers();
-	last_transfer_type_tp = TF_FLYBY;
+	tp_last_transfer_type = TF_FLYBY;
 
 	tb_tp_tfdate = gtk_builder_get_object(builder, "tb_tp_tfdate");
 	bt_tp_tfbody = gtk_builder_get_object(builder, "bt_tp_change_tf_body");
@@ -108,10 +108,10 @@ double calc_step_dv(struct ItinStep *step) {
 		double vinf = vector_mag(subtract_vectors(step->next[0]->v_dep, step->v_body));
 		return dv_circ(step->body, step->body->atmo_alt+100e3, vinf);
 	} else if(step->next == NULL) {
-		if(last_transfer_type_tp == TF_FLYBY) return 0;
+		if(tp_last_transfer_type == TF_FLYBY) return 0;
 		double vinf = vector_mag(subtract_vectors(step->v_arr, step->v_body));
-		if(last_transfer_type_tp == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + 100e3, vinf);
-		else if(last_transfer_type_tp == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + 100e3, vinf);
+		if(tp_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + 100e3, vinf);
+		else if(tp_last_transfer_type == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + 100e3, vinf);
 	}
 	return 0;
 }
@@ -241,12 +241,12 @@ void on_transfer_body_change(GtkWidget* widget, gpointer data) {
 	update_itinerary();
 }
 
-void on_last_transfer_type_changed(GtkWidget* widget, gpointer data) {
+void on_last_transfer_type_changed_tp(GtkWidget* widget, gpointer data) {
 	if(!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) return;
 	const char *name = gtk_widget_get_name(widget);
-	if		(strcmp(name, "fb") == 0) last_transfer_type_tp = TF_FLYBY;
-	else if	(strcmp(name, "capture") == 0) last_transfer_type_tp = TF_CAPTURE;
-	else if	(strcmp(name, "circ") == 0) last_transfer_type_tp = TF_CIRC;
+	if		(strcmp(name, "fb") == 0) tp_last_transfer_type = TF_FLYBY;
+	else if	(strcmp(name, "capture") == 0) tp_last_transfer_type = TF_CAPTURE;
+	else if	(strcmp(name, "circ") == 0) tp_last_transfer_type = TF_CIRC;
 	update_transfer_panel();
 }
 

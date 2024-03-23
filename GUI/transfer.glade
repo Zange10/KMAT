@@ -72,33 +72,126 @@
               </packing>
             </child>
             <child>
-              <!-- n-columns=3 n-rows=3 -->
+              <!-- n-columns=2 n-rows=1 -->
               <object class="GtkGrid">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
                 <child>
-                  <placeholder/>
-                </child>
-                <child>
-                  <placeholder/>
-                </child>
-                <child>
-                  <placeholder/>
-                </child>
-                <child>
-                  <placeholder/>
-                </child>
-                <child>
-                  <placeholder/>
-                </child>
-                <child>
-                  <placeholder/>
-                </child>
-                <child>
-                  <placeholder/>
-                </child>
-                <child>
-                  <placeholder/>
+                  <object class="GtkBox">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="margin-top">15</property>
+                    <property name="orientation">vertical</property>
+                    <property name="spacing">10</property>
+                    <child>
+                      <object class="GtkButton" id="bt_pa_save_itin">
+                        <property name="label" translatable="yes">Save Itinerary</property>
+                        <property name="visible">True</property>
+                        <property name="can-focus">True</property>
+                        <property name="receives-default">True</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkButton" id="bt_pa_load_itin">
+                        <property name="label" translatable="yes">Load Itinerary</property>
+                        <property name="visible">True</property>
+                        <property name="can-focus">True</property>
+                        <property name="receives-default">True</property>
+                        <signal name="clicked" handler="on_load_itineraries" swapped="no"/>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="lb_pa_last_transfer">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="margin-top">30</property>
+                        <property name="label" translatable="yes">Last Transfer:</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkButtonBox">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="orientation">vertical</property>
+                        <property name="layout-style">start</property>
+                        <child>
+                          <object class="GtkRadioButton" id="rb_pa_fb">
+                            <property name="label" translatable="yes">Fly-by</property>
+                            <property name="name">fb</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">False</property>
+                            <property name="draw-indicator">True</property>
+                            <property name="group">rb_pa_cap</property>
+                            <signal name="toggled" handler="on_last_transfer_type_changed_pa" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                            <property name="position">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkRadioButton" id="rb_pa_cap">
+                            <property name="label" translatable="yes">Capture</property>
+                            <property name="name">capture</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">False</property>
+                            <property name="draw-indicator">True</property>
+                            <property name="group">rb_pa_fb</property>
+                            <signal name="toggled" handler="on_last_transfer_type_changed_pa" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                            <property name="position">1</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkRadioButton" id="rb_pa_circ">
+                            <property name="label" translatable="yes">Circularize</property>
+                            <property name="name">circ</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">False</property>
+                            <property name="draw-indicator">True</property>
+                            <property name="group">rb_pa_fb</property>
+                            <signal name="toggled" handler="on_last_transfer_type_changed_pa" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                            <property name="position">2</property>
+                          </packing>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">3</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left-attach">1</property>
+                    <property name="top-attach">0</property>
+                  </packing>
                 </child>
                 <child>
                   <placeholder/>
@@ -1016,8 +1109,8 @@
                                 <property name="can-focus">True</property>
                                 <property name="receives-default">False</property>
                                 <property name="draw-indicator">True</property>
-                                <property name="group">rb_circ</property>
-                                <signal name="toggled" handler="on_last_transfer_type_changed" swapped="no"/>
+                                <property name="group">rb_tp_cap</property>
+                                <signal name="toggled" handler="on_last_transfer_type_changed_tp" swapped="no"/>
                               </object>
                               <packing>
                                 <property name="expand">True</property>
@@ -1033,8 +1126,8 @@
                                 <property name="can-focus">True</property>
                                 <property name="receives-default">False</property>
                                 <property name="draw-indicator">True</property>
-                                <property name="group">rb_circ</property>
-                                <signal name="toggled" handler="on_last_transfer_type_changed" swapped="no"/>
+                                <property name="group">rb_tp_fb</property>
+                                <signal name="toggled" handler="on_last_transfer_type_changed_tp" swapped="no"/>
                               </object>
                               <packing>
                                 <property name="expand">True</property>
@@ -1050,8 +1143,8 @@
                                 <property name="can-focus">True</property>
                                 <property name="receives-default">False</property>
                                 <property name="draw-indicator">True</property>
-                                <property name="group">rb_fb</property>
-                                <signal name="toggled" handler="on_last_transfer_type_changed" swapped="no"/>
+                                <property name="group">rb_tp_fb</property>
+                                <signal name="toggled" handler="on_last_transfer_type_changed_tp" swapped="no"/>
                               </object>
                               <packing>
                                 <property name="expand">True</property>
