@@ -50,6 +50,16 @@ struct Vector add_vectors(struct Vector v1, struct Vector v2);
 
 
 /**
+ * @brief Subtracts vector v2 from v1 (v1-v2)
+ *
+ * @param v1 The first vector
+ * @param v2 The second vector
+ * @return The resulting vector
+ */
+struct Vector subtract_vectors(struct Vector v1, struct Vector v2);
+
+
+/**
  * @brief Adds two 2D vectors and returns the result
  *
  * @param v1 The first vector

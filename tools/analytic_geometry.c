@@ -16,6 +16,14 @@ struct Vector add_vectors(struct Vector v1, struct Vector v2) {
     return v;
 }
 
+struct Vector subtract_vectors(struct Vector v1, struct Vector v2) {
+	struct Vector v;
+	v.x = v1.x-v2.x;
+	v.y = v1.y-v2.y;
+	v.z = v1.z-v2.z;
+	return v;
+}
+
 struct Vector2D add_vectors2d(struct Vector2D v1, struct Vector2D v2) {
 	struct Vector2D v;
 	v.x = v1.x+v2.x;
@@ -59,7 +67,7 @@ struct Vector scalar_multiply(struct Vector v, double scalar) {
 struct Vector proj_vec_plane(struct Vector v, struct Plane p) {
 	struct Vector n = norm_vector(cross_product(p.u, p.v));
 	struct Vector proj_n = scalar_multiply(n, dot_product(v,n));
-	return add_vectors(v, scalar_multiply(proj_n ,-1));
+	return subtract_vectors(v, proj_n);
 }
 
 struct Vector2D scalar_multipl2d(struct Vector2D v, double scalar) {

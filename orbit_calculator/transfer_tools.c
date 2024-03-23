@@ -1,6 +1,5 @@
 #include "transfer_tools.h"
 #include "tools/data_tool.h"
-#include "double_swing_by.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -184,12 +183,12 @@ struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, stru
     if(data != NULL) {
 		double dv1, dv2;
 		if(dep_body != NULL) {
-			double v_t1_inf = fabs(vector_mag(add_vectors(transfer.v0, scalar_multiply(v1, -1))));
+			double v_t1_inf = fabs(vector_mag(subtract_vectors(transfer.v0, v1)));
 			dv1 = tt % 2 == 0 ? dv_capture(dep_body, dep_body->atmo_alt + 100e3, v_t1_inf) : dv_circ(dep_body,dep_body->atmo_alt + 100e3,v_t1_inf);
 		} else dv1 = vector_mag(v1);
 
 		if(arr_body != NULL) {
-			double v_t2_inf = fabs(vector_mag(add_vectors(transfer.v1, scalar_multiply(v2, -1))));
+			double v_t2_inf = fabs(vector_mag(subtract_vectors(transfer.v1, v2)));
 			if(tt < 2) dv2 = dv_capture(arr_body, arr_body->atmo_alt + 100e3, v_t2_inf);
 			else if(tt < 4) dv2 = dv_circ(arr_body, arr_body->atmo_alt + 100e3, v_t2_inf);
 			else dv2 = 0;
@@ -297,8 +296,8 @@ int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body) {
 	double dep_v = data[1];
 	if (fabs(arr_v - dep_v) > 10) return 0;
 
-	struct Vector v_arr = add_vectors(transfer1.v1, scalar_multiply(osv[1].v, -1));
-	struct Vector v_dep = add_vectors(transfer2.v0, scalar_multiply(osv[1].v, -1));
+	struct Vector v_arr = subtract_vectors(transfer1.v1, osv[1].v);
+	struct Vector v_dep = subtract_vectors(transfer2.v0, osv[1].v);
 	double beta = (M_PI - angle_vec_vec(v_arr, v_dep))/2;
 	double rp = (1 / cos(beta) - 1) * (body[1]->mu / (pow(vector_mag(v_arr), 2)));
 	if (rp > body[1]->radius + body[1]->atmo_alt) 	return 1;

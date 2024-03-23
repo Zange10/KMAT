@@ -180,6 +180,23 @@ double calc_total_dv() {
 	return porkchop[2]+porkchop[3]+porkchop[4];
 }
 
+double calc_current_dv() {
+	if(curr_transfer == NULL || (curr_transfer->prev == NULL && curr_transfer->next == NULL)) return 0;
+	if(curr_transfer->body == NULL) {
+		if(curr_transfer->next == NULL || curr_transfer->next[0]->next == NULL || curr_transfer->prev == NULL)
+			return 0;
+		if(curr_transfer->v_body.x == 0) return 0;
+		return vector_mag(subtract_vectors(curr_transfer->v_arr, curr_transfer->next[0]->v_dep));
+	} else if(curr_transfer->prev == NULL) {
+		double vinf = vector_mag(subtract_vectors(curr_transfer->next[0]->v_dep, curr_transfer->v_body));
+		return dv_circ(curr_transfer->body, curr_transfer->body->atmo_alt+100e3, vinf);
+	} else if(curr_transfer->next == NULL) {
+		double vinf = vector_mag(subtract_vectors(curr_transfer->v_arr, curr_transfer->v_body));
+		return dv_capture(curr_transfer->body, curr_transfer->body->atmo_alt+100e3, vinf);
+	}
+	return 0;
+}
+
 void update_itinerary() {
 	update_itin_body_osvs(get_first(), ephems);
 	calc_itin_v_vectors_from_dates_and_r(get_first());
@@ -224,7 +241,7 @@ void update_transfer_panel() {
 		if(curr_transfer->body != NULL) gtk_button_set_label(GTK_BUTTON(bt_tfbody), curr_transfer->body->name);
 		else gtk_button_set_label(GTK_BUTTON(bt_tfbody), "Deep-Space Man");
 		char s_dv[20];
-		sprintf(s_dv, "%6.0f m/s", 0.0);
+		sprintf(s_dv, "%6.0f m/s", calc_current_dv());
 		gtk_label_set_label(GTK_LABEL(lb_transfer_dv), s_dv);
 		sprintf(s_dv, "%6.0f m/s", calc_total_dv());
 		gtk_label_set_label(GTK_LABEL(lb_total_dv), s_dv);

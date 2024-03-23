@@ -72,11 +72,11 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
 		test[1] += elapsed_time;
 
-		struct Vector temp = add_vectors(transfer.v0, scalar_multiply(osv_m0.v, -1));
+		struct Vector temp = subtract_vectors(transfer.v0, osv_m0.v);
 		double mag = vector_mag(temp);
 
-		struct Vector temp1 = add_vectors(transfer.v1, scalar_multiply(dd.p1.v, -1));
-		struct Vector temp2 = add_vectors(dd.s1.v, scalar_multiply(dd.p1.v, -1));
+		struct Vector temp1 = subtract_vectors(transfer.v1, dd.p1.v);
+		struct Vector temp2 = subtract_vectors(dd.s1.v, dd.p1.v);
 
 		diff_vinf = vector_mag(temp1) - vector_mag(temp2);
 
@@ -197,7 +197,7 @@ struct DSB calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, str
 	int num_angle_analyse = 10;
 	
 	double min_rp = body->radius+body->atmo_alt;
-	struct Vector v_soi0 = add_vectors(s0.v, scalar_multiply(p0.v,-1));
+	struct Vector v_soi0 = subtract_vectors(s0.v, p0.v);
 	double v_inf = vector_mag(v_soi0);
 	double min_beta = acos(1 / (1 + (min_rp * pow(v_inf, 2)) / body->mu));
 	double max_defl = M_PI - 2*min_beta;

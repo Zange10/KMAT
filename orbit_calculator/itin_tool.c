@@ -57,7 +57,7 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, str
 	double t0 = tf->date;
 	double last_dt, dt, t1, diff_vinf;
 
-	struct Vector v_init = add_vectors(tf->v_arr, scalar_multiply(tf->v_body,-1));
+	struct Vector v_init = subtract_vectors(tf->v_arr, tf->v_body);
 
 
 	while(dt0 < max_dt) {
@@ -76,7 +76,7 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, str
 			struct Transfer new_transfer = calc_transfer(circfb, tf->body, next_body, osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, dt,
 														 NULL);
 
-			struct Vector v_dep = add_vectors(new_transfer.v0, scalar_multiply(tf->v_body, -1));
+			struct Vector v_dep = subtract_vectors(new_transfer.v0, tf->v_body);
 
 			diff_vinf = vector_mag(v_dep) - vector_mag(v_init);
 
@@ -259,7 +259,7 @@ double get_itinerary_duration(struct ItinStep *itin) {
 }
 
 void create_porkchop_point(struct ItinStep *itin, double* porkchop) {
-	double vinf = vector_mag(add_vectors(itin->v_arr, scalar_multiply(itin->v_body,-1)));
+	double vinf = vector_mag(subtract_vectors(itin->v_arr, itin->v_body));
 
 	porkchop[4] = dv_capture(itin->body, itin->body->atmo_alt+100e3, vinf);
 	porkchop[1] = get_itinerary_duration(itin);
@@ -268,12 +268,12 @@ void create_porkchop_point(struct ItinStep *itin, double* porkchop) {
 
 	while(itin->prev->prev != NULL) {
 		if(itin->body == NULL) {
-			porkchop[3] += vector_mag(add_vectors(itin->next[0]->v_dep, scalar_multiply(itin->v_arr,-1)));
+			porkchop[3] += vector_mag(subtract_vectors(itin->next[0]->v_dep, itin->v_arr));
 		}
 		itin = itin->prev;
 	}
 
-	vinf = vector_mag(add_vectors(itin->v_dep, scalar_multiply(itin->prev->v_body,-1)));
+	vinf = vector_mag(subtract_vectors(itin->v_dep, itin->prev->v_body));
 	porkchop[2] = dv_circ(itin->prev->body, itin->prev->body->atmo_alt+100e3, vinf);
 	porkchop[0] = itin->prev->date;
 }
