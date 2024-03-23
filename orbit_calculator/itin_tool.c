@@ -210,6 +210,18 @@ void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct B
 
 
 
+struct ItinStep * get_first(struct ItinStep *tf) {
+	if(tf == NULL) return NULL;
+	while(tf->prev != NULL) tf = tf->prev;
+	return tf;
+}
+
+struct ItinStep * get_last(struct ItinStep *tf) {
+	if(tf == NULL) return NULL;
+	while(tf->next != NULL) tf = tf->next[0];
+	return tf;
+}
+
 
 void print_itinerary(struct ItinStep *itin) {
 	if(itin->prev != NULL) {

@@ -129,7 +129,7 @@
             <property name="visible">True</property>
             <property name="can-focus">False</property>
             <child>
-              <object class="GtkDrawingArea" id="draw_transfer_planner">
+              <object class="GtkDrawingArea" id="da_tp">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
                 <property name="hexpand">True</property>
@@ -152,7 +152,7 @@
                     <property name="can-focus">False</property>
                     <property name="layout-style">start</property>
                     <child>
-                      <object class="GtkButton" id="bt_1ym">
+                      <object class="GtkButton" id="bt_tp_1ym">
                         <property name="label" translatable="yes">-1Y</property>
                         <property name="name">-1Y</property>
                         <property name="visible">True</property>
@@ -167,7 +167,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="bt_1mm">
+                      <object class="GtkButton" id="bt_tp_1mm">
                         <property name="label" translatable="yes">-1M</property>
                         <property name="name">-1M</property>
                         <property name="visible">True</property>
@@ -182,7 +182,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="bt_1dm">
+                      <object class="GtkButton" id="bt_tp_1dm">
                         <property name="label" translatable="yes">-1D</property>
                         <property name="name">-1D</property>
                         <property name="visible">True</property>
@@ -208,7 +208,7 @@
                     <property name="can-focus">False</property>
                     <property name="layout-style">start</property>
                     <child>
-                      <object class="GtkButton" id="bt_1yp">
+                      <object class="GtkButton" id="bt_tp_1yp">
                         <property name="label" translatable="yes">+1Y</property>
                         <property name="name">+1Y</property>
                         <property name="visible">True</property>
@@ -223,7 +223,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="bt_1mp">
+                      <object class="GtkButton" id="bt_tp_1mp">
                         <property name="label" translatable="yes">+1M</property>
                         <property name="name">+1M</property>
                         <property name="visible">True</property>
@@ -238,7 +238,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="bt_1dp">
+                      <object class="GtkButton" id="bt_tp_1dp">
                         <property name="label" translatable="yes">+1D</property>
                         <property name="name">+1D</property>
                         <property name="visible">True</property>
@@ -259,7 +259,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkLabel" id="lb_date">
+                  <object class="GtkLabel" id="lb_tp_date">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="label" translatable="yes">2000-01-01</property>
@@ -281,7 +281,7 @@
                     <property name="margin-bottom">20</property>
                     <property name="column-homogeneous">True</property>
                     <child>
-                      <object class="GtkButton" id="bt_yearselect_1960">
+                      <object class="GtkButton" id="bt_tp_yearselect_1960">
                         <property name="label" translatable="yes">1960</property>
                         <property name="name">1960</property>
                         <property name="visible">True</property>
@@ -295,7 +295,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="bt_yearselect_1970">
+                      <object class="GtkButton" id="bt_tp_yearselect_1970">
                         <property name="label" translatable="yes">1970</property>
                         <property name="name">1970</property>
                         <property name="visible">True</property>
@@ -309,7 +309,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="bt_yearselect_1980">
+                      <object class="GtkButton" id="bt_tp_yearselect_1980">
                         <property name="label" translatable="yes">1980</property>
                         <property name="name">1980</property>
                         <property name="visible">True</property>
@@ -323,7 +323,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="bt_yearselect_1990">
+                      <object class="GtkButton" id="bt_tp_yearselect_1990">
                         <property name="label" translatable="yes">1990</property>
                         <property name="name">1990</property>
                         <property name="visible">True</property>
@@ -337,7 +337,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="bt_yearselect_2000">
+                      <object class="GtkButton" id="bt_tp_yearselect_2000">
                         <property name="label" translatable="yes">2000</property>
                         <property name="name">2000</property>
                         <property name="visible">True</property>
@@ -351,7 +351,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="bt_yearselect_2010">
+                      <object class="GtkButton" id="bt_tp_yearselect_2010">
                         <property name="label" translatable="yes">2010</property>
                         <property name="name">2010</property>
                         <property name="visible">True</property>
@@ -365,7 +365,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="bt_yearselect_2020">
+                      <object class="GtkButton" id="bt_tp_yearselect_2020">
                         <property name="label" translatable="yes">2020</property>
                         <property name="name">2020</property>
                         <property name="visible">True</property>
@@ -379,7 +379,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="bt_yearselect_2030">
+                      <object class="GtkButton" id="bt_tp_yearselect_2030">
                         <property name="label" translatable="yes">2030</property>
                         <property name="name">2030</property>
                         <property name="visible">True</property>
@@ -393,7 +393,7 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="bt_yearselect_2040">
+                      <object class="GtkButton" id="bt_tp_yearselect_2040">
                         <property name="label" translatable="yes">2040</property>
                         <property name="name">2040</property>
                         <property name="visible">True</property>
@@ -440,7 +440,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkToggleButton" id="tb_tfdate">
+                          <object class="GtkToggleButton" id="tb_tp_tfdate">
                             <property name="label" translatable="yes">2000-01-01</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
@@ -454,7 +454,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_change_tf_body">
+                          <object class="GtkButton" id="bt_tp_change_tf_body">
                             <property name="label" translatable="yes">Planet</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
@@ -468,7 +468,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_prev_transfer">
+                          <object class="GtkButton" id="bt_tp_prev_transfer">
                             <property name="label" translatable="yes">&lt;</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
@@ -481,7 +481,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_goto_tf_date">
+                          <object class="GtkButton" id="bt_tp_goto_tf_date">
                             <property name="label" translatable="yes">Goto</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
@@ -494,7 +494,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_next_transfer">
+                          <object class="GtkButton" id="bt_tp_next_transfer">
                             <property name="label" translatable="yes">&gt;</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
@@ -507,7 +507,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_add_transfer">
+                          <object class="GtkButton" id="bt_tp_add_transfer">
                             <property name="label" translatable="yes">Add Transfer</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
@@ -521,7 +521,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_remove_transfer">
+                          <object class="GtkButton" id="bt_tp_remove_transfer">
                             <property name="label" translatable="yes">Remove Transfer</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
@@ -547,7 +547,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkLabel" id="lb_total_dv">
+                          <object class="GtkLabel" id="lb_tp_total_dv">
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
                             <property name="label" translatable="yes">0 m/s</property>
@@ -571,7 +571,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkLabel" id="lb_transfer_dv">
+                          <object class="GtkLabel" id="lb_tp_transfer_dv">
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
                             <property name="label" translatable="yes">0 m/s</property>
@@ -583,7 +583,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_closest_transfer">
+                          <object class="GtkButton" id="bt_tp_closest_transfer">
                             <property name="label" translatable="yes">Find transfer</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
@@ -597,7 +597,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_viable_itin">
+                          <object class="GtkButton" id="bt_tp_viable_itin">
                             <property name="label" translatable="yes">Find itinerary</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
@@ -635,7 +635,7 @@
                         <property name="margin-top">20</property>
                         <property name="column-homogeneous">True</property>
                         <child>
-                          <object class="GtkButton" id="bt_tfbody_sel2">
+                          <object class="GtkButton" id="bt_tp_tfbody_sel2">
                             <property name="label" translatable="yes">Venus</property>
                             <property name="name">2</property>
                             <property name="visible">True</property>
@@ -649,7 +649,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tfbody_sel3">
+                          <object class="GtkButton" id="bt_tp_tfbody_sel3">
                             <property name="label" translatable="yes">Earth</property>
                             <property name="name">3</property>
                             <property name="visible">True</property>
@@ -663,7 +663,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tfbody_sel4">
+                          <object class="GtkButton" id="bt_tp_tfbody_sel4">
                             <property name="label" translatable="yes">Mars</property>
                             <property name="name">4</property>
                             <property name="visible">True</property>
@@ -677,7 +677,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tfbody_sel5">
+                          <object class="GtkButton" id="bt_tp_tfbody_sel5">
                             <property name="label" translatable="yes">Jupiter</property>
                             <property name="name">5</property>
                             <property name="visible">True</property>
@@ -691,7 +691,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tfbody_sel6">
+                          <object class="GtkButton" id="bt_tp_tfbody_sel6">
                             <property name="label" translatable="yes">Saturn</property>
                             <property name="name">6</property>
                             <property name="visible">True</property>
@@ -705,7 +705,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tfbody_sel7">
+                          <object class="GtkButton" id="bt_tp_tfbody_sel7">
                             <property name="label" translatable="yes">Uranus</property>
                             <property name="name">7</property>
                             <property name="visible">True</property>
@@ -719,7 +719,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tfbody_sel8">
+                          <object class="GtkButton" id="bt_tp_tfbody_sel8">
                             <property name="label" translatable="yes">Neptune</property>
                             <property name="name">8</property>
                             <property name="visible">True</property>
@@ -733,7 +733,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tfbody_sel9">
+                          <object class="GtkButton" id="bt_tp_tfbody_sel9">
                             <property name="label" translatable="yes">Pluto</property>
                             <property name="name">9</property>
                             <property name="visible">True</property>
@@ -747,7 +747,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tfbody_sel1">
+                          <object class="GtkButton" id="bt_tp_tfbody_sel1">
                             <property name="label" translatable="yes">Mercury</property>
                             <property name="name">1</property>
                             <property name="visible">True</property>
@@ -761,7 +761,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tfbody_sel0">
+                          <object class="GtkButton" id="bt_tp_tfbody_sel0">
                             <property name="label" translatable="yes">Deep Space Manoeuvre</property>
                             <property name="name">0</property>
                             <property name="visible">True</property>
@@ -803,7 +803,7 @@
                         <property name="orientation">vertical</property>
                         <property name="layout-style">start</property>
                         <child>
-                          <object class="GtkCheckButton" id="tb_body_1">
+                          <object class="GtkCheckButton" id="tb_tp_body_1">
                             <property name="label" translatable="yes">Mercury</property>
                             <property name="name">1</property>
                             <property name="visible">True</property>
@@ -819,7 +819,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkCheckButton" id="tb_body_2">
+                          <object class="GtkCheckButton" id="tb_tp_body_2">
                             <property name="label" translatable="yes">Venus</property>
                             <property name="name">2</property>
                             <property name="visible">True</property>
@@ -835,7 +835,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkCheckButton" id="tb_body_3">
+                          <object class="GtkCheckButton" id="tb_tp_body_3">
                             <property name="label" translatable="yes">Earth</property>
                             <property name="name">3</property>
                             <property name="visible">True</property>
@@ -851,7 +851,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkCheckButton" id="tb_body_4">
+                          <object class="GtkCheckButton" id="tb_tp_body_4">
                             <property name="label" translatable="yes">Mars</property>
                             <property name="name">4</property>
                             <property name="visible">True</property>
@@ -867,7 +867,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkCheckButton" id="tb_body_5">
+                          <object class="GtkCheckButton" id="tb_tp_body_5">
                             <property name="label" translatable="yes">Jupiter</property>
                             <property name="name">5</property>
                             <property name="visible">True</property>
@@ -883,7 +883,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkCheckButton" id="tb_body_6">
+                          <object class="GtkCheckButton" id="tb_tp_body_6">
                             <property name="label" translatable="yes">Saturn</property>
                             <property name="name">6</property>
                             <property name="visible">True</property>
@@ -899,7 +899,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkCheckButton" id="tb_body_7">
+                          <object class="GtkCheckButton" id="tb_tp_body_7">
                             <property name="label" translatable="yes">Uranus</property>
                             <property name="name">7</property>
                             <property name="visible">True</property>
@@ -915,7 +915,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkCheckButton" id="tb_body_8">
+                          <object class="GtkCheckButton" id="tb_tp_body_8">
                             <property name="label" translatable="yes">Neptune</property>
                             <property name="name">8</property>
                             <property name="visible">True</property>
@@ -931,7 +931,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkCheckButton" id="tb_body_9">
+                          <object class="GtkCheckButton" id="tb_tp_body_9">
                             <property name="label" translatable="yes">Pluto</property>
                             <property name="name">9</property>
                             <property name="visible">True</property>
@@ -960,7 +960,7 @@
                         <property name="orientation">vertical</property>
                         <property name="spacing">10</property>
                         <child>
-                          <object class="GtkButton" id="bt_save_itin">
+                          <object class="GtkButton" id="bt_tp_save_itin">
                             <property name="label" translatable="yes">Save Itinerary</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
@@ -974,7 +974,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_load_itin">
+                          <object class="GtkButton" id="bt_tp_load_itin">
                             <property name="label" translatable="yes">Load Itinerary</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
@@ -988,7 +988,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkLabel" id="lb_last_transfer">
+                          <object class="GtkLabel" id="lb_tp_last_transfer">
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
                             <property name="margin-top">30</property>
@@ -1007,7 +1007,7 @@
                             <property name="orientation">vertical</property>
                             <property name="layout-style">start</property>
                             <child>
-                              <object class="GtkRadioButton" id="rb_fb">
+                              <object class="GtkRadioButton" id="rb_tp_fb">
                                 <property name="label" translatable="yes">Fly-by</property>
                                 <property name="name">fb</property>
                                 <property name="visible">True</property>
@@ -1024,7 +1024,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkRadioButton" id="rb_cap">
+                              <object class="GtkRadioButton" id="rb_tp_cap">
                                 <property name="label" translatable="yes">Capture</property>
                                 <property name="name">capture</property>
                                 <property name="visible">True</property>
@@ -1041,7 +1041,7 @@
                               </packing>
                             </child>
                             <child>
-                              <object class="GtkRadioButton" id="rb_circ">
+                              <object class="GtkRadioButton" id="rb_tp_circ">
                                 <property name="label" translatable="yes">Circularize</property>
                                 <property name="name">circ</property>
                                 <property name="visible">True</property>

@@ -45,12 +45,13 @@ void activate_transfer_app(GtkApplication *app, gpointer user_data) {
 	
 	gtk_builder_connect_signals(builder, NULL);
 
-	init_transfer_planner(builder);
-
 	/* Connect signal handlers to the constructed widgets. */
 	GObject *window = gtk_builder_get_object (builder, "window");
 	gtk_window_set_application(GTK_WINDOW (window), app);
 	gtk_widget_set_visible(GTK_WIDGET (window), TRUE);
+
+
+	init_transfer_planner(builder);
 	
 	/* We do not need the builder anymore */
 	g_object_unref(builder);

@@ -23,6 +23,12 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, str
 // find viable flybys to next body with a given arrival trajectory
 void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *next_body, double min_dt0, double max_dt0, double min_dt1, double max_dt1);
 
+// return departure step
+struct ItinStep * get_first(struct ItinStep *tf);
+
+// return last step from itinerary (first branch)
+struct ItinStep * get_last(struct ItinStep *tf);
+
 // print itinerary dates (arrival first)
 void print_itinerary(struct ItinStep *itin);
 
