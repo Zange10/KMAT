@@ -9,6 +9,7 @@
 #include "double_swing_by.h"
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, struct Body *next_body, double min_dt, double max_dt) {
@@ -436,8 +437,8 @@ void store_step_in_file(struct ItinStep *step, FILE *file, int layer, int variat
 }
 
 void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int num_deps) {
-	char filename[19];  // 14 for date + 4 for .csv + 1 for string terminator
-	sprintf(filename, "test.transfer");
+	char filename[50];  // 14 for date + 4 for .csv + 1 for string terminator
+	sprintf(filename, "./Itineraries/test.transfer");
 	int num_steps = get_num_of_itin_layers(departures[0]);
 	printf("Filesize: ~%.3f MB\n", (double)num_nodes*240/1e6);
 
@@ -505,8 +506,8 @@ void store_step_in_bfile(struct ItinStep *step, FILE *file) {
 }
 
 void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps) {
-	char filename[19];
-	sprintf(filename, "test.itins");
+	char filename[50];
+	sprintf(filename, "./Itineraries/test.itins");
 
 	printf("Filesize: ~%.3f MB\n", (double)num_nodes*110/1e6);
 
@@ -554,8 +555,8 @@ void load_step_from_bfile(struct ItinStep *step, FILE *file, struct Body **body)
 }
 
 struct ItinStep ** load_itineraries_from_bfile() {
-	char filename[19];
-	sprintf(filename, "test.itins");
+	char filename[50];
+	sprintf(filename, "./Itineraries/test.itins");
 
 	struct ItinStepBinHeader bin_header;
 
@@ -594,17 +595,22 @@ struct ItinStep ** load_itineraries_from_bfile() {
 	return departures;
 }
 
-void store_single_itinerary_in_bfile(struct ItinStep *itin) {
+void store_single_itinerary_in_bfile(struct ItinStep *itin, char *filepath) {
 	if(itin == NULL) return;
-	char filename[19];
-	sprintf(filename, "test.itin");
 
 	int num_nodes = get_num_of_itin_layers(itin);
 
-	printf("Number of stored nodes: %d\n", num_nodes);
+	// Check if the string ends with ".itin"
+	if (strlen(filepath) >= 5 && strcmp(filepath + strlen(filepath) - 5, ".itin") != 0) {
+		// If not, append ".itin" to the string
+		strcat(filepath, ".itin");
+	}
+
+
+	printf("Storing Itinerary: %s\n", filepath);
 
 	FILE *file;
-	file = fopen(filename,"wb");
+	file = fopen(filepath,"wb");
 
 	fwrite(&num_nodes, sizeof(int), 1, file);
 
@@ -632,14 +638,13 @@ void store_single_itinerary_in_bfile(struct ItinStep *itin) {
 	fclose(file);
 }
 
-struct ItinStep * load_single_itinerary_from_bfile() {
-	char filename[19];
-	sprintf(filename, "test.itin");
-
+struct ItinStep * load_single_itinerary_from_bfile(char *filepath) {
 	int num_nodes;
 
+	printf("Loading Itinerary: %s\n", filepath);
+
 	FILE *file;
-	file = fopen(filename,"rb");
+	file = fopen(filepath,"rb");
 
 	fread(&num_nodes, sizeof(int), 1, file);
 

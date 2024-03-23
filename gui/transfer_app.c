@@ -492,13 +492,77 @@ void on_find_itinerary(GtkWidget* widget, gpointer data) {
 void on_save_itinerary(GtkWidget* widget, gpointer data) {
 	struct ItinStep *first = get_first();
 	if(first == NULL || !is_valid_itinerary(get_last())) return;
-	store_single_itinerary_in_bfile(first);
+
+
+	GtkWidget *dialog;
+	GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_SAVE;
+	gint res;
+
+	// Create the file chooser dialog
+	dialog = gtk_file_chooser_dialog_new("Save File", NULL, action,
+										 "_Cancel", GTK_RESPONSE_CANCEL,
+										 "_Save", GTK_RESPONSE_ACCEPT,
+										 NULL);
+
+	// Set initial folder
+	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), "./Itineraries");
+
+	// Create a filter for files with the extension .itin
+	GtkFileFilter *filter = gtk_file_filter_new();
+	gtk_file_filter_add_pattern(filter, "*.itin");
+	gtk_file_filter_set_name(filter, ".itin");
+	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+
+	// Run the dialog
+	res = gtk_dialog_run(GTK_DIALOG(dialog));
+	if (res == GTK_RESPONSE_ACCEPT) {
+		char *filepath;
+		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
+		filepath = gtk_file_chooser_get_filename(chooser);
+
+		store_single_itinerary_in_bfile(first, filepath);
+		g_free(filepath);
+	}
+
+	// Destroy the dialog
+	gtk_widget_destroy(dialog);
 }
 
 void on_load_itinerary(GtkWidget* widget, gpointer data) {
-	if(curr_transfer != NULL) free_itinerary(get_first());
-	curr_transfer = load_single_itinerary_from_bfile();
-	current_date = curr_transfer->date;
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
-	update_itinerary();
+	GtkWidget *dialog;
+	GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
+	gint res;
+
+	// Create the file chooser dialog
+	dialog = gtk_file_chooser_dialog_new("Open File", NULL, action,
+										 "_Cancel", GTK_RESPONSE_CANCEL,
+										 "_Open", GTK_RESPONSE_ACCEPT,
+										 NULL);
+
+	// Set initial folder
+	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), "./Itineraries");
+
+	// Create a filter for files with the extension .itin
+	GtkFileFilter *filter = gtk_file_filter_new();
+	gtk_file_filter_add_pattern(filter, "*.itin");
+	gtk_file_filter_set_name(filter, ".itin");
+	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+
+	// Run the dialog
+	res = gtk_dialog_run(GTK_DIALOG(dialog));
+	if (res == GTK_RESPONSE_ACCEPT) {
+		char *filepath;
+		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
+		filepath = gtk_file_chooser_get_filename(chooser);
+
+		if(curr_transfer != NULL) free_itinerary(get_first());
+		curr_transfer = load_single_itinerary_from_bfile(filepath);
+		current_date = curr_transfer->date;
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tfdate), 0);
+		update_itinerary();
+		g_free(filepath);
+	}
+
+	// Destroy the dialog
+	gtk_widget_destroy(dialog);
 }

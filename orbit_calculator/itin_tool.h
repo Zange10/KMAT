@@ -76,10 +76,10 @@ void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int
 struct ItinStep ** load_itineraries_from_bfile();
 
 // stores single itinerary (first branches in tree) (departure first)
-void store_single_itinerary_in_bfile(struct ItinStep *itin);
+void store_single_itinerary_in_bfile(struct ItinStep *itin, char *filename);
 
 // loads single itinerary (first branches in tree) (departure first)
-struct ItinStep * load_single_itinerary_from_bfile();
+struct ItinStep * load_single_itinerary_from_bfile(char *filename);
 
 // removes this and all now unneeded steps from itineraries (no next node before arrival)
 void remove_step_from_itinerary(struct ItinStep *step);
