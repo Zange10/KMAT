@@ -842,7 +842,7 @@
                     <property name="can-focus">False</property>
                     <property name="vexpand">True</property>
                     <child>
-                      <!-- n-columns=4 n-rows=7 -->
+                      <!-- n-columns=4 n-rows=8 -->
                       <object class="GtkGrid">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
@@ -1043,6 +1043,30 @@
                             <property name="left-attach">0</property>
                             <property name="top-attach">4</property>
                             <property name="width">4</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="label" translatable="yes">Fly-by Periapsis:</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">7</property>
+                            <property name="width">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="lb_tp_periapsis">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="label" translatable="yes">- km</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">2</property>
+                            <property name="top-attach">7</property>
+                            <property name="width">2</property>
                           </packing>
                         </child>
                       </object>

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <gtk/gtk.h>
 #include <locale.h>
+#include <math.h>
 
 
 struct ItinStep *curr_transfer_tp;
@@ -18,6 +19,7 @@ GObject *tb_tp_tfdate;
 GObject *bt_tp_tfbody;
 GObject *lb_tp_transfer_dv;
 GObject *lb_tp_total_dv;
+GObject *lb_tp_periapsis;
 GObject *transfer_panel_tp;
 gboolean body_show_status_tp[9];
 double current_date_tp;
@@ -36,6 +38,7 @@ void init_transfer_planner(GtkBuilder *builder) {
 	bt_tp_tfbody = gtk_builder_get_object(builder, "bt_tp_change_tf_body");
 	lb_tp_transfer_dv = gtk_builder_get_object(builder, "lb_tp_transfer_dv");
 	lb_tp_total_dv = gtk_builder_get_object(builder, "lb_tp_total_dv");
+	lb_tp_periapsis = gtk_builder_get_object(builder, "lb_tp_periapsis");
 	transfer_panel_tp = gtk_builder_get_object(builder, "transfer_panel");
 	lb_tp_date = gtk_builder_get_object(builder, "lb_tp_date");
 	da_tp = gtk_builder_get_object(builder, "da_tp");
@@ -127,6 +130,16 @@ double calc_total_dv() {
 	return dv;
 }
 
+double calc_periapsis_height_tp() {
+	if(curr_transfer_tp->body == NULL) return -1e20;
+	if(curr_transfer_tp->next == NULL || curr_transfer_tp->prev == NULL) return -1e20;
+	struct Vector v_arr = subtract_vectors(curr_transfer_tp->v_arr, curr_transfer_tp->v_body);
+	struct Vector v_dep = subtract_vectors(curr_transfer_tp->next[0]->v_dep, curr_transfer_tp->v_body);
+	double beta = (M_PI - angle_vec_vec(v_arr, v_dep))/2;
+	double rp = (1 / cos(beta) - 1) * (curr_transfer_tp->body->mu / (pow(vector_mag(v_arr), 2)));
+	return (rp-curr_transfer_tp->body->radius)*1e-3;
+}
+
 void update_itinerary() {
 	update_itin_body_osvs(get_first(curr_transfer_tp), get_body_ephems());
 	calc_itin_v_vectors_from_dates_and_r(get_first(curr_transfer_tp));
@@ -176,7 +189,13 @@ void update_transfer_panel() {
 		gtk_label_set_label(GTK_LABEL(lb_tp_transfer_dv), s_dv);
 		sprintf(s_dv, "%6.0f m/s", calc_total_dv());
 		gtk_label_set_label(GTK_LABEL(lb_tp_total_dv), s_dv);
+		double h = calc_periapsis_height_tp();
+		if(curr_transfer_tp->body != NULL && h > -curr_transfer_tp->body->radius*1e-3)
+			sprintf(s_dv, "%.0f km", h);
+		else sprintf(s_dv, "- km");
+		gtk_label_set_label(GTK_LABEL(lb_tp_periapsis), s_dv);
 	}
+
 }
 
 
