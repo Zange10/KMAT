@@ -420,6 +420,28 @@ struct ItinStep * create_itin_copy(struct ItinStep *step) {
 	return new_step;
 }
 
+struct ItinStep * create_itin_copy_from_arrival(struct ItinStep *step) {
+	struct ItinStep *step_copy = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+	copy_step_body_vectors_and_date(step, step_copy);
+	step_copy->next = NULL;
+	step_copy->num_next_nodes = 0;
+
+	while(step->prev != NULL) {
+		step_copy->prev = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+		step_copy->prev->next = (struct ItinStep**) malloc(sizeof(struct ItinStep*));
+		step_copy->prev->next[0] = step_copy;
+		step_copy->prev->num_next_nodes = 1;
+
+		step = step->prev;
+		step_copy = step_copy->prev;
+		copy_step_body_vectors_and_date(step, step_copy);
+	}
+
+
+	step_copy->prev = NULL;
+	return get_last(step_copy);
+}
+
 int is_valid_itinerary(struct ItinStep *step) {
 	if(step == NULL || step->body == NULL || step->prev == NULL) return 0;
 	while(step != NULL) {

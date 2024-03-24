@@ -162,8 +162,6 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 	draw_stroke(cr, vec2D(origin.x, 0), vec2D(origin.x, origin.y));
 	draw_stroke(cr, vec2D(origin.x, origin.y), vec2D(width, origin.y));
 
-	if(porkchop == NULL) return;
-
 	// Set font options
 	cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
 	cairo_set_font_size(cr, 12.0);
@@ -221,7 +219,9 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 	// y-labels and y grid
 	for(int i = 0; i < num_durs; i++) {
 		double y = max_y_label_y-y_label_step*i;
-		if(i > 0) draw_right_aligned_int(cr, y_label_x, y+half_font_size, min_y + i * y_step);
+		cairo_set_source_rgb(cr, 1, 1, 1);
+		draw_right_aligned_int(cr, y_label_x, y+half_font_size, min_y + i * y_step);
+		cairo_set_source_rgb(cr, 0, 0, 0);
 		draw_stroke(cr, vec2D(origin.x, y), vec2D(width, y));
 	}
 
@@ -230,7 +230,9 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 	for(int i = 0; i < num_dates; i++) {
 		double x = min_x_label_x+x_label_step*i;
 		date_to_string(convert_JD_date(min_x + i * x_step), date_string, 0);
-		if(i > 0) draw_center_aligned_text(cr, x, x_label_y, date_string);
+		cairo_set_source_rgb(cr, 1, 1, 1);
+		draw_center_aligned_text(cr, x, x_label_y, date_string);
+		cairo_set_source_rgb(cr, 0, 0, 0);
 		draw_stroke(cr, vec2D(x, origin.y), vec2D(x, 0));
 	}
 

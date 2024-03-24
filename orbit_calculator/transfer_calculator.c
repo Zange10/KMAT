@@ -113,30 +113,30 @@ void create_itinerary() {
 //	int min_duration[] = {150, 100, 50};
 //	int max_duration[] = {200, 500, 500};
 
-//	struct Body *bodies[] = {EARTH(), JUPITER(), SATURN(), URANUS(), NEPTUNE()};
-//	int num_steps = sizeof(bodies)/sizeof(struct Body*);
-//
-//	struct Date min_dep_date = {1976, 5, 15};
-//	struct Date max_dep_date = {1979, 11, 21};
-//	double jd_min_dep = convert_date_JD(min_dep_date);
-//	double jd_max_dep = convert_date_JD(max_dep_date);
-//	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
-//
-//	int min_duration[] = {500, 100, 300, 300};
-//	int max_duration[] = {1000, 3000, 3000, 3000};
-
-
-	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH(), JUPITER(), SATURN()};
+	struct Body *bodies[] = {EARTH(), JUPITER(), SATURN(), URANUS(), NEPTUNE()};
 	int num_steps = sizeof(bodies)/sizeof(struct Body*);
 
-	struct Date min_dep_date = {1997, 10, 1};
-	struct Date max_dep_date = {1997, 10, 31};
+	struct Date min_dep_date = {1976, 5, 15};
+	struct Date max_dep_date = {1979, 11, 21};
 	double jd_min_dep = convert_date_JD(min_dep_date);
 	double jd_max_dep = convert_date_JD(max_dep_date);
 	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
 
-	int min_duration[] = {190, 415, 50, 200, 500};
-	int max_duration[] = {205, 435, 60, 1000, 2000};
+	int min_duration[] = {500, 100, 300, 300};
+	int max_duration[] = {1000, 3000, 3000, 3000};
+
+
+//	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH(), JUPITER(), SATURN()};
+//	int num_steps = sizeof(bodies)/sizeof(struct Body*);
+//
+//	struct Date min_dep_date = {1997, 10, 1};
+//	struct Date max_dep_date = {1997, 10, 31};
+//	double jd_min_dep = convert_date_JD(min_dep_date);
+//	double jd_max_dep = convert_date_JD(max_dep_date);
+//	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
+//
+//	int min_duration[] = {190, 415, 50, 200, 500};
+//	int max_duration[] = {205, 435, 60, 1000, 2000};
 
 	struct Ephem **ephems = (struct Ephem**) malloc(num_steps*sizeof(struct Ephem*));
 	for(int i = 0; i < num_steps; i++) {

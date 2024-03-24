@@ -62,8 +62,11 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step);
 // copy the body reference, r and v vectors and date from orig_step to step_copy
 void copy_step_body_vectors_and_date(struct ItinStep *orig_step, struct ItinStep *step_copy);
 
-// create and return copy of itinerary from given step (rising date)
+// create and return copy of itineraries from given step (rising date)
 struct ItinStep * create_itin_copy(struct ItinStep *step);
+
+// create and return copy of single itinerary from arrival (falling date)
+struct ItinStep * create_itin_copy_from_arrival(struct ItinStep *step);
 
 // returns 1 if itinerary is valid and 0 if not (arrival first)
 int is_valid_itinerary(struct ItinStep *step);
