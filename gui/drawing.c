@@ -171,7 +171,7 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 	int num_itins = (int) (porkchop[0]/5);
 
 
-	double min_duration = porkchop[1+1], max_duration = porkchop[1+1];
+	double min_dur = porkchop[1 + 1], max_dur = porkchop[1 + 1];
 	double min_date = porkchop[0+1], max_date = porkchop[0+1];
 	double min_dv = porkchop[2+1]+porkchop[3+1]+porkchop[4+1]*fb0_pow1;
 	double max_dv = porkchop[2+1]+porkchop[3+1]+porkchop[4+1]*fb0_pow1;
@@ -191,36 +191,39 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 		else if(dv > max_dv) max_dv = dv;
 		if(date < min_date) min_date = date;
 		else if(date > max_date) max_date = date;
-		if(dur < min_duration) min_duration = dur;
-		else if(dur > max_duration) max_duration = dur;
+		if(dur < min_dur) min_dur = dur;
+		else if(dur > max_dur) max_dur = dur;
 	}
 
-	int min_x = (int) min_date;
-	int min_y = (int) min_duration;
+	double ddate = max_date-min_date;
+	double ddur = max_dur - min_dur;
 
+	double margin = 0.05;
 
-	double y_step = 1, x_step = 1;
+	min_date = min_date-ddate*margin;
+	max_date = max_date+ddate*margin;
+	min_dur = min_dur - ddur * margin;
+	max_dur = max_dur + ddur * margin;
+
+	// gradients
+	double m_dur, m_date;
+	m_date = (width-origin.x)/(max_date - min_date);
+	m_dur = -origin.y/(max_dur - min_dur); // negative, because positive is down
+
 	int num_durs = 8;
-	int num_dates = 8;
-
-	while(min_y + (num_durs - 1) * y_step < max_duration) y_step *= 2;
-	while(min_x + (num_dates - 1) * x_step < max_date) x_step *= 2;
+	int num_dates = 5;
+	double min_date_label = floor(min_date+2.0/3*(max_date-min_date)/num_dates);
+	double min_dur_label = floor(min_dur+2.0/3*(max_dur-min_dur)/num_durs);
+	double x_label_tick = ceil(ddate/num_dates), y_label_tick = ceil(ddur/num_durs);
 
 	double y_label_x = 40,	x_label_y = height - 15;
 
-	double min_y_label_y = 20, max_y_label_y = origin.y-20;
-	double y_label_step = (double)(max_y_label_y-min_y_label_y+1)/(num_durs-1);
-	double y_gradient = -(y_label_step*(num_durs-1)) / (y_step*(num_durs-1));
-
-	double min_x_label_x = origin.x+20, max_x_label_x = width-40;
-	double x_label_step = (double)(max_x_label_x-min_x_label_x+1)/(num_dates-1);
-	double x_gradient = (x_label_step*(num_dates-1)) / (x_step*(num_dates-1));
-
 	// y-labels and y grid
 	for(int i = 0; i < num_durs; i++) {
-		double y = max_y_label_y-y_label_step*i;
+		int label = (int) (min_dur_label + i * y_label_tick);
+		double y = (label-min_dur)*m_dur + origin.y;
 		cairo_set_source_rgb(cr, 1, 1, 1);
-		draw_right_aligned_int(cr, y_label_x, y+half_font_size, min_y + i * y_step);
+		draw_right_aligned_int(cr, y_label_x, y+half_font_size, label);
 		cairo_set_source_rgb(cr, 0, 0, 0);
 		draw_stroke(cr, vec2D(origin.x, y), vec2D(width, y));
 	}
@@ -228,8 +231,9 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 	// x-labels and x grid
 	char date_string[32];
 	for(int i = 0; i < num_dates; i++) {
-		double x = min_x_label_x+x_label_step*i;
-		date_to_string(convert_JD_date(min_x + i * x_step), date_string, 0);
+		int label = (int) (min_date_label + i * x_label_tick);
+		double x = (label-min_date)*m_date + origin.x;
+		date_to_string(convert_JD_date(label), date_string, 0);
 		cairo_set_source_rgb(cr, 1, 1, 1);
 		draw_center_aligned_text(cr, x, x_label_y, date_string);
 		cairo_set_source_rgb(cr, 0, 0, 0);
@@ -252,7 +256,7 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 		double b = i < 0 ? 0 : 4*pow(color_bias-0.5,2);
 		cairo_set_source_rgb(cr, r,g,b);
 
-		struct Vector2D data_point = vec2D(min_x_label_x + x_gradient*(date - min_x), max_y_label_y + y_gradient * (dur - min_y));
+		struct Vector2D data_point = vec2D(origin.x + m_date*(date - min_date), origin.y + m_dur * (dur - min_dur));
 		draw_data_point(cr, data_point.x, data_point.y, i >= 0 ? 2 : 5);
 	}
 }
