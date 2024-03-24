@@ -288,6 +288,45 @@ void on_load_itineraries(GtkWidget* widget, gpointer data) {
 	update_preview_drawing_area();
 }
 
+void on_save_best_itinerary(GtkWidget* widget, gpointer data) {
+	struct ItinStep *first = get_first(curr_transfer_pa);
+	if(first == NULL || !is_valid_itinerary(get_last(curr_transfer_pa))) return;
+
+
+	GtkWidget *dialog;
+	GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_SAVE;
+	gint res;
+
+	// Create the file chooser dialog
+	dialog = gtk_file_chooser_dialog_new("Save File", NULL, action,
+										 "_Cancel", GTK_RESPONSE_CANCEL,
+										 "_Save", GTK_RESPONSE_ACCEPT,
+										 NULL);
+
+	// Set initial folder
+	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), "./Itineraries");
+
+	// Create a filter for files with the extension .itin
+	GtkFileFilter *filter = gtk_file_filter_new();
+	gtk_file_filter_add_pattern(filter, "*.itin");
+	gtk_file_filter_set_name(filter, ".itin");
+	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+
+	// Run the dialog
+	res = gtk_dialog_run(GTK_DIALOG(dialog));
+	if (res == GTK_RESPONSE_ACCEPT) {
+		char *filepath;
+		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
+		filepath = gtk_file_chooser_get_filename(chooser);
+
+		store_single_itinerary_in_bfile(first, filepath);
+		g_free(filepath);
+	}
+
+	// Destroy the dialog
+	gtk_widget_destroy(dialog);
+}
+
 void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointer data) {
 	if(!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) return;
 	const char *name = gtk_widget_get_name(widget);
@@ -323,8 +362,24 @@ void on_apply_filter(GtkWidget* widget, gpointer data) {
 	min[0] = convert_date_JD(date_from_string(string));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_max_feedback[0]));
 	max[0] = convert_date_JD(date_from_string(string));
+	for(int i = 1; i < 5; i++) {
+		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_min_feedback[i]));
+		min[i] = strtod(string, NULL);
+		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_max_feedback[i]));
+		max[i] = strtod(string, NULL);
+	}
+
+	int init_num_itins = pa_num_itins;
+
+	int fb0_pow1 = pa_last_transfer_type == TF_FLYBY ? 0 : 1;
 	reset_porkchop_and_arrivals(pa_all_porkchop, pa_porkchop, pa_all_arrivals, pa_arrivals);
 	pa_num_itins = filter_porkchop_arrivals_depdate(pa_porkchop, pa_arrivals, min[0], max[0]);
+	pa_num_itins = filter_porkchop_arrivals_dur(pa_porkchop, pa_arrivals, min[1], max[1]);
+	pa_num_itins = filter_porkchop_arrivals_totdv(pa_porkchop, pa_arrivals, min[2], max[2], fb0_pow1);
+	pa_num_itins = filter_porkchop_arrivals_depdv(pa_porkchop, pa_arrivals, min[3], max[3]);
+	pa_num_itins = filter_porkchop_arrivals_satdv(pa_porkchop, pa_arrivals, min[4], max[4], fb0_pow1);
+
+	printf("Filtered %d Itineraries (%d left)\n", init_num_itins-pa_num_itins, pa_num_itins);
 
 	update_pa();
 }

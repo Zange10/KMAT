@@ -66,6 +66,12 @@ int filter_porkchop_arrivals_depdate(double *porkchop, struct ItinStep **arrival
 	int new_num_itins = 0;
 	int num_itins = (int) (porkchop[0]/5);
 
+	if(min_date > max_date) {
+		double temp = min_date;
+		min_date = max_date;
+		max_date = temp;
+	}
+
 	int index;
 	double date;
 
@@ -85,3 +91,124 @@ int filter_porkchop_arrivals_depdate(double *porkchop, struct ItinStep **arrival
 
 	return new_num_itins;
 }
+
+int filter_porkchop_arrivals_dur(double *porkchop, struct ItinStep **arrivals, double min_dur, double max_dur) {
+	int new_num_itins = 0;
+	int num_itins = (int) (porkchop[0]/5);
+
+	if(min_dur > max_dur) {
+		double temp = min_dur;
+		min_dur = max_dur;
+		max_dur = temp;
+	}
+
+	int index;
+	double dur;
+
+	for(int i = 0; i < num_itins; i++) {
+		index = 1+i*5;
+		dur = porkchop[index+1];
+		if(dur >= min_dur && dur <= max_dur) {
+			if(new_num_itins != i) {
+				arrivals[new_num_itins] = arrivals[i];
+				swap_porkchop(&porkchop[index], &porkchop[5*new_num_itins+1]);
+			}
+			new_num_itins++;
+		}
+	}
+
+	porkchop[0] = new_num_itins*5;
+
+	return new_num_itins;
+}
+
+int filter_porkchop_arrivals_totdv(double *porkchop, struct ItinStep **arrivals, double min_dv, double max_dv, int fb0_pow1) {
+	int new_num_itins = 0;
+	int num_itins = (int) (porkchop[0]/5);
+
+	if(min_dv > max_dv) {
+		double temp = min_dv;
+		min_dv = max_dv;
+		max_dv = temp;
+	}
+
+	int index;
+	double dv;
+
+	for(int i = 0; i < num_itins; i++) {
+		index = 1+i*5;
+		dv = porkchop[index+2]+porkchop[index+3]+porkchop[index+4]*fb0_pow1;
+		if(dv >= min_dv && dv <= max_dv) {
+			if(new_num_itins != i) {
+				arrivals[new_num_itins] = arrivals[i];
+				swap_porkchop(&porkchop[index], &porkchop[5*new_num_itins+1]);
+			}
+			new_num_itins++;
+		}
+	}
+
+	porkchop[0] = new_num_itins*5;
+
+	return new_num_itins;
+}
+
+int filter_porkchop_arrivals_depdv(double *porkchop, struct ItinStep **arrivals, double min_dv, double max_dv) {
+	int new_num_itins = 0;
+	int num_itins = (int) (porkchop[0]/5);
+
+	if(min_dv > max_dv) {
+		double temp = min_dv;
+		min_dv = max_dv;
+		max_dv = temp;
+	}
+
+	int index;
+	double dv;
+
+	for(int i = 0; i < num_itins; i++) {
+		index = 1+i*5;
+		dv = porkchop[index+2];
+		if(dv >= min_dv && dv <= max_dv) {
+			if(new_num_itins != i) {
+				arrivals[new_num_itins] = arrivals[i];
+				swap_porkchop(&porkchop[index], &porkchop[5*new_num_itins+1]);
+			}
+			new_num_itins++;
+		}
+	}
+
+	porkchop[0] = new_num_itins*5;
+
+	return new_num_itins;
+}
+
+int filter_porkchop_arrivals_satdv(double *porkchop, struct ItinStep **arrivals, double min_dv, double max_dv, int fb0_pow1) {
+	int new_num_itins = 0;
+	int num_itins = (int) (porkchop[0]/5);
+
+	if(min_dv > max_dv) {
+		double temp = min_dv;
+		min_dv = max_dv;
+		max_dv = temp;
+	}
+
+	int index;
+	double dv;
+
+	for(int i = 0; i < num_itins; i++) {
+		index = 1+i*5;
+		dv = porkchop[index+3]+porkchop[index+4]*fb0_pow1;
+		if(dv >= min_dv && dv <= max_dv) {
+			if(new_num_itins != i) {
+				arrivals[new_num_itins] = arrivals[i];
+				swap_porkchop(&porkchop[index], &porkchop[5*new_num_itins+1]);
+			}
+			new_num_itins++;
+		}
+	}
+
+	porkchop[0] = new_num_itins*5;
+
+	return new_num_itins;
+}
+

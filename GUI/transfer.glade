@@ -343,10 +343,11 @@
                         <property name="homogeneous">True</property>
                         <child>
                           <object class="GtkButton" id="bt_pa_save_itin">
-                            <property name="label" translatable="yes">Save Itinerary</property>
+                            <property name="label" translatable="yes">Save best Itinerary</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_save_best_itinerary" swapped="no"/>
                           </object>
                           <packing>
                             <property name="expand">False</property>
@@ -356,7 +357,7 @@
                         </child>
                         <child>
                           <object class="GtkButton" id="bt_pa_load_itin">
-                            <property name="label" translatable="yes">Load Itinerary</property>
+                            <property name="label" translatable="yes">Load Itineraries</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="receives-default">True</property>
