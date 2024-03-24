@@ -173,14 +173,14 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 
 	double min_duration = porkchop[1+1], max_duration = porkchop[1+1];
 	double min_date = porkchop[0+1], max_date = porkchop[0+1];
-	double min_dv = porkchop[2+1]+porkchop[3+1]*fb0_pow1+porkchop[4+1];
-	double max_dv = porkchop[2+1]+porkchop[3+1]*fb0_pow1+porkchop[4+1];
+	double min_dv = porkchop[2+1]+porkchop[3+1]+porkchop[4+1]*fb0_pow1;
+	double max_dv = porkchop[2+1]+porkchop[3+1]+porkchop[4+1]*fb0_pow1;
 	int min_dv_ind = 0;
 	double dv, date, dur;
 
 	for(int i = 1; i < num_itins; i++) {
 		int index = 1+i*5;
-		dv = porkchop[index+2]+porkchop[index+3]*fb0_pow1+porkchop[index+4];
+		dv = porkchop[index+2]+porkchop[index+3]+porkchop[index+4]*fb0_pow1;
 		date = porkchop[index+0];
 		dur = porkchop[index+1];
 
@@ -236,24 +236,23 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 		draw_stroke(cr, vec2D(x, origin.y), vec2D(x, 0));
 	}
 
-
 	// data
 	double color_bias;
-	for(int i = 0; i <= num_itins; i++) {
-		int index = i < num_itins ? 1+i*5 : 1+min_dv_ind*5;
+	for(int i = num_itins-1; i >= -1; i--) {
+		int index = i >= 0 ? 1+i*5 : 1+min_dv_ind*5;
 
-		dv = porkchop[index+2]+porkchop[index+3]*fb0_pow1+porkchop[index+4];
+		dv = porkchop[index+2]+porkchop[index+3]+porkchop[index+4]*fb0_pow1;
 		date = porkchop[index+0];
 		dur = porkchop[index+1];
 
 		// color coding
 		color_bias = (dv - min_dv) / (max_dv - min_dv);
-		double r = i == num_itins ? 1 : color_bias;
-		double g = i == num_itins ? 0 : 1-color_bias;
-		double b = i == num_itins ? 0 : 4*pow(color_bias-0.5,2);
+		double r = i < 0 ? 1 : color_bias;
+		double g = i < 0 ? 0 : 1-color_bias;
+		double b = i < 0 ? 0 : 4*pow(color_bias-0.5,2);
 		cairo_set_source_rgb(cr, r,g,b);
 
 		struct Vector2D data_point = vec2D(min_x_label_x + x_gradient*(date - min_x), max_y_label_y + y_gradient * (dur - min_y));
-		draw_data_point(cr, data_point.x, data_point.y, i < num_itins ? 2 : 5);
+		draw_data_point(cr, data_point.x, data_point.y, i >= 0 ? 2 : 5);
 	}
 }

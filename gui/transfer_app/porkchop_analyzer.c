@@ -6,6 +6,7 @@
 
 #include <string.h>
 #include <locale.h>
+#include <sys/time.h>
 
 
 
@@ -19,6 +20,53 @@ struct ItinStep *curr_transfer_pa;
 double current_date_pa;
 gboolean body_show_status_pa[9];
 
+void swap_arr(double *a, double *b) {
+	double temp = *a;
+	*a = *b;
+	*b = temp;
+}
+
+void swap_porkchop(double *a, double *b) {
+	double temp[5];
+	for(int i = 0; i < 5; i++) temp[i] = a[i];
+	for(int i = 0; i < 5; i++) a[i] = b[i];
+	for(int i = 0; i < 5; i++) b[i] = temp[i];
+}
+
+void swap_arrivals(struct ItinStep **a, struct ItinStep **b) {
+	struct ItinStep *temp = *a;
+	*a = *b;
+	*b = temp;
+}
+
+void swap(double arr[], int a_ind, int b_ind, double *porkchop, struct ItinStep **arrivals) {
+	swap_arr(&arr[a_ind], &arr[b_ind]);
+	swap_porkchop(&porkchop[5*a_ind+1], &porkchop[5*b_ind+1]);
+	swap_arrivals(&arrivals[a_ind], &arrivals[b_ind]);
+}
+
+int partition(double arr[], int low, int high, double *porkchop, struct ItinStep **arrivals) {
+	double pivot = arr[high];
+	int i = (low - 1);
+
+	for (int j = low; j <= high - 1; j++) {
+		if (arr[j] < pivot) {
+			i++;
+			swap(arr, i, j, porkchop, arrivals);
+		}
+	}
+	swap(arr, i+1, high, porkchop, arrivals);
+	return (i + 1);
+}
+
+void quicksort_porkchop_and_arrivals(double *arr, int low, int high, double *porkchop, struct ItinStep **arrivals) {
+	if (low < high) {
+		int pi = partition(arr, low, high, porkchop, arrivals);
+
+		quicksort_porkchop_and_arrivals(arr, low, pi - 1, porkchop, arrivals);
+		quicksort_porkchop_and_arrivals(arr, pi + 1, high, porkchop, arrivals);
+	}
+}
 
 void init_porkchop_analyzer(GtkBuilder *builder) {
 	pa_num_deps = 0;
@@ -52,22 +100,24 @@ void update_preview_drawing_area() {
 }
 
 void update_best_itin(int num_itins, int fb0_pow1) {
-	double min_dv = pa_porkchop[2+1]+pa_porkchop[3+1]*fb0_pow1+pa_porkchop[4+1];
-	int min_dv_ind = 0;
-	double dv;
+	struct timeval start, end;
+	double elapsed_time;
+	gettimeofday(&start, NULL);  // Record the ending time
 
-	for(int i = 1; i < num_itins; i++) {
+	double *dvs = (double*) malloc(num_itins*sizeof(double));
+	for(int i = 0; i < num_itins; i++)  {
 		int ind = 1+i*5;
-		dv = pa_porkchop[ind+2]+pa_porkchop[ind+3]*fb0_pow1+pa_porkchop[ind+4];
-
-		if(dv < min_dv) {
-			min_dv = dv;
-			min_dv_ind = i;
-		}
+		dvs[i] = pa_porkchop[ind+2]+pa_porkchop[ind+3]+pa_porkchop[ind+4]*fb0_pow1;
 	}
 
+	quicksort_porkchop_and_arrivals(dvs, 0, pa_num_itins-1, pa_porkchop, pa_arrivals);
+
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+
 	if(curr_transfer_pa != NULL) free_itinerary(get_first(curr_transfer_pa));
-	curr_transfer_pa = create_itin_copy_from_arrival(pa_arrivals[min_dv_ind]);
+	curr_transfer_pa = create_itin_copy_from_arrival(pa_arrivals[0]);
 }
 
 void on_porkchop_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
