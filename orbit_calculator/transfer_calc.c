@@ -16,6 +16,7 @@ struct Itin_Thread_Args {
 	int *min_duration;
 	int *max_duration;
 	int num_steps;
+	double *max_dvs;
 };
 
 void *calc_from_departure(void *args) {
@@ -57,12 +58,24 @@ void *calc_from_departure(void *args) {
 			double jd_arr = jd_dep + min_duration[0] + j;
 			struct OSV osv_body1 = osv_from_ephem(ephems[1], jd_arr, SUN());
 
+			double data[3];
+
 			struct Transfer tf = calc_transfer(circfb, bodies[0], bodies[1], osv_body0.r, osv_body0.v,
-											   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, NULL);
+											   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, data);
+
 
 			while(curr_step->prev != NULL) curr_step = curr_step->prev;
 			curr_step->next[j - fb1_del] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
 			curr_step->next[j - fb1_del]->prev = curr_step;
+			curr_step->next[j - fb1_del]->next = NULL;
+
+			if(data[1] > thread_args->max_dvs[0] || data[1] > thread_args->max_dvs[1]) {
+				struct ItinStep *rem_step = curr_step->next[j - fb1_del];
+				remove_step_from_itinerary(rem_step);
+				fb1_del++;
+				continue;
+			}
+
 			curr_step = curr_step->next[j - fb1_del];
 			curr_step->body = bodies[1];
 			curr_step->date = jd_arr;
@@ -71,7 +84,6 @@ void *calc_from_departure(void *args) {
 			curr_step->v_arr = tf.v1;
 			curr_step->v_body = osv_body1.v;
 			curr_step->num_next_nodes = 0;
-			curr_step->next = NULL;
 
 			if(num_steps > 2) {
 				if(!calc_next_step(curr_step, ephems, bodies, min_duration, max_duration, num_steps, 2)) {
@@ -112,6 +124,8 @@ struct Transfer_Calc_Results create_itinerary(struct Transfer_Calc_Data calc_dat
 	int *min_duration = calc_data.min_duration;
 	int *max_duration = calc_data.max_duration;
 
+	double max_dvs[3] = {calc_data.max_totdv_tc, calc_data.max_depdv_tc, calc_data.max_satdv_tc};
+
 	struct Ephem **ephems = (struct Ephem**) malloc(num_steps*sizeof(struct Ephem*));
 	for(int i = 0; i < num_steps; i++) {
 		int ephem_available = 0;
@@ -137,7 +151,8 @@ struct Transfer_Calc_Results create_itinerary(struct Transfer_Calc_Data calc_dat
 			bodies,
 			min_duration,
 			max_duration,
-			num_steps
+			num_steps,
+			max_dvs
 	};
 
 	show_progress("Transfer Calculation progress: ", 0, 1);
