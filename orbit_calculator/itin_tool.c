@@ -535,9 +535,12 @@ void store_step_in_bfile(struct ItinStep *step, FILE *file) {
 	}
 }
 
-void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps) {
-	char filename[50];
-	sprintf(filename, "./Itineraries/test.itins");
+void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, char *filepath) {
+	// Check if the string ends with ".itins"
+	if (strlen(filepath) >= 6 && strcmp(filepath + strlen(filepath) - 6, ".itins") != 0) {
+		// If not, append ".itins" to the string
+		strcat(filepath, ".itins");
+	}
 
 	printf("Filesize: ~%.3f MB\n", (double)num_nodes*110/1e6);
 
@@ -546,7 +549,7 @@ void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int
 	printf("Number of stored nodes: %d\n", num_nodes);
 	printf("Number of Departures: %d, Number of Steps: %d\n", num_deps, bin_header.num_layers);
 	FILE *file;
-	file = fopen(filename,"wb");
+	file = fopen(filepath,"wb");
 
 	fwrite(&bin_header, sizeof(struct ItinStepBinHeader), 1, file);
 

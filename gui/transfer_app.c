@@ -31,6 +31,7 @@ void start_transfer_app() {
 
 	remove_all_transfers();
 	free_all_porkchop_analyzer_itins();
+	reset_tc();
 	for(int i = 0; i < 9; i++) free(body_ephems[i]);
 	free(body_ephems);
 }

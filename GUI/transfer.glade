@@ -16,25 +16,6 @@
             <property name="visible">True</property>
             <property name="can-focus">False</property>
             <child>
-              <object class="GtkTextView" id="tf_tc_preview">
-                <property name="visible">True</property>
-                <property name="can-focus">True</property>
-                <property name="margin-start">30</property>
-                <property name="margin-end">30</property>
-                <property name="margin-top">30</property>
-                <property name="hexpand">True</property>
-                <property name="vexpand">True</property>
-                <property name="editable">False</property>
-                <property name="left-margin">15</property>
-                <property name="top-margin">15</property>
-                <property name="accepts-tab">False</property>
-              </object>
-              <packing>
-                <property name="left-attach">0</property>
-                <property name="top-attach">0</property>
-              </packing>
-            </child>
-            <child>
               <!-- n-columns=1 n-rows=6 -->
               <object class="GtkGrid">
                 <property name="visible">True</property>
@@ -64,7 +45,7 @@
                       <object class="GtkButtonBox">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="spacing">20</property>
+                        <property name="spacing">10</property>
                         <property name="homogeneous">True</property>
                         <property name="baseline-position">bottom</property>
                         <property name="layout-style">expand</property>
@@ -96,6 +77,20 @@
                             <property name="position">1</property>
                           </packing>
                         </child>
+                        <child>
+                          <object class="GtkButton" id="bt_tc_update">
+                            <property name="label" translatable="yes">Update</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_update_tc" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="expand">True</property>
+                            <property name="fill">True</property>
+                            <property name="position">2</property>
+                          </packing>
+                        </child>
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
@@ -107,6 +102,7 @@
                       <object class="GtkGrid">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
+                        <property name="row-spacing">7</property>
                         <property name="column-spacing">20</property>
                         <property name="column-homogeneous">True</property>
                         <child>
@@ -138,6 +134,7 @@
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="has-frame">False</property>
+                            <property name="xalign">0.5</property>
                           </object>
                           <packing>
                             <property name="left-attach">1</property>
@@ -149,6 +146,8 @@
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="has-frame">False</property>
+                            <property name="text" translatable="yes">1950-01-01</property>
+                            <property name="xalign">0.5</property>
                           </object>
                           <packing>
                             <property name="left-attach">1</property>
@@ -172,6 +171,8 @@
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="has-frame">False</property>
+                            <property name="text" translatable="yes">1950-01-01</property>
+                            <property name="xalign">0.5</property>
                           </object>
                           <packing>
                             <property name="left-attach">1</property>
@@ -207,6 +208,7 @@
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="has-frame">False</property>
+                            <property name="xalign">0.5</property>
                           </object>
                           <packing>
                             <property name="left-attach">1</property>
@@ -218,6 +220,7 @@
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="has-frame">False</property>
+                            <property name="xalign">0.5</property>
                           </object>
                           <packing>
                             <property name="left-attach">1</property>
@@ -283,9 +286,9 @@
                       <object class="GtkEntry" id="tf_tc_totdv">
                         <property name="visible">True</property>
                         <property name="can-focus">True</property>
-                        <property name="max-length">5</property>
                         <property name="has-frame">False</property>
-                        <property name="width-chars">5</property>
+                        <property name="text" translatable="yes">100000</property>
+                        <property name="xalign">1</property>
                       </object>
                       <packing>
                         <property name="left-attach">1</property>
@@ -297,6 +300,8 @@
                         <property name="visible">True</property>
                         <property name="can-focus">True</property>
                         <property name="has-frame">False</property>
+                        <property name="text" translatable="yes">100000</property>
+                        <property name="xalign">1</property>
                       </object>
                       <packing>
                         <property name="left-attach">1</property>
@@ -309,6 +314,8 @@
                         <property name="can-focus">True</property>
                         <property name="has-frame">False</property>
                         <property name="width-chars">2</property>
+                        <property name="text" translatable="yes">100000</property>
+                        <property name="xalign">1</property>
                       </object>
                       <packing>
                         <property name="left-attach">1</property>
@@ -367,6 +374,7 @@
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="receives-default">True</property>
+                    <signal name="clicked" handler="on_calc_tc" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -392,8 +400,8 @@
               </packing>
             </child>
             <child>
-              <!-- n-columns=2 n-rows=1 -->
-              <object class="GtkGrid" id="pb_tc_progress">
+              <!-- n-columns=1 n-rows=1 -->
+              <object class="GtkGrid">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
                 <property name="margin-start">20</property>
@@ -402,19 +410,7 @@
                 <property name="margin-bottom">20</property>
                 <property name="column-spacing">20</property>
                 <child>
-                  <object class="GtkButton" id="bt_tc_save">
-                    <property name="label" translatable="yes">Save Itineraries</property>
-                    <property name="visible">True</property>
-                    <property name="can-focus">True</property>
-                    <property name="receives-default">True</property>
-                  </object>
-                  <packing>
-                    <property name="left-attach">1</property>
-                    <property name="top-attach">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkProgressBar">
+                  <object class="GtkProgressBar" id="pb_tc_progress">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="valign">center</property>
@@ -430,6 +426,25 @@
                 <property name="left-attach">0</property>
                 <property name="top-attach">1</property>
                 <property name="width">2</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkTextView" id="tf_tc_preview">
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="margin-start">30</property>
+                <property name="margin-end">30</property>
+                <property name="margin-top">30</property>
+                <property name="hexpand">True</property>
+                <property name="vexpand">True</property>
+                <property name="editable">False</property>
+                <property name="left-margin">15</property>
+                <property name="top-margin">15</property>
+                <property name="accepts-tab">False</property>
+              </object>
+              <packing>
+                <property name="left-attach">0</property>
+                <property name="top-attach">0</property>
               </packing>
             </child>
           </object>

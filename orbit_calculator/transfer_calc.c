@@ -1,12 +1,10 @@
-#include "transfer_calculator.h"
+#include "transfer_calc.h"
 #include "transfer_tools.h"
-#include "tools/csv_writer.h"
 #include "tools/tool_funcs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include "tools/thread_pool.h"
-#include "itin_tool.h"
 
 
 struct Itin_Thread_Args {
@@ -29,9 +27,9 @@ void *calc_from_departure(void *args) {
 	struct Body **bodies = thread_args->bodies;
 	int num_steps = thread_args->num_steps;
 
-	int index = get_thread_counter(0);
+	int index = get_incr_thread_counter(0);
 	// increase finished counter to 1 (first finished should reflect a num of finished of 1)
-	if(index == 0) get_thread_counter(1);
+	if(index == 0) get_incr_thread_counter(1);
 
 	double jd_dep = thread_args->jd_min_dep + index;
 	struct ItinStep *curr_step;
@@ -81,14 +79,17 @@ void *calc_from_departure(void *args) {
 				}
 			}
 		}
-		show_progress("Transfer Calculation progress: ", get_thread_counter(1), jd_diff);
-		index = get_thread_counter(0);
+		double progress = get_incr_thread_counter(1);
+		show_progress("Transfer Calculation progress: ", progress, jd_diff);
+		index = get_incr_thread_counter(0);
 		jd_dep = thread_args->jd_min_dep + index;
 	}
 	return NULL;
 }
 
-void create_itinerary() {
+struct Transfer_Calc_Results create_itinerary(struct Transfer_Calc_Data calc_data) {
+	struct Transfer_Calc_Results results = {NULL, 0};
+
 	struct timeval start, end;
 	double elapsed_time;
 	gettimeofday(&start, NULL);  // Record the ending time
@@ -101,42 +102,15 @@ void create_itinerary() {
 		get_body_ephem(body_ephems[i], i+1);
 	}
 
-//	struct Body *bodies[] = {EARTH(), VENUS(), MARS(), EARTH()};
-//	int num_steps = sizeof(bodies)/sizeof(struct Body*);
-//
-//	struct Date min_dep_date = {1959, 1, 1};
-//	struct Date max_dep_date = {1959, 12, 31};
-//	double jd_min_dep = convert_date_JD(min_dep_date);
-//	double jd_max_dep = convert_date_JD(max_dep_date);
-//	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
-//
-//	int min_duration[] = {150, 100, 50};
-//	int max_duration[] = {200, 500, 500};
+	struct Body **bodies = calc_data.bodies;
+	int num_steps = calc_data.num_steps;
 
-	struct Body *bodies[] = {EARTH(), JUPITER(), SATURN(), URANUS(), NEPTUNE()};
-	int num_steps = sizeof(bodies)/sizeof(struct Body*);
-
-	struct Date min_dep_date = {1976, 5, 15};
-	struct Date max_dep_date = {1979, 11, 21};
-	double jd_min_dep = convert_date_JD(min_dep_date);
-	double jd_max_dep = convert_date_JD(max_dep_date);
+	double jd_min_dep = calc_data.jd_min_dep;
+	double jd_max_dep = calc_data.jd_max_dep;
 	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
 
-	int min_duration[] = {500, 100, 300, 300};
-	int max_duration[] = {1000, 3000, 3000, 3000};
-
-
-//	struct Body *bodies[] = {EARTH(), VENUS(), VENUS(), EARTH(), JUPITER(), SATURN()};
-//	int num_steps = sizeof(bodies)/sizeof(struct Body*);
-//
-//	struct Date min_dep_date = {1997, 10, 1};
-//	struct Date max_dep_date = {1997, 10, 31};
-//	double jd_min_dep = convert_date_JD(min_dep_date);
-//	double jd_max_dep = convert_date_JD(max_dep_date);
-//	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
-//
-//	int min_duration[] = {190, 415, 50, 200, 500};
-//	int max_duration[] = {205, 435, 60, 1000, 2000};
+	int *min_duration = calc_data.min_duration;
+	int *max_duration = calc_data.max_duration;
 
 	struct Ephem **ephems = (struct Ephem**) malloc(num_steps*sizeof(struct Ephem*));
 	for(int i = 0; i < num_steps; i++) {
@@ -184,74 +158,24 @@ void create_itinerary() {
 	}
 
 
-	int num_itins = 0, tot_num_itins = 0;
-	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(departures[i]);
-	for(int i = 0; i < num_deps; i++) tot_num_itins += get_total_number_of_stored_steps(departures[i]);
-
 	gettimeofday(&end, NULL);  // Record the ending time
 	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
 	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
 
-	if(num_itins == 0) {
-		printf("\nNo itineraries found!\n");
-		for(int i = 0; i < num_deps; i++) free_itinerary(departures[i]);
-		free(departures);
-		for(int i = 0; i < num_bodies; i++) free(body_ephems[i]);
-		free(body_ephems);
-		free(ephems);
-		return;
-	} else printf("\n%d itineraries found!\nNumber of Nodes: %d\n", num_itins, tot_num_itins);
+	int num_itins = 0, num_nodes = 0;
+	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(departures[i]);
+	for(int i = 0; i < num_deps; i++) num_nodes += get_total_number_of_stored_steps(departures[i]);
+
+	printf("\n%d itineraries found!\nNumber of Nodes: %d\n", num_itins, num_nodes);
+
+	results.departures = departures;
+	results.num_deps = num_deps;
+	results.num_nodes = num_nodes;
 
 
-	int index = 0;
-	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
-	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(departures[i], arrivals, &index);
-
-	double *porkchop = (double *) malloc((5 * num_itins + 1) * sizeof(double));
-	porkchop[0] = 0;
-	for(int i = 0; i < num_itins; i++) {
-		create_porkchop_point(arrivals[i], &porkchop[i*5+1], 1);
-		porkchop[0] += 5;
-	}
-
-	char data_fields[] = "dep_date,duration,dv_dep,dv_mcc,dv_arr";
-	write_csv(data_fields, porkchop);
-
-	double mindv = porkchop[1+2]+porkchop[1+3]+porkchop[1+4];
-	int mind = 0;
-	for(int i = 1; i < num_itins; i++) {
-		double dv = porkchop[1+i*5+2]+porkchop[1+i*5+3]+porkchop[1+i*5+4];
-		if(dv < mindv) {
-			mindv = dv;
-			mind = i;
-		}
-	}
-
-	printf("\nBest for capture:\n");
-	print_itinerary(arrivals[mind]);
-	printf("  -  %f m/s\n", mindv);
-
-	mindv = porkchop[1+2]+porkchop[1+3]+porkchop[1+4];
-	mind = 0;
-	for(int i = 1; i < num_itins; i++) {
-		double dv = porkchop[1+i*5+2]+porkchop[1+i*5+3];
-		if(dv < mindv) {
-			mindv = dv;
-			mind = i;
-		}
-	}
-
-	printf("\nBest for fly-by:\n");
-	print_itinerary(arrivals[mind]);
-	printf("  -  %f m/s\n\n", mindv);
-
-	store_itineraries_in_bfile(departures, tot_num_itins, num_deps);
-
-	for(int i = 0; i < num_deps; i++) free_itinerary(departures[i]);
-	free(departures);
-	free(arrivals);
-	free(porkchop);
 	for(int i = 0; i < num_bodies; i++) free(body_ephems[i]);
 	free(body_ephems);
 	free(ephems);
+
+	return results;
 }

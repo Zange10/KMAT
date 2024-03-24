@@ -33,8 +33,8 @@ add_executable(KSP
         launch_calculator/launch_circularization.h
         launch_calculator/lp_parameters.c
         launch_calculator/lp_parameters.h
-        orbit_calculator/transfer_calculator.c
-        orbit_calculator/transfer_calculator.h
+        orbit_calculator/transfer_calc.c
+        orbit_calculator/transfer_calc.h
         tools/analytic_geometry.c
         tools/analytic_geometry.h
         orbit_calculator/transfer_tools.c

@@ -25,7 +25,7 @@ struct Thread_Pool use_thread_pool64(void *thread_method(void*), void *thread_ar
     return thread_pool;
 }
 
-int get_thread_counter(int counter_index) {
+int get_incr_thread_counter(int counter_index) {
 	int counter_value;
 	pthread_mutex_lock(&counter_lock[counter_index]);
 	counter_value = counter[counter_index];
