@@ -3,6 +3,7 @@
 #include "celestial_bodies.h"
 #include "gui/drawing.h"
 #include "gui/transfer_app.h"
+#include "ephem.h"
 
 #include <string.h>
 #include <locale.h>
@@ -19,6 +20,8 @@ GObject *da_pa_porkchop, *da_pa_preview;
 struct ItinStep *curr_transfer_pa;
 double current_date_pa;
 gboolean body_show_status_pa[9];
+GObject *tf_pa_min_feedback[5];
+GObject *tf_pa_max_feedback[5];
 
 void swap_arr(double *a, double *b) {
 	double temp = *a;
@@ -78,6 +81,16 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 	pa_last_transfer_type = TF_FLYBY;
 	da_pa_porkchop = gtk_builder_get_object(builder, "da_pa_porkchop");
 	da_pa_preview = gtk_builder_get_object(builder, "da_pa_preview");
+	tf_pa_min_feedback[0] = gtk_builder_get_object(builder, "tf_pa_min_depdate");
+	tf_pa_min_feedback[1] = gtk_builder_get_object(builder, "tf_pa_min_dur");
+	tf_pa_min_feedback[2] = gtk_builder_get_object(builder, "tf_pa_min_totdv");
+	tf_pa_min_feedback[3] = gtk_builder_get_object(builder, "tf_pa_min_depdv");
+	tf_pa_min_feedback[4] = gtk_builder_get_object(builder, "tf_pa_min_satdv");
+	tf_pa_max_feedback[0] = gtk_builder_get_object(builder, "tf_pa_max_depdate");
+	tf_pa_max_feedback[1] = gtk_builder_get_object(builder, "tf_pa_max_dur");
+	tf_pa_max_feedback[2] = gtk_builder_get_object(builder, "tf_pa_max_totdv");
+	tf_pa_max_feedback[3] = gtk_builder_get_object(builder, "tf_pa_max_depdv");
+	tf_pa_max_feedback[4] = gtk_builder_get_object(builder, "tf_pa_max_satdv");
 	for(int i = 0; i < 9; i++) body_show_status_pa[i] = 0;
 }
 
@@ -85,7 +98,7 @@ void update_body_show_staus() {
 	struct ItinStep *step = get_last(curr_transfer_pa);
 	for(int i = 0; i < 9; i++) body_show_status_pa[i] = 0;
 	if(step == NULL) return;
-	while(step->prev != NULL) {
+	while(step != NULL) {
 		if(step->body != NULL) body_show_status_pa[step->body->id-1] = 1;
 		step = step->prev;
 	}
@@ -99,11 +112,66 @@ void update_preview_drawing_area() {
 	gtk_widget_queue_draw(GTK_WIDGET(da_pa_preview));
 }
 
-void update_best_itin(int num_itins, int fb0_pow1) {
-	struct timeval start, end;
-	double elapsed_time;
-	gettimeofday(&start, NULL);  // Record the ending time
+void update_min_max_feedback(int fb0_pow1, int num_itins) {
+	double min[5] = {
+			/* depdate	*/ pa_porkchop[1+0],
+			/* duration	*/ pa_porkchop[1+1],
+			/* total dv	*/ pa_porkchop[1+2]+pa_porkchop[1+3]+pa_porkchop[1+4]*fb0_pow1,
+			/* dep dv	*/ pa_porkchop[1+2],
+			/* sat dv	*/ pa_porkchop[1+3]+pa_porkchop[1+4]*fb0_pow1,
+	};
+	double max[5] = {
+			/* depdate	*/ pa_porkchop[1+0],
+			/* duration	*/ pa_porkchop[1+1],
+			/* total dv	*/ pa_porkchop[1+2]+pa_porkchop[1+3]+pa_porkchop[1+4]*fb0_pow1,
+			/* dep dv	*/ pa_porkchop[1+2],
+			/* sat dv	*/ pa_porkchop[1+3]+pa_porkchop[1+4]*fb0_pow1,
+	};
+	double dep_dv, sat_dv, tot_dv, date, dur;
 
+	for(int i = 1; i < num_itins; i++) {
+		int index = 1+i*5;
+		dep_dv = pa_porkchop[index+2];
+		sat_dv = pa_porkchop[index+3]+pa_porkchop[index+4]*fb0_pow1;
+		tot_dv = dep_dv + sat_dv;
+		date = pa_porkchop[index+0];
+		dur = pa_porkchop[index+1];
+
+		if(date < min[0]) min[0] = date;
+		else if(date > max[0]) max[0] = date;
+		if(dur < min[1]) min[1] = dur;
+		else if(dur > max[1]) max[1] = dur;
+		if(tot_dv < min[2]) min[2] = tot_dv;
+		else if(tot_dv > max[2]) max[2] = tot_dv;
+		if(dep_dv < min[3]) min[3] = dep_dv;
+		else if(dep_dv > max[3]) max[3] = dep_dv;
+		if(sat_dv < min[4]) min[4] = sat_dv;
+		else if(sat_dv > max[4]) max[4] = sat_dv;
+	}
+
+	char string[20];
+	date_to_string(convert_JD_date(min[0]), string, 0);
+	gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[0]), string);
+	sprintf(string, "%.0f", min[1]);
+	gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[1]), string);
+
+	for(int i = 2; i < 5; i++) {
+		sprintf(string, "%.2f", min[i]);
+		gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[i]), string);
+	}
+
+	date_to_string(convert_JD_date(max[0]), string, 0);
+	gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[0]), string);
+	sprintf(string, "%.0f", max[1]);
+	gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[1]), string);
+
+	for(int i = 2; i < 5; i++) {
+		sprintf(string, "%.2f", max[i]);
+		gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[i]), string);
+	}
+}
+
+void update_best_itin(int num_itins, int fb0_pow1) {
 	double *dvs = (double*) malloc(num_itins*sizeof(double));
 	for(int i = 0; i < num_itins; i++)  {
 		int ind = 1+i*5;
@@ -112,12 +180,13 @@ void update_best_itin(int num_itins, int fb0_pow1) {
 
 	quicksort_porkchop_and_arrivals(dvs, 0, pa_num_itins-1, pa_porkchop, pa_arrivals);
 
-	gettimeofday(&end, NULL);  // Record the ending time
-	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
-
 	if(curr_transfer_pa != NULL) free_itinerary(get_first(curr_transfer_pa));
 	curr_transfer_pa = create_itin_copy_from_arrival(pa_arrivals[0]);
+	current_date_pa = get_last(curr_transfer_pa)->date;
+
+
+
+	update_min_max_feedback(fb0_pow1, num_itins);
 }
 
 void on_porkchop_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
@@ -128,7 +197,6 @@ void on_porkchop_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 
 	// reset drawing area
 	cairo_rectangle(cr, 0, 0, area_width, area_height);
-	cairo_set_source_rgb(cr, 42.0/255,46.0/255,50.0/255);
 	cairo_set_source_rgb(cr, 0.15,0.15, 0.15);
 	cairo_fill(cr);
 
