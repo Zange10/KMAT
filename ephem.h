@@ -28,7 +28,7 @@ struct Date {
 
 
 /**
- * @brief Prints date in the format YYYY-MM-DD hh:mm:ss.f
+ * @brief Prints date in the format YYYY-MM-DD hh:mm:ss.f (ISO 8601)
  *
  * @param date The date to be printed
  * @param line_break Is 0 if no line break should follow and 1 if otherwise
@@ -37,13 +37,23 @@ void print_date(struct Date date, int line_break);
 
 
 /**
- * @brief Returns a string with the date (excluding time)
+ * @brief Returns a string with the date (ISO 8601)
  *
  * @param date The date to be converted to a string
  * @param s The string the date should be saved in
  * @param clocktime Set to 1 if clocktime should be shown, 0 if only date should be shown
  */
 void date_to_string(struct Date date, char *s, int clocktime);
+
+
+/**
+ * @brief Parses string and returns date (ISO 8601) (excluding time)
+ *
+ * @param date The date to be converted to a string
+ * @param s The string the date should be saved in
+ * @param clocktime Set to 1 if clocktime should be shown, 0 if only date should be shown
+ */
+struct Date date_from_string(char *s);
 
 
 /**

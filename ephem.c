@@ -23,6 +23,13 @@ void date_to_string(struct Date date, char *s, int clocktime) {
 	else sprintf(s,"%4d-%02d-%02d", date.y, date.m, date.d);
 }
 
+struct Date date_from_string(char *s) {
+	int year, month, day;
+	sscanf(s, "%d-%d-%d", &year, &month, &day);
+	struct Date date = {year, month, day};
+	return date;
+}
+
 struct Date convert_JD_date(double JD) {
     struct Date date = {0,1,1,0,0,0};
     double init_JD = JD;

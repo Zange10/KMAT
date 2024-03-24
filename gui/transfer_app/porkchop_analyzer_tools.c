@@ -53,15 +53,35 @@ void quicksort_porkchop_and_arrivals(double *arr, int low, int high, double *por
 
 
 
-void reset_porkchop_and_arrivals(const double *all_porkchop, double *porkchop, struct ItinStep **all_arrivals, struct ItinStep **arrivals, int num_itins) {
+void reset_porkchop_and_arrivals(const double *all_porkchop, double *porkchop, struct ItinStep **all_arrivals, struct ItinStep **arrivals) {
 	for(int i = 0; i <= all_porkchop[0]; i++) {
 		porkchop[i] = all_porkchop[i];
 	}
-	for(int i = 0; i < num_itins; i++) {
+	for(int i = 0; i < all_porkchop[0]/5; i++) {
 		arrivals[i] = all_arrivals[i];
 	}
 }
 
-void filter_porkchop_arrivals_depdate(double *porkchop, struct ItinStep **arrivals) {
+int filter_porkchop_arrivals_depdate(double *porkchop, struct ItinStep **arrivals, double min_date, double max_date) {
+	int new_num_itins = 0;
+	int num_itins = (int) (porkchop[0]/5);
 
+	int index;
+	double date;
+
+	for(int i = 0; i < num_itins; i++) {
+		index = 1+i*5;
+		date = porkchop[index+0];
+		if(date >= min_date && date <= max_date) {
+			if(new_num_itins != i) {
+				arrivals[new_num_itins] = arrivals[i];
+				swap_porkchop(&porkchop[index], &porkchop[5*new_num_itins+1]);
+			}
+			new_num_itins++;
+		}
+	}
+
+	porkchop[0] = new_num_itins*5;
+
+	return new_num_itins;
 }

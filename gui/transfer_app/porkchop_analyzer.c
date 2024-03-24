@@ -243,7 +243,7 @@ void analyze_departure_itins() {
 	}
 	pa_all_num_itins = num_itins;
 	pa_num_itins = pa_all_num_itins;
-	reset_porkchop_and_arrivals(pa_all_porkchop, pa_porkchop, pa_all_arrivals, pa_arrivals, num_itins);
+	reset_porkchop_and_arrivals(pa_all_porkchop, pa_porkchop, pa_all_arrivals, pa_arrivals);
 	update_best_itin(num_itins, fb0_pow1);
 }
 
@@ -296,7 +296,7 @@ void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointer data) {
 	else if	(strcmp(name, "circ") == 0) pa_last_transfer_type = TF_CIRC;
 
 	int fb0_pow1 = pa_last_transfer_type == TF_FLYBY ? 0 : 1;
-	printf("%d %d\n", pa_num_itins, pa_all_num_itins);
+
 	for(int i = 0; i < pa_num_itins; i++) {
 		create_porkchop_point(pa_arrivals[i], &pa_porkchop[i * 5 + 1], pa_last_transfer_type == TF_CIRC ? 0 : 1);
 	}
@@ -308,8 +308,25 @@ void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointer data) {
 	update_preview_drawing_area();
 }
 
-void on_apply_filter(GtkWidget* widget, gpointer data) {
+void update_pa() {
+	int fb0_pow1 = pa_last_transfer_type == TF_FLYBY ? 0 : 1;
+	update_best_itin(pa_num_itins, fb0_pow1);
+	update_porkchop_drawing_area();
+	update_preview_drawing_area();
+	reset_min_max_feedback(fb0_pow1, pa_num_itins);
+}
 
+void on_apply_filter(GtkWidget* widget, gpointer data) {
+	double min[5], max[5];
+	char *string;
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_min_feedback[0]));
+	min[0] = convert_date_JD(date_from_string(string));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_max_feedback[0]));
+	max[0] = convert_date_JD(date_from_string(string));
+	reset_porkchop_and_arrivals(pa_all_porkchop, pa_porkchop, pa_all_arrivals, pa_arrivals);
+	pa_num_itins = filter_porkchop_arrivals_depdate(pa_porkchop, pa_arrivals, min[0], max[0]);
+
+	update_pa();
 }
 
 void on_reset_filter(GtkWidget* widget, gpointer data) {
@@ -319,8 +336,8 @@ void on_reset_filter(GtkWidget* widget, gpointer data) {
 
 void on_reset_porkchop(GtkWidget* widget, gpointer data) {
 	if(pa_all_porkchop == NULL) return;
-	reset_porkchop_and_arrivals(pa_all_porkchop, pa_porkchop, pa_all_arrivals, pa_arrivals, pa_all_num_itins);
-	int fb0_pow1 = pa_last_transfer_type == TF_FLYBY ? 0 : 1;
-	reset_min_max_feedback(fb0_pow1, pa_num_itins);
+	reset_porkchop_and_arrivals(pa_all_porkchop, pa_porkchop, pa_all_arrivals, pa_arrivals);
+	pa_num_itins = pa_all_num_itins;
+	update_pa();
 }
 
