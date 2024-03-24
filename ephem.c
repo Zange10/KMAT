@@ -24,8 +24,19 @@ void date_to_string(struct Date date, char *s, int clocktime) {
 }
 
 struct Date date_from_string(char *s) {
-	int year, month, day;
-	sscanf(s, "%d-%d-%d", &year, &month, &day);
+	int year, month, day;	// "yyyy-mm-dd" (ISO 8601)
+	char *ptr;
+
+	// Extract year
+	year = (int) strtol(s, &ptr, 10);
+	ptr++; // Move past the '-'
+
+	// Extract month
+	month = (int) strtol(ptr, &ptr, 10);
+	ptr++; // Move past the '-'
+
+	// Extract day
+	day = (int) strtol(ptr, &ptr, 10);
 	struct Date date = {year, month, day};
 	return date;
 }

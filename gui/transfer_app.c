@@ -1,12 +1,8 @@
 #include "transfer_app.h"
-#include "tools/analytic_geometry.h"
-#include "celestial_bodies.h"
-#include "orbit_calculator/transfer_tools.h"
-#include "drawing.h"
 #include "transfer_app/transfer_planner.h"
 #include "transfer_app/porkchop_analyzer.h"
+#include "transfer_app/transfer_calculator.h"
 
-#include <string.h>
 #include <gtk/gtk.h>
 #include <locale.h>
 
@@ -53,6 +49,7 @@ void activate_transfer_app(GtkApplication *app, gpointer user_data) {
 	gtk_widget_set_visible(GTK_WIDGET (window), TRUE);
 
 
+	init_transfer_calculator(builder);
 	init_porkchop_analyzer(builder);
 	init_transfer_planner(builder);
 	

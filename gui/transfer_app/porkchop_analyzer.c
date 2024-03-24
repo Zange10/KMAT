@@ -1,14 +1,11 @@
 #include "porkchop_analyzer.h"
 #include "porkchop_analyzer_tools.h"
-#include "tools/analytic_geometry.h"
 #include "celestial_bodies.h"
 #include "gui/drawing.h"
 #include "gui/transfer_app.h"
-#include "ephem.h"
 
 #include <string.h>
 #include <locale.h>
-#include <sys/time.h>
 #include <math.h>
 
 
@@ -436,9 +433,9 @@ void on_apply_filter(GtkWidget* widget, gpointer data) {
 	max[0] = convert_date_JD(date_from_string(string));
 	for(int i = 1; i < 5; i++) {
 		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_min_feedback[i]));
-		min[i] = strtod(string, NULL);
+		min[i] = strtod(string, NULL)-0.01;	// rounding imprecision in filter entry field
 		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_max_feedback[i]));
-		max[i] = strtod(string, NULL);
+		max[i] = strtod(string, NULL)+0.01;	// rounding imprecision in filter entry field
 	}
 
 	int init_num_itins = pa_num_itins;
