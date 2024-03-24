@@ -1,4 +1,5 @@
 #include "porkchop_analyzer.h"
+#include "porkchop_analyzer_tools.h"
 #include "tools/analytic_geometry.h"
 #include "celestial_bodies.h"
 #include "gui/drawing.h"
@@ -11,10 +12,10 @@
 
 
 
-int pa_num_deps, pa_num_itins;
+int pa_num_deps, pa_num_itins, pa_all_num_itins;
 struct ItinStep **pa_departures;
-struct ItinStep **pa_arrivals;
-double *pa_porkchop;
+struct ItinStep **pa_arrivals, **pa_all_arrivals;
+double *pa_porkchop, *pa_all_porkchop;
 enum LastTransferType pa_last_transfer_type;
 GObject *da_pa_porkchop, *da_pa_preview;
 struct ItinStep *curr_transfer_pa;
@@ -23,60 +24,14 @@ gboolean body_show_status_pa[9];
 GObject *tf_pa_min_feedback[5];
 GObject *tf_pa_max_feedback[5];
 
-void swap_arr(double *a, double *b) {
-	double temp = *a;
-	*a = *b;
-	*b = temp;
-}
-
-void swap_porkchop(double *a, double *b) {
-	double temp[5];
-	for(int i = 0; i < 5; i++) temp[i] = a[i];
-	for(int i = 0; i < 5; i++) a[i] = b[i];
-	for(int i = 0; i < 5; i++) b[i] = temp[i];
-}
-
-void swap_arrivals(struct ItinStep **a, struct ItinStep **b) {
-	struct ItinStep *temp = *a;
-	*a = *b;
-	*b = temp;
-}
-
-void swap(double arr[], int a_ind, int b_ind, double *porkchop, struct ItinStep **arrivals) {
-	swap_arr(&arr[a_ind], &arr[b_ind]);
-	swap_porkchop(&porkchop[5*a_ind+1], &porkchop[5*b_ind+1]);
-	swap_arrivals(&arrivals[a_ind], &arrivals[b_ind]);
-}
-
-int partition(double arr[], int low, int high, double *porkchop, struct ItinStep **arrivals) {
-	double pivot = arr[high];
-	int i = (low - 1);
-
-	for (int j = low; j <= high - 1; j++) {
-		if (arr[j] < pivot) {
-			i++;
-			swap(arr, i, j, porkchop, arrivals);
-		}
-	}
-	swap(arr, i+1, high, porkchop, arrivals);
-	return (i + 1);
-}
-
-void quicksort_porkchop_and_arrivals(double *arr, int low, int high, double *porkchop, struct ItinStep **arrivals) {
-	if (low < high) {
-		int pi = partition(arr, low, high, porkchop, arrivals);
-
-		quicksort_porkchop_and_arrivals(arr, low, pi - 1, porkchop, arrivals);
-		quicksort_porkchop_and_arrivals(arr, pi + 1, high, porkchop, arrivals);
-	}
-}
-
 void init_porkchop_analyzer(GtkBuilder *builder) {
 	pa_num_deps = 0;
 	pa_num_itins = 0;
 	pa_departures = NULL;
 	pa_arrivals = NULL;
 	pa_porkchop = NULL;
+	pa_all_arrivals = NULL;
+	pa_all_porkchop = NULL;
 	curr_transfer_pa = NULL;
 	pa_last_transfer_type = TF_FLYBY;
 	da_pa_porkchop = gtk_builder_get_object(builder, "da_pa_porkchop");
@@ -92,6 +47,22 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 	tf_pa_max_feedback[3] = gtk_builder_get_object(builder, "tf_pa_max_depdv");
 	tf_pa_max_feedback[4] = gtk_builder_get_object(builder, "tf_pa_max_satdv");
 	for(int i = 0; i < 9; i++) body_show_status_pa[i] = 0;
+}
+
+void free_all_porkchop_analyzer_itins() {
+	if(pa_departures != NULL) {
+		for(int i = 0; i < pa_num_deps; i++) free(pa_departures[i]);
+		free(pa_departures);
+		pa_departures = NULL;
+	}
+	if(pa_all_arrivals != NULL) free(pa_all_arrivals);
+	pa_all_arrivals = NULL;
+	pa_arrivals = NULL;
+	if(pa_all_porkchop != NULL) free(pa_all_porkchop);
+	pa_all_porkchop = NULL;
+	pa_porkchop = NULL;
+	if(curr_transfer_pa != NULL) free_itinerary(get_first(curr_transfer_pa));
+	curr_transfer_pa = NULL;
 }
 
 void update_body_show_staus() {
@@ -112,7 +83,7 @@ void update_preview_drawing_area() {
 	gtk_widget_queue_draw(GTK_WIDGET(da_pa_preview));
 }
 
-void update_min_max_feedback(int fb0_pow1, int num_itins) {
+void reset_min_max_feedback(int fb0_pow1, int num_itins) {
 	double min[5] = {
 			/* depdate	*/ pa_porkchop[1+0],
 			/* duration	*/ pa_porkchop[1+1],
@@ -184,9 +155,7 @@ void update_best_itin(int num_itins, int fb0_pow1) {
 	curr_transfer_pa = create_itin_copy_from_arrival(pa_arrivals[0]);
 	current_date_pa = get_last(curr_transfer_pa)->date;
 
-
-
-	update_min_max_feedback(fb0_pow1, num_itins);
+	reset_min_max_feedback(fb0_pow1, num_itins);
 }
 
 void on_porkchop_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
@@ -260,17 +229,21 @@ void analyze_departure_itins() {
 	printf("\n%d itineraries found!\nNumber of Nodes: %d\n", num_itins, tot_num_itins);
 
 	int index = 0;
+	pa_all_arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
 	pa_arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
-	for(int i = 0; i < pa_num_deps; i++) store_itineraries_in_array(pa_departures[i], pa_arrivals, &index);
+	for(int i = 0; i < pa_num_deps; i++) store_itineraries_in_array(pa_departures[i], pa_all_arrivals, &index);
 
+	pa_all_porkchop = (double *) malloc((5 * num_itins + 1) * sizeof(double));
 	pa_porkchop = (double *) malloc((5 * num_itins + 1) * sizeof(double));
-	pa_porkchop[0] = 0;
+	pa_all_porkchop[0] = 0;
 	int fb0_pow1 = pa_last_transfer_type == TF_FLYBY ? 0 : 1;
 	for(int i = 0; i < num_itins; i++) {
-		create_porkchop_point(pa_arrivals[i], &pa_porkchop[i * 5 + 1], pa_last_transfer_type == TF_CIRC ? 0 : 1);
-		pa_porkchop[0] += 5;
+		create_porkchop_point(pa_all_arrivals[i], &pa_all_porkchop[i * 5 + 1], pa_last_transfer_type == TF_CIRC ? 0 : 1);
+		pa_all_porkchop[0] += 5;
 	}
-	pa_num_itins = num_itins;
+	pa_all_num_itins = num_itins;
+	pa_num_itins = pa_all_num_itins;
+	reset_porkchop_and_arrivals(pa_all_porkchop, pa_porkchop, pa_all_arrivals, pa_arrivals, num_itins);
 	update_best_itin(num_itins, fb0_pow1);
 }
 
@@ -315,20 +288,6 @@ void on_load_itineraries(GtkWidget* widget, gpointer data) {
 	update_preview_drawing_area();
 }
 
-void free_all_porkchop_analyzer_itins() {
-	if(pa_departures != NULL) {
-		for(int i = 0; i < pa_num_deps; i++) free(pa_departures[i]);
-		free(pa_departures);
-		pa_departures = NULL;
-	}
-	if(pa_arrivals != NULL) free(pa_arrivals);
-	pa_arrivals = NULL;
-	if(pa_porkchop != NULL) free(pa_porkchop);
-	pa_porkchop = NULL;
-	if(curr_transfer_pa != NULL) free_itinerary(get_first(curr_transfer_pa));
-	curr_transfer_pa = NULL;
-}
-
 void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointer data) {
 	if(!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) return;
 	const char *name = gtk_widget_get_name(widget);
@@ -336,15 +295,32 @@ void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointer data) {
 	else if	(strcmp(name, "capture") == 0) pa_last_transfer_type = TF_CAPTURE;
 	else if	(strcmp(name, "circ") == 0) pa_last_transfer_type = TF_CIRC;
 
-	if(pa_porkchop != NULL) free(pa_porkchop);
-	pa_porkchop = (double *) malloc((5 * pa_num_itins + 1) * sizeof(double));
-	pa_porkchop[0] = 0;
 	int fb0_pow1 = pa_last_transfer_type == TF_FLYBY ? 0 : 1;
+	printf("%d %d\n", pa_num_itins, pa_all_num_itins);
 	for(int i = 0; i < pa_num_itins; i++) {
 		create_porkchop_point(pa_arrivals[i], &pa_porkchop[i * 5 + 1], pa_last_transfer_type == TF_CIRC ? 0 : 1);
-		pa_porkchop[0] += 5;
+	}
+	for(int i = 0; i < pa_all_num_itins; i++) {
+		create_porkchop_point(pa_all_arrivals[i], &pa_all_porkchop[i * 5 + 1], pa_last_transfer_type == TF_CIRC ? 0 : 1);
 	}
 	update_best_itin(pa_num_itins, fb0_pow1);
 	update_porkchop_drawing_area();
 	update_preview_drawing_area();
 }
+
+void on_apply_filter(GtkWidget* widget, gpointer data) {
+
+}
+
+void on_reset_filter(GtkWidget* widget, gpointer data) {
+	int fb0_pow1 = pa_last_transfer_type == TF_FLYBY ? 0 : 1;
+	reset_min_max_feedback(fb0_pow1, pa_num_itins);
+}
+
+void on_reset_porkchop(GtkWidget* widget, gpointer data) {
+	if(pa_all_porkchop == NULL) return;
+	reset_porkchop_and_arrivals(pa_all_porkchop, pa_porkchop, pa_all_arrivals, pa_arrivals, pa_all_num_itins);
+	int fb0_pow1 = pa_last_transfer_type == TF_FLYBY ? 0 : 1;
+	reset_min_max_feedback(fb0_pow1, pa_num_itins);
+}
+
