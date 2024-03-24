@@ -96,8 +96,6 @@ void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 			temp_transfer = temp_transfer->next != NULL ? temp_transfer->next[0] : NULL;
 		}
 	}
-
-	update_transfer_panel();	// Seems redundant, but necessary for updating dv numbers
 }
 
 double calc_step_dv(struct ItinStep *step) {

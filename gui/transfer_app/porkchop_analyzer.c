@@ -9,6 +9,7 @@
 #include <string.h>
 #include <locale.h>
 #include <sys/time.h>
+#include <math.h>
 
 
 
@@ -23,6 +24,11 @@ double current_date_pa;
 gboolean body_show_status_pa[9];
 GObject *tf_pa_min_feedback[5];
 GObject *tf_pa_max_feedback[5];
+GObject *lb_pa_tfdate;
+GObject *lb_pa_tfbody;
+GObject *lb_pa_transfer_dv;
+GObject *lb_pa_total_dv;
+GObject *lb_pa_periapsis;
 
 void init_porkchop_analyzer(GtkBuilder *builder) {
 	pa_num_deps = 0;
@@ -46,7 +52,51 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 	tf_pa_max_feedback[2] = gtk_builder_get_object(builder, "tf_pa_max_totdv");
 	tf_pa_max_feedback[3] = gtk_builder_get_object(builder, "tf_pa_max_depdv");
 	tf_pa_max_feedback[4] = gtk_builder_get_object(builder, "tf_pa_max_satdv");
+	lb_pa_tfdate = gtk_builder_get_object(builder, "lb_pa_tfdate");
+	lb_pa_tfbody = gtk_builder_get_object(builder, "lb_pa_tfbody");
+	lb_pa_transfer_dv = gtk_builder_get_object(builder, "lb_pa_transfer_dv");
+	lb_pa_total_dv = gtk_builder_get_object(builder, "lb_pa_total_dv");
+	lb_pa_periapsis = gtk_builder_get_object(builder, "lb_pa_periapsis");
 	for(int i = 0; i < 9; i++) body_show_status_pa[i] = 0;
+}
+
+double calc_step_dv_pa(struct ItinStep *step) {
+	if(step == NULL || (step->prev == NULL && step->next == NULL)) return 0;
+	if(step->body == NULL) {
+		if(step->next == NULL || step->next[0]->next == NULL || step->prev == NULL)
+			return 0;
+		return vector_mag(subtract_vectors(step->v_arr, step->next[0]->v_dep));
+	} else if(step->prev == NULL) {
+		double vinf = vector_mag(subtract_vectors(step->next[0]->v_dep, step->v_body));
+		return dv_circ(step->body, step->body->atmo_alt+100e3, vinf);
+	} else if(step->next == NULL) {
+		if(pa_last_transfer_type == TF_FLYBY) return 0;
+		double vinf = vector_mag(subtract_vectors(step->v_arr, step->v_body));
+		if(pa_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + 100e3, vinf);
+		else if(pa_last_transfer_type == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + 100e3, vinf);
+	}
+	return 0;
+}
+
+double calc_total_dv_pa() {
+	if(curr_transfer_pa == NULL) return 0;
+	double dv = 0;
+	struct ItinStep *step = get_last(curr_transfer_pa);
+	while(step != NULL) {
+		dv += calc_step_dv_pa(step);
+		step = step->prev;
+	}
+	return dv;
+}
+
+double calc_periapsis_height_pa() {
+	if(curr_transfer_pa->body == NULL) return -1e20;
+	if(curr_transfer_pa->next == NULL || curr_transfer_pa->prev == NULL) return -1e20;
+	struct Vector v_arr = subtract_vectors(curr_transfer_pa->v_arr, curr_transfer_pa->v_body);
+	struct Vector v_dep = subtract_vectors(curr_transfer_pa->next[0]->v_dep, curr_transfer_pa->v_body);
+	double beta = (M_PI - angle_vec_vec(v_arr, v_dep))/2;
+	double rp = (1 / cos(beta) - 1) * (curr_transfer_pa->body->mu / (pow(vector_mag(v_arr), 2)));
+	return (rp-curr_transfer_pa->body->radius)*1e-3;
 }
 
 void free_all_porkchop_analyzer_itins() {
@@ -79,8 +129,30 @@ void update_porkchop_drawing_area() {
 	gtk_widget_queue_draw(GTK_WIDGET(da_pa_porkchop));
 }
 
-void update_preview_drawing_area() {
+void update_preview() {
 	gtk_widget_queue_draw(GTK_WIDGET(da_pa_preview));
+
+	if(curr_transfer_pa == NULL) {
+		gtk_label_set_label(GTK_LABEL(lb_pa_tfdate), "0000-00-00");
+		gtk_label_set_label(GTK_LABEL(lb_pa_tfbody), "Planet");
+	} else {
+		struct Date date = convert_JD_date(curr_transfer_pa->date);
+		char date_string[10];
+		date_to_string(date, date_string, 0);
+		gtk_label_set_label(GTK_LABEL(lb_pa_tfdate), date_string);
+		if(curr_transfer_pa->body != NULL) gtk_label_set_label(GTK_LABEL(lb_pa_tfbody), curr_transfer_pa->body->name);
+		else gtk_label_set_label(GTK_LABEL(lb_pa_tfbody), "Deep-Space Man");
+		char s_dv[20];
+		sprintf(s_dv, "%6.0f m/s", calc_step_dv_pa(curr_transfer_pa));
+		gtk_label_set_label(GTK_LABEL(lb_pa_transfer_dv), s_dv);
+		sprintf(s_dv, "%6.0f m/s", calc_total_dv_pa());
+		gtk_label_set_label(GTK_LABEL(lb_pa_total_dv), s_dv);
+		double h = calc_periapsis_height_pa();
+		if(curr_transfer_pa->body != NULL && h > -curr_transfer_pa->body->radius*1e-3)
+			sprintf(s_dv, "%.0f km", h);
+		else sprintf(s_dv, "- km");
+		gtk_label_set_label(GTK_LABEL(lb_pa_periapsis), s_dv);
+	}
 }
 
 void reset_min_max_feedback(int fb0_pow1, int num_itins) {
@@ -285,12 +357,12 @@ void on_load_itineraries(GtkWidget* widget, gpointer data) {
 	gtk_widget_destroy(dialog);
 
 	update_porkchop_drawing_area();
-	update_preview_drawing_area();
+	update_preview();
 }
 
 void on_save_best_itinerary(GtkWidget* widget, gpointer data) {
 	struct ItinStep *first = get_first(curr_transfer_pa);
-	if(first == NULL || !is_valid_itinerary(get_last(curr_transfer_pa))) return;
+	if(first == NULL) return;
 
 
 	GtkWidget *dialog;
@@ -344,14 +416,14 @@ void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointer data) {
 	}
 	update_best_itin(pa_num_itins, fb0_pow1);
 	update_porkchop_drawing_area();
-	update_preview_drawing_area();
+	update_preview();
 }
 
 void update_pa() {
 	int fb0_pow1 = pa_last_transfer_type == TF_FLYBY ? 0 : 1;
 	update_best_itin(pa_num_itins, fb0_pow1);
 	update_porkchop_drawing_area();
-	update_preview_drawing_area();
+	update_preview();
 	reset_min_max_feedback(fb0_pow1, pa_num_itins);
 }
 
@@ -396,3 +468,16 @@ void on_reset_porkchop(GtkWidget* widget, gpointer data) {
 	update_pa();
 }
 
+void on_prev_transfer_pa(GtkWidget* widget, gpointer data) {
+	if(curr_transfer_pa == NULL) return;
+	if(curr_transfer_pa->prev != NULL) curr_transfer_pa = curr_transfer_pa->prev;
+	current_date_pa = curr_transfer_pa->date;
+	update_preview();
+}
+
+void on_next_transfer_pa(GtkWidget* widget, gpointer data) {
+	if(curr_transfer_pa == NULL) return;
+	if(curr_transfer_pa->next != NULL) curr_transfer_pa = curr_transfer_pa->next[0];
+	current_date_pa = curr_transfer_pa->date;
+	update_preview();
+}
