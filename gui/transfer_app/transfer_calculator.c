@@ -285,10 +285,10 @@ void on_calc_tc() {
 	calc_data.num_steps = num_steps;
 	calc_data.jd_min_dep = step->min_depdur;
 	calc_data.jd_max_dep = step->max_depdur;
-	calc_data.max_totdv_tc = max_totdv_tc;
-	calc_data.max_depdv_tc = max_depdv_tc;
-	calc_data.max_satdv_tc = max_satdv_tc;
-	calc_data.last_transfer_type = (int) tc_last_transfer_type;
+	calc_data.dv_filter.max_totdv = max_totdv_tc;
+	calc_data.dv_filter.max_depdv = max_depdv_tc;
+	calc_data.dv_filter.max_satdv = max_satdv_tc;
+	calc_data.dv_filter.last_transfer_type = (int) tc_last_transfer_type;
 
 	calc_data.bodies = (struct Body**) malloc(num_steps * sizeof(struct Body*));
 	calc_data.min_duration = (int*) malloc((num_steps-1) * sizeof(int));

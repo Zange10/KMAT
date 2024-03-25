@@ -15,6 +15,11 @@ struct ItinStep {
 	struct ItinStep **next;
 };
 
+struct Dv_Filter {
+	double max_totdv, max_depdv, max_satdv;
+	int last_transfer_type;
+};
+
 
 
 // find viable flybys to next body with a given arrival trajectory
@@ -48,7 +53,7 @@ double get_itinerary_duration(struct ItinStep *itin);
 void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_cap1);
 
 // from current step and given information, initiate calculation of next steps
-int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, int num_steps, int step);
+int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step);
 
 // get the number of layers/steps in the given itinerary (departure first)
 int get_num_of_itin_layers(struct ItinStep *step);

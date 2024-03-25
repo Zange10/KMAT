@@ -287,11 +287,30 @@ void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_ca
 	porkchop[0] = itin->prev->date;
 }
 
-int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, int num_steps, int step) {
+int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step) {
 	if(bodies[step] != bodies[step-1]) find_viable_flybys(curr_step, ephems[step], bodies[step], min_duration[step-1]*86400, max_duration[step-1]*86400);
 	else {
 		find_viable_dsb_flybys(curr_step, &ephems[step], bodies[step+1],
 							   min_duration[step-1]*86400, max_duration[step-1]*86400, min_duration[step]*86400, max_duration[step]*86400);
+	}
+
+	for(int i = 0; i < curr_step->num_next_nodes; i++) {
+		struct ItinStep *next = bodies[step] != bodies[step-1] ? curr_step->next[i] : curr_step->next[i]->next[0]->next[0];
+		double porkchop[5];
+		create_porkchop_point(next, porkchop, dv_filter->last_transfer_type == 1);
+		if(step == num_steps-1) {
+			int fb0_pow1 = dv_filter->last_transfer_type != 0;
+			if(porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_satdv ||
+					porkchop[2] + porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_totdv) {
+				if(curr_step->num_next_nodes <= 1) {
+					remove_step_from_itinerary(next);
+					return 0;
+				} else {
+					remove_step_from_itinerary(next);
+				}
+				i--;
+			}
+		}
 	}
 
 	if(curr_step->num_next_nodes == 0) {
@@ -306,8 +325,8 @@ int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Bod
 
 	if(step < num_steps-1) {
 		for(int i = 0; i < init_num_nodes; i++) {
-			if(bodies[step] != bodies[step-1]) result = calc_next_step(curr_step->next[i-step_del], ephems, bodies, min_duration, max_duration, num_steps, step+1);
-			else result = calc_next_step(curr_step->next[i-step_del]->next[0]->next[0], ephems, bodies, min_duration, max_duration, num_steps, step+2);
+			if(bodies[step] != bodies[step-1]) result = calc_next_step(curr_step->next[i-step_del], ephems, bodies, min_duration, max_duration, dv_filter, num_steps, step+1);
+			else result = calc_next_step(curr_step->next[i-step_del]->next[0]->next[0], ephems, bodies, min_duration, max_duration, dv_filter, num_steps, step+2);
 			num_valid += result;
 			if(!result) step_del++;
 		}

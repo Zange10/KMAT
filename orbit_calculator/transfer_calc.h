@@ -11,8 +11,7 @@ struct Transfer_Calc_Data {
 	double jd_max_dep;
 	int *min_duration;
 	int *max_duration;
-	double max_totdv_tc, max_depdv_tc, max_satdv_tc;
-	int last_transfer_type;
+	struct Dv_Filter dv_filter;
 };
 
 struct Transfer_Calc_Results {

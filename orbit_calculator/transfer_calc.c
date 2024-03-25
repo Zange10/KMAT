@@ -16,7 +16,7 @@ struct Itin_Thread_Args {
 	int *min_duration;
 	int *max_duration;
 	int num_steps;
-	double *max_dvs;
+	struct Dv_Filter *dv_filter;
 };
 
 void *calc_from_departure(void *args) {
@@ -69,7 +69,7 @@ void *calc_from_departure(void *args) {
 			curr_step->next[j - fb1_del]->prev = curr_step;
 			curr_step->next[j - fb1_del]->next = NULL;
 
-			if(data[1] > thread_args->max_dvs[0] || data[1] > thread_args->max_dvs[1]) {
+			if(data[1] > thread_args->dv_filter->max_totdv || data[1] > thread_args->dv_filter->max_depdv) {
 				struct ItinStep *rem_step = curr_step->next[j - fb1_del];
 				remove_step_from_itinerary(rem_step);
 				fb1_del++;
@@ -86,7 +86,7 @@ void *calc_from_departure(void *args) {
 			curr_step->num_next_nodes = 0;
 
 			if(num_steps > 2) {
-				if(!calc_next_step(curr_step, ephems, bodies, min_duration, max_duration, num_steps, 2)) {
+				if(!calc_next_step(curr_step, ephems, bodies, min_duration, max_duration, thread_args->dv_filter, num_steps, 2)) {
 					fb1_del++;
 				}
 			}
@@ -124,8 +124,6 @@ struct Transfer_Calc_Results create_itinerary(struct Transfer_Calc_Data calc_dat
 	int *min_duration = calc_data.min_duration;
 	int *max_duration = calc_data.max_duration;
 
-	double max_dvs[3] = {calc_data.max_totdv_tc, calc_data.max_depdv_tc, calc_data.max_satdv_tc};
-
 	struct Ephem **ephems = (struct Ephem**) malloc(num_steps*sizeof(struct Ephem*));
 	for(int i = 0; i < num_steps; i++) {
 		int ephem_available = 0;
@@ -152,7 +150,7 @@ struct Transfer_Calc_Results create_itinerary(struct Transfer_Calc_Data calc_dat
 			min_duration,
 			max_duration,
 			num_steps,
-			max_dvs
+			&calc_data.dv_filter
 	};
 
 	show_progress("Transfer Calculation progress: ", 0, 1);
