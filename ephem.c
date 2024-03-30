@@ -43,10 +43,23 @@ struct Date date_from_string(char *s) {
 
 struct Date convert_JD_date(double JD) {
     struct Date date = {0,1,1,0,0,0};
-    double init_JD = JD;
+	
     JD -= 2451544.5;
-    date.y = JD >= 0 ?  2000 + (int)(JD/366) : 2000 + (int)(JD/365)-1;	// 366 and 365 seem to work...
-    JD = init_JD - convert_date_JD(date);
+	date.y = 2000;
+	if(JD < 0) {
+		date.y--;
+		while(JD < -365 - (date.y % 4 == 0)) {
+			JD += 365 + (date.y % 4 == 0);	// boolean to add one (for leap year)
+			date.y--;
+		}
+		JD += 365 + (date.y % 4 == 0);	// boolean to add one (for leap year)
+	} else {
+		while(JD > 365 + (date.y % 4 == 0)) {
+			JD -= 365 + (date.y % 4 == 0);	// boolean to add one (for leap year)
+			date.y++;
+		}
+	}
+	
     for(int i = 1; i < 12; i++) {
         int month_days;
         if(i == 1 || i == 3 || i == 5 || i == 7 || i == 8 || i == 10) month_days = 31;
@@ -76,9 +89,17 @@ struct Date convert_JD_date(double JD) {
 
     date.h = (int) (JD * 24.0);
     JD -= (double)date.h/24;
-    date.min = (int) (JD * 24 * 60);
+    date.min = floor(JD * 24 * 60);
     JD -= (double)date.min/(24*60);
     date.s = JD*86400;
+	if(date.s > 59.999) {
+		date.s = 0;
+		date.min++;
+		if(date.min > 59.999) {
+			date.min = 0;
+			date.h++;
+		}
+	}
 
 
     return date;
