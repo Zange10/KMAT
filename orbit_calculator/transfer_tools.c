@@ -304,6 +304,60 @@ int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body) {
 	else 											return 0;
 }
 
+struct DepArrHyperbolaParams get_dep_hyperbola_params(struct Vector v_sat, struct Vector v_body, struct Body *body, double h_pe) {
+	struct Vector v_inf = subtract_vectors(v_sat, v_body);
+	double v_he = vector_mag(v_inf);
+	double rp = body->radius + h_pe;
+	double e = 1 + rp*v_he*v_he/body->mu;
+	double a = rp/(1-e);
+	double energy = -body->mu/(a);
+	struct Plane xy = constr_plane(vec(0,0,0), vec(1,0,0), vec(0,1,0));
+	struct Plane xz = constr_plane(vec(0,0,0), vec(1,0,0), vec(0,0,1));
+	double decl = angle_plane_vec(xy, v_inf);
+	decl = v_inf.z < 0 ? -fabs(decl) : fabs(decl);
+	double bplane_angle = -angle_plane_vec(xz, v_inf);
+	if(cross_product(v_inf,vec(0,1,0)).z < 0) bplane_angle = M_PI-bplane_angle;
+	bplane_angle = pi_norm(bplane_angle);
+	
+	struct DepArrHyperbolaParams hyp_params = {rp, energy, decl, bplane_angle, M_PI/2};
+	return hyp_params;
+}
+
+struct FlybyHyperbolaParams get_hyperbola_params(struct Vector v_arr, struct Vector v_dep, struct Vector v_body, struct Body *body, double h_pe) {
+	struct Vector vinf_arr = subtract_vectors(v_arr, v_body);
+	struct Vector vinf_dep = subtract_vectors(v_dep, v_body);
+	
+	struct FlybyHyperbolaParams hyp_params;
+	hyp_params.arr_hyp = get_dep_hyperbola_params(v_arr, v_body, body, h_pe);
+	hyp_params.dep_hyp = get_dep_hyperbola_params(v_dep, v_body, body, h_pe);
+	hyp_params.arr_hyp.decl *= -1;
+	hyp_params.arr_hyp.bplane_angle = pi_norm(M_PI + hyp_params.arr_hyp.bplane_angle);
+	
+	struct Plane ecliptic = constr_plane(vec(0,0,0), vec(1,0,0), vec(0,1,0));
+	struct Vector N = cross_product(vinf_arr, vinf_dep);
+	struct Vector B_arr = cross_product(vinf_arr, N);
+	struct Vector B_dep = cross_product(vinf_dep, scalar_multiply(N,-1));
+	
+	hyp_params.arr_hyp.bvazi = angle_plane_vec(ecliptic,B_arr) + M_PI/2;
+	hyp_params.dep_hyp.bvazi = angle_plane_vec(ecliptic,B_dep) + M_PI/2;
+
+	return hyp_params;
+}
+
+double get_flyby_periapsis(struct Vector v_arr, struct Vector v_dep, struct Vector v_body, struct Body *body) {
+	struct Vector v1 = subtract_vectors(v_arr, v_body);
+	struct Vector v2 = subtract_vectors(v_dep, v_body);
+	double beta = (M_PI - angle_vec_vec(v1, v2))/2;
+	return (1 / cos(beta) - 1) * (body->mu / (pow(vector_mag(v1), 2)));
+}
+
+double get_flyby_inclination(struct Vector v_arr, struct Vector v_dep, struct Vector v_body) {
+	struct Vector v1 = subtract_vectors(v_arr, v_body);
+	struct Vector v2 = subtract_vectors(v_dep, v_body);
+	struct Plane ecliptic = constr_plane(vec(0, 0, 0), vec(1, 0, 0), vec(0, 1, 0));
+	struct Plane hyperbola_plane = constr_plane(vec(0, 0, 0), v1, v2);
+	return angle_plane_plane(ecliptic, hyperbola_plane);
+}
 
 struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
 	struct Orbit orbit = constr_orbit_from_osv(r,v,attractor);

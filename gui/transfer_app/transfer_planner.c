@@ -131,10 +131,7 @@ double calc_total_dv() {
 double calc_periapsis_height_tp() {
 	if(curr_transfer_tp->body == NULL) return -1e20;
 	if(curr_transfer_tp->next == NULL || curr_transfer_tp->prev == NULL) return -1e20;
-	struct Vector v_arr = subtract_vectors(curr_transfer_tp->v_arr, curr_transfer_tp->v_body);
-	struct Vector v_dep = subtract_vectors(curr_transfer_tp->next[0]->v_dep, curr_transfer_tp->v_body);
-	double beta = (M_PI - angle_vec_vec(v_arr, v_dep))/2;
-	double rp = (1 / cos(beta) - 1) * (curr_transfer_tp->body->mu / (pow(vector_mag(v_arr), 2)));
+	double rp = get_flyby_periapsis(curr_transfer_tp->v_arr, curr_transfer_tp->next[0]->v_dep, curr_transfer_tp->v_body, curr_transfer_tp->body);
 	return (rp-curr_transfer_tp->body->radius)*1e-3;
 }
 
@@ -501,7 +498,74 @@ void on_load_itinerary(GtkWidget* widget, gpointer data) {
 		update_itinerary();
 		g_free(filepath);
 	}
-
+	
+	struct ItinStep *step2pr = get_first(curr_transfer_tp);
+	struct DepArrHyperbolaParams dep_hyp_params = get_dep_hyperbola_params(step2pr->next[0]->v_dep, step2pr->v_body,
+																		   step2pr->body, 200e3);
+	printf("\nDeparture Hyperbola\n"
+		   "OutgoingRadPer: %f km\n"
+		   "OutgoingC3Energy: %f km²/s²\n"
+		   "OutgoingRHA: %f°\n"
+		   "OutgoingDHA: %f°\n"
+		   "OutgoingBVAZI: -°\n"
+		   "TA: 0.0°\n",
+		   dep_hyp_params.r_pe/1000, dep_hyp_params.c3_energy/1e6,
+		   rad2deg(dep_hyp_params.bplane_angle), rad2deg(dep_hyp_params.decl));
+	
+	step2pr = step2pr->next[0];
+	while(step2pr->num_next_nodes != 0) {
+		struct Vector v_arr = step2pr->v_arr;
+		struct Vector v_dep = step2pr->next[0]->v_dep;
+		struct Vector v_body = step2pr->v_body;
+		double rp = get_flyby_periapsis(v_arr, v_dep, v_body, step2pr->body);
+		double incl = get_flyby_inclination(v_arr, v_dep, v_body);
+		
+		struct FlybyHyperbolaParams hyp_params = get_hyperbola_params(step2pr->v_arr, step2pr->next[0]->v_dep, step2pr->v_body, step2pr->body, rp-step2pr->body->radius);
+		double dt_in_days = step2pr->date - step2pr->prev->date;
+		
+		printf("\nFly-by Hyperbola %s\n"
+			   "RadPer: %f km\n"
+			   "C3Energy: %f km²/s²\n"
+			   "IncomingRHA: %f°\n"
+			   "IncomingDHA: %f°\n"
+			   "IncomingBVAZI: %f°\n"
+			   "OutgoingRHA: %f°\n"
+			   "OutgoingDHA: %f°\n"
+			   "OutgoingBVAZI: %f°\n"
+			   "TA: 0.0°\n",
+			   step2pr->body->name, hyp_params.dep_hyp.r_pe/1000, hyp_params.dep_hyp.c3_energy/1e6,
+			   rad2deg(hyp_params.arr_hyp.bplane_angle), rad2deg(hyp_params.arr_hyp.decl), rad2deg(hyp_params.arr_hyp.bvazi),
+			   rad2deg(hyp_params.dep_hyp.bplane_angle), rad2deg(hyp_params.dep_hyp.decl), rad2deg(hyp_params.dep_hyp.bvazi));
+		printf("\nFly-By at %s\n"
+			   "Periapsis: %.2f km\n"
+			   "Inclination: %f°\n"
+			   "Travel Time: %.2f days\n",
+			   step2pr->body->name, rp/1000, rad2deg(incl), dt_in_days);
+		step2pr = step2pr->next[0];
+	}
+	
+	double rp = 100000e3;
+	double dt_in_days = step2pr->date - step2pr->prev->date;
+	dep_hyp_params = get_dep_hyperbola_params(step2pr->v_arr, step2pr->v_body, step2pr->body,
+											  rp - step2pr->body->radius);
+	
+	dep_hyp_params.decl *= -1;
+	dep_hyp_params.bplane_angle = pi_norm(M_PI + dep_hyp_params.bplane_angle);
+	printf("\nArrival Hyperbola %s\n"
+		   "IncomingRadPer: %f km\n"
+		   "IncomingC3Energy: %f km²/s²\n"
+		   "IncomingRHA: %f°\n"
+		   "IncomingDHA: %f°\n"
+		   "IncomingBVAZI: -°\n"
+		   "TA: 0.0°\n",
+		   step2pr->body->name, dep_hyp_params.r_pe/1000, dep_hyp_params.c3_energy/1e6,
+		   rad2deg(dep_hyp_params.bplane_angle), rad2deg(dep_hyp_params.decl));
+	
+	printf("\nArrival at %s\n"
+		   "Travel Time: %.2f days\n",
+		   step2pr->body->name, dt_in_days);
+	
+	
 	// Destroy the dialog
 	gtk_widget_destroy(dialog);
 }

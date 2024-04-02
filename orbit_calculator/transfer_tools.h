@@ -19,7 +19,6 @@ enum Transfer_Type {
     capfb,
     circfb
 };
-void print_x();
 
 // 3-dimensional transfer from point r0 to point r1
 struct Transfer {
@@ -29,6 +28,19 @@ struct Transfer {
 // orbital state vector (position vector and velocity vector)
 struct OSV {
     struct Vector r, v;
+};
+
+struct DepArrHyperbolaParams {
+	double r_pe;
+	double c3_energy;
+	double decl;
+	double bplane_angle;
+	double bvazi;
+};
+
+struct FlybyHyperbolaParams {
+	struct DepArrHyperbolaParams dep_hyp;
+	struct DepArrHyperbolaParams arr_hyp;
 };
 
 void def_2d_transfer_orbit(double r1, double r2, double dtheta, double data[3], struct Body *attractor);
@@ -53,6 +65,18 @@ double dv_circ(struct Body *body, double rp, double vinf);
 
 // calculate the delta-v between speed at given Periapsis for excess speed of 0m/s at given Periapsis and speed at given Periapsis for given excess speed
 double dv_capture(struct Body *body, double rp, double vinf);
+
+// calculate and return departure hyperbola parameters
+struct DepArrHyperbolaParams get_dep_hyperbola_params(struct Vector v_sat, struct Vector v_body, struct Body *body, double h_pe);
+
+// calculate and return fly-by hyperbola parameters
+struct FlybyHyperbolaParams get_hyperbola_params(struct Vector v_arr, struct Vector v_dep, struct Vector v_body, struct Body *body, double h_pe);
+
+// get hyperbola periapsis during flyby
+double get_flyby_periapsis(struct Vector v_arr, struct Vector v_dep, struct Vector v_body, struct Body *body);
+
+// get inclination during flyby relative to the ecliptic
+double get_flyby_inclination(struct Vector v_arr, struct Vector v_dep, struct Vector v_body);
 
 // returns 1 if flyby is viable, 0 otherwise (all parameters are arrays of size 3)
 int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body);
