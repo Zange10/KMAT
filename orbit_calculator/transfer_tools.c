@@ -333,14 +333,23 @@ struct FlybyHyperbolaParams get_hyperbola_params(struct Vector v_arr, struct Vec
 	hyp_params.arr_hyp.decl *= -1;
 	hyp_params.arr_hyp.bplane_angle = pi_norm(M_PI + hyp_params.arr_hyp.bplane_angle);
 	
-	struct Plane ecliptic = constr_plane(vec(0,0,0), vec(1,0,0), vec(0,1,0));
 	struct Vector N = cross_product(vinf_arr, vinf_dep);
 	struct Vector B_arr = cross_product(vinf_arr, N);
 	struct Vector B_dep = cross_product(vinf_dep, scalar_multiply(N,-1));
 	
-	hyp_params.arr_hyp.bvazi = angle_plane_vec(ecliptic,B_arr) + M_PI/2;
-	hyp_params.dep_hyp.bvazi = angle_plane_vec(ecliptic,B_dep) + M_PI/2;
-
+	// BVAZI (Azimuth of B-vector) calculated from south
+	hyp_params.arr_hyp.bvazi = angle_vec_vec(vec(0,0,-1),B_arr);
+	hyp_params.dep_hyp.bvazi = angle_vec_vec(vec(0,0,-1),B_dep);
+	
+	// if retrograde orbit
+	if(N.z < 0) {
+		hyp_params.arr_hyp.bvazi *= -1;
+		hyp_params.dep_hyp.bvazi *= -1;
+	}
+	
+	hyp_params.arr_hyp.bvazi = pi_norm(hyp_params.arr_hyp.bvazi);
+	hyp_params.dep_hyp.bvazi = pi_norm(hyp_params.dep_hyp.bvazi);
+	
 	return hyp_params;
 }
 
