@@ -3,11 +3,14 @@
 #include "celestial_bodies.h"
 #include "launch_state.h"
 #include "lv_profile.h"
+#include "launch_circularization.h"
 #include <math.h>
 #include <stdio.h>
+#include <sys/time.h>
 
 // Define a function pointer type for the function signature
 typedef double (*PitchProgramPtr)(double, const double*);
+
 
 struct tvs {
 	double F_vac;		// Thrust in vacuum [N]
@@ -44,6 +47,8 @@ double calc_heading_from_speed(struct Plane s, struct Vector v, double v_mag, do
 double calc_atmo_press(double h, struct Body *body);
 double calc_thrust(double F_vac, double F_sl, double p);
 double calc_drag_force(double p, double v, double A, double c_d);
+double calc_azimuth(struct Body *body, struct Vector r, double inclination);
+
 
 double pitch_program1(double h, const double lp_params[5]);
 double pitch_program4(double h, const double lp_params[5]);
@@ -58,7 +63,10 @@ void print_v(struct Vector v) {
 void run_launch_simulation(struct LV lv, double payload_mass) {
 	struct Body *body = EARTH();
 	struct LaunchState *launch_state = new_launch_state();
-	setup_initial_state(launch_state, deg2rad(39.26), body);
+	setup_initial_state(launch_state, deg2rad(28.6), body);
+
+	double inclination = deg2rad(0);
+	double launch_heading = calc_azimuth(body, launch_state->r, inclination);
 
 	for(int i = 0; i < lv.stage_n; i++) {
 		struct tvs vessel = {
@@ -78,15 +86,42 @@ void run_launch_simulation(struct LV lv, double payload_mass) {
 			vessel.lp_params[1] = 6e-6;
 			vessel.lp_params[2] = 58;
 		} else {
-			vessel.get_pitch = pitch_program1;
-			vessel.lp_params[0] = 6.9;
+			vessel.get_pitch = NULL;
 		}
 
-		simulate_stage(launch_state, vessel, body, deg2rad(90), i+1);
+		simulate_stage(launch_state, vessel, body, launch_heading, i+1);
 		launch_state = get_last_state(launch_state);
 		simulate_coast(launch_state, vessel, body, 8, i+1);
 		launch_state = get_last_state(launch_state);
 	}
+
+	struct Plane s = calc_plane_parallel_to_surf(launch_state->r);
+
+	double gamma = angle_plane_vec(s, launch_state->v);
+	double v_mag = vector_mag(launch_state->v);
+	double vh = cos(gamma) * v_mag;
+	double vv = sin(gamma) * v_mag;
+	struct Vector vs = calc_surface_speed(s.u, launch_state->r, launch_state->v, body);
+
+	struct Orbit orbit = constr_orbit_from_osv(launch_state->r, launch_state->v, body);
+	double apoapsis = orbit.a*(1+orbit.e) - body->radius;
+	double periapsis = orbit.a*(1-orbit.e) - body->radius;
+
+	printf("\n______________________\nFLIGHT:\n\n");
+	printf("Time:\t\t\t%.2f s\n", launch_state->t);
+	printf("Altitude:\t\t%g km\n", (vector_mag(launch_state->r)-body->radius)/1000);
+	printf("Vertical v:\t\t%g m/s\n", vv);
+	printf("surfVelocity:\t%g m/s\n", vector_mag(vs));
+	printf("Horizontal v:\t%g m/s\n", vh);
+	printf("Velocity:\t\t%g m/s\n", vector_mag(launch_state->v));
+	printf("\n");
+	printf("Radius:\t\t\t%g km\n", vector_mag(scalar_multiply(launch_state->r, 1e-3)));
+	printf("Apoapsis:\t\t%g km\n", apoapsis / 1000);
+	printf("Periapsis:\t\t%g km\n", periapsis / 1000);
+	printf("Eccentricity:\t%g\n", orbit.e);
+	printf("Inclination:\t%g°\n", rad2deg(orbit.inclination));
+	printf("Azimuth:\t\t%g°\n", rad2deg(launch_heading));
+	printf("______________________\n\n");
 
 
 	free_launch_states(launch_state);
@@ -102,8 +137,9 @@ void setup_initial_state(struct LaunchState *state, double lat, struct Body *bod
 
 void simulate_stage(struct LaunchState *state, struct tvs vessel, struct Body *body, double heading_at_launch, int stage_id) {
 	double m = vessel.m0;	// vessel mass [kg]
-	double step = 0.01;		// step size in seconds [s]
+	double step = 0.01;	// step size in seconds [s]
 	double r_mag;			// distance to center of earth [m]
+	double v_mag;			// orbital speed [m/s]
 	double h;				// altitude [m]
 	struct Vector a;		// acceleration acting on the vessel [m/s²]
 	struct Vector g;		// acceleration due to Gravity [m/s²]
@@ -113,6 +149,7 @@ void simulate_stage(struct LaunchState *state, struct tvs vessel, struct Body *b
 	struct Vector dr;		// change in position due to velocity [m]
 	struct Plane s;			// Plane parallel to surface at vessel position (s.u: east, s.v: north)
 	struct Vector p;		// Thrust vector
+	double F_T;				// Thrust of engines [N]
 	double pitch;			// pitch of vessel [rad]
 	double heading;			// heading of vessel [rad]
 	struct Vector vs;		// surface velocity [m/s]
@@ -120,8 +157,9 @@ void simulate_stage(struct LaunchState *state, struct tvs vessel, struct Body *b
 	double atmo_p;			// atmospheric pressure [Pa]
 	double ecc;				// eccentricity of orbit
 	double last_ecc = 1;	// eccentricity of orbit from previous state
-
-	int counter = 100;
+	double gamma;			// flight path angle [rad]
+	double vh;				// horizontal speed [m/s]
+	double vv;				// vertical speed [m/s]
 
 	while(m-vessel.burn_rate * step > vessel.me) {
 		r_mag = vector_mag(state->r);
@@ -130,36 +168,24 @@ void simulate_stage(struct LaunchState *state, struct tvs vessel, struct Body *b
 		vs = calc_surface_speed(s.u, state->r, state->v, body);
 		vs_mag = vector_mag(vs);
 		atmo_p = calc_atmo_press(h, body);
+		F_T = calc_thrust(vessel.F_vac, vessel.F_sl, atmo_p);
 
 		heading = calc_heading_from_speed(s, vs, vs_mag, heading_at_launch);
-		pitch = vessel.get_pitch(h, vessel.lp_params);
+		if(vessel.get_pitch != NULL) pitch = vessel.get_pitch(h, vessel.lp_params);
+		else {
+			gamma = angle_plane_vec(s, state->v);
+			v_mag = vector_mag(state->v);
+			vh = cos(gamma) * v_mag;
+			vv = sin(gamma) * v_mag;
+			pitch = circularization_pitch(F_T, m, vessel.burn_rate, vh, vv, r_mag, body->mu);
+		}
 		p = calc_thrust_vector(state->r, s.v, pitch, heading);
-		a_T = scalar_multiply(p, calc_thrust(vessel.F_vac, vessel.F_sl, atmo_p)/m);
+		a_T = scalar_multiply(p, F_T/m);
 
 		g = scalar_multiply(state->r, body->mu/(r_mag*r_mag*r_mag));
 		a_D = (vs_mag != 0) ? scalar_multiply(norm_vector(vs), calc_drag_force(atmo_p, vs_mag, vessel.A, vessel.cd)/m) : vec(0,0,0);
 
 		a = subtract_vectors(a_T, add_vectors(g, a_D));
-		if(counter == 100) {
-			printf("%6.2f  %d  %7.3f, %7.3f  % 12.2f, % 12.2f  %8.2f   ", state->t, stage_id, rad2deg(heading), rad2deg(pitch), h, vector_mag(state->v), calc_drag_force(atmo_p, vs_mag, vessel.A, vessel.cd)/m);
-//			printf("%6.2f %d % 12.2f, % 12.2f   ", state->t, stage_id, h, vector_mag(state->v));
-			print_v(scalar_multiply(state->r, 1e-6));
-			printf(" | ");
-			print_v(scalar_multiply(vs, 1e-3));
-			printf(" | ");
-//			print_v(p);
-//			printf(" | ");
-			print_v(g);
-			printf(" | ");
-			print_v(a_T);
-			printf(" | ");
-			print_v(a_D);
-			printf(" | ");
-			print_v(a);
-			printf("\n");
-			counter = 0;
-		}
-		counter++;
 
 		state->next = append_launch_state(state);
 		state = state->next;
@@ -171,12 +197,14 @@ void simulate_stage(struct LaunchState *state, struct tvs vessel, struct Body *b
 		state->v = add_vectors(state->prev->v, dv);
 		state->r = add_vectors(state->prev->r, dr);
 
-		ecc = constr_orbit_from_osv(state->r, state->v, body).e;
-
 		m -= vessel.burn_rate * step;
 		state->m = m;
-		if(ecc > last_ecc && vs_mag > 5000) break;	// using vs_mag because already calculated
-		last_ecc = ecc;
+
+		if(vs_mag > 6500) {
+			ecc = constr_orbit_from_osv(state->r, state->v, body).e;
+			if(ecc > last_ecc && vs_mag > 5000) break;
+			last_ecc = ecc;
+		}
 	}
 }
 
@@ -264,11 +292,11 @@ struct Vector calc_thrust_vector(struct Vector r, struct Vector u2, double pitch
 
 double calc_heading_from_speed(struct Plane s, struct Vector v, double v_mag, double heading_at_launch) {
 	if(v_mag < 1000) {
-		if(fabs(angle_plane_vec(s, v)) > deg2rad(85) || v_mag < 10) return heading_at_launch;
+		if(v_mag < 10 || fabs(angle_plane_vec(s, v)) > deg2rad(60)) return heading_at_launch;
 	}
-
-	double heading = angle_vec_vec(v, s.v);
-	if(angle_vec_vec(v, s.u) > M_PI/2) heading = 2*M_PI - heading;	// if retrograde (i.e. SSO or polar)
+	struct Vector proj_vs = proj_vec_plane(v, s);
+	double heading = angle_vec_vec(proj_vs, s.v);
+	if(angle_vec_vec(v, s.u) > M_PI/2) heading = 2* M_PI - heading;	// if retrograde (i.e. SSO or polar)
 	return heading;
 }
 
@@ -288,9 +316,25 @@ double calc_drag_force(double p, double v, double A, double c_d) {
 	return 0.5*rho*A*c_d*pow(v,2);
 }
 
+double calc_azimuth(struct Body *body, struct Vector r, double inclination) {
+	struct Plane eq = constr_plane(vec(0,0,0), vec(1,0,0), vec(0,1,0));
+	double lat = angle_plane_vec(eq, r);
+
+	if(inclination < lat) inclination = lat;
+	if(inclination > M_PI-lat) inclination = M_PI - lat;
+
+	double surf_speed = cos(lat) * body->radius*2*M_PI/body->rotation_period;
+	double end_speed = 7800;    // orbital speed hard coded
+
+	double azi1 = asin(cos(inclination)/cos(lat));
+
+	struct Vector2D azi1_v = {sin(azi1)*end_speed, cos(azi1)*end_speed};
+	struct Vector2D azi2_v = {surf_speed, 0};
+	struct Vector2D azi_v = add_vectors2d(azi1_v, scalar_multipl2d(azi2_v,-1));
 
 
-
+	return atan(azi_v.x / azi_v.y);
+}
 
 
 
@@ -300,11 +344,18 @@ double calc_drag_force(double p, double v, double A, double c_d) {
 void ls_test() {
 	struct LV lv;
 	get_test_LV(&lv);
+	struct timeval start_time, end_time;
+	double elapsed_time;
+	gettimeofday(&start_time, NULL);
 	run_launch_simulation(lv, 10000);
+	gettimeofday(&end_time, NULL);
 
+	// Calculate the elapsed time in seconds
+	elapsed_time = (end_time.tv_sec - start_time.tv_sec) +
+				   (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
 
-
-
+	printf("Elapsed time: %f seconds\n", elapsed_time);
+	printf("Elapsed time: %f ms\n", elapsed_time*1000);
 
 
 

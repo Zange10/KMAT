@@ -32,5 +32,5 @@ double circularization_pitch(double F, double m0, double br, double vh_0, double
     double a_T = calc_avg_thrust_acc(ve, m0, br, t);
     double v_h = calc_avg_vh(ve, m0, br, t, vh_0);
     double p = asin(-1/a_T * (v_h*v_h/r - g + vv_0/t));
-    return p/M_PI * 180;
+    return p;
 }
