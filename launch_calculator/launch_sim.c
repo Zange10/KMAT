@@ -24,21 +24,9 @@ struct tvs {
 	PitchProgramPtr get_pitch;
 };
 
-void print_vessel_info2(struct tvs *v) {
-	printf("\n______________________\nVESSEL:\n\n");
-	printf("Thrust vac:\t%g kN\n", v -> F_vac/1000);
-	printf("Thrust sl:\t%g kN\n", v -> F_sl/1000);
-	printf("Burn rate:\t%g kg/s\n", v -> burn_rate);
-	printf("Init mass:\t%g kg\n", v -> m0);
-	printf("Dry mass:\t%g kg\n", v -> me);
-	printf("Burn rate:\t%g kg/s\n", v -> burn_rate);
-	printf("cd:\t%g\n", v -> cd);
-	printf("A:\t%g m²\n", v -> A);
-	printf("______________________\n\n");
-}
 
-void simulate_stage(struct LaunchState *state, struct tvs vessel, struct Body *body, double heading_at_launch, int stage_id);
-void simulate_coast(struct LaunchState *state, struct tvs vessel, struct Body *body, double dt, int stage_id);
+void simulate_stage(struct LaunchState *state, struct tvs vessel, struct Body *body, double heading_at_launch, int stage_id, double step);
+void simulate_coast(struct LaunchState *state, struct tvs vessel, struct Body *body, double dt, int stage_id, double step);
 void setup_initial_state(struct LaunchState *state, double lat, struct Body *body);
 struct Plane calc_plane_parallel_to_surf(struct Vector r);
 struct Vector calc_surface_speed(struct Vector east_dir, struct Vector r, struct Vector v, struct Body *body);
@@ -47,7 +35,7 @@ double calc_heading_from_speed(struct Plane s, struct Vector v, double v_mag, do
 double calc_atmo_press(double h, struct Body *body);
 double calc_thrust(double F_vac, double F_sl, double p);
 double calc_drag_force(double p, double v, double A, double c_d);
-double calc_azimuth(struct Body *body, struct Vector r, double inclination);
+double calc_launch_azi(struct Body *body, double latitude, double inclination, int north0_south1);
 
 
 double pitch_program1(double h, const double lp_params[5]);
@@ -56,45 +44,7 @@ double pitch_program4(double h, const double lp_params[5]);
 
 
 
-void print_v(struct Vector v) {
-	printf("(%.3f, %.3f, %.3f)", v.x, v.y, v.z);
-}
-
-void run_launch_simulation(struct LV lv, double payload_mass) {
-	struct Body *body = EARTH();
-	struct LaunchState *launch_state = new_launch_state();
-	setup_initial_state(launch_state, deg2rad(28.6), body);
-
-	double inclination = deg2rad(0);
-	double launch_heading = calc_azimuth(body, launch_state->r, inclination);
-
-	for(int i = 0; i < lv.stage_n; i++) {
-		struct tvs vessel = {
-				lv.stages[i].F_vac,
-				lv.stages[i].F_sl,
-				lv.stages[i].m0,
-				lv.stages[i].me,
-				lv.stages[i].burn_rate,
-				lv.c_d,
-				lv.A,
-		};
-		vessel.m0 += payload_mass;
-		vessel.me += payload_mass;
-		if(i == 0) {
-			vessel.get_pitch = pitch_program4;
-			vessel.lp_params[0] = 30e-6;
-			vessel.lp_params[1] = 6e-6;
-			vessel.lp_params[2] = 58;
-		} else {
-			vessel.get_pitch = NULL;
-		}
-
-		simulate_stage(launch_state, vessel, body, launch_heading, i+1);
-		launch_state = get_last_state(launch_state);
-		simulate_coast(launch_state, vessel, body, 8, i+1);
-		launch_state = get_last_state(launch_state);
-	}
-
+void print_launch_state_info(struct LaunchState *launch_state, struct Body *body) {
 	struct Plane s = calc_plane_parallel_to_surf(launch_state->r);
 
 	double gamma = angle_plane_vec(s, launch_state->v);
@@ -120,9 +70,47 @@ void run_launch_simulation(struct LV lv, double payload_mass) {
 	printf("Periapsis:\t\t%g km\n", periapsis / 1000);
 	printf("Eccentricity:\t%g\n", orbit.e);
 	printf("Inclination:\t%g°\n", rad2deg(orbit.inclination));
-	printf("Azimuth:\t\t%g°\n", rad2deg(launch_heading));
 	printf("______________________\n\n");
+}
 
+void run_launch_simulation(struct LV lv, double payload_mass) {
+	double step_size = 0.001;
+	struct Body *body = EARTH();
+	double latitude = deg2rad(28.6);
+	double inclination = deg2rad(0);
+	double launch_heading = calc_launch_azi(body, latitude, inclination, 0);
+
+	struct LaunchState *launch_state = new_launch_state();
+	setup_initial_state(launch_state, latitude, body);
+
+	for(int i = 0; i < lv.stage_n; i++) {
+		struct tvs vessel = {
+				lv.stages[i].F_vac,
+				lv.stages[i].F_sl,
+				lv.stages[i].m0,
+				lv.stages[i].me,
+				lv.stages[i].burn_rate,
+				lv.c_d,
+				lv.A,
+		};
+		vessel.m0 += payload_mass;
+		vessel.me += payload_mass;
+		if(i == 0) {
+			vessel.get_pitch = pitch_program4;
+			vessel.lp_params[0] = 36e-6;
+			vessel.lp_params[1] = 12e-6;
+			vessel.lp_params[2] = 49;
+		} else {
+			vessel.get_pitch = NULL;
+		}
+
+		simulate_stage(launch_state, vessel, body, launch_heading, i+1, step_size);
+		launch_state = get_last_state(launch_state);
+		simulate_coast(launch_state, vessel, body, 8, i+1, step_size);
+		launch_state = get_last_state(launch_state);
+
+		print_launch_state_info(launch_state, body);
+	}
 
 	free_launch_states(launch_state);
 }
@@ -135,9 +123,8 @@ void setup_initial_state(struct LaunchState *state, double lat, struct Body *bod
 
 }
 
-void simulate_stage(struct LaunchState *state, struct tvs vessel, struct Body *body, double heading_at_launch, int stage_id) {
+void simulate_stage(struct LaunchState *state, struct tvs vessel, struct Body *body, double heading_at_launch, int stage_id, double step) {
 	double m = vessel.m0;	// vessel mass [kg]
-	double step = 0.01;	// step size in seconds [s]
 	double r_mag;			// distance to center of earth [m]
 	double v_mag;			// orbital speed [m/s]
 	double h;				// altitude [m]
@@ -208,9 +195,8 @@ void simulate_stage(struct LaunchState *state, struct tvs vessel, struct Body *b
 	}
 }
 
-void simulate_coast(struct LaunchState *state, struct tvs vessel, struct Body *body, double dt, int stage_id) {
+void simulate_coast(struct LaunchState *state, struct tvs vessel, struct Body *body, double dt, int stage_id, double step) {
 	double m = vessel.m0;	// vessel mass [kg]
-	double step = 0.01;		// step size in seconds [s]
 	double r_mag;			// distance to center of earth [m]
 	double h;				// altitude [m]
 	struct Vector a;		// acceleration acting on the vessel [m/s²]
@@ -255,14 +241,25 @@ double pitch_program1(double h, const double lp_params[5]) {
 	return deg2rad(a);
 }
 
-double pitch_program4(double h, const double lp_params[5]) {
-		double a1 = lp_params[0];
-		double a2 = lp_params[1];
-		double b2 = lp_params[2];
-		double h_trans = log(b2/90) / (a2-a1);	// transition altitude
+double pitch_program2(double h, const double lp_params[5]) {
+	double a = lp_params[0];
+	return 90.0 * exp(-a * h);
+}
 
-		double pitch_deg = (h < h_trans) ? 90.0 * exp(-a1 * h) : b2 * exp(-a2 * h);
-		return deg2rad(pitch_deg);
+double pitch_program3(double h, const double lp_params[5]) {
+	double a = lp_params[0];
+	double b = lp_params[1];
+	return (90.0-b) * exp(-a * h) + b;
+}
+
+double pitch_program4(double h, const double lp_params[5]) {
+	double a1 = lp_params[0];
+	double a2 = lp_params[1];
+	double b2 = lp_params[2];
+	double h_trans = log(b2/90) / (a2-a1);	// transition altitude
+
+	double pitch_deg = (h < h_trans) ? 90.0 * exp(-a1 * h) : b2 * exp(-a2 * h);
+	return deg2rad(pitch_deg);
 }
 
 struct Plane calc_plane_parallel_to_surf(struct Vector r) {
@@ -316,24 +313,22 @@ double calc_drag_force(double p, double v, double A, double c_d) {
 	return 0.5*rho*A*c_d*pow(v,2);
 }
 
-double calc_azimuth(struct Body *body, struct Vector r, double inclination) {
-	struct Plane eq = constr_plane(vec(0,0,0), vec(1,0,0), vec(0,1,0));
-	double lat = angle_plane_vec(eq, r);
+double calc_launch_azi(struct Body *body, double latitude, double inclination, int north0_south1) {
+	if(inclination < latitude) inclination = latitude;
+	if(inclination > M_PI-latitude) inclination = M_PI - latitude;
 
-	if(inclination < lat) inclination = lat;
-	if(inclination > M_PI-lat) inclination = M_PI - lat;
-
-	double surf_speed = cos(lat) * body->radius*2*M_PI/body->rotation_period;
+	double surf_speed = cos(latitude) * body->radius*2*M_PI/body->rotation_period;
 	double end_speed = 7800;    // orbital speed hard coded
 
-	double azi1 = asin(cos(inclination)/cos(lat));
+	double azi1 = asin(cos(inclination)/cos(latitude));
 
 	struct Vector2D azi1_v = {sin(azi1)*end_speed, cos(azi1)*end_speed};
 	struct Vector2D azi2_v = {surf_speed, 0};
 	struct Vector2D azi_v = add_vectors2d(azi1_v, scalar_multipl2d(azi2_v,-1));
 
-
-	return atan(azi_v.x / azi_v.y);
+	double azimuth = atan(azi_v.x / azi_v.y);
+	if(north0_south1) azimuth = M_PI - azimuth;
+	return azimuth;
 }
 
 
@@ -347,7 +342,7 @@ void ls_test() {
 	struct timeval start_time, end_time;
 	double elapsed_time;
 	gettimeofday(&start_time, NULL);
-	run_launch_simulation(lv, 10000);
+	run_launch_simulation(lv, 1000);
 	gettimeofday(&end_time, NULL);
 
 	// Calculate the elapsed time in seconds
