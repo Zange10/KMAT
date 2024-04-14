@@ -115,7 +115,7 @@ struct Vector2D norm_vector2d(struct Vector2D v);
 
 
 /**
- * @brief Rotates a vector around an axis
+ * @brief Rotates a vector around an axis in ccw direction (right hand rule)
  *
  * @param v The vector that is to be rotated
  * @param axis The axis-vector around which the vector is to be rotated

@@ -138,7 +138,7 @@ void calc_launch_azimuth(struct Body *body) {
     double azi2 = asin(surf_speed/end_speed);
     double azi = rad_to_deg(azi1)-rad_to_deg(azi2);
 
-    printf("\nNeeded launch Azimuth to target inclination %g° from %g° latitude: %g° %g°\n____________\n\n", incl, lat, azi, 90-azi+90);
+    printf("\nNeeded launch Azimuth to target inclination %g° from %g° latitude: %g° %g°\n____________\n\n", incl, lat, azi, 180-azi);
 }
 
 // ------------------------------------------------------------
@@ -202,7 +202,7 @@ void initiate_launch_campaign(struct LV lv, int calc_params) {
         //struct Lp_Params lp_params = {.a1 = 0e-6, .a2 = 0e-6, .b2 = 90};      // sounding
         if(1) lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
         else lp_params.h = 1e9;
-        double payload_mass = 300;
+        double payload_mass = 10000;
         calculate_launch(lv, payload_mass, lp_params, 0);
     }
 }
@@ -223,6 +223,7 @@ struct Launch_Results calculate_launch(struct LV lv, double payload_mass, struct
 
     double left_over_propellant;
     double left_over_dv;
+
     for(int i = 0; i < lv.stage_n; i++) {
         // Separation (not for first stage) - further adjustments for side booster in the future...
         // printf("Stage %d:\n", i+1);
@@ -408,9 +409,9 @@ double get_pitch(struct Vessel v, struct Flight f) {
             if (f.h < v.lp_param.h) return 90.0 * exp(-a1 * f.h);
             else return b2 * exp(-a2 * f.h); }
         case CIRC:
-            return get_circularization_pitch(
-                    v.F, v.mass, v.burn_rate, f.vh, f.vv,
-                    calc_apoapsis(f) + f.body->radius, f.body->mu);
+            return circularization_pitch(
+					v.F, v.mass, v.burn_rate, f.vh, f.vv,
+					calc_apoapsis(f) + f.body->radius, f.body->mu);
         case COAST:
             return 0;
     }
