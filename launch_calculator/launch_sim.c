@@ -12,7 +12,7 @@
 typedef double (*PitchProgramPtr)(double, const double*);
 
 
-struct tvs {
+struct Vessel {
 	double F_vac;		// Thrust in vacuum [N]
 	double F_sl;		// Thrust at sea level [N]
 	double m0;			// initial mass [kg]
@@ -25,8 +25,8 @@ struct tvs {
 };
 
 
-void simulate_stage(struct LaunchState *state, struct tvs vessel, struct Body *body, double heading_at_launch, int stage_id, double step);
-void simulate_coast(struct LaunchState *state, struct tvs vessel, struct Body *body, double dt, int stage_id, double step);
+void simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Body *body, double heading_at_launch, int stage_id, double step);
+void simulate_coast(struct LaunchState *state, struct Vessel vessel, struct Body *body, double dt, int stage_id, double step);
 void setup_initial_state(struct LaunchState *state, double lat, struct Body *body);
 struct Plane calc_plane_parallel_to_surf(struct Vector r);
 struct Vector calc_surface_speed(struct Vector east_dir, struct Vector r, struct Vector v, struct Body *body);
@@ -36,15 +36,18 @@ double calc_atmo_press(double h, struct Body *body);
 double calc_thrust(double F_vac, double F_sl, double p);
 double calc_drag_force(double p, double v, double A, double c_d);
 double calc_launch_azi(struct Body *body, double latitude, double inclination, int north0_south1);
+double calculate_dV(double F, double m0, double mf, double burn_rate);
 
 
 double pitch_program1(double h, const double lp_params[5]);
+double pitch_program2(double h, const double lp_params[5]);
+double pitch_program3(double h, const double lp_params[5]);
 double pitch_program4(double h, const double lp_params[5]);
 
 
 
 
-void print_launch_state_info(struct LaunchState *launch_state, struct Body *body) {
+void print_launch_state_info(struct LaunchState *launch_state, struct Vessel vessel, struct Body *body) {
 	struct Plane s = calc_plane_parallel_to_surf(launch_state->r);
 
 	double gamma = angle_plane_vec(s, launch_state->v);
@@ -56,6 +59,9 @@ void print_launch_state_info(struct LaunchState *launch_state, struct Body *body
 	struct Orbit orbit = constr_orbit_from_osv(launch_state->r, launch_state->v, body);
 	double apoapsis = orbit.a*(1+orbit.e) - body->radius;
 	double periapsis = orbit.a*(1-orbit.e) - body->radius;
+
+	double rem_m = launch_state->m-vessel.me;
+	double rem_dv = calculate_dV(vessel.F_vac, launch_state->m, vessel.me, vessel.burn_rate);
 
 	printf("\n______________________\nFLIGHT:\n\n");
 	printf("Time:\t\t\t%.2f s\n", launch_state->t);
@@ -70,11 +76,14 @@ void print_launch_state_info(struct LaunchState *launch_state, struct Body *body
 	printf("Periapsis:\t\t%g km\n", periapsis / 1000);
 	printf("Eccentricity:\t%g\n", orbit.e);
 	printf("Inclination:\t%g°\n", rad2deg(orbit.inclination));
+	printf("\n");
+	printf("Rem dV:\t\t\t%g m/s\n", rem_dv);
+	printf("Rem fuel:\t\t%g kg\n", rem_m);
 	printf("______________________\n\n");
 }
 
 void run_launch_simulation(struct LV lv, double payload_mass) {
-	double step_size = 0.001;
+	double step_size = 0.01;
 	struct Body *body = EARTH();
 	double latitude = deg2rad(28.6);
 	double inclination = deg2rad(0);
@@ -83,34 +92,59 @@ void run_launch_simulation(struct LV lv, double payload_mass) {
 	struct LaunchState *launch_state = new_launch_state();
 	setup_initial_state(launch_state, latitude, body);
 
+	struct Vessel vessel = {};
+	vessel.cd = lv.c_d;
+	vessel.A = lv.A;
+	if		(lv.lp_id == 1) vessel.get_pitch = pitch_program1;
+	else if	(lv.lp_id == 2) vessel.get_pitch = pitch_program2;
+	else if	(lv.lp_id == 3) vessel.get_pitch = pitch_program3;
+	else if	(lv.lp_id == 4) vessel.get_pitch = pitch_program4;
+	for(int i = 0; i < 5; i++) vessel.lp_params[i] = lv.lp_params[i];
+
+	double main_stage_spent_fuel = 0;	// applicable with booster stages
+
 	for(int i = 0; i < lv.stage_n; i++) {
-		struct tvs vessel = {
-				lv.stages[i].F_vac,
-				lv.stages[i].F_sl,
-				lv.stages[i].m0,
-				lv.stages[i].me,
-				lv.stages[i].burn_rate,
-				lv.c_d,
-				lv.A,
-		};
+
+		if(lv.stages[i].stage_id > 0) {
+			vessel.F_vac 		= lv.stages[i].F_vac;
+			vessel.F_sl 		= lv.stages[i].F_sl;
+			vessel.burn_rate 	= lv.stages[i].burn_rate;
+			vessel.m0 = 0;
+			for(int j = i; j < lv.stage_n; j++) vessel.m0 += lv.stages[j].m0;
+			if(lv.stages[i].stage_id == 1) vessel.m0 -= main_stage_spent_fuel;	// spent fuel with boosters
+			vessel.me = 0;
+			for(int j = i+1; j < lv.stage_n; j++) vessel.me += lv.stages[j].m0;
+			vessel.me += lv.stages[i].me;
+		} else {
+			vessel.F_vac 		= lv.stages[0].F_vac + lv.stages[1].F_vac;
+			vessel.F_sl 		= lv.stages[0].F_sl + lv.stages[1].F_sl;
+			vessel.burn_rate 	= lv.stages[0].burn_rate + lv.stages[1].burn_rate;
+			vessel.m0 = 0;
+			for(int j = i; j < lv.stage_n; j++) vessel.m0 += lv.stages[j].m0;
+			vessel.me = 0;
+			for(int j = i+2; j < lv.stage_n; j++) vessel.me += lv.stages[j].m0;
+			double burntime = (lv.stages[0].m0-lv.stages[0].me)/lv.stages[0].burn_rate;	// booster burn time
+			main_stage_spent_fuel = lv.stages[1].burn_rate * burntime;
+			vessel.me += lv.stages[1].m0 - main_stage_spent_fuel;
+			vessel.me += lv.stages[0].me;
+		}
 		vessel.m0 += payload_mass;
 		vessel.me += payload_mass;
-		if(i == 0) {
-			vessel.get_pitch = pitch_program4;
-			vessel.lp_params[0] = 36e-6;
-			vessel.lp_params[1] = 12e-6;
-			vessel.lp_params[2] = 49;
-		} else {
-			vessel.get_pitch = NULL;
-		}
+
+		if(i > 1) vessel.get_pitch = NULL;
 
 		simulate_stage(launch_state, vessel, body, launch_heading, i+1, step_size);
 		launch_state = get_last_state(launch_state);
-		simulate_coast(launch_state, vessel, body, 8, i+1, step_size);
-		launch_state = get_last_state(launch_state);
 
-		print_launch_state_info(launch_state, body);
+		print_launch_state_info(launch_state, vessel, body);
+		// Stage separation
+		if(i < lv.stage_n-1 && lv.stages[i].stage_id > 0) {
+			simulate_coast(launch_state, vessel, body, 8, i+1, step_size);
+			launch_state = get_last_state(launch_state);
+		}
 	}
+
+	print_launch_state_info(launch_state, vessel, body);
 
 	free_launch_states(launch_state);
 }
@@ -123,7 +157,7 @@ void setup_initial_state(struct LaunchState *state, double lat, struct Body *bod
 
 }
 
-void simulate_stage(struct LaunchState *state, struct tvs vessel, struct Body *body, double heading_at_launch, int stage_id, double step) {
+void simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Body *body, double heading_at_launch, int stage_id, double step) {
 	double m = vessel.m0;	// vessel mass [kg]
 	double r_mag;			// distance to center of earth [m]
 	double v_mag;			// orbital speed [m/s]
@@ -195,8 +229,8 @@ void simulate_stage(struct LaunchState *state, struct tvs vessel, struct Body *b
 	}
 }
 
-void simulate_coast(struct LaunchState *state, struct tvs vessel, struct Body *body, double dt, int stage_id, double step) {
-	double m = vessel.m0;	// vessel mass [kg]
+void simulate_coast(struct LaunchState *state, struct Vessel vessel, struct Body *body, double dt, int stage_id, double step) {
+	double m=state->prev->m;// mass (last stage final mass) [kg]
 	double r_mag;			// distance to center of earth [m]
 	double h;				// altitude [m]
 	struct Vector a;		// acceleration acting on the vessel [m/s²]
@@ -236,6 +270,8 @@ void simulate_coast(struct LaunchState *state, struct tvs vessel, struct Body *b
 	}
 }
 
+
+
 double pitch_program1(double h, const double lp_params[5]) {
 	double a = lp_params[0];
 	return deg2rad(a);
@@ -243,13 +279,13 @@ double pitch_program1(double h, const double lp_params[5]) {
 
 double pitch_program2(double h, const double lp_params[5]) {
 	double a = lp_params[0];
-	return 90.0 * exp(-a * h);
+	return deg2rad(90.0 * exp(-a * h));
 }
 
 double pitch_program3(double h, const double lp_params[5]) {
 	double a = lp_params[0];
 	double b = lp_params[1];
-	return (90.0-b) * exp(-a * h) + b;
+	return deg2rad((90.0-b) * exp(-a * h) + b);
 }
 
 double pitch_program4(double h, const double lp_params[5]) {
@@ -331,7 +367,9 @@ double calc_launch_azi(struct Body *body, double latitude, double inclination, i
 	return azimuth;
 }
 
-
+double calculate_dV(double F, double m0, double mf, double burn_rate) {
+	return F/burn_rate * log(m0/mf);
+}
 
 
 
@@ -339,6 +377,7 @@ double calc_launch_azi(struct Body *body, double latitude, double inclination, i
 void ls_test() {
 	struct LV lv;
 	get_test_LV(&lv);
+
 	struct timeval start_time, end_time;
 	double elapsed_time;
 	gettimeofday(&start_time, NULL);
@@ -351,45 +390,4 @@ void ls_test() {
 
 	printf("Elapsed time: %f seconds\n", elapsed_time);
 	printf("Elapsed time: %f ms\n", elapsed_time*1000);
-
-
-
-
-//	struct Vector z = vec(0,0,1);
-//	struct Vector x = vec(1,0,0);
-//	struct Vector y = vec(0,1,0);
-//
-//	struct Plane p = constr_plane(vec(0,0,0), x, y);
-//	for(int i = 0; i <= 380; i+=10) {
-//		double a = deg2rad(i);
-//		struct Vector v = vec(cos(a), 0, sin(a));
-//		double anglex = angle_plane_vec(p, v);
-//		printf("%.2f°\n", rad2deg(anglex));
-//	}
-//
-//
-//	print_v(cross_product(y,x));
-//	return;
-//	for(int i = 0; i <= 360; i += 30) {
-//		for(int j = -90; j <= 90; j += 30) {
-//			double theta = deg2rad(i);
-//			double phi = deg2rad(j);
-//			struct Vector v = vec(cos(phi) * cos(theta), cos(phi)*sin(theta), sin(phi));
-//			print_v(v);
-//
-//			struct Plane s = calc_plane_parallel_to_surf(v);
-//			printf(" | ");
-//			print_v(s.u);
-//			printf(" | ");
-//			print_v(s.v);
-//			printf(" | ");
-//			struct Vector t = rotate_vector_around_axis(s.v, v, deg2rad(-170));
-//			print_v(t);
-//			double anglex = angle_vec_vec(t, s.u);
-//			double anglez = anglex <= M_PI/2 ? angle_vec_vec(t, s.v) : M_PI*2 - angle_vec_vec(t, s.v);
-//
-//			printf(" | (% 6.2f°  % 6.2f°)", rad2deg(anglez), rad2deg(anglex));
-//			printf("\n");
-//		}
-//	}
 }
