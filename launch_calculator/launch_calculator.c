@@ -54,8 +54,7 @@ void launch_calculator() {
                 break;
             case 5:
 				get_test_LV(&lv);
-				double params[5];
-				lp_param_fixed_payload_analysis(lv, 1000, params); // if lv initialized
+				lp_param_fixed_payload_analysis(lv, 1000); // if lv initialized
                 break;
             case 6:
                 //if(lv.stages != NULL) initiate_launch_campaign(lv, 2); // if lv initialized
