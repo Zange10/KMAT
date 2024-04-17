@@ -2,7 +2,6 @@
 #include "tools/analytic_geometry.h"
 #include "celestial_bodies.h"
 #include "launch_state.h"
-#include "lv_profile.h"
 #include "launch_circularization.h"
 #include <math.h>
 #include <stdio.h>
@@ -20,12 +19,13 @@ struct Vessel {
 	double burn_rate;	// burn rate [kg/s]
 	double cd;			// drag coefficient
 	double A;			// cross-section area [m²]
+	double spent_dv;	// spent delta-v since launch
 	double lp_params[5];
 	PitchProgramPtr get_pitch;
 };
 
 
-void simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Body *body, double heading_at_launch, int stage_id, double step);
+double simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Body *body, double heading_at_launch, int stage_id, double step);
 void simulate_coast(struct LaunchState *state, struct Vessel vessel, struct Body *body, double dt, int stage_id, double step);
 void setup_initial_state(struct LaunchState *state, double lat, struct Body *body);
 struct Plane calc_plane_parallel_to_surf(struct Vector r);
@@ -57,33 +57,31 @@ void print_launch_state_info(struct LaunchState *launch_state, struct Vessel ves
 	struct Vector vs = calc_surface_speed(s.u, launch_state->r, launch_state->v, body);
 
 	struct Orbit orbit = constr_orbit_from_osv(launch_state->r, launch_state->v, body);
-	double apoapsis = orbit.a*(1+orbit.e) - body->radius;
-	double periapsis = orbit.a*(1-orbit.e) - body->radius;
 
 	double rem_m = launch_state->m-vessel.me;
 	double rem_dv = calculate_dV(vessel.F_vac, launch_state->m, vessel.me, vessel.burn_rate);
 
-	printf("\n______________________\nFLIGHT:\n\n");
-	printf("Time:\t\t\t%.2f s\n", launch_state->t);
-	printf("Altitude:\t\t%g km\n", (vector_mag(launch_state->r)-body->radius)/1000);
-	printf("Vertical v:\t\t%g m/s\n", vv);
-	printf("surfVelocity:\t%g m/s\n", vector_mag(vs));
-	printf("Horizontal v:\t%g m/s\n", vh);
-	printf("Velocity:\t\t%g m/s\n", vector_mag(launch_state->v));
+	printf("\n______________________________\nFLIGHT:\n\n");
+	printf("Time:\t\t\t% 10.3f s\n", launch_state->t);
+	printf("Altitude:\t\t% 10.3f km\n", (vector_mag(launch_state->r)-body->radius)/1000);
+	printf("Vertical v:\t\t% 10.3f m/s\n", vv);
+	printf("surfVelocity:\t% 10.3f m/s\n", vector_mag(vs));
+	printf("Horizontal v:\t% 10.3f m/s\n", vh);
+	printf("Velocity:\t\t% 10.3f m/s\n", vector_mag(launch_state->v));
 	printf("\n");
-	printf("Radius:\t\t\t%g km\n", vector_mag(scalar_multiply(launch_state->r, 1e-3)));
-	printf("Apoapsis:\t\t%g km\n", apoapsis / 1000);
-	printf("Periapsis:\t\t%g km\n", periapsis / 1000);
-	printf("Eccentricity:\t%g\n", orbit.e);
-	printf("Inclination:\t%g°\n", rad2deg(orbit.inclination));
+	printf("Radius:\t\t\t% 10.3f km\n", vector_mag(scalar_multiply(launch_state->r, 1e-3)));
+	printf("Apoapsis:\t\t% 10.3f km\n", calc_orbit_apoapsis(orbit) / 1000);
+	printf("Periapsis:\t\t% 10.3f km\n", calc_orbit_periapsis(orbit) / 1000);
+	printf("Eccentricity:\t% 10.3f\n", orbit.e);
+	printf("Inclination:\t% 10.3f °\n", rad2deg(orbit.inclination));
 	printf("\n");
-	printf("Rem dV:\t\t\t%g m/s\n", rem_dv);
-	printf("Rem fuel:\t\t%g kg\n", rem_m);
-	printf("______________________\n\n");
+	printf("Spent dV:\t\t% 10.3f m/s\n", vessel.spent_dv);
+	printf("Rem dV:\t\t\t% 10.3f m/s\n", rem_dv);
+	printf("Rem fuel:\t\t% 10.3f kg\n", rem_m);
+	printf("______________________________\n\n");
 }
 
-void run_launch_simulation(struct LV lv, double payload_mass) {
-	double step_size = 0.01;
+struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, double step_size, int bool_print_info) {
 	struct Body *body = EARTH();
 	double latitude = deg2rad(28.6);
 	double inclination = deg2rad(0);
@@ -92,7 +90,7 @@ void run_launch_simulation(struct LV lv, double payload_mass) {
 	struct LaunchState *launch_state = new_launch_state();
 	setup_initial_state(launch_state, latitude, body);
 
-	struct Vessel vessel = {};
+	struct Vessel vessel = {.spent_dv = 0};
 	vessel.cd = lv.c_d;
 	vessel.A = lv.A;
 	if		(lv.lp_id == 1) vessel.get_pitch = pitch_program1;
@@ -133,10 +131,10 @@ void run_launch_simulation(struct LV lv, double payload_mass) {
 
 		if(i > 1) vessel.get_pitch = NULL;
 
-		simulate_stage(launch_state, vessel, body, launch_heading, i+1, step_size);
+		vessel.spent_dv += simulate_stage(launch_state, vessel, body, launch_heading, i+1, step_size);
 		launch_state = get_last_state(launch_state);
 
-		print_launch_state_info(launch_state, vessel, body);
+		if(bool_print_info) print_launch_state_info(launch_state, vessel, body);
 		// Stage separation
 		if(i < lv.stage_n-1 && lv.stages[i].stage_id > 0) {
 			simulate_coast(launch_state, vessel, body, 8, i+1, step_size);
@@ -144,9 +142,15 @@ void run_launch_simulation(struct LV lv, double payload_mass) {
 		}
 	}
 
-	print_launch_state_info(launch_state, vessel, body);
-
 	free_launch_states(launch_state);
+
+	struct Launch_Results launch_results = {
+			calc_orbit_periapsis(constr_orbit_from_osv(launch_state->r, launch_state->v, body)),
+			vessel.spent_dv,
+			launch_state->m-vessel.me
+	};
+
+	return launch_results;
 }
 
 void setup_initial_state(struct LaunchState *state, double lat, struct Body *body) {
@@ -157,7 +161,7 @@ void setup_initial_state(struct LaunchState *state, double lat, struct Body *bod
 
 }
 
-void simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Body *body, double heading_at_launch, int stage_id, double step) {
+double simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Body *body, double heading_at_launch, int stage_id, double step) {
 	double m = vessel.m0;	// vessel mass [kg]
 	double r_mag;			// distance to center of earth [m]
 	double v_mag;			// orbital speed [m/s]
@@ -181,10 +185,12 @@ void simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Body
 	double gamma;			// flight path angle [rad]
 	double vh;				// horizontal speed [m/s]
 	double vv;				// vertical speed [m/s]
+	double spent_dv = 0;	// spent delta-v during stage burn
 
 	while(m-vessel.burn_rate * step > vessel.me) {
 		r_mag = vector_mag(state->r);
 		h = r_mag-body->radius;
+		if(h < -100) return spent_dv; 	// below surface
 		s = calc_plane_parallel_to_surf(state->r);
 		vs = calc_surface_speed(s.u, state->r, state->v, body);
 		vs_mag = vector_mag(vs);
@@ -218,6 +224,7 @@ void simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Body
 		state->v = add_vectors(state->prev->v, dv);
 		state->r = add_vectors(state->prev->r, dr);
 
+		spent_dv += vector_mag(scalar_multiply(a_T, step));
 		m -= vessel.burn_rate * step;
 		state->m = m;
 
@@ -227,6 +234,8 @@ void simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Body
 			last_ecc = ecc;
 		}
 	}
+
+	return spent_dv;
 }
 
 void simulate_coast(struct LaunchState *state, struct Vessel vessel, struct Body *body, double dt, int stage_id, double step) {
@@ -374,14 +383,14 @@ double calculate_dV(double F, double m0, double mf, double burn_rate) {
 
 
 
-void ls_test() {
-	struct LV lv;
-	get_test_LV(&lv);
-
+void simulate_single_launch(struct LV lv) {
 	struct timeval start_time, end_time;
 	double elapsed_time;
+
+	double payload_mass = 1000;
+
 	gettimeofday(&start_time, NULL);
-	run_launch_simulation(lv, 1000);
+	run_launch_simulation(lv, payload_mass, 0.001, 1);
 	gettimeofday(&end_time, NULL);
 
 	// Calculate the elapsed time in seconds

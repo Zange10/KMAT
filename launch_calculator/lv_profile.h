@@ -1,3 +1,7 @@
+#ifndef KSP_LV_PROFILE_H
+#define KSP_LV_PROFILE_H
+
+
 struct Stage {
     double F_vac;       // Thrust produced by the engines in a vacuum [N]
     double F_sl;        // Thrust produced by the engines at sea level [N]
@@ -27,3 +31,6 @@ void    write_temp_LV_file();
 void    read_LV_from_file(struct LV * lv);
 // read LV parameters from file for Test.lv
 void    get_test_LV(struct LV * lv);
+
+
+#endif //KSP_LV_PROFILE_H
