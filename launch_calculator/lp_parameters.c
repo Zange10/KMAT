@@ -35,6 +35,7 @@ void *lp_param_fpa4(void *thread_args) {
 		lv.lp_params[0] = pad.min_values[0] + index	*pad.step_size[0];
 		double min = 1e9;
 		double *min_params = pta->pta_min_params[index];
+		min_params[num_params] = 1e9; min_params[num_params+1] = 0;
 		for(int j = 0; j < pad.steps[1]; j++) {
 			lv.lp_params[1] = pad.min_values[1] + j		*pad.step_size[1];
 			for(int k = 0; k < pad.steps[2]; k++) {
@@ -124,6 +125,26 @@ void lp_param_fixed_payload_analysis4(struct LV lv, double payload_mass, double 
 }
 
 
+
+void calc_highest_payload_mass(struct LV lv) {
+	int num_params = 3;
+	double payload_mass = 100;
+	double launch_params[5];
+	double highest_payload_mass = 0;
+
+	do {
+		printf("Checking Payload mass of %f t\n", payload_mass/1000);
+		lp_param_fixed_payload_analysis4(lv, payload_mass, launch_params);
+		if(launch_params[num_params] < 1e9) highest_payload_mass = payload_mass;
+		payload_mass *= 10;
+	} while(launch_params[num_params] < 1e9);
+
+	for(int i = 0; i < 3; i++) {
+
+	}
+
+	printf("Highest Payload mass: %f t\n", payload_mass/1000);
+}
 
 
 

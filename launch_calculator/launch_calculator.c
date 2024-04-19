@@ -57,7 +57,8 @@ void launch_calculator() {
 				lp_param_fixed_payload_analysis4(lv, 1000, NULL); // if lv initialized
                 break;
             case 6:
-                //if(lv.stages != NULL) initiate_launch_campaign(lv, 2); // if lv initialized
+				get_test_LV(&lv);
+                calc_highest_payload_mass(lv);
                 break;
             case 7:
                 calc_launch_azimuth(EARTH());

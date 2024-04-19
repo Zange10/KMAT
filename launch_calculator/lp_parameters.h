@@ -5,6 +5,7 @@
 
 //// calculate close to optimal parameter for launch profile
 void lp_param_fixed_payload_analysis4(struct LV lv, double payload_mass, double *best_params);
+void calc_highest_payload_mass(struct LV lv);
 //// payload mass to launch parameter analysis
 //void lp_param_mass_analysis(struct LV lv, double payload_min, double payload_max);
 //// returns highest payload mass
