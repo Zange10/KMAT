@@ -54,7 +54,7 @@ void launch_calculator() {
                 break;
             case 5:
 				get_test_LV(&lv);
-				lp_param_fixed_payload_analysis4(lv, 1000, NULL, 0); // if lv initialized
+//				lp_param_fixed_payload_analysis4(lv, 1000, NULL, 0); // if lv initialized
                 break;
             case 6:
 				get_test_LV(&lv);
@@ -65,31 +65,4 @@ void launch_calculator() {
                 break;
         }
     } while(selection != 0);
-}
-
-void initiate_launch_campaign(struct LV lv, int calc_params) {
-//    if(calc_params != 0) {
-//        if(calc_params == 1) {
-//            double payload_mass = 50;
-//            struct Lp_Params best_lp_params;
-//            lp_param_fixed_payload_analysis(lv, payload_mass, &best_lp_params);
-//            printf("\n------- a1: %f, a2: %f, b2: %g, h: %g ------- \n\n", best_lp_params.a1, best_lp_params.a2, best_lp_params.b2, best_lp_params.h);
-//            calculate_launch(lv, payload_mass, best_lp_params, 0);
-//        } else {
-//            double payload_max = calc_highest_payload_mass(lv);
-//            printf("Payload max: %g\n", payload_max);
-//            lp_param_mass_analysis(lv, 285, payload_max);
-//            lp_param_mass_analysis(lv, 50, 280);
-//            lp_param_mass_analysis(lv, 10, 50);
-//            lp_param_mass_analysis(lv, 0, 10);
-//        }
-//    } else {
-//        //struct Lp_Params lp_params = {.a1 = 36e-6, .a2 = 12e-6, .b2 = 49};    // tester
-//        struct Lp_Params lp_params = {.a1 = 30e-6, .a2 = 6e-6, .b2 = 58};      // electron
-//        //struct Lp_Params lp_params = {.a1 = 0e-6, .a2 = 0e-6, .b2 = 90};      // sounding
-//        if(1) lp_params.h = log(lp_params.b2/90) / (lp_params.a2-lp_params.a1);
-//        else lp_params.h = 1e9;
-//        double payload_mass = 10000;
-//        calculate_launch(lv, payload_mass, lp_params, 0);
-//    }
 }

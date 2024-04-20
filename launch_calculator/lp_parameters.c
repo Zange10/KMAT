@@ -4,18 +4,28 @@
 #include "launch_sim.h"
 #include "tools/thread_pool.h"
 
-double min_pe = 180e3;
+#define MAX_NUM_LP_PARAMS 5
+const double MIN_PE = 180e3;
+
+
 
 struct ParamAnalysisData {
-	double *min_values;
-	double *step_size;
-	int *steps;
+	double min_values[MAX_NUM_LP_PARAMS];
+	double step_size[MAX_NUM_LP_PARAMS];
+	int steps[MAX_NUM_LP_PARAMS];
+};
+
+struct ParamLaunchResults {
+	double lp_params[MAX_NUM_LP_PARAMS];
+	double pe;
+	double dv;
+	double rem_dv;
 };
 
 struct ParamThreadArgs {
 	struct LV lv;
 	double payload_mass;
-	double **pta_min_params;
+	struct ParamLaunchResults **pta_results;
 	struct ParamAnalysisData pad;
 	int only_check_for_orbit;
 };
@@ -34,9 +44,9 @@ void *lp_param_fpa4(void *thread_args) {
 	double payload_mass = pta->payload_mass;
 	while(index < pad.steps[0]) {
 		lv.lp_params[0] = pad.min_values[0] + index	*pad.step_size[0];
-		double min = 1e9;
-		double *min_params = pta->pta_min_params[index];
-		min_params[num_params] = 0; min_params[num_params+1] = 1e9; min_params[num_params+2] = 0;
+		struct ParamLaunchResults *results = pta->pta_results[index];
+		results->pe = 0; results->dv = 1e9; results->rem_dv = 0;
+
 		for(int j = 0; j < pad.steps[1]; j++) {
 			lv.lp_params[1] = pad.min_values[1] + j*pad.step_size[1];
 			for(int k = 0; k < pad.steps[2]; k++) {
@@ -44,13 +54,12 @@ void *lp_param_fpa4(void *thread_args) {
 
 				struct Launch_Results lr = run_launch_simulation(lv, payload_mass, 0.01, 0);
 
-				if(lr.pe > min_pe && lr.dv < min) {
+				if(lr.pe > MIN_PE && lr.dv < results->dv) {
 					for(int param_id = 0; param_id < num_params; param_id++)
-						min_params[param_id] = lv.lp_params[param_id];
-					min_params[num_params] = lr.pe;
-					min_params[num_params+1] = lr.dv;
-					min_params[num_params+2] = lr.rem_dv;
-					min = lr.dv;
+						results->lp_params[param_id] = lv.lp_params[param_id];
+					results->pe = lr.pe;
+					results->dv = lr.dv;
+					results->rem_dv = lr.rem_dv;
 					if(pta->only_check_for_orbit) get_incr_thread_counter(2);
 				}
 				if(pta->only_check_for_orbit) {
@@ -68,18 +77,13 @@ void *lp_param_fpa4(void *thread_args) {
 
 
 
-int lp_param_fixed_payload_analysis4(struct LV lv, double payload_mass, double *best_params, int only_check_for_orbit) {
+int lp_param_fixed_payload_analysis4(struct LV lv, double payload_mass, struct ParamLaunchResults *best_results, int only_check_for_orbit) {
 	lv.lp_id = 4;
 	int num_params = 3;
 
 	struct ParamAnalysisData pad;
-	pad.min_values = (double*) malloc(sizeof(double) * num_params);
-	pad.step_size = (double*) malloc(sizeof(double) * num_params);
-	pad.steps = (int*) malloc(sizeof(int) * num_params);
-	double min_params[num_params+3];
-	min_params[num_params] = 0;
-	min_params[num_params+1] = 1e9;
-	min_params[num_params+2] = 0;
+
+	struct ParamLaunchResults results = {.dv = 1e9};
 
 	for(int i = 0; i < 3; i++) {
 
@@ -92,66 +96,67 @@ int lp_param_fixed_payload_analysis4(struct LV lv, double payload_mass, double *
 		pad.steps[2] = i==0 ? 20 : 11;
 
 		for(int j = 0; j < num_params; j++) {
-			pad.min_values[j] = i==0 ? 0 : min_params[j] - pad.step_size[j] * (pad.steps[j]-1)/2;
+			pad.min_values[j] = i==0 ? 0 : results.lp_params[j] - pad.step_size[j] * (pad.steps[j] - 1) / 2;
 			if(pad.min_values[j] < 0) pad.min_values[j] = 0;
 		}
 
-		double **pta_min_params = (double**) malloc(pad.steps[0] * sizeof(double*));
-		for(int j = 0; j < pad.steps[0]; j++) pta_min_params[j] = (double*) malloc((num_params+3) * sizeof(double));
+		struct ParamLaunchResults **pta_results = (struct ParamLaunchResults**) malloc(pad.steps[0] * sizeof(struct ParamLaunchResults*));
+		for(int j = 0; j < pad.steps[0]; j++) {
+			pta_results[j] = (struct ParamLaunchResults *) malloc(sizeof(struct ParamLaunchResults));
+			pta_results[j]->dv = 1e9;
+		}
 
-		struct ParamThreadArgs pta = {lv,payload_mass, pta_min_params, pad, only_check_for_orbit};
+		struct ParamThreadArgs pta = {lv,payload_mass, pta_results, pad, only_check_for_orbit};
 
 		show_progress("Fixed Payload Analysis: ", 0, 1);
 		struct Thread_Pool thread_pool = use_thread_pool64(lp_param_fpa4, &pta);
 		join_thread_pool(thread_pool);
 
-		double min_dv = 1e9;
 		for(int j = 0; j < pad.steps[0]; j++) {
-			if(pta_min_params[j][num_params] > min_pe && pta_min_params[j][num_params+1] < min_dv) {
-				for(int k = 0; k < num_params+3; k++) min_params[k] = pta_min_params[j][k];
-				min_dv = min_params[num_params];
+			if(pta_results[j]->pe > MIN_PE && pta_results[j]->dv < results.dv) {
+				for(int k = 0; k < num_params; k++) results.lp_params[k] = pta_results[j]->lp_params[k];
+				results.dv = pta_results[j]->dv;
+				results.pe = pta_results[j]->pe;
+				results.rem_dv = pta_results[j]->rem_dv;
 			}
-			free(pta_min_params[j]);
+			free(pta_results[j]);
 		}
-		free(pta_min_params);
+		free(pta_results);
 		show_progress("Fixed Payload Analysis: ", 1, 1);
 		printf("\n");
-		if(only_check_for_orbit) break;
+		if(only_check_for_orbit || !(results.dv < 1e9)) break;
 	}
 
-	printf("%f %f %f %f %f %f\n", min_params[0], min_params[1], min_params[2], min_params[3], min_params[4], min_params[5]);
+	printf("%f %f %f %f %f %f\n",
+		   results.lp_params[0], results.lp_params[1], results.lp_params[2], results.pe, results.dv, results.rem_dv);
 
-	if(best_params != NULL) {
-		for(int i = 0; i < num_params + 2; i++) {
-			best_params[i] = min_params[i];
-		}
+	if(best_results != NULL) {
+		for(int k = 0; k < num_params; k++) best_results->lp_params[k] = results.lp_params[k];
+		best_results->dv = results.dv;
+		best_results->pe = results.pe;
+		best_results->rem_dv = results.rem_dv;
 	}
 
-	free(pad.min_values);
-	free(pad.step_size);
-	free(pad.steps);
-
-	return min_params[num_params+1] < 1e9;
+	return results.dv < 1e9;
 }
 
 
 
-void calc_highest_payload_mass(struct LV lv) {
-	int num_params = 3;
+double calc_highest_payload_mass(struct LV lv) {
 	double payload_mass = 100;
-	double launch_params[5];
+	struct ParamLaunchResults launch_params;
 	double highest_payload_mass = 0;
 
 	do {
 		printf("Checking Payload mass of %f t\n", payload_mass/1000);
-		lp_param_fixed_payload_analysis4(lv, payload_mass, launch_params, 1);
-		if(launch_params[num_params+1] < 1e9) highest_payload_mass = payload_mass;
+		lp_param_fixed_payload_analysis4(lv, payload_mass, &launch_params, 1);
+		if(launch_params.dv < 1e9) highest_payload_mass = payload_mass;
 		payload_mass *= 10;
-	} while(launch_params[num_params+1] < 1e9);
+	} while(launch_params.dv < 1e9);
 
 	if(highest_payload_mass == 0) {
 		printf("No orbit with payload possible\n");
-		return;
+		return 0;
 	}
 
 	double step_size = highest_payload_mass;
@@ -160,12 +165,12 @@ void calc_highest_payload_mass(struct LV lv) {
 		for(int j = 1; j < 10; j++) {
 			payload_mass = highest_payload_mass + step_size;
 			printf("Checking Payload mass of %f t\n", payload_mass/1000);
-			lp_param_fixed_payload_analysis4(lv, payload_mass, launch_params, 1);
-			if(launch_params[num_params+1] < 1e9) highest_payload_mass = payload_mass;
+			lp_param_fixed_payload_analysis4(lv, payload_mass, &launch_params, 1);
+			if(launch_params.dv < 1e9) highest_payload_mass = payload_mass;
 			else break;
 		}
 		step_size /= 10;
 	}
 
-	printf("Highest Payload mass: %f t\n", payload_mass/1000);
+	return highest_payload_mass;
 }
