@@ -54,7 +54,7 @@ void launch_calculator() {
                 break;
             case 5:
 				get_test_LV(&lv);
-				lp_param_fixed_payload_analysis4(lv, 1000, NULL); // if lv initialized
+				lp_param_fixed_payload_analysis4(lv, 1000, NULL, 0); // if lv initialized
                 break;
             case 6:
 				get_test_LV(&lv);

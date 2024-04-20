@@ -147,6 +147,7 @@ struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, d
 	struct Launch_Results launch_results = {
 			calc_orbit_periapsis(constr_orbit_from_osv(launch_state->r, launch_state->v, body)),
 			vessel.spent_dv,
+			calculate_dV(vessel.F_vac, launch_state->m, vessel.me, vessel.burn_rate),
 			launch_state->m-vessel.me
 	};
 

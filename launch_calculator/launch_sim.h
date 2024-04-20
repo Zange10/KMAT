@@ -6,9 +6,10 @@
 
 // resulting parameters from launch for parameter adjustment calculations
 struct Launch_Results {
-	double pe;      // Periapsis [m]
-	double dv;      // spent delta-v [m/s]
-	double rf;      // remaining fuel [kg]
+	double pe;		// Periapsis [m]
+	double dv;		// spent delta-v [m/s]
+	double rem_dv;	// spent delta-v [m/s]
+	double rf;		// remaining fuel [kg]
 };
 
 void simulate_single_launch(struct LV lv);

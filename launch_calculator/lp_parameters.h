@@ -4,7 +4,7 @@
 #include "launch_calculator/launch_calculator.h"
 
 //// calculate close to optimal parameter for launch profile
-void lp_param_fixed_payload_analysis4(struct LV lv, double payload_mass, double *best_params);
+int lp_param_fixed_payload_analysis4(struct LV lv, double payload_mass, double *best_params, int only_check_for_orbit);
 void calc_highest_payload_mass(struct LV lv);
 //// payload mass to launch parameter analysis
 //void lp_param_mass_analysis(struct LV lv, double payload_min, double payload_max);
