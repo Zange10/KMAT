@@ -1,6 +1,7 @@
 #include "lp_parameters.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include "launch_sim.h"
 #include "tools/thread_pool.h"
 
@@ -173,4 +174,31 @@ double calc_highest_payload_mass(struct LV lv) {
 	}
 
 	return highest_payload_mass;
+}
+
+
+void calc_payload_curve(struct LV lv) {
+	double highest_payload_mass = calc_highest_payload_mass(lv);
+
+	int data_points = 10;
+
+	printf("Highest Payload mass: %.3f t\n", highest_payload_mass/1000);
+	struct ParamLaunchResults curve_data[data_points];
+	double payload_mass[data_points];
+
+	for(int i = 0; i < data_points; i++) {
+		payload_mass[i] = (i < data_points-1) ? highest_payload_mass * pow(0.75, i) : 0;
+		printf("Checking Payload mass of %f t\n", payload_mass[i] / 1000);
+		lp_param_fixed_payload_analysis4(lv, payload_mass[i], &curve_data[i], 0);
+	}
+	printf("\n--------\n");
+
+	for(int i = 0; i < data_points; i++) {
+		printf("Payload mass: %12.3f t; (%10.6f | %10.6f | %10.6f | %10.6f | %10.6f); Perigee: %6.2f km; Spent dv: %5.0f m/s; Rem dv: %5.0f m/s\n",
+			   payload_mass[i]/1000,
+			   curve_data[i].lp_params[0], curve_data[i].lp_params[1], curve_data[i].lp_params[2],
+			   curve_data[i].lp_params[3], curve_data[i].lp_params[4],
+			   curve_data[i].pe/1000, curve_data[i].dv, curve_data[i].rem_dv);
+	}
+	printf("--------\n");
 }

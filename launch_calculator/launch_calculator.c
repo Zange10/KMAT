@@ -1,7 +1,5 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <math.h>
-#include <sys/time.h>
 
 #include "launch_calculator.h"
 #include "launch_sim.h"
@@ -58,7 +56,7 @@ void launch_calculator() {
                 break;
             case 6:
 				get_test_LV(&lv);
-                calc_highest_payload_mass(lv);
+				calc_payload_curve(lv);
                 break;
             case 7:
                 calc_launch_azimuth(EARTH());
