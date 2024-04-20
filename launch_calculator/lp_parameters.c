@@ -155,10 +155,7 @@ double calc_highest_payload_mass(struct LV lv) {
 		payload_mass *= 10;
 	} while(launch_params.dv < 1e9);
 
-	if(highest_payload_mass == 0) {
-		printf("No orbit with payload possible\n");
-		return 0;
-	}
+	if(highest_payload_mass == 0) return 0;
 
 	double step_size = highest_payload_mass;
 
@@ -190,6 +187,67 @@ void calc_payload_curve(struct LV lv) {
 		payload_mass[i] = (i < data_points-1) ? highest_payload_mass * pow(0.75, i) : 0;
 		printf("Checking Payload mass of %f t\n", payload_mass[i] / 1000);
 		lp_param_fixed_payload_analysis4(lv, payload_mass[i], &curve_data[i], 0);
+	}
+	printf("\n--------\n");
+
+	for(int i = 0; i < data_points; i++) {
+		printf("Payload mass: %12.3f t; (%10.6f | %10.6f | %10.6f | %10.6f | %10.6f); Perigee: %6.2f km; Spent dv: %5.0f m/s; Rem dv: %5.0f m/s\n",
+			   payload_mass[i]/1000,
+			   curve_data[i].lp_params[0], curve_data[i].lp_params[1], curve_data[i].lp_params[2],
+			   curve_data[i].lp_params[3], curve_data[i].lp_params[4],
+			   curve_data[i].pe/1000, curve_data[i].dv, curve_data[i].rem_dv);
+	}
+	printf("--------\n");
+}
+
+double calc_highest_payload_mass_with_set_lp_params(struct LV lv) {
+	double payload_mass = 100;
+	double highest_payload_mass = 0;
+	struct Launch_Results lr;
+
+	do {
+		printf("Checking Payload mass of %f t\n", payload_mass/1000);
+		lr = run_launch_simulation(lv, payload_mass, 0.005, 0);
+		if(lr.pe > MIN_PE) highest_payload_mass = payload_mass;
+		payload_mass *= 10;
+	} while(lr.pe > MIN_PE);
+
+	if(highest_payload_mass == 0) return 0;
+
+	double step_size = highest_payload_mass;
+
+	for(int i = 0; i < 3; i++) {
+		for(int j = 1; j < 10; j++) {
+			payload_mass = highest_payload_mass + step_size;
+			printf("Checking Payload mass of %f t\n", payload_mass/1000);
+			lr = run_launch_simulation(lv, payload_mass, 0.005, 0);
+			if(lr.pe > MIN_PE) highest_payload_mass = payload_mass;
+			else break;
+		}
+		step_size /= 10;
+	}
+
+	return highest_payload_mass;
+}
+
+void calc_payload_curve_with_set_lp_params(struct LV lv) {
+	double highest_payload_mass = calc_highest_payload_mass_with_set_lp_params(lv);
+
+	int data_points = 10;
+
+	printf("Highest Payload mass: %.3f t\n", highest_payload_mass/1000);
+	struct ParamLaunchResults curve_data[data_points];
+	double payload_mass[data_points];
+	struct Launch_Results lr;
+
+	for(int i = 0; i < data_points; i++) {
+		payload_mass[i] = (i < data_points-1) ? highest_payload_mass * pow(0.75, i) : 0;
+		printf("Checking Payload mass of %f t\n", payload_mass[i] / 1000);
+		lr = run_launch_simulation(lv, payload_mass[i], 0.005, 0);
+		for(int k = 0; k < MAX_NUM_LP_PARAMS; k++) curve_data[i].lp_params[k] = lv.lp_params[k];
+		curve_data[i].dv = lr.dv;
+		curve_data[i].pe = lr.pe;
+		curve_data[i].rem_dv = lr.rem_dv;
 	}
 	printf("\n--------\n");
 
