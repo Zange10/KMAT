@@ -6,7 +6,7 @@
 #include "tools/thread_pool.h"
 
 #define MAX_NUM_LP_PARAMS 5
-const double MIN_PE = 180e3;
+const double MIN_PE = 160e3;
 
 
 
@@ -52,7 +52,9 @@ void *lp_param_fpa4(void *thread_args) {
 			lv.lp_params[1] = pad.min_values[1] + j*pad.step_size[1];
 			for(int k = 0; k < pad.steps[2]; k++) {
 				lv.lp_params[2] = pad.min_values[2] + k*pad.step_size[2];
-
+				double h_trans = log(lv.lp_params[2]/90) / (lv.lp_params[1]-lv.lp_params[0]);
+				if(h_trans < 0) continue;
+				
 				struct Launch_Results lr = run_launch_simulation(lv, payload_mass, 0.01, 0);
 
 				if(lr.pe > MIN_PE && lr.dv < results->dv) {

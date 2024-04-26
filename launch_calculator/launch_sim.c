@@ -129,7 +129,9 @@ struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, d
 		vessel.m0 += payload_mass;
 		vessel.me += payload_mass;
 
-		if(i > 1) vessel.get_pitch = NULL;
+		
+		double rem_dv = calculate_dV(vessel.F_vac, launch_state->m, vessel.me, vessel.burn_rate);
+		if(vector_mag(launch_state->v) + rem_dv > 7500) vessel.get_pitch = NULL;
 
 		vessel.spent_dv += simulate_stage(launch_state, vessel, body, launch_heading, i+1, step_size);
 		launch_state = get_last_state(launch_state);
@@ -137,7 +139,7 @@ struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, d
 		if(bool_print_info) print_launch_state_info(launch_state, vessel, body);
 		// Stage separation
 		if(i < lv.stage_n-1 && lv.stages[i].stage_id > 0) {
-			simulate_coast(launch_state, vessel, body, 8, i+1, step_size);
+			simulate_coast(launch_state, vessel, body, 3, i+1, step_size);
 			launch_state = get_last_state(launch_state);
 		}
 	}
@@ -371,7 +373,10 @@ double calc_launch_azi(struct Body *body, double latitude, double inclination, i
 	struct Vector2D azi1_v = {sin(azi1)*end_speed, cos(azi1)*end_speed};
 	struct Vector2D azi2_v = {surf_speed, 0};
 	struct Vector2D azi_v = add_vectors2d(azi1_v, scalar_multipl2d(azi2_v,-1));
-
+	
+	
+	printf("%f %f %f %f %f\n", azi1_v.x, azi1_v.y, azi2_v.x, azi_v.x, azi_v.y);
+	
 	double azimuth = atan(azi_v.x / azi_v.y);
 	if(north0_south1) azimuth = M_PI - azimuth;
 	return azimuth;
@@ -388,7 +393,7 @@ void simulate_single_launch(struct LV lv) {
 	struct timeval start_time, end_time;
 	double elapsed_time;
 
-	double payload_mass = 1000;
+	double payload_mass = 100;
 
 	gettimeofday(&start_time, NULL);
 	run_launch_simulation(lv, payload_mass, 0.001, 1);
