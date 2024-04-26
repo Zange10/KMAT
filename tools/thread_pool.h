@@ -22,6 +22,14 @@ struct Thread_Pool {
  */
 struct Thread_Pool use_thread_pool64(void *thread_method(void*), void *thread_args);
 
+/**
+ * @brief Gets the current specified thread counter value
+ *
+ * @param counter_index The index of the specified thread counter
+ * @return The current value of the thread counter
+ */
+int get_thread_counter(int counter_index);
+
 
 /**
  * @brief Gets the current specified thread counter value and increases it by one

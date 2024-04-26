@@ -182,6 +182,14 @@ double calc_orbital_speed(struct Orbit orbit, double r) {
     return sqrt(v2);
 }
 
+double calc_orbit_apoapsis(struct Orbit orbit) {
+	return orbit.a*(1+orbit.e) - orbit.body->radius;
+}
+
+double calc_orbit_periapsis(struct Orbit orbit) {
+	return orbit.a*(1-orbit.e) - orbit.body->radius;
+}
+
 // Printing info #######################################################
 
 void print_orbit_info(struct Orbit orbit) {

@@ -67,7 +67,12 @@ add_executable(KSP
         gui/transfer_app/porkchop_analyzer_tools.c
         gui/transfer_app/porkchop_analyzer_tools.h
         gui/transfer_app/transfer_calculator.c
-        gui/transfer_app/transfer_calculator.h)
+        gui/transfer_app/transfer_calculator.h
+        launch_calculator/launch_sim.c
+        launch_calculator/launch_sim.h
+        launch_calculator/launch_state.c
+        launch_calculator/launch_state.h
+)
 
 target_link_libraries(KSP m;
         ${GTK3_LIBRARIES};

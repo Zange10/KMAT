@@ -50,6 +50,10 @@ double calc_dtheta_from_dt(struct Orbit orbit, double dt);
 
 double calc_dt_from_dtheta(struct Orbit orbit, double dtheta);
 
+double calc_orbit_apoapsis(struct Orbit orbit);
+
+double calc_orbit_periapsis(struct Orbit orbit);
+
 // Prints parameters specific to the orbit
 void print_orbit_info(struct Orbit orbit);
 // Prints apsides (no line-break): "Apoapsis - Periapsis"
