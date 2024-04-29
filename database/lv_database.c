@@ -28,28 +28,13 @@ int get_all_launch_vehicles_from_database(struct LV **all_lvs) {
 
 
 struct LauncherInfo_DB db_get_launcherInfo_from_id(int id) {
-	sqlite3 *db = get_db();
 	char query[48];
 	
 	sprintf(query, "SELECT * FROM LV WHERE LauncherID = %d", id);
-	sqlite3_stmt *stmt;
 	struct LauncherInfo_DB lv = {-1};
 	
-	int rc = sqlite3_prepare(db, query, -1, &stmt, 0);
-	
-	if (rc != SQLITE_OK) {
-		fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
-		sqlite3_close(db);
-		return lv;
-	}
-	
-	rc = sqlite3_step(stmt);
-	
-	if (rc != SQLITE_ROW) {
-		fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
-		sqlite3_close(db);
-		return lv;
-	}
+	sqlite3_stmt *stmt = execute_single_row_request(query);
+	if(stmt == NULL) return lv;
 	
 	for (int i = 0; i < sqlite3_column_count(stmt); i++) {
 		const char *columnName = sqlite3_column_name(stmt, i);
@@ -89,26 +74,13 @@ struct LauncherInfo_DB db_get_launcherInfo_from_id(int id) {
 }
 
 int db_get_number_of_stages_from_lv_id(int id) {
-	int num_stages = 0;
-	sqlite3 *db = get_db();
 	char query[255];
 	
-	sprintf(query, "SELECT * FROM LV_Stage WHERE LauncherID = %d", id);
-	sqlite3_stmt *stmt;
+	sprintf(query, "SELECT COUNT(*) FROM LV_Stage WHERE LauncherID = %d", id);
+	sqlite3_stmt *stmt = execute_single_row_request(query);
+	if(stmt == NULL) return 0;
 	
-	int rc = sqlite3_prepare(db, query, -1, &stmt, 0);
-	
-	if (rc != SQLITE_OK) {
-		fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
-		sqlite3_close(db);
-		return 0;
-	}
-	
-	while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) num_stages++;
-	
-	if (rc != SQLITE_DONE) {
-		fprintf(stderr, "Error stepping through the result set: %s\n", sqlite3_errmsg(db));
-	}
+	int num_stages = sqlite3_column_int(stmt, 0);
 	
 	sqlite3_finalize(stmt);
 	
@@ -116,24 +88,17 @@ int db_get_number_of_stages_from_lv_id(int id) {
 }
 
 void db_get_stages_from_lv_id(struct LV *lv, int id) {
-	sqlite3 *db = get_db();
-	
 	lv->stage_n = db_get_number_of_stages_from_lv_id(id);
-	
 	lv->stages = (struct Stage*) malloc(sizeof(struct Stage) * lv->stage_n);
 	
 	char query[255];
 
 	sprintf(query, "SELECT * FROM Stage s INNER JOIN LV_Stage ls ON s.StageID = ls.StageID WHERE ls.LauncherID = %d ORDER BY ls.Stagenumber ASC", id);
-	sqlite3_stmt *stmt;
+	sqlite3_stmt *stmt = execute_multirow_request(query);
+	if(stmt == NULL) return;
+	int rc;
 
-	int rc = sqlite3_prepare(db, query, -1, &stmt, 0);
 	
-	if (rc != SQLITE_OK) {
-		fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
-		sqlite3_close(db);
-		return;
-	}
 	int stage_index = 0;
 	while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
 		// Process each row of the result set
@@ -157,35 +122,18 @@ void db_get_stages_from_lv_id(struct LV *lv, int id) {
 		stage_index++;
 	}
 	
-	if (rc != SQLITE_DONE) {
-		fprintf(stderr, "Error stepping through the result set: %s\n", sqlite3_errmsg(db));
-	}
-	
 	sqlite3_finalize(stmt);
 }
 
 
 int db_get_number_of_laumch_profiles_from_lv_id(int id) {
-	int num_profiles = 0;
-	sqlite3 *db = get_db();
 	char query[255];
 	
-	sprintf(query, "SELECT * FROM LV_LP WHERE LauncherID = %d", id);
-	sqlite3_stmt *stmt;
+	sprintf(query, "SELECT COUNT(*) FROM LV_LP WHERE LauncherID = %d", id);
+	sqlite3_stmt *stmt = execute_single_row_request(query);
+	if(stmt == NULL) return 0;
 	
-	int rc = sqlite3_prepare(db, query, -1, &stmt, 0);
-	
-	if (rc != SQLITE_OK) {
-		fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
-		sqlite3_close(db);
-		return 0;
-	}
-	
-	while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) num_profiles++;
-	
-	if (rc != SQLITE_DONE) {
-		fprintf(stderr, "Error stepping through the result set: %s\n", sqlite3_errmsg(db));
-	}
+	int num_profiles = sqlite3_column_int(stmt, 0);
 	
 	sqlite3_finalize(stmt);
 	
@@ -193,8 +141,6 @@ int db_get_number_of_laumch_profiles_from_lv_id(int id) {
 }
 
 struct LaunchProfiles_DB db_get_launch_profiles_from_lv_id(int id) {
-	sqlite3 *db = get_db();
-	
 	struct LaunchProfiles_DB profiles = {
 			db_get_number_of_laumch_profiles_from_lv_id(id),
 			NULL
@@ -205,15 +151,9 @@ struct LaunchProfiles_DB db_get_launch_profiles_from_lv_id(int id) {
 	char query[255];
 	
 	sprintf(query, "SELECT * FROM LaunchProfile lp INNER JOIN LV_LP lvlp ON lp.ProfileID = lvlp.ProfileID WHERE LauncherID = %d ORDER BY lp.ProfileType ASC", id);
-	sqlite3_stmt *stmt;
-	
-	int rc = sqlite3_prepare(db, query, -1, &stmt, 0);
-	
-	if (rc != SQLITE_OK) {
-		fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
-		sqlite3_close(db);
-		return profiles;
-	}
+	sqlite3_stmt *stmt = execute_multirow_request(query);
+	if(stmt == NULL) return profiles;
+	int rc;
 	
 	profiles.profile = (struct LaunchProfile_DB*) malloc(sizeof(struct LaunchProfile_DB) * profiles.num_profiles);
 	
@@ -240,10 +180,6 @@ struct LaunchProfiles_DB db_get_launch_profiles_from_lv_id(int id) {
 			}
 		}
 		profile_index++;
-	}
-	
-	if (rc != SQLITE_DONE) {
-		fprintf(stderr, "Error stepping through the result set: %s\n", sqlite3_errmsg(db));
 	}
 	
 	sqlite3_finalize(stmt);

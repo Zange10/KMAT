@@ -39,10 +39,11 @@ struct MissionProgram_DB {
 
 
 void init_db();
+sqlite3_stmt * execute_single_row_request(const char *query);
+sqlite3_stmt * execute_multirow_request(const char *query);
 int db_get_missions(struct Mission_DB **missions);
 struct PlaneInfo_DB db_get_plane_from_id(int id);
 struct MissionProgram_DB db_get_program_from_id(int id);
 void close_db();
-sqlite3 *get_db();
 
 #endif //KSP_DATABASE_H

@@ -21,6 +21,39 @@ int execute_query(const char *query) {
 	return SQLITE_OK;
 }
 
+sqlite3_stmt * execute_single_row_request(const char *query) {
+	sqlite3_stmt *stmt;
+	int rc = sqlite3_prepare(db, query, -1, &stmt, 0);
+	
+	if (rc != SQLITE_OK) {
+		fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return NULL;
+	}
+	
+	rc = sqlite3_step(stmt);
+	
+	if (rc != SQLITE_ROW) {
+		fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return NULL;
+	}
+	return stmt;
+}
+
+sqlite3_stmt * execute_multirow_request(const char *query) {
+	sqlite3_stmt *stmt;
+	int rc = sqlite3_prepare(db, query, -1, &stmt, 0);
+	
+	if (rc != SQLITE_OK) {
+		fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return NULL;
+	}
+	
+	return stmt;
+}
+
 int db_new_program(const char *program_name, const char *vision) {
 	char query[500];
 	sprintf(query, "INSERT INTO Program (Name, Vision) "
@@ -220,8 +253,4 @@ void init_db() {
 
 void close_db() {
 	sqlite3_close(db);
-}
-
-sqlite3 *get_db() {
-	return db;
 }
