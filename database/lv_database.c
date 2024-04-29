@@ -7,7 +7,7 @@
 
 
 void db_get_stages_from_lv_id(struct LV *lv, int id);
-int db_get_all_launcher_ids(int *lv_id);
+int db_get_all_launcher_id(int **lv_id);
 
 
 struct LV get_lv_from_database(int id) {
@@ -22,10 +22,44 @@ struct LV get_lv_from_database(int id) {
 	return lv;
 }
 
-int get_all_launch_vehicles_from_database(struct LV **all_lvs) {
-
+int get_all_launch_vehicles_from_database(struct LV **all_lvs, int **lv_id) {
+	int num_lv = db_get_all_launcher_id(lv_id);
+	
+	*all_lvs = (struct LV*) malloc(sizeof(struct LV) * num_lv);
+	for(int i = 0; i < num_lv; i++) {
+		(*all_lvs)[i] = get_lv_from_database((*lv_id)[i]);
+	}
+	
+	return num_lv;
 }
 
+
+int db_get_all_launcher_id(int **lv_id) {
+	char query[48];
+	sprintf(query, "SELECT COUNT(*) FROM LV");
+	sqlite3_stmt *stmt = execute_single_row_request(query);
+	if(stmt == NULL) return 0;
+	
+	int num_lv = sqlite3_column_int(stmt, 0);
+	sqlite3_finalize(stmt);
+	
+	sprintf(query, "SELECT LauncherID FROM LV ORDER BY Name ASC");
+	stmt = execute_multirow_request(query);
+	if(stmt == NULL) return 0;
+	
+	int rc;
+	*lv_id = (int*) malloc(sizeof(int)*num_lv);
+	
+	int lv_index = 0;
+	while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+		// Process each row of the result set
+		(*lv_id)[lv_index] = sqlite3_column_int(stmt, 0);
+		lv_index++;
+	}
+	
+	sqlite3_finalize(stmt);
+	return num_lv;
+}
 
 struct LauncherInfo_DB db_get_launcherInfo_from_id(int id) {
 	char query[48];

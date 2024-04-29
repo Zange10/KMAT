@@ -25,6 +25,7 @@ struct LaunchProfiles_DB {
 };
 
 struct LV get_lv_from_database(int id);
+int get_all_launch_vehicles_from_database(struct LV **all_lvs, int **lv_id);
 struct LauncherInfo_DB db_get_launcherInfo_from_id(int id);
 struct LaunchProfiles_DB db_get_launch_profiles_from_lv_id(int id);
 
