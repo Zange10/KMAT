@@ -67,11 +67,12 @@
                 <property name="hexpand">True</property>
                 <property name="vexpand">True</property>
                 <child>
-                  <object class="GtkDrawingArea">
+                  <object class="GtkDrawingArea" id="da_la_disp1">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="hexpand">True</property>
                     <property name="vexpand">True</property>
+                    <signal name="draw" handler="on_launch_analyzer_disp1_draw" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -98,11 +99,12 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkDrawingArea">
+                  <object class="GtkDrawingArea" id="da_la_disp2">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="hexpand">True</property>
                     <property name="vexpand">True</property>
+                    <signal name="draw" handler="on_launch_analyzer_disp2_draw" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
