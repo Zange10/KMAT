@@ -1,5 +1,4 @@
 #include "database.h"
-#include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,7 +31,7 @@ int db_new_program(const char *program_name, const char *vision) {
 
 int db_new_mission(const char *mission_name, int program_id) {
 	char query[500];
-	sprintf(query, "INSERT INTO Mission (Name, ProgramID) "
+	sprintf(query, "INSERT INTO Mission_DB (Name, ProgramID) "
 				   "VALUES ('%s', %d);", mission_name, program_id);
 	if(execute_query(query) != SQLITE_OK) return -1;
 	return (int) sqlite3_last_insert_rowid(db);
@@ -56,8 +55,8 @@ int db_new_lv(const char *lv_name, int family_id, double payload_diameter, doubl
 	return (int) sqlite3_last_insert_rowid(db);
 }
 
-int db_get_missions(struct Mission **p_missions) {
-	const char *query = "SELECT * FROM Mission;";
+int db_get_missions(struct Mission_DB **p_missions) {
+	const char *query = "SELECT * FROM Mission_DB;";
 	sqlite3_stmt *stmt;
 
 	int rc = sqlite3_prepare(db, query, -1, &stmt, 0);
@@ -70,7 +69,7 @@ int db_get_missions(struct Mission **p_missions) {
 
 	int index = 0;
 	int max_size = 10;
-	struct Mission *missions = (struct Mission *) malloc(max_size * sizeof(struct Mission));
+	struct Mission_DB *missions = (struct Mission_DB *) malloc(max_size*sizeof(struct Mission_DB));
 	*p_missions = missions;
 
 	while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
@@ -98,7 +97,7 @@ int db_get_missions(struct Mission **p_missions) {
 		index++;
 		if(index >= max_size) {
 			max_size *= 2;
-			struct Mission *temp = (struct Mission *) realloc(missions, max_size * sizeof(struct Mission));
+			struct Mission_DB *temp = (struct Mission_DB *) realloc(missions, max_size*sizeof(struct Mission_DB));
 			if(temp == NULL) {
 				fprintf(stderr, "!!!!!! Reallocation failed for missions from database !!!!!!!!!!");
 				return index;
@@ -117,70 +116,11 @@ int db_get_missions(struct Mission **p_missions) {
 	return index;
 }
 
-struct LaunchVehicle db_get_lv_from_id(int id) {
-	char query[48];
-	sprintf(query, "SELECT * FROM LV WHERE LauncherID = %d", id);
-	sqlite3_stmt *stmt;
-	struct LaunchVehicle lv = {-1};
-
-	int rc = sqlite3_prepare(db, query, -1, &stmt, 0);
-
-	if (rc != SQLITE_OK) {
-		fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
-		sqlite3_close(db);
-		return lv;
-	}
-
-	rc = sqlite3_step(stmt);
-
-	if (rc != SQLITE_ROW) {
-		fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
-		sqlite3_close(db);
-		return lv;
-	}
-
-	for (int i = 0; i < sqlite3_column_count(stmt); i++) {
-		const char *columnName = sqlite3_column_name(stmt, i);
-
-		if 			(strcmp(columnName, "LauncherID") == 0) {
-			lv.id = sqlite3_column_int(stmt, i);
-		} else if 	(strcmp(columnName, "FamilyID") == 0) {
-			lv.family_id = sqlite3_column_int(stmt, i);
-		} else if 	(strcmp(columnName, "Name") == 0) {
-			sprintf(lv.name, (char *) sqlite3_column_text(stmt, i));
-		} else if 	(strcmp(columnName, "Status") == 0) {
-			int status = sqlite3_column_int(stmt, i);
-			lv.status = status == 1 ? ACTIVE : INACTIVE;
-		} else if 	(strcmp(columnName, "LEO") == 0) {
-			lv.leo = sqlite3_column_double(stmt, i);
-		} else if 	(strcmp(columnName, "SSO") == 0) {
-			lv.sso = sqlite3_column_double(stmt, i);
-		} else if 	(strcmp(columnName, "GTO") == 0) {
-			lv.gto = sqlite3_column_double(stmt, i);
-		} else if 	(strcmp(columnName, "TLI") == 0) {
-			lv.tli = sqlite3_column_double(stmt, i);
-		} else if 	(strcmp(columnName, "TVI") == 0) {
-			lv.tvi = sqlite3_column_double(stmt, i);
-		} else if 	(strcmp(columnName, "PayloadDiameter") == 0) {
-			lv.payload_diameter = sqlite3_column_double(stmt, i);
-		} else if 	(strcmp(columnName, "A") == 0) {
-			lv.A = sqlite3_column_double(stmt, i);
-		} else if 	(strcmp(columnName, "c_d") == 0) {
-			lv.c_d = sqlite3_column_double(stmt, i);
-		} else {
-			fprintf(stderr, "!!!!!! %s not yet implemented for LV !!!!!\n", columnName);
-		}
-	}
-	sqlite3_finalize(stmt);
-
-	return lv;
-}
-
-struct FlyVehicle db_get_plane_from_id(int id) {
+struct PlaneInfo_DB db_get_plane_from_id(int id) {
 	char query[48];
 	sprintf(query, "SELECT * FROM Plane WHERE PlaneID = %d", id);
 	sqlite3_stmt *stmt;
-	struct FlyVehicle fv = {-1};
+	struct PlaneInfo_DB fv = {-1};
 
 	int rc = sqlite3_prepare(db, query, -1, &stmt, 0);
 
@@ -229,11 +169,11 @@ struct FlyVehicle db_get_plane_from_id(int id) {
 	return fv;
 }
 
-struct MissionProgram db_get_program_from_id(int id) {
+struct MissionProgram_DB db_get_program_from_id(int id) {
 	char query[48];
 	sprintf(query, "SELECT * FROM Program WHERE ProgramID = %d", id);
 	sqlite3_stmt *stmt;
-	struct MissionProgram program = {-1};
+	struct MissionProgram_DB program = {-1};
 
 	int rc = sqlite3_prepare(db, query, -1, &stmt, 0);
 
@@ -280,4 +220,8 @@ void init_db() {
 
 void close_db() {
 	sqlite3_close(db);
+}
+
+sqlite3 *get_db() {
+	return db;
 }

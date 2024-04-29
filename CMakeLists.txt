@@ -72,6 +72,12 @@ add_executable(KSP
         launch_calculator/launch_sim.h
         launch_calculator/launch_state.c
         launch_calculator/launch_state.h
+        gui/launch_app.c
+        gui/launch_app.h
+        gui/launch_app/launch_analyzer.c
+        gui/launch_app/launch_analyzer.h
+        database/lv_database.c
+        database/lv_database.h
 )
 
 target_link_libraries(KSP m;

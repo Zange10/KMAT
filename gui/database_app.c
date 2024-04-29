@@ -1,5 +1,5 @@
 #include "database_app.h"
-#include "database/database.h"
+#include "database/lv_database.h"
 #include <gtk/gtk.h>
 #include <locale.h>
 
@@ -48,7 +48,7 @@ void update_db_box() {
 	GtkWidget *grid = gtk_grid_new();
 	GtkWidget *separator;
 
-	struct Mission *missions;
+	struct Mission_DB *missions;
 	int mission_count = db_get_missions(&missions);
 
 	separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
@@ -85,18 +85,18 @@ void update_db_box() {
 	separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 	gtk_grid_attach(GTK_GRID(grid), separator, 0, 2, MISSION_COLS*2+1, 1);
 
-	struct LaunchVehicle lv;
-	struct FlyVehicle fv;
+	struct LauncherInfo_DB lv;
+	struct PlaneInfo_DB fv;
 
 	// Create labels and add them to the grid
 	for (int i = 0; i < mission_count; ++i) {
-		struct Mission m = missions[i];
+		struct Mission_DB m = missions[i];
 		int row = i*2+3;
 
 		for (int j = 0; j < MISSION_COLS; ++j) {
 			int col = j*2+1;
 			char label_text[30];
-			if(m.launcher_id != 0) lv = db_get_lv_from_id(m.launcher_id);
+			if(m.launcher_id != 0) lv = db_get_launcherInfo_from_id(m.launcher_id);
 			else if(m.plane_id != 0) fv = db_get_plane_from_id(m.plane_id);
 			switch(j) {
 				case 1: sprintf(label_text, "%s", m.name); break;
