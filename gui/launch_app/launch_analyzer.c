@@ -24,6 +24,9 @@ GObject *lb_la_res_spentdv;
 GObject *lb_la_res_remdv;
 GObject *lb_la_res_remfuel;
 GObject *lb_la_res_dwnrng;
+GObject *tf_la_sim_incl;
+GObject *tf_la_sim_lat;
+GObject *tf_la_sim_plmass;
 
 struct LV *all_launcher;
 int *launcher_ids;
@@ -58,6 +61,9 @@ void init_launch_analyzer(GtkBuilder *builder) {
 	lb_la_res_remdv = gtk_builder_get_object(builder, "lb_la_res_remdv");
 	lb_la_res_remfuel = gtk_builder_get_object(builder, "lb_la_res_remfuel");
 	lb_la_res_dwnrng = gtk_builder_get_object(builder, "lb_la_res_dwnrng");
+	tf_la_sim_incl = gtk_builder_get_object(builder, "tf_la_sim_incl");
+	tf_la_sim_lat = gtk_builder_get_object(builder, "tf_la_sim_lat");
+	tf_la_sim_plmass = gtk_builder_get_object(builder, "tf_la_sim_plmass");
 	
 	
 	update_launcher_dropdown();
@@ -192,15 +198,26 @@ void on_change_launcher(GtkWidget* widget, gpointer data) {
 void on_run_launch_simulation(GtkWidget* widget, gpointer data) {
 	int launcher_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_la_sel_launcher));
 	int profile_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_la_sel_profile));
+	if(launcher_id < 0 || profile_id < 0) return;
+
 	struct LaunchProfiles_DB profiles = db_get_launch_profiles_from_lv_id(launcher_ids[launcher_id]);
-	double launch_latitude = deg2rad(28.6);
+
+	char *string;
+
+
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_la_sim_lat));
+	double launch_latitude = deg2rad(strtod(string, NULL));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_la_sim_incl));
+	double target_incl = deg2rad(strtod(string, NULL));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_la_sim_plmass));
+	double payload_mass = strtod(string, NULL) * 1000;
 	
 	all_launcher[launcher_id].lp_id = profiles.profile[profile_id].profiletype;
 	for(int i = 0; i < 5; i++) all_launcher[launcher_id].lp_params[i] = profiles.profile[profile_id].lp_params[i];
 	
 	print_LV(&all_launcher[launcher_id]);
 
-	struct Launch_Results lr = run_launch_simulation(all_launcher[launcher_id], 100, launch_latitude, deg2rad(0), 0.001, 1, 1);
+	struct Launch_Results lr = run_launch_simulation(all_launcher[launcher_id], payload_mass, launch_latitude, target_incl, 0.001, 1, 1);
 
 	if(launch_state != NULL) free_launch_states(launch_state);
 	launch_state = get_last_state(lr.state);
