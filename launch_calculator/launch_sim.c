@@ -3,6 +3,7 @@
 #include "celestial_bodies.h"
 #include "launch_state.h"
 #include "launch_circularization.h"
+#include "launch_calculator.h"
 #include <math.h>
 #include <stdio.h>
 #include <sys/time.h>
@@ -28,7 +29,6 @@ struct Vessel {
 double simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Body *body, double heading_at_launch, int stage_id, double step);
 void simulate_coast(struct LaunchState *state, struct Vessel vessel, struct Body *body, double dt, int stage_id, double step);
 void setup_initial_state(struct LaunchState *state, double lat, struct Body *body);
-struct Plane calc_plane_parallel_to_surf(struct Vector r);
 struct Vector calc_surface_speed(struct Vector east_dir, struct Vector r, struct Vector v, struct Body *body);
 struct Vector calc_thrust_vector(struct Vector r, struct Vector u2, double pitch, double heading);
 double calc_heading_from_speed(struct Plane s, struct Vector v, double v_mag, double heading_at_launch);
@@ -81,7 +81,7 @@ void print_launch_state_info(struct LaunchState *launch_state, struct Vessel ves
 	printf("______________________________\n\n");
 }
 
-struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, double latitude, double target_inclination, double step_size, int bool_print_info) {
+struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, double latitude, double target_inclination, double step_size, int bool_print_info, int bool_return_state) {
 	struct Body *body = EARTH();
 	double launch_heading = calc_launch_azi(body, latitude, target_inclination, 0);
 
@@ -127,7 +127,7 @@ struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, d
 		vessel.m0 += payload_mass;
 		vessel.me += payload_mass;
 
-		
+
 		double rem_dv = calculate_dV(vessel.F_vac, launch_state->m, vessel.me, vessel.burn_rate);
 		if(vector_mag(launch_state->v) + rem_dv > 7500) vessel.get_pitch = NULL;
 
@@ -142,14 +142,19 @@ struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, d
 		}
 	}
 
-	free_launch_states(launch_state);
-
 	struct Launch_Results launch_results = {
 			calc_orbit_periapsis(constr_orbit_from_osv(launch_state->r, launch_state->v, body)),
 			vessel.spent_dv,
 			calculate_dV(vessel.F_vac, launch_state->m, vessel.me, vessel.burn_rate),
 			launch_state->m-vessel.me
 	};
+
+	if(bool_return_state) {
+		launch_results.state = get_last_state(launch_state);
+	} else {
+		free_launch_states(launch_state);
+		launch_results.state = NULL;
+	}
 
 	return launch_results;
 }
@@ -308,15 +313,6 @@ double pitch_program4(double h, const double lp_params[5]) {
 	return deg2rad(pitch_deg);
 }
 
-struct Plane calc_plane_parallel_to_surf(struct Vector r) {
-	struct Plane s;
-	s.loc = r;
-	s.u = norm_vector(cross_product(vec(0,0,1), r));
-	s.v = norm_vector(cross_product(r, s.u));
-	if(s.v.z < 0) s.v = scalar_multiply(s.v, -1); // should be unnecessary, but to be on safe side
-	return s;
-}
-
 struct Vector calc_surface_speed(struct Vector east_dir, struct Vector r, struct Vector v, struct Body *body) {
 	struct Plane eq = constr_plane(vec(0,0,0), vec(1,0,0), vec(0,1,0));
 	double lat = angle_plane_vec(eq, r);
@@ -391,7 +387,7 @@ void simulate_single_launch(struct LV lv) {
 	double payload_mass = 100;
 
 	gettimeofday(&start_time, NULL);
-	run_launch_simulation(lv, payload_mass, deg2rad(28.6), deg2rad(0), 0.001, 1);
+	run_launch_simulation(lv, payload_mass, deg2rad(28.6), deg2rad(0), 0.001, 1, 0);
 	gettimeofday(&end_time, NULL);
 
 	// Calculate the elapsed time in seconds

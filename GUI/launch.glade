@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.38.2 -->
+<!-- Generated with glade 3.40.0 -->
 <interface>
   <requires lib="gtk+" version="3.24"/>
   <object class="GtkApplicationWindow" id="window">
@@ -334,7 +334,7 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkButton">
+                  <object class="GtkButton" id="bt_la_simlaunch">
                     <property name="label" translatable="yes">Simulate Launch</property>
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
@@ -381,6 +381,7 @@
                   <object class="GtkGrid">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
+                    <property name="row-spacing">3</property>
                     <property name="column-spacing">10</property>
                     <child>
                       <object class="GtkLabel">
@@ -542,7 +543,7 @@
                       <object class="GtkLabel">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">Longitude:</property>
+                        <property name="label" translatable="yes">Downrange:</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -551,10 +552,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_dur">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">500s</property>
+                        <property name="label" translatable="yes">- s</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -563,10 +564,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_alt">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">200km</property>
+                        <property name="label" translatable="yes">- km</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -575,10 +576,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_ap">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">200km</property>
+                        <property name="label" translatable="yes">- km</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -587,10 +588,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_pe">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">200km</property>
+                        <property name="label" translatable="yes">- km</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -599,10 +600,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_sma">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">6000km</property>
+                        <property name="label" translatable="yes">- km</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -611,10 +612,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_ecc">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">0.000</property>
+                        <property name="label" translatable="yes">-</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -623,10 +624,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_incl">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">28.68°</property>
+                        <property name="label" translatable="yes">-</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -635,10 +636,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_orbv">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">7800m/s</property>
+                        <property name="label" translatable="yes">- m/s</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -647,10 +648,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_surfv">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">7500m/s</property>
+                        <property name="label" translatable="yes">- m/s</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -659,10 +660,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_vertv">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">0.015m/s</property>
+                        <property name="label" translatable="yes">- m/s</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -671,10 +672,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_spentdv">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">10200m/s</property>
+                        <property name="label" translatable="yes">- m/s</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -683,10 +684,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_remdv">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">2500m/s</property>
+                        <property name="label" translatable="yes">- m/s</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -695,10 +696,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_remfuel">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">50kg</property>
+                        <property name="label" translatable="yes">- kg</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>
@@ -707,10 +708,10 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkLabel">
+                      <object class="GtkLabel" id="lb_la_res_dwnrng">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">20.3°</property>
+                        <property name="label" translatable="yes">-</property>
                         <property name="xalign">0</property>
                       </object>
                       <packing>

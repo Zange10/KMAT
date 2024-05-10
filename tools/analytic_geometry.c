@@ -69,9 +69,14 @@ struct Vector scalar_multiply(struct Vector v, double scalar) {
     return v;
 }
 
+struct Vector proj_vec_vec(struct Vector v1, struct Vector v2) {
+	v2 = norm_vector(v2);
+	return scalar_multiply(v2, dot_product(v1,v2));
+}
+
 struct Vector proj_vec_plane(struct Vector v, struct Plane p) {
-	struct Vector n = norm_vector(cross_product(p.u, p.v));
-	struct Vector proj_n = scalar_multiply(n, dot_product(v,n));
+	struct Vector n = cross_product(p.u, p.v);
+	struct Vector proj_n = proj_vec_vec(v,n);
 	return subtract_vectors(v, proj_n);
 }
 

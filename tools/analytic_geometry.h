@@ -146,6 +146,16 @@ struct Vector scalar_multiply(struct Vector v, double scalar);
 
 
 /**
+ * @brief Calculates the projection vector of vector on another vector
+ *
+ * @param v1 The vector to be projected
+ * @param v2 The vector that v1 gets projected onto
+ * @return The projection vector
+ */
+struct Vector proj_vec_vec(struct Vector v1, struct Vector v2);
+
+
+/**
  * @brief Calculates the projection vector of vector on plane
  *
  * @param v The vector

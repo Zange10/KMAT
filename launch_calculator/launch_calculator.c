@@ -64,3 +64,35 @@ void launch_calculator() {
         }
     } while(selection != 0);
 }
+
+struct Plane calc_plane_parallel_to_surf(struct Vector r) {
+	struct Plane s;
+	s.loc = r;
+	s.u = norm_vector(cross_product(vec(0,0,1), r));	// east
+	s.v = norm_vector(cross_product(r, s.u));	// north
+	if(s.v.z < 0) s.v = scalar_multiply(s.v, -1); // should be unnecessary, but to be on safe side
+	return s;
+}
+
+struct Vector calc_surface_velocity_from_osv(struct Vector r, struct Vector v, struct Body *body) {
+	struct Plane surface_plane = calc_plane_parallel_to_surf(r);
+	struct Plane eq = constr_plane(vec(0,0,0), vec(1,0,0), vec(0,1,0));
+	double lat = angle_plane_vec(eq, r);
+	double v_b = 2*M_PI*vector_mag(r) / body->rotation_period * cos(lat);
+	struct Vector v_b_vec = scalar_multiply(surface_plane.u, v_b);
+	return subtract_vectors(v, v_b_vec);
+}
+
+double calc_vertical_speed_from_osv(struct Vector r, struct Vector v) {
+	struct Plane surface_plane = calc_plane_parallel_to_surf(r);
+	struct Vector up = cross_product(surface_plane.v, surface_plane.u);
+	struct Vector vert_v = proj_vec_vec(v, up);
+	return vector_mag(vert_v);
+}
+
+double calc_downrange_distance(struct Vector r, double time, double launch_latitude, struct Body *body) {
+	struct Vector launchsite = {cos(launch_latitude), 0, sin(launch_latitude)};
+	launchsite = rotate_vector_around_axis(launchsite, vec(0,0,1), 2*M_PI*time/body->rotation_period);
+	double angle_to_launchsite = angle_vec_vec(r, launchsite);
+	return angle_to_launchsite*body->radius; // angle/2pi * 2pi*r
+}

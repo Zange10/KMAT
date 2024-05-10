@@ -3,16 +3,32 @@
 #include "launch_calculator/lv_profile.h"
 #include "tools/analytic_geometry.h"
 #include "launch_calculator/launch_sim.h"
+#include "launch_calculator/launch_calculator.h"
 
 
 GObject *cb_la_sel_launcher;
 GObject *cb_la_sel_profile;
 GObject *da_la_disp1;
 GObject *da_la_disp2;
+GObject *lb_la_res_dur;
+GObject *lb_la_res_alt;
+GObject *lb_la_res_ap;
+GObject *lb_la_res_pe;
+GObject *lb_la_res_sma;
+GObject *lb_la_res_ecc;
+GObject *lb_la_res_incl;
+GObject *lb_la_res_orbv;
+GObject *lb_la_res_surfv;
+GObject *lb_la_res_vertv;
+GObject *lb_la_res_spentdv;
+GObject *lb_la_res_remdv;
+GObject *lb_la_res_remfuel;
+GObject *lb_la_res_dwnrng;
 
 struct LV *all_launcher;
 int *launcher_ids;
 int num_launcher;
+struct LaunchState *launch_state;
 
 void on_launch_analyzer_disp1_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
 void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
@@ -28,6 +44,20 @@ void init_launch_analyzer(GtkBuilder *builder) {
 	cb_la_sel_launcher = gtk_builder_get_object(builder, "cb_la_sel_launcher");
 	da_la_disp1 = gtk_builder_get_object(builder, "da_la_disp1");
 	da_la_disp2 = gtk_builder_get_object(builder, "da_la_disp2");
+	lb_la_res_dur = gtk_builder_get_object(builder, "lb_la_res_dur");
+	lb_la_res_alt = gtk_builder_get_object(builder, "lb_la_res_alt");
+	lb_la_res_ap = gtk_builder_get_object(builder, "lb_la_res_ap");
+	lb_la_res_pe = gtk_builder_get_object(builder, "lb_la_res_pe");
+	lb_la_res_sma = gtk_builder_get_object(builder, "lb_la_res_sma");
+	lb_la_res_ecc = gtk_builder_get_object(builder, "lb_la_res_ecc");
+	lb_la_res_incl = gtk_builder_get_object(builder, "lb_la_res_incl");
+	lb_la_res_orbv = gtk_builder_get_object(builder, "lb_la_res_orbv");
+	lb_la_res_surfv = gtk_builder_get_object(builder, "lb_la_res_surfv");
+	lb_la_res_vertv = gtk_builder_get_object(builder, "lb_la_res_vertv");
+	lb_la_res_spentdv = gtk_builder_get_object(builder, "lb_la_res_spentdv");
+	lb_la_res_remdv = gtk_builder_get_object(builder, "lb_la_res_remdv");
+	lb_la_res_remfuel = gtk_builder_get_object(builder, "lb_la_res_remfuel");
+	lb_la_res_dwnrng = gtk_builder_get_object(builder, "lb_la_res_dwnrng");
 	
 	
 	update_launcher_dropdown();
@@ -94,6 +124,40 @@ void update_profile_dropdown() {
 	g_object_unref(store);
 }
 
+void update_launch_result_values(double dur, double alt, double ap, double pe, double sma, double ecc, double incl,
+								 double orbv, double surfv, double vertv, double spentdv, double remdv, double remfuel, double dwnrng) {
+	char value_string[20];
+	sprintf(value_string, "%.0f s", dur);
+	gtk_label_set_label(GTK_LABEL(lb_la_res_dur), value_string);
+	sprintf(value_string, "%.0f km", alt/1000);
+	gtk_label_set_label(GTK_LABEL(lb_la_res_alt), value_string);
+	sprintf(value_string, "%.0f km", ap/1000);
+	gtk_label_set_label(GTK_LABEL(lb_la_res_ap), value_string);
+	sprintf(value_string, "%.0f km", pe/1000);
+	gtk_label_set_label(GTK_LABEL(lb_la_res_pe), value_string);
+	sprintf(value_string, "%.0f km", sma/1000);
+	gtk_label_set_label(GTK_LABEL(lb_la_res_sma), value_string);
+	sprintf(value_string, "%.3f", ecc);
+	gtk_label_set_label(GTK_LABEL(lb_la_res_ecc), value_string);
+	sprintf(value_string, "%.2f°", rad2deg(incl));
+	gtk_label_set_label(GTK_LABEL(lb_la_res_incl), value_string);
+
+	sprintf(value_string, "%.0f m/s", orbv);
+	gtk_label_set_label(GTK_LABEL(lb_la_res_orbv), value_string);
+	sprintf(value_string, "%.0f m/s", surfv);
+	gtk_label_set_label(GTK_LABEL(lb_la_res_surfv), value_string);
+	sprintf(value_string, "%.0f m/s", vertv);
+	gtk_label_set_label(GTK_LABEL(lb_la_res_vertv), value_string);
+	sprintf(value_string, "%.0f m/s", spentdv);
+	gtk_label_set_label(GTK_LABEL(lb_la_res_spentdv), value_string);
+	sprintf(value_string, "%.0f m/s", remdv);
+	gtk_label_set_label(GTK_LABEL(lb_la_res_remdv), value_string);
+	sprintf(value_string, "%.0f kg", remfuel);
+	gtk_label_set_label(GTK_LABEL(lb_la_res_remfuel), value_string);
+	sprintf(value_string, "%.0f km", dwnrng/1000);
+	gtk_label_set_label(GTK_LABEL(lb_la_res_dwnrng), value_string);
+}
+
 void on_launch_analyzer_disp1_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	GtkAllocation allocation;
 	gtk_widget_get_allocation(widget, &allocation);
@@ -129,12 +193,37 @@ void on_run_launch_simulation(GtkWidget* widget, gpointer data) {
 	int launcher_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_la_sel_launcher));
 	int profile_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_la_sel_profile));
 	struct LaunchProfiles_DB profiles = db_get_launch_profiles_from_lv_id(launcher_ids[launcher_id]);
+	double launch_latitude = deg2rad(28.6);
 	
 	all_launcher[launcher_id].lp_id = profiles.profile[profile_id].profiletype;
 	for(int i = 0; i < 5; i++) all_launcher[launcher_id].lp_params[i] = profiles.profile[profile_id].lp_params[i];
 	
 	print_LV(&all_launcher[launcher_id]);
-	
-	simulate_single_launch(all_launcher[launcher_id]);
+
+	struct Launch_Results lr = run_launch_simulation(all_launcher[launcher_id], 100, launch_latitude, deg2rad(0), 0.001, 1, 1);
+
+	if(launch_state != NULL) free_launch_states(launch_state);
+	launch_state = get_last_state(lr.state);
+
+	struct Body *body = EARTH();
+
+	struct Orbit orbit = constr_orbit_from_osv(launch_state->r, launch_state->v, body);
+
+	update_launch_result_values(
+			launch_state->t,
+			vector_mag(launch_state->r) - body->radius,
+			calc_orbit_apoapsis(orbit),
+			calc_orbit_periapsis(orbit),
+			orbit.a,
+			orbit.e,
+			orbit.inclination,
+			vector_mag(launch_state->v),
+			vector_mag(calc_surface_velocity_from_osv(launch_state->r, launch_state->v, body)),
+			calc_vertical_speed_from_osv(launch_state->r, launch_state->v),
+			lr.dv,
+			lr.rem_dv,
+			lr.rf,
+			calc_downrange_distance(launch_state->r, launch_state->t, launch_latitude, body)
+			);
 }
 
