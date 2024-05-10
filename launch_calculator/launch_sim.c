@@ -81,11 +81,9 @@ void print_launch_state_info(struct LaunchState *launch_state, struct Vessel ves
 	printf("______________________________\n\n");
 }
 
-struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, double step_size, int bool_print_info) {
+struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, double latitude, double target_inclination, double step_size, int bool_print_info) {
 	struct Body *body = EARTH();
-	double latitude = deg2rad(28.6);
-	double inclination = deg2rad(0);
-	double launch_heading = calc_launch_azi(body, latitude, inclination, 0);
+	double launch_heading = calc_launch_azi(body, latitude, target_inclination, 0);
 
 	struct LaunchState *launch_state = new_launch_state();
 	setup_initial_state(launch_state, latitude, body);
@@ -374,9 +372,6 @@ double calc_launch_azi(struct Body *body, double latitude, double inclination, i
 	struct Vector2D azi2_v = {surf_speed, 0};
 	struct Vector2D azi_v = add_vectors2d(azi1_v, scalar_multipl2d(azi2_v,-1));
 	
-	
-	printf("%f %f %f %f %f\n", azi1_v.x, azi1_v.y, azi2_v.x, azi_v.x, azi_v.y);
-	
 	double azimuth = atan(azi_v.x / azi_v.y);
 	if(north0_south1) azimuth = M_PI - azimuth;
 	return azimuth;
@@ -396,7 +391,7 @@ void simulate_single_launch(struct LV lv) {
 	double payload_mass = 100;
 
 	gettimeofday(&start_time, NULL);
-	run_launch_simulation(lv, payload_mass, 0.001, 1);
+	run_launch_simulation(lv, payload_mass, deg2rad(28.6), deg2rad(0), 0.001, 1);
 	gettimeofday(&end_time, NULL);
 
 	// Calculate the elapsed time in seconds
