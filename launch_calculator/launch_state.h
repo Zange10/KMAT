@@ -8,6 +8,7 @@ struct LaunchState {
 	struct Vector r;	// position [m]
 	struct Vector v;	// velocity [m/s]
 	double m;			// vessel mass [kg]
+	double pitch;
 	int stage_id;
 	struct LaunchState *prev;
 	struct LaunchState *next;

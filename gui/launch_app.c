@@ -32,4 +32,6 @@ void start_launch_app() {
 	
 	g_application_run (G_APPLICATION (app), 0, NULL);
 	g_object_unref (app);
+
+	close_launch_analyzer();
 }

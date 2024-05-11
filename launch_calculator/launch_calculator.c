@@ -90,6 +90,12 @@ double calc_vertical_speed_from_osv(struct Vector r, struct Vector v) {
 	return vector_mag(vert_v);
 }
 
+double calc_horizontal_orbspeed_from_osv(struct Vector r, struct Vector v) {
+	struct Plane surface_plane = calc_plane_parallel_to_surf(r);
+	struct Vector hor_v = proj_vec_plane(v, surface_plane);
+	return vector_mag(hor_v);
+}
+
 double calc_downrange_distance(struct Vector r, double time, double launch_latitude, struct Body *body) {
 	struct Vector launchsite = {cos(launch_latitude), 0, sin(launch_latitude)};
 	launchsite = rotate_vector_around_axis(launchsite, vec(0,0,1), 2*M_PI*time/body->rotation_period);

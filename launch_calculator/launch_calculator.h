@@ -18,6 +18,8 @@ struct Vector calc_surface_velocity_from_osv(struct Vector r, struct Vector v, s
 
 double calc_vertical_speed_from_osv(struct Vector r, struct Vector v);
 
+double calc_horizontal_orbspeed_from_osv(struct Vector r, struct Vector v);
+
 double calc_downrange_distance(struct Vector r, double time, double launch_latitude, struct Body *body);
 
 #endif

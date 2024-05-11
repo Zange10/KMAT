@@ -127,17 +127,22 @@ struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, d
 		vessel.m0 += payload_mass;
 		vessel.me += payload_mass;
 
+		if(i == 0) {
+			launch_state->m = vessel.m0;
+			launch_state->stage_id = lv.stages[i].stage_id;
+		}
 
-		double rem_dv = calculate_dV(vessel.F_vac, launch_state->m, vessel.me, vessel.burn_rate);
-		if(vector_mag(launch_state->v) + rem_dv > 7500) vessel.get_pitch = NULL;
+		double horizontal_speed = calc_horizontal_orbspeed_from_osv(launch_state->r, launch_state->v);
+		double rem_dv = calculate_dV(vessel.F_vac, vessel.m0, vessel.me, vessel.burn_rate);
+		if(horizontal_speed + rem_dv > 7600) vessel.get_pitch = NULL;
 
-		vessel.spent_dv += simulate_stage(launch_state, vessel, body, launch_heading, i+1, step_size);
+		vessel.spent_dv += simulate_stage(launch_state, vessel, body, launch_heading, lv.stages[i].stage_id, step_size);
 		launch_state = get_last_state(launch_state);
 
 		if(bool_print_info) print_launch_state_info(launch_state, vessel, body);
 		// Stage separation
 		if(i < lv.stage_n-1 && lv.stages[i].stage_id > 0) {
-			simulate_coast(launch_state, vessel, body, 3, i+1, step_size);
+			simulate_coast(launch_state, vessel, body, 3, -lv.stages[i].stage_id, step_size);
 			launch_state = get_last_state(launch_state);
 		}
 	}
@@ -164,7 +169,8 @@ void setup_initial_state(struct LaunchState *state, double lat, struct Body *bod
 	struct Plane s = calc_plane_parallel_to_surf(state->r);
 	struct Vector vb = calc_surface_speed(s.u, state->r, vec(0,0,0), body);
 	state->v = scalar_multiply(vb, -1);
-
+	state->pitch = deg2rad(90);
+	state->t = 0;
 }
 
 double simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Body *body, double heading_at_launch, int stage_id, double step) {
@@ -233,6 +239,7 @@ double simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Bo
 		spent_dv += vector_mag(scalar_multiply(a_T, step));
 		m -= vessel.burn_rate * step;
 		state->m = m;
+		state->pitch = pitch;
 
 		if(vs_mag > 6500) {
 			ecc = constr_orbit_from_osv(state->r, state->v, body).e;

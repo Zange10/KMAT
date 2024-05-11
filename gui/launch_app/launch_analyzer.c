@@ -40,6 +40,14 @@ void on_change_launcher(GtkWidget* widget, gpointer data);
 void update_launcher_dropdown();
 void update_profile_dropdown();
 
+struct LaunchDataPoints {
+	int num_points;
+	double *t, *alt, *orbv, *surfv, *vertv, *mass, *pitch;
+	int *stage;
+};
+
+struct LaunchDataPoints ldp;
+
 void init_launch_analyzer(GtkBuilder *builder) {
 	num_launcher = get_all_launch_vehicles_from_database(&all_launcher, &launcher_ids);
 	
@@ -75,6 +83,83 @@ void init_launch_analyzer(GtkBuilder *builder) {
 	renderer = gtk_cell_renderer_text_new();
 	gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(cb_la_sel_profile), renderer, TRUE);
 	gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(cb_la_sel_profile), renderer, "text", 0, NULL);
+}
+
+void free_launch_data_points() {
+	if(ldp.t != NULL) {
+		free(ldp.t);
+		free(ldp.alt);
+		free(ldp.orbv);
+		free(ldp.surfv);
+		free(ldp.vertv);
+		free(ldp.mass);
+		free(ldp.pitch);
+		free(ldp.stage);
+	}
+}
+
+void update_launch_data_points(struct LaunchState *state, struct Body *body) {
+	if(state == NULL) return;
+	free_launch_data_points();
+
+	double step = 1; // [s]
+	double next_point_t = 0;
+
+	ldp.num_points = (int) (get_last_state(state)->t / step) + 2;
+
+	ldp.t = (double*) malloc(sizeof(double) * ldp.num_points);
+	ldp.alt = (double*) malloc(sizeof(double) * ldp.num_points);
+	ldp.orbv = (double*) malloc(sizeof(double) * ldp.num_points);
+	ldp.surfv = (double*) malloc(sizeof(double) * ldp.num_points);
+	ldp.vertv = (double*) malloc(sizeof(double) * ldp.num_points);
+	ldp.mass = (double*) malloc(sizeof(double) * ldp.num_points);
+	ldp.pitch = (double*) malloc(sizeof(double) * ldp.num_points);
+	ldp.stage = (int*) malloc(sizeof(int) * ldp.num_points);
+
+	state = get_first_state(state);
+	int counter = 0;
+
+	while(state != NULL) {
+		if(state->t >= next_point_t || state->next == NULL) {
+			ldp.t[counter] = state->t;
+			ldp.alt[counter] = vector_mag(state->r) - body->radius;
+			ldp.orbv[counter] = vector_mag(state->v);
+			ldp.surfv[counter] = vector_mag(calc_surface_velocity_from_osv(state->r, state->v, body));
+			ldp.vertv[counter] = calc_vertical_speed_from_osv(state->r, state->v);
+			ldp.mass[counter] = state->m;
+			ldp.pitch[counter] = state->pitch;
+			ldp.stage[counter] = state->stage_id;
+			counter++;
+			next_point_t += step;
+		}
+		state = state->next;
+	}
+}
+
+void on_launch_analyzer_disp1_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(widget, &allocation);
+	int area_width = allocation.width;
+	int area_height = allocation.height;
+	struct Vector2D center = {(double) area_width/2, (double) area_height/2};
+
+	// reset drawing area
+	cairo_rectangle(cr, 0, 0, area_width, area_height);
+	cairo_set_source_rgb(cr, 0,0,0);
+	cairo_fill(cr);
+}
+
+void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(widget, &allocation);
+	int area_width = allocation.width;
+	int area_height = allocation.height;
+	struct Vector2D center = {(double) area_width/2, (double) area_height/2};
+
+	// reset drawing area
+	cairo_rectangle(cr, 0, 0, area_width, area_height);
+	cairo_set_source_rgb(cr, 0,0,0);
+	cairo_fill(cr);
 }
 
 
@@ -164,32 +249,6 @@ void update_launch_result_values(double dur, double alt, double ap, double pe, d
 	gtk_label_set_label(GTK_LABEL(lb_la_res_dwnrng), value_string);
 }
 
-void on_launch_analyzer_disp1_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
-	GtkAllocation allocation;
-	gtk_widget_get_allocation(widget, &allocation);
-	int area_width = allocation.width;
-	int area_height = allocation.height;
-	struct Vector2D center = {(double) area_width/2, (double) area_height/2};
-	
-	// reset drawing area
-	cairo_rectangle(cr, 0, 0, area_width, area_height);
-	cairo_set_source_rgb(cr, 0,0,0);
-	cairo_fill(cr);
-}
-
-void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
-	GtkAllocation allocation;
-	gtk_widget_get_allocation(widget, &allocation);
-	int area_width = allocation.width;
-	int area_height = allocation.height;
-	struct Vector2D center = {(double) area_width/2, (double) area_height/2};
-	
-	// reset drawing area
-	cairo_rectangle(cr, 0, 0, area_width, area_height);
-	cairo_set_source_rgb(cr, 0,0,0);
-	cairo_fill(cr);
-}
-
 void on_change_launcher(GtkWidget* widget, gpointer data) {
 	update_profile_dropdown();
 }
@@ -203,8 +262,6 @@ void on_run_launch_simulation(GtkWidget* widget, gpointer data) {
 	struct LaunchProfiles_DB profiles = db_get_launch_profiles_from_lv_id(launcher_ids[launcher_id]);
 
 	char *string;
-
-
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_la_sim_lat));
 	double launch_latitude = deg2rad(strtod(string, NULL));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_la_sim_incl));
@@ -242,5 +299,17 @@ void on_run_launch_simulation(GtkWidget* widget, gpointer data) {
 			lr.rf,
 			calc_downrange_distance(launch_state->r, launch_state->t, launch_latitude, body)
 			);
+
+	update_launch_data_points(launch_state, body);
+
+	for(int i = 0; i < ldp.num_points; i++) {
+		printf("%f s   %f km   %f m/s   %f m/s     %f m/s     %f kg      %f°    %d\n", ldp.t[i], ldp.alt[i]/1000, ldp.surfv[i], ldp.orbv[i], ldp.vertv[i], ldp.mass[i],
+			   rad2deg(ldp.pitch[i]), ldp.stage[i]);
+	}
 }
 
+void close_launch_analyzer() {
+	if(launch_state != NULL) free_launch_states(launch_state);
+	launch_state = NULL;
+	free_launch_data_points();
+}
