@@ -167,7 +167,7 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 	draw_stroke(cr, vec2D(origin.x, origin.y), vec2D(width, origin.y));
 
 	int num_x_labels = 5;
-	int num_y_labels = 20;
+	int num_y_labels = 12;
 	const double tick_units[] = {1,2,5};
 	double y_label_tick = tick_units[0];
 	double x_label_tick = tick_units[0];
@@ -187,6 +187,9 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 		} while(num_x_labels * x_label_tick < (max_x - min_x));
 		tick_scale = 1e-9;
 		min_x_label = (min_x == 0) ? x_label_tick : ceil(min_x/x_label_tick)*x_label_tick;
+	} else if(x_axis_label_type == COORD_LABEL_DATE) {
+		min_x_label = floor(min_x+2.0/3*(max_x-min_x)/num_x_labels);
+		x_label_tick = ceil((max_x-min_x)/num_x_labels);
 	}
 
 	// x tick size and min label
@@ -201,10 +204,10 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 			tick_scale *= 10;
 		} while(num_y_labels * y_label_tick < (max_y - min_y));
 		min_y_label = (min_y == 0) ? y_label_tick : ceil(min_y/y_label_tick)*y_label_tick;
+	} else if(x_axis_label_type == COORD_LABEL_DATE) {
+		min_y_label = floor(min_y+2.0/3*(max_y-min_y)/num_y_labels);
+		y_label_tick = ceil((max_y-min_y)/num_y_labels);
 	}
-
-	printf("x:  %f %f %f\n", x_label_tick, min_x, max_x);
-	printf("y:  %f %f %f\n", y_label_tick, min_y, max_y);
 
 	// gradients
 	double m_y, m_x;
@@ -329,6 +332,16 @@ void draw_launch_data(cairo_t *cr, double width, double height, double *x, doubl
 
 	double dx = max_x-min_x;
 	double dy = max_y-min_y;
+
+
+	double margin = 0.05;
+
+	//min_x = min_x != 0 ? min_x - dx * margin : 0;
+	//max_x = max_x != 0 ? max_x + dx * margin : 0;
+	//dx = max_x-min_x;
+	min_y = min_y != 0 ? min_y - dy * margin : 0;
+	max_y = max_y != 0 ? max_y + dy * margin : 0;
+	dy = max_y-min_y;
 
 	// gradients
 	double m_x, m_y;
