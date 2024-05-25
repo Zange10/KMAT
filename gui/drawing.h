@@ -8,6 +8,7 @@
 #include "orbit_calculator/itin_tool.h"
 
 
+enum CoordAxisLabelType {COORD_LABEL_NUMBER, COORD_LABEL_DATE};
 
 void draw_stroke(cairo_t *cr, struct Vector2D p1, struct Vector2D p2);
 void draw_orbit(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor);

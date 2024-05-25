@@ -153,31 +153,77 @@ void draw_data_point(cairo_t *cr, double x, double y, double radius) {
 	cairo_fill(cr);
 }
 
-void draw_porkchop(cairo_t *cr, double width, double height, const double *porkchop, int fb0_pow1) {
+void draw_coordinate_system(cairo_t *cr, double width, double height, enum CoordAxisLabelType x_axis_label_type, enum CoordAxisLabelType y_axis_label_type, double min_x, double max_x, double min_y, double max_y, struct Vector2D origin) {
 	// Set text color
 	cairo_set_source_rgb(cr, 1, 1, 1);
-
-	// coordinate system
-	struct Vector2D origin = {45, height-40};
-	draw_stroke(cr, vec2D(origin.x, 0), vec2D(origin.x, origin.y));
-	draw_stroke(cr, vec2D(origin.x, origin.y), vec2D(width, origin.y));
 
 	// Set font options
 	cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
 	cairo_set_font_size(cr, 12.0);
 	int half_font_size = 5;
 
+	// axes
+	draw_stroke(cr, vec2D(origin.x, 0), vec2D(origin.x, origin.y));
+	draw_stroke(cr, vec2D(origin.x, origin.y), vec2D(width, origin.y));
 
+	int num_x_labels = 5;
+	int num_y_labels = 8;
+	double min_date_label = floor(min_x+2.0/3*(max_x-min_x)/num_x_labels);
+	double min_dur_label = floor(min_y+2.0/3*(max_y-min_y)/num_y_labels);
+	double x_label_tick = ceil((max_x-min_x)/num_x_labels);
+	double y_label_tick = ceil((max_y-min_y)/num_y_labels);
+
+
+	// gradients
+	double m_y, m_x;
+	m_x = (width-origin.x)/(max_x - min_x);
+	m_y = -origin.y/(max_y - min_y); // negative, because positive is down
+
+	double y_label_x = 40,	x_label_y = height - 15;
+
+	// x-labels and x grid
+	char date_string[32];
+	for(int i = 0; i < num_x_labels; i++) {
+		int label = (int) (min_date_label + i * x_label_tick);
+		double x = (label-min_x)*m_x + origin.x;
+		cairo_set_source_rgb(cr, 1, 1, 1);
+		if(x_axis_label_type == COORD_LABEL_NUMBER)
+			draw_right_aligned_int(cr, x, x_label_y, label);
+		else if(x_axis_label_type == COORD_LABEL_DATE) {
+			date_to_string(convert_JD_date(label), date_string, 0);
+			draw_center_aligned_text(cr, x, x_label_y, date_string);}
+		cairo_set_source_rgb(cr, 0, 0, 0);
+		draw_stroke(cr, vec2D(x, origin.y), vec2D(x, 0));
+	}
+
+	// y-labels and y grid
+	for(int i = 0; i < num_y_labels; i++) {
+		int label = (int) (min_dur_label + i * y_label_tick);
+		double y = (label-min_y)*m_y + origin.y;
+		cairo_set_source_rgb(cr, 1, 1, 1);
+		if(y_axis_label_type == COORD_LABEL_NUMBER)
+			draw_right_aligned_int(cr, y_label_x, y+half_font_size, label);
+		else if(y_axis_label_type == COORD_LABEL_DATE) {
+			date_to_string(convert_JD_date(label), date_string, 0);
+			draw_center_aligned_text(cr, y_label_x, y+half_font_size, date_string);}
+		cairo_set_source_rgb(cr, 0, 0, 0);
+		draw_stroke(cr, vec2D(origin.x, y), vec2D(width, y));
+	}
+}
+
+void draw_porkchop(cairo_t *cr, double width, double height, const double *porkchop, int fb0_pow1) {
+	double dv, date, dur;
 	int num_itins = (int) (porkchop[0]/5);
+	int min_dv_ind = 0;
 
+	struct Vector2D origin = {45, height-40};
 
 	double min_dur = porkchop[1 + 1], max_dur = porkchop[1 + 1];
 	double min_date = porkchop[0+1], max_date = porkchop[0+1];
 	double min_dv = porkchop[2+1]+porkchop[3+1]+porkchop[4+1]*fb0_pow1;
 	double max_dv = porkchop[2+1]+porkchop[3+1]+porkchop[4+1]*fb0_pow1;
-	int min_dv_ind = 0;
-	double dv, date, dur;
 
+	// find min and max
 	for(int i = 1; i < num_itins; i++) {
 		int index = 1+i*5;
 		dv = porkchop[index+2]+porkchop[index+3]+porkchop[index+4]*fb0_pow1;
@@ -195,6 +241,7 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 		else if(dur > max_dur) max_dur = dur;
 	}
 
+
 	double ddate = max_date-min_date;
 	double ddur = max_dur - min_dur;
 
@@ -210,35 +257,7 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 	m_date = (width-origin.x)/(max_date - min_date);
 	m_dur = -origin.y/(max_dur - min_dur); // negative, because positive is down
 
-	int num_durs = 8;
-	int num_dates = 5;
-	double min_date_label = floor(min_date+2.0/3*(max_date-min_date)/num_dates);
-	double min_dur_label = floor(min_dur+2.0/3*(max_dur-min_dur)/num_durs);
-	double x_label_tick = ceil(ddate/num_dates), y_label_tick = ceil(ddur/num_durs);
-
-	double y_label_x = 40,	x_label_y = height - 15;
-
-	// y-labels and y grid
-	for(int i = 0; i < num_durs; i++) {
-		int label = (int) (min_dur_label + i * y_label_tick);
-		double y = (label-min_dur)*m_dur + origin.y;
-		cairo_set_source_rgb(cr, 1, 1, 1);
-		draw_right_aligned_int(cr, y_label_x, y+half_font_size, label);
-		cairo_set_source_rgb(cr, 0, 0, 0);
-		draw_stroke(cr, vec2D(origin.x, y), vec2D(width, y));
-	}
-
-	// x-labels and x grid
-	char date_string[32];
-	for(int i = 0; i < num_dates; i++) {
-		int label = (int) (min_date_label + i * x_label_tick);
-		double x = (label-min_date)*m_date + origin.x;
-		date_to_string(convert_JD_date(label), date_string, 0);
-		cairo_set_source_rgb(cr, 1, 1, 1);
-		draw_center_aligned_text(cr, x, x_label_y, date_string);
-		cairo_set_source_rgb(cr, 0, 0, 0);
-		draw_stroke(cr, vec2D(x, origin.y), vec2D(x, 0));
-	}
+	draw_coordinate_system(cr, width, height, COORD_LABEL_DATE, COORD_LABEL_NUMBER, min_date, max_date, min_dur, max_dur, origin);
 
 	// data
 	double color_bias;
