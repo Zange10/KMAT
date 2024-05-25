@@ -167,45 +167,77 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 	draw_stroke(cr, vec2D(origin.x, origin.y), vec2D(width, origin.y));
 
 	int num_x_labels = 5;
-	int num_y_labels = 8;
-	double min_date_label = floor(min_x+2.0/3*(max_x-min_x)/num_x_labels);
-	double min_dur_label = floor(min_y+2.0/3*(max_y-min_y)/num_y_labels);
-	double x_label_tick = ceil((max_x-min_x)/num_x_labels);
-	double y_label_tick = ceil((max_y-min_y)/num_y_labels);
+	int num_y_labels = 20;
+	const double tick_units[] = {1,2,5};
+	double y_label_tick = tick_units[0];
+	double x_label_tick = tick_units[0];
+	double min_x_label, min_y_label;
+	double tick_scale = 1e-9;
 
+	// x tick size and min label
+	if(x_axis_label_type == COORD_LABEL_NUMBER) {
+		double tick_unit;
+		do {
+			for(int i = 0; i < sizeof(tick_units)/sizeof(tick_units[0]); i++) {
+				tick_unit = tick_units[i];
+				x_label_tick = tick_unit * tick_scale;
+				if(num_x_labels * x_label_tick > (max_x - min_x)) break;
+			}
+			tick_scale *= 10;
+		} while(num_x_labels * x_label_tick < (max_x - min_x));
+		tick_scale = 1e-9;
+		min_x_label = (min_x == 0) ? x_label_tick : ceil(min_x/x_label_tick)*x_label_tick;
+	}
+
+	// x tick size and min label
+	if(y_axis_label_type == COORD_LABEL_NUMBER) {
+		double tick_unit;
+		do {
+			for(int i = 0; i < sizeof(tick_units)/sizeof(tick_units[0]); i++) {
+				tick_unit = tick_units[i];
+				y_label_tick = tick_unit * tick_scale;
+				if(num_y_labels * y_label_tick > (max_y - min_y)) break;
+			}
+			tick_scale *= 10;
+		} while(num_y_labels * y_label_tick < (max_y - min_y));
+		min_y_label = (min_y == 0) ? y_label_tick : ceil(min_y/y_label_tick)*y_label_tick;
+	}
+
+	printf("x:  %f %f %f\n", x_label_tick, min_x, max_x);
+	printf("y:  %f %f %f\n", y_label_tick, min_y, max_y);
 
 	// gradients
 	double m_y, m_x;
 	m_x = (width-origin.x)/(max_x - min_x);
 	m_y = -origin.y/(max_y - min_y); // negative, because positive is down
 
-	double y_label_x = 40,	x_label_y = height - 15;
+	double y_label_x = origin.x-5,	x_label_y = origin.y + 20;
 
 	// x-labels and x grid
-	char date_string[32];
+	char string[32];
 	for(int i = 0; i < num_x_labels; i++) {
-		int label = (int) (min_date_label + i * x_label_tick);
+		int label = (int) (min_x_label + i * x_label_tick);
 		double x = (label-min_x)*m_x + origin.x;
 		cairo_set_source_rgb(cr, 1, 1, 1);
 		if(x_axis_label_type == COORD_LABEL_NUMBER)
-			draw_right_aligned_int(cr, x, x_label_y, label);
-		else if(x_axis_label_type == COORD_LABEL_DATE) {
-			date_to_string(convert_JD_date(label), date_string, 0);
-			draw_center_aligned_text(cr, x, x_label_y, date_string);}
+			sprintf(string, "%d", label);
+		else if(x_axis_label_type == COORD_LABEL_DATE)
+			date_to_string(convert_JD_date(label), string, 0);
+		draw_center_aligned_text(cr, x, x_label_y, string);
 		cairo_set_source_rgb(cr, 0, 0, 0);
 		draw_stroke(cr, vec2D(x, origin.y), vec2D(x, 0));
 	}
 
 	// y-labels and y grid
 	for(int i = 0; i < num_y_labels; i++) {
-		int label = (int) (min_dur_label + i * y_label_tick);
+		int label = (int) (min_y_label + i * y_label_tick);
 		double y = (label-min_y)*m_y + origin.y;
 		cairo_set_source_rgb(cr, 1, 1, 1);
 		if(y_axis_label_type == COORD_LABEL_NUMBER)
 			draw_right_aligned_int(cr, y_label_x, y+half_font_size, label);
 		else if(y_axis_label_type == COORD_LABEL_DATE) {
-			date_to_string(convert_JD_date(label), date_string, 0);
-			draw_center_aligned_text(cr, y_label_x, y+half_font_size, date_string);}
+			date_to_string(convert_JD_date(label), string, 0);
+			draw_right_aligned_text(cr, y_label_x, y+half_font_size, string);}
 		cairo_set_source_rgb(cr, 0, 0, 0);
 		draw_stroke(cr, vec2D(origin.x, y), vec2D(width, y));
 	}
@@ -277,5 +309,39 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 
 		struct Vector2D data_point = vec2D(origin.x + m_date*(date - min_date), origin.y + m_dur * (dur - min_dur));
 		draw_data_point(cr, data_point.x, data_point.y, i >= 0 ? 2 : 5);
+	}
+}
+
+void draw_launch_data(cairo_t *cr, double width, double height, double *x, double *y, int num_points) {
+	struct Vector2D origin = {60, height-30};
+
+	double min_x = x[0], max_x = x[0];
+	double min_y = y[0], max_y = y[0];
+	if(min_y > 0) min_y = 0;
+
+	// find min and max
+	for(int i = 1; i < num_points; i++) {
+		if(x[i] < min_x) min_x = x[i];
+		else if(x[i] > max_x) max_x = x[i];
+		if(y[i] < min_y) min_y = y[i];
+		else if(y[i] > max_y) max_y = y[i];
+	}
+
+	double dx = max_x-min_x;
+	double dy = max_y-min_y;
+
+	// gradients
+	double m_x, m_y;
+	m_x = (width-origin.x)/dx;
+	m_y = -origin.y/dy; // negative, because positive is down
+
+	draw_coordinate_system(cr, width, height, COORD_LABEL_NUMBER, COORD_LABEL_NUMBER, min_x, max_x, min_y, max_y, origin);
+
+	// data
+	cairo_set_source_rgb(cr, 0, 0.8, 0.8);
+	for(int i = 1; i < num_points; i++) {
+		struct Vector2D point0 = vec2D(origin.x + m_x*(x[i-1] - min_x), origin.y + m_y * (y[i-1] - min_y));
+		struct Vector2D point1 = vec2D(origin.x + m_x*(x[i  ] - min_x), origin.y + m_y * (y[i  ] - min_y));
+		draw_stroke(cr, point0, point1);
 	}
 }

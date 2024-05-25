@@ -4,6 +4,7 @@
 #include "tools/analytic_geometry.h"
 #include "launch_calculator/launch_sim.h"
 #include "launch_calculator/launch_calculator.h"
+#include "gui/drawing.h"
 
 
 GObject *cb_la_sel_launcher;
@@ -42,7 +43,13 @@ void update_profile_dropdown();
 
 struct LaunchDataPoints {
 	int num_points;
-	double *t, *alt, *orbv, *surfv, *vertv, *mass, *pitch;
+	double *t;		// time [s]
+	double *alt; 	// altitude [km]
+	double *orbv; 	// orbital speed [m/s]
+	double *surfv;	// surface speed [m/s]
+	double *vertv;	// vertical speed [m/s]
+	double *mass;	// mass [t]
+	double *pitch;	// pitch [deg]
 	int *stage;
 };
 
@@ -122,12 +129,12 @@ void update_launch_data_points(struct LaunchState *state, struct Body *body) {
 	while(state != NULL) {
 		if(state->t >= next_point_t || state->next == NULL) {
 			ldp.t[counter] = state->t;
-			ldp.alt[counter] = vector_mag(state->r) - body->radius;
+			ldp.alt[counter] = (vector_mag(state->r) - body->radius) / 1000;
 			ldp.orbv[counter] = vector_mag(state->v);
 			ldp.surfv[counter] = vector_mag(calc_surface_velocity_from_osv(state->r, state->v, body));
 			ldp.vertv[counter] = calc_vertical_speed_from_osv(state->r, state->v);
-			ldp.mass[counter] = state->m;
-			ldp.pitch[counter] = state->pitch;
+			ldp.mass[counter] = state->m / 1000;
+			ldp.pitch[counter] = rad2deg(state->pitch);
 			ldp.stage[counter] = state->stage_id;
 			counter++;
 			next_point_t += step;
@@ -141,12 +148,13 @@ void on_launch_analyzer_disp1_draw(GtkWidget *widget, cairo_t *cr, gpointer data
 	gtk_widget_get_allocation(widget, &allocation);
 	int area_width = allocation.width;
 	int area_height = allocation.height;
-	struct Vector2D center = {(double) area_width/2, (double) area_height/2};
 
 	// reset drawing area
 	cairo_rectangle(cr, 0, 0, area_width, area_height);
-	cairo_set_source_rgb(cr, 0,0,0);
+	cairo_set_source_rgb(cr, 0.15,0.15, 0.15);
 	cairo_fill(cr);
+
+	if(launch_state != NULL) draw_launch_data(cr, area_width, area_height, ldp.t, ldp.pitch, ldp.num_points);
 }
 
 void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
@@ -154,12 +162,13 @@ void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data
 	gtk_widget_get_allocation(widget, &allocation);
 	int area_width = allocation.width;
 	int area_height = allocation.height;
-	struct Vector2D center = {(double) area_width/2, (double) area_height/2};
 
 	// reset drawing area
 	cairo_rectangle(cr, 0, 0, area_width, area_height);
-	cairo_set_source_rgb(cr, 0,0,0);
+	cairo_set_source_rgb(cr, 0.15,0.15, 0.15);
 	cairo_fill(cr);
+
+	if(launch_state != NULL) draw_launch_data(cr, area_width, area_height, ldp.t, ldp.orbv, ldp.num_points);
 }
 
 
@@ -303,8 +312,8 @@ void on_run_launch_simulation(GtkWidget* widget, gpointer data) {
 	update_launch_data_points(launch_state, body);
 
 	for(int i = 0; i < ldp.num_points; i++) {
-		printf("%f s   %f km   %f m/s   %f m/s     %f m/s     %f kg      %f°    %d\n", ldp.t[i], ldp.alt[i]/1000, ldp.surfv[i], ldp.orbv[i], ldp.vertv[i], ldp.mass[i],
-			   rad2deg(ldp.pitch[i]), ldp.stage[i]);
+		printf("%f s   %f km   %f m/s   %f m/s     %f m/s     %f t      %f°    %d\n", ldp.t[i], ldp.alt[i], ldp.surfv[i], ldp.orbv[i], ldp.vertv[i], ldp.mass[i],
+			   ldp.pitch[i], ldp.stage[i]);
 	}
 }
 

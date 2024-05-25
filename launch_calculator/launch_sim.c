@@ -252,7 +252,8 @@ double simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Bo
 }
 
 void simulate_coast(struct LaunchState *state, struct Vessel vessel, struct Body *body, double dt, int stage_id, double step) {
-	double m=state->prev->m;// mass (last stage final mass) [kg]
+	double m=state->m;// mass (last stage final mass) [kg]
+	double p = state->pitch;// pitch [rad]
 	double r_mag;			// distance to center of earth [m]
 	double h;				// altitude [m]
 	struct Vector a;		// acceleration acting on the vessel [m/s²]
@@ -289,6 +290,7 @@ void simulate_coast(struct LaunchState *state, struct Vessel vessel, struct Body
 		state->v = add_vectors(state->prev->v, dv);
 		state->r = add_vectors(state->prev->r, dr);
 		state->m = m;
+		state->pitch = p;
 	}
 }
 
