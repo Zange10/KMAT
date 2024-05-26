@@ -386,10 +386,10 @@ void on_run_launch_simulation(GtkWidget* widget, gpointer data) {
 
 	update_launch_data_points(launch_state, body);
 
-	for(int i = 0; i < ldp.num_points; i++) {
-		printf("%f s   %f km   %f m/s   %f m/s     %f m/s     %f t      %f°    %f°  %f   %d\n", ldp.t[i], ldp.alt[i], ldp.surfv[i], ldp.orbv[i], ldp.vertv[i], ldp.mass[i],
-			   ldp.pitch[i], ldp.incl[i], ldp.ecc[i], ldp.stage[i]);
-	}
+//	for(int i = 0; i < ldp.num_points; i++) {
+//		printf("%f s   %f km   %f m/s   %f m/s     %f m/s     %f t      %f°    %f°  %f   %d\n", ldp.t[i], ldp.alt[i], ldp.surfv[i], ldp.orbv[i], ldp.vertv[i], ldp.mass[i],
+//			   ldp.pitch[i], ldp.incl[i], ldp.ecc[i], ldp.stage[i]);
+//	}
 }
 
 void update_la_display_radios() {

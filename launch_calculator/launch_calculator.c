@@ -85,9 +85,11 @@ struct Vector calc_surface_velocity_from_osv(struct Vector r, struct Vector v, s
 
 double calc_vertical_speed_from_osv(struct Vector r, struct Vector v) {
 	struct Plane surface_plane = calc_plane_parallel_to_surf(r);
-	struct Vector up = cross_product(surface_plane.v, surface_plane.u);
+	struct Vector up = cross_product(surface_plane.u, surface_plane.v);
 	struct Vector vert_v = proj_vec_vec(v, up);
-	return vector_mag(vert_v);
+	double vertical_speed = vector_mag(vert_v);
+	if(angle_vec_vec(v, up) > M_PI/2) vertical_speed *= -1;	// points down
+	return vertical_speed;
 }
 
 double calc_horizontal_orbspeed_from_osv(struct Vector r, struct Vector v) {
