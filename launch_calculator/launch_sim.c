@@ -200,6 +200,7 @@ double simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Bo
 	double vh;				// horizontal speed [m/s]
 	double vv;				// vertical speed [m/s]
 	double spent_dv = 0;	// spent delta-v during stage burn
+	struct Orbit orbit;		// current orbit
 
 	while(m-vessel.burn_rate * step > vessel.me) {
 		r_mag = vector_mag(state->r);
@@ -244,8 +245,9 @@ double simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Bo
 		state->pitch = pitch;
 
 		if(vs_mag > 6500) {
-			ecc = constr_orbit_from_osv(state->r, state->v, body).e;
-			if(ecc > last_ecc && vs_mag > 5000) break;
+			orbit = constr_orbit_from_osv(state->r, state->v, body);
+			ecc = orbit.e;
+			if(ecc > last_ecc && vs_mag > 5000 && calc_orbit_periapsis(orbit) > body->atmo_alt) break;
 			last_ecc = ecc;
 		}
 	}

@@ -19,5 +19,6 @@ void draw_transfer_point(cairo_t *cr, struct Vector2D center, double scale, stru
 void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf);
 void draw_porkchop(cairo_t *cr, double width, double height, const double *porkchop, int fb0_pow1);
 void draw_plot(cairo_t *cr, double width, double height, double *x, double *y, int num_points);
+void draw_multi_plot(cairo_t *cr, double width, double height, double *x, double **y, int num_plots, int num_points);
 
 #endif //KSP_DRAWING_H

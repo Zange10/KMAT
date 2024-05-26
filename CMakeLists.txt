@@ -80,6 +80,8 @@ add_executable(KSP
         database/lv_database.h
         gui/launch_app/capability_analyzer.c
         gui/launch_app/capability_analyzer.h
+        launch_calculator/capability_calculator.c
+        launch_calculator/capability_calculator.h
 )
 
 target_link_libraries(KSP m;
