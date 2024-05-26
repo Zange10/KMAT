@@ -18,8 +18,6 @@ GObject *cb_la_sel_launcher;
 GObject *cb_la_sel_profile;
 GObject *da_la_disp1;
 GObject *da_la_disp2;
-GObject *rb_la_sel_disp1;
-GObject *rb_la_sel_disp2;
 GObject *lb_la_res_dur;
 GObject *lb_la_res_alt;
 GObject *lb_la_res_ap;
@@ -47,12 +45,14 @@ struct LaunchState *launch_state;
 
 int disp1x, disp1y, disp2x, disp2y, curr_sel_disp;
 
-void on_launch_analyzer_disp1_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
+void on_launch_analyzer_disp_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
 void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
+void on_la_disp_sel(GtkWidget* widget, gpointer data);
 void on_change_la_display_xvariable(GtkWidget* widget, gpointer data);
 void on_change_la_display_yvariable(GtkWidget* widget, gpointer data);
 void on_run_launch_simulation(GtkWidget* widget, gpointer data);
 void on_change_launcher(GtkWidget* widget, gpointer data);
+void update_la_display_radios();
 void update_launcher_dropdown();
 void update_profile_dropdown();
 
@@ -82,8 +82,6 @@ void init_launch_analyzer(GtkBuilder *builder) {
 	cb_la_sel_launcher = gtk_builder_get_object(builder, "cb_la_sel_launcher");
 	da_la_disp1 = gtk_builder_get_object(builder, "da_la_disp1");
 	da_la_disp2 = gtk_builder_get_object(builder, "da_la_disp2");
-	rb_la_sel_disp1 = gtk_builder_get_object(builder, "rb_la_sel_disp1");
-	rb_la_sel_disp2 = gtk_builder_get_object(builder, "rb_la_sel_disp2");
 	lb_la_res_dur = gtk_builder_get_object(builder, "lb_la_res_dur");
 	lb_la_res_alt = gtk_builder_get_object(builder, "lb_la_res_alt");
 	lb_la_res_ap = gtk_builder_get_object(builder, "lb_la_res_ap");
@@ -112,7 +110,8 @@ void init_launch_analyzer(GtkBuilder *builder) {
 	
 	
 	update_launcher_dropdown();
-	
+	update_la_display_radios();
+
 	// Create a cell renderer for dropdowns/ComboBox
 	GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
 	gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(cb_la_sel_launcher), renderer, TRUE);
@@ -189,11 +188,12 @@ void update_launch_data_points(struct LaunchState *state, struct Body *body) {
 	}
 }
 
-void on_launch_analyzer_disp1_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
+void on_launch_analyzer_disp_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	GtkAllocation allocation;
 	gtk_widget_get_allocation(widget, &allocation);
 	int area_width = allocation.width;
 	int area_height = allocation.height;
+	int disp_id = (int) strtol(gtk_widget_get_name(widget), NULL, 10);	// char to int
 
 	// reset drawing area
 	cairo_rectangle(cr, 0, 0, area_width, area_height);
@@ -201,7 +201,7 @@ void on_launch_analyzer_disp1_draw(GtkWidget *widget, cairo_t *cr, gpointer data
 	cairo_fill(cr);
 
 	double *x, *y;
-	switch(disp1x) {
+	switch(disp_id == 1 ? disp1x : disp2x) {
 		case DV_TIME: 	x = ldp.t; 		break;
 		case DV_DWNRNG: x = ldp.dwnrng;	break;
 		case DV_ALT: 	x = ldp.alt;	break;
@@ -215,7 +215,7 @@ void on_launch_analyzer_disp1_draw(GtkWidget *widget, cairo_t *cr, gpointer data
 		case DV_INCL: 	x = ldp.incl;	break;
 		default: return;
 	}
-	switch(disp1y) {
+	switch(disp_id == 1 ? disp1y : disp2y) {
 		case DV_TIME: 	y = ldp.t; 		break;
 		case DV_DWNRNG: y = ldp.dwnrng;	break;
 		case DV_ALT: 	y = ldp.alt;	break;
@@ -392,6 +392,17 @@ void on_run_launch_simulation(GtkWidget* widget, gpointer data) {
 	}
 }
 
+void update_la_display_radios() {
+	int dispx = curr_sel_disp == 1 ? disp1x : disp2x;
+	int dispy = curr_sel_disp == 1 ? disp1y : disp2y;
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(rb_la_dispx[dispx]), TRUE);
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(rb_la_dispy[dispy]), TRUE);
+}
+
+void on_la_disp_sel(GtkWidget* widget, gpointer data) {
+	curr_sel_disp = (int) strtol(gtk_widget_get_name(widget), NULL, 10);	// char to int
+	update_la_display_radios();
+}
 
 void on_change_la_display_xvariable(GtkWidget* widget, gpointer data) {
 	int id = (int) strtol(gtk_widget_get_name(widget), NULL, 10);	// char to int

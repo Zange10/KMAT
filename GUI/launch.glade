@@ -69,11 +69,12 @@
                 <property name="vexpand">True</property>
                 <child>
                   <object class="GtkDrawingArea" id="da_la_disp1">
+                    <property name="name">1</property>
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="hexpand">True</property>
                     <property name="vexpand">True</property>
-                    <signal name="draw" handler="on_launch_analyzer_disp1_draw" swapped="no"/>
+                    <signal name="draw" handler="on_launch_analyzer_disp_draw" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -83,6 +84,7 @@
                 <child>
                   <object class="GtkRadioButton" id="rb_la_sel_disp1">
                     <property name="label" translatable="yes">Display 1</property>
+                    <property name="name">1</property>
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="receives-default">False</property>
@@ -93,6 +95,7 @@
                     <property name="margin-bottom">5</property>
                     <property name="active">True</property>
                     <property name="draw-indicator">True</property>
+                    <signal name="pressed" handler="on_la_disp_sel" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -101,11 +104,12 @@
                 </child>
                 <child>
                   <object class="GtkDrawingArea" id="da_la_disp2">
+                    <property name="name">2</property>
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="hexpand">True</property>
                     <property name="vexpand">True</property>
-                    <signal name="draw" handler="on_launch_analyzer_disp2_draw" swapped="no"/>
+                    <signal name="draw" handler="on_launch_analyzer_disp_draw" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -115,6 +119,7 @@
                 <child>
                   <object class="GtkRadioButton" id="rb_la_sel_disp2">
                     <property name="label" translatable="yes">Display2</property>
+                    <property name="name">2</property>
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="receives-default">False</property>
@@ -126,6 +131,7 @@
                     <property name="active">True</property>
                     <property name="draw-indicator">True</property>
                     <property name="group">rb_la_sel_disp1</property>
+                    <signal name="pressed" handler="on_la_disp_sel" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
