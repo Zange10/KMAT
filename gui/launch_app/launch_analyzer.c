@@ -7,10 +7,19 @@
 #include "gui/drawing.h"
 
 
+
+enum DispVariable {
+	DV_TIME, DV_DWNRNG, DV_ALT, DV_ORBV, DV_SURFV, DV_VERTV, DV_MASS, DV_PITCH, DV_SMA, DV_ECC, DV_INCL
+};
+
+#define NUM_DISP_VAR 11
+
 GObject *cb_la_sel_launcher;
 GObject *cb_la_sel_profile;
 GObject *da_la_disp1;
 GObject *da_la_disp2;
+GObject *rb_la_sel_disp1;
+GObject *rb_la_sel_disp2;
 GObject *lb_la_res_dur;
 GObject *lb_la_res_alt;
 GObject *lb_la_res_ap;
@@ -28,14 +37,20 @@ GObject *lb_la_res_dwnrng;
 GObject *tf_la_sim_incl;
 GObject *tf_la_sim_lat;
 GObject *tf_la_sim_plmass;
+GObject *rb_la_dispx[NUM_DISP_VAR];
+GObject *rb_la_dispy[NUM_DISP_VAR];
 
 struct LV *all_launcher;
 int *launcher_ids;
 int num_launcher;
 struct LaunchState *launch_state;
 
+int disp1x, disp1y, disp2x, disp2y, curr_sel_disp;
+
 void on_launch_analyzer_disp1_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
 void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
+void on_change_la_display_xvariable(GtkWidget* widget, gpointer data);
+void on_change_la_display_yvariable(GtkWidget* widget, gpointer data);
 void on_run_launch_simulation(GtkWidget* widget, gpointer data);
 void on_change_launcher(GtkWidget* widget, gpointer data);
 void update_launcher_dropdown();
@@ -44,12 +59,16 @@ void update_profile_dropdown();
 struct LaunchDataPoints {
 	int num_points;
 	double *t;		// time [s]
+	double *dwnrng;	// downrange distance [km]
 	double *alt; 	// altitude [km]
 	double *orbv; 	// orbital speed [m/s]
 	double *surfv;	// surface speed [m/s]
 	double *vertv;	// vertical speed [m/s]
 	double *mass;	// mass [t]
 	double *pitch;	// pitch [deg]
+	double *sma;	// semi-mayor axis [km]
+	double *ecc;	// eccentricity
+	double *incl;	// inclination [deg]
 	int *stage;
 };
 
@@ -57,11 +76,14 @@ struct LaunchDataPoints ldp;
 
 void init_launch_analyzer(GtkBuilder *builder) {
 	num_launcher = get_all_launch_vehicles_from_database(&all_launcher, &launcher_ids);
+	disp1x = DV_TIME, disp1y = DV_ALT, disp2x = DV_TIME, disp2y = DV_ORBV, curr_sel_disp = 1;
 	
 	cb_la_sel_profile = gtk_builder_get_object(builder, "cb_la_sel_profile");
 	cb_la_sel_launcher = gtk_builder_get_object(builder, "cb_la_sel_launcher");
 	da_la_disp1 = gtk_builder_get_object(builder, "da_la_disp1");
 	da_la_disp2 = gtk_builder_get_object(builder, "da_la_disp2");
+	rb_la_sel_disp1 = gtk_builder_get_object(builder, "rb_la_sel_disp1");
+	rb_la_sel_disp2 = gtk_builder_get_object(builder, "rb_la_sel_disp2");
 	lb_la_res_dur = gtk_builder_get_object(builder, "lb_la_res_dur");
 	lb_la_res_alt = gtk_builder_get_object(builder, "lb_la_res_alt");
 	lb_la_res_ap = gtk_builder_get_object(builder, "lb_la_res_ap");
@@ -79,6 +101,14 @@ void init_launch_analyzer(GtkBuilder *builder) {
 	tf_la_sim_incl = gtk_builder_get_object(builder, "tf_la_sim_incl");
 	tf_la_sim_lat = gtk_builder_get_object(builder, "tf_la_sim_lat");
 	tf_la_sim_plmass = gtk_builder_get_object(builder, "tf_la_sim_plmass");
+
+	for(int i = 0; i < NUM_DISP_VAR; i++) {
+		char rb_id[30];
+		sprintf(rb_id, "rb_la_dispx_%d", i);
+		rb_la_dispx[i] = gtk_builder_get_object(builder, rb_id);
+		sprintf(rb_id, "rb_la_dispy_%d", i);
+		rb_la_dispy[i] = gtk_builder_get_object(builder, rb_id);
+	}
 	
 	
 	update_launcher_dropdown();
@@ -95,12 +125,16 @@ void init_launch_analyzer(GtkBuilder *builder) {
 void free_launch_data_points() {
 	if(ldp.t != NULL) {
 		free(ldp.t);
+		free(ldp.dwnrng);
 		free(ldp.alt);
 		free(ldp.orbv);
 		free(ldp.surfv);
 		free(ldp.vertv);
 		free(ldp.mass);
 		free(ldp.pitch);
+		free(ldp.sma);
+		free(ldp.ecc);
+		free(ldp.incl);
 		free(ldp.stage);
 	}
 }
@@ -115,26 +149,38 @@ void update_launch_data_points(struct LaunchState *state, struct Body *body) {
 	ldp.num_points = (int) (get_last_state(state)->t / step) + 2;
 
 	ldp.t = (double*) malloc(sizeof(double) * ldp.num_points);
+	ldp.dwnrng = (double*) malloc(sizeof(double) * ldp.num_points);
 	ldp.alt = (double*) malloc(sizeof(double) * ldp.num_points);
 	ldp.orbv = (double*) malloc(sizeof(double) * ldp.num_points);
 	ldp.surfv = (double*) malloc(sizeof(double) * ldp.num_points);
 	ldp.vertv = (double*) malloc(sizeof(double) * ldp.num_points);
 	ldp.mass = (double*) malloc(sizeof(double) * ldp.num_points);
 	ldp.pitch = (double*) malloc(sizeof(double) * ldp.num_points);
+	ldp.sma = (double*) malloc(sizeof(double) * ldp.num_points);
+	ldp.ecc = (double*) malloc(sizeof(double) * ldp.num_points);
+	ldp.incl = (double*) malloc(sizeof(double) * ldp.num_points);
 	ldp.stage = (int*) malloc(sizeof(int) * ldp.num_points);
 
 	state = get_first_state(state);
 	int counter = 0;
+	struct Orbit orbit;
+
+	double launch_latitude = angle_vec_vec(vec(1,0,0), state->r);
 
 	while(state != NULL) {
 		if(state->t >= next_point_t || state->next == NULL) {
 			ldp.t[counter] = state->t;
+			ldp.dwnrng[counter] = calc_downrange_distance(state->r, state->t, launch_latitude, EARTH())/1000;
 			ldp.alt[counter] = (vector_mag(state->r) - body->radius) / 1000;
 			ldp.orbv[counter] = vector_mag(state->v);
 			ldp.surfv[counter] = vector_mag(calc_surface_velocity_from_osv(state->r, state->v, body));
 			ldp.vertv[counter] = calc_vertical_speed_from_osv(state->r, state->v);
 			ldp.mass[counter] = state->m / 1000;
 			ldp.pitch[counter] = rad2deg(state->pitch);
+			orbit = constr_orbit_from_osv(state->r, state->v, EARTH());
+			ldp.sma[counter] = orbit.a/1000;
+			ldp.ecc[counter] = orbit.e;
+			ldp.incl[counter] = rad2deg(orbit.inclination);
 			ldp.stage[counter] = state->stage_id;
 			counter++;
 			next_point_t += step;
@@ -154,7 +200,36 @@ void on_launch_analyzer_disp1_draw(GtkWidget *widget, cairo_t *cr, gpointer data
 	cairo_set_source_rgb(cr, 0.15,0.15, 0.15);
 	cairo_fill(cr);
 
-	if(launch_state != NULL) draw_launch_data(cr, area_width, area_height, ldp.t, ldp.pitch, ldp.num_points);
+	double *x, *y;
+	switch(disp1x) {
+		case DV_TIME: 	x = ldp.t; 		break;
+		case DV_DWNRNG: x = ldp.dwnrng;	break;
+		case DV_ALT: 	x = ldp.alt;	break;
+		case DV_ORBV: 	x = ldp.orbv;	break;
+		case DV_SURFV: 	x = ldp.surfv;	break;
+		case DV_VERTV: 	x = ldp.vertv;	break;
+		case DV_MASS: 	x = ldp.mass;	break;
+		case DV_PITCH: 	x = ldp.pitch;	break;
+		case DV_SMA: 	x = ldp.sma;	break;
+		case DV_ECC: 	x = ldp.ecc;	break;
+		case DV_INCL: 	x = ldp.incl;	break;
+		default: return;
+	}
+	switch(disp1y) {
+		case DV_TIME: 	y = ldp.t; 		break;
+		case DV_DWNRNG: y = ldp.dwnrng;	break;
+		case DV_ALT: 	y = ldp.alt;	break;
+		case DV_ORBV: 	y = ldp.orbv;	break;
+		case DV_SURFV: 	y = ldp.surfv;	break;
+		case DV_VERTV: 	y = ldp.vertv;	break;
+		case DV_MASS: 	y = ldp.mass;	break;
+		case DV_PITCH: 	y = ldp.pitch;	break;
+		case DV_SMA: 	y = ldp.sma;	break;
+		case DV_ECC: 	y = ldp.ecc;	break;
+		case DV_INCL: 	y = ldp.incl;	break;
+		default: return;
+	}
+	if(launch_state != NULL) draw_launch_data(cr, area_width, area_height, x, y, ldp.num_points);
 }
 
 void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
@@ -168,7 +243,7 @@ void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data
 	cairo_set_source_rgb(cr, 0.15,0.15, 0.15);
 	cairo_fill(cr);
 
-	if(launch_state != NULL) draw_launch_data(cr, area_width, area_height, ldp.t, ldp.orbv, ldp.num_points);
+	if(launch_state != NULL) draw_launch_data(cr, area_width, area_height, ldp.t, ldp.alt, ldp.num_points);
 }
 
 
@@ -312,8 +387,31 @@ void on_run_launch_simulation(GtkWidget* widget, gpointer data) {
 	update_launch_data_points(launch_state, body);
 
 	for(int i = 0; i < ldp.num_points; i++) {
-		printf("%f s   %f km   %f m/s   %f m/s     %f m/s     %f t      %f°    %d\n", ldp.t[i], ldp.alt[i], ldp.surfv[i], ldp.orbv[i], ldp.vertv[i], ldp.mass[i],
-			   ldp.pitch[i], ldp.stage[i]);
+		printf("%f s   %f km   %f m/s   %f m/s     %f m/s     %f t      %f°    %f°  %f   %d\n", ldp.t[i], ldp.alt[i], ldp.surfv[i], ldp.orbv[i], ldp.vertv[i], ldp.mass[i],
+			   ldp.pitch[i], ldp.incl[i], ldp.ecc[i], ldp.stage[i]);
+	}
+}
+
+
+void on_change_la_display_xvariable(GtkWidget* widget, gpointer data) {
+	int id = (int) strtol(gtk_widget_get_name(widget), NULL, 10);	// char to int
+	if(curr_sel_disp == 1) {
+		disp1x = id;
+		gtk_widget_queue_draw(GTK_WIDGET(da_la_disp1));
+	} else if(curr_sel_disp == 2) {
+		disp2x = id;
+		gtk_widget_queue_draw(GTK_WIDGET(da_la_disp2));
+	}
+}
+
+void on_change_la_display_yvariable(GtkWidget* widget, gpointer data) {
+	int id = (int) strtol(gtk_widget_get_name(widget), NULL, 10);	// char to int
+	if(curr_sel_disp == 1) {
+		disp1y = id;
+		gtk_widget_queue_draw(GTK_WIDGET(da_la_disp1));
+	} else if(curr_sel_disp == 2) {
+		disp2y = id;
+		gtk_widget_queue_draw(GTK_WIDGET(da_la_disp2));
 	}
 }
 

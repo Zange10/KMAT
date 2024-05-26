@@ -147,6 +147,8 @@ struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, d
 		}
 	}
 
+	//simulate_coast(launch_state, vessel, body, 3000, -lv.stage_n+1, step_size);
+
 	struct Launch_Results launch_results = {
 			calc_orbit_periapsis(constr_orbit_from_osv(launch_state->r, launch_state->v, body)),
 			vessel.spent_dv,
@@ -270,6 +272,7 @@ void simulate_coast(struct LaunchState *state, struct Vessel vessel, struct Body
 	while(state->t < t1) {
 		r_mag = vector_mag(state->r);
 		h = r_mag-body->radius;
+		if(h<0) break;
 		s = calc_plane_parallel_to_surf(state->r);
 		vs = calc_surface_speed(s.u, state->r, state->v, body);
 		vs_mag = vector_mag(vs);
