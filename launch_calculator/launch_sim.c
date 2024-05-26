@@ -81,7 +81,7 @@ void print_launch_state_info(struct LaunchState *launch_state, struct Vessel ves
 	printf("______________________________\n\n");
 }
 
-struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, double latitude, double target_inclination, double step_size, int bool_print_info, int bool_return_state) {
+struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, double latitude, double target_inclination, double step_size, int bool_print_info, int bool_return_state, double coast_time_after_launch) {
 	struct Body *body = EARTH();
 	double launch_heading = calc_launch_azi(body, latitude, target_inclination, 0);
 
@@ -147,7 +147,7 @@ struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, d
 		}
 	}
 
-	//simulate_coast(launch_state, vessel, body, 3000, -lv.stage_n+1, step_size);
+	if(coast_time_after_launch > 0) simulate_coast(launch_state, vessel, body, coast_time_after_launch, -lv.stage_n+1, step_size);
 
 	struct Launch_Results launch_results = {
 			calc_orbit_periapsis(constr_orbit_from_osv(launch_state->r, launch_state->v, body)),
@@ -272,7 +272,7 @@ void simulate_coast(struct LaunchState *state, struct Vessel vessel, struct Body
 	while(state->t < t1) {
 		r_mag = vector_mag(state->r);
 		h = r_mag-body->radius;
-		if(h<0) break;
+		if(h<1) break;
 		s = calc_plane_parallel_to_surf(state->r);
 		vs = calc_surface_speed(s.u, state->r, state->v, body);
 		vs_mag = vector_mag(vs);
@@ -399,7 +399,7 @@ void simulate_single_launch(struct LV lv) {
 	double payload_mass = 100;
 
 	gettimeofday(&start_time, NULL);
-	run_launch_simulation(lv, payload_mass, deg2rad(28.6), deg2rad(0), 0.001, 1, 0);
+	run_launch_simulation(lv, payload_mass, deg2rad(28.6), deg2rad(0), 0.001, 1, 0, 0);
 	gettimeofday(&end_time, NULL);
 
 	// Calculate the elapsed time in seconds

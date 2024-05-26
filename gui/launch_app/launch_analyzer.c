@@ -35,6 +35,7 @@ GObject *lb_la_res_dwnrng;
 GObject *tf_la_sim_incl;
 GObject *tf_la_sim_lat;
 GObject *tf_la_sim_plmass;
+GObject *tf_la_coast_time_after_launch;
 GObject *rb_la_dispx[NUM_DISP_VAR];
 GObject *rb_la_dispy[NUM_DISP_VAR];
 
@@ -99,6 +100,7 @@ void init_launch_analyzer(GtkBuilder *builder) {
 	tf_la_sim_incl = gtk_builder_get_object(builder, "tf_la_sim_incl");
 	tf_la_sim_lat = gtk_builder_get_object(builder, "tf_la_sim_lat");
 	tf_la_sim_plmass = gtk_builder_get_object(builder, "tf_la_sim_plmass");
+	tf_la_coast_time_after_launch = gtk_builder_get_object(builder, "tf_la_coast_time_after_launch");
 
 	for(int i = 0; i < NUM_DISP_VAR; i++) {
 		char rb_id[30];
@@ -352,13 +354,15 @@ void on_run_launch_simulation(GtkWidget* widget, gpointer data) {
 	double target_incl = deg2rad(strtod(string, NULL));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_la_sim_plmass));
 	double payload_mass = strtod(string, NULL) * 1000;
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_la_coast_time_after_launch));
+	double coast_time_after_launch = strtod(string, NULL);
 	
 	all_launcher[launcher_id].lp_id = profiles.profile[profile_id].profiletype;
 	for(int i = 0; i < 5; i++) all_launcher[launcher_id].lp_params[i] = profiles.profile[profile_id].lp_params[i];
 	
 	print_LV(&all_launcher[launcher_id]);
 
-	struct Launch_Results lr = run_launch_simulation(all_launcher[launcher_id], payload_mass, launch_latitude, target_incl, 0.001, 1, 1);
+	struct Launch_Results lr = run_launch_simulation(all_launcher[launcher_id], payload_mass, launch_latitude, target_incl, 0.001, 1, 1, coast_time_after_launch);
 
 	if(launch_state != NULL) free_launch_states(launch_state);
 	launch_state = get_last_state(lr.state);

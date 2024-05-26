@@ -142,12 +142,6 @@ void draw_right_aligned_text(cairo_t *cr, double x, double y, char *text) {
 	cairo_show_text(cr, text);
 }
 
-void draw_right_aligned_int(cairo_t *cr, double x, double y, int number) {
-	char text[16];
-	sprintf(text, "%d", number);
-	draw_right_aligned_text(cr, x, y, text);
-}
-
 void draw_data_point(cairo_t *cr, double x, double y, double radius) {
 	cairo_arc(cr, x, y, radius,0,M_PI*2);
 	cairo_fill(cr);

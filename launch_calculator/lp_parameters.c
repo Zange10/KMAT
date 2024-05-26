@@ -55,7 +55,7 @@ void *lp_param_fpa4(void *thread_args) {
 				double h_trans = log(lv.lp_params[2]/90) / (lv.lp_params[1]-lv.lp_params[0]);
 				if(h_trans < 0) continue;
 				
-				struct Launch_Results lr = run_launch_simulation(lv, payload_mass, deg2rad(28.6), deg2rad(0), 0.01, 0, 0);
+				struct Launch_Results lr = run_launch_simulation(lv, payload_mass, deg2rad(28.6), deg2rad(0), 0.01, 0, 0, 0);
 
 				if(lr.pe > MIN_PE && lr.dv < results->dv) {
 					for(int param_id = 0; param_id < num_params; param_id++)
@@ -209,7 +209,7 @@ double calc_highest_payload_mass_with_set_lp_params(struct LV lv) {
 
 	do {
 		printf("Checking Payload mass of %f t\n", payload_mass/1000);
-		lr = run_launch_simulation(lv, payload_mass, deg2rad(28.6), deg2rad(0), 0.005, 0, 0);
+		lr = run_launch_simulation(lv, payload_mass, deg2rad(28.6), deg2rad(0), 0.005, 0, 0, 0);
 		if(lr.pe > MIN_PE) highest_payload_mass = payload_mass;
 		payload_mass *= 10;
 	} while(lr.pe > MIN_PE);
@@ -222,7 +222,7 @@ double calc_highest_payload_mass_with_set_lp_params(struct LV lv) {
 		for(int j = 1; j < 10; j++) {
 			payload_mass = highest_payload_mass + step_size;
 			printf("Checking Payload mass of %f t\n", payload_mass/1000);
-			lr = run_launch_simulation(lv, payload_mass, deg2rad(28.6), deg2rad(0), 0.005, 0, 0);
+			lr = run_launch_simulation(lv, payload_mass, deg2rad(28.6), deg2rad(0), 0.005, 0, 0, 0);
 			if(lr.pe > MIN_PE) highest_payload_mass = payload_mass;
 			else break;
 		}
@@ -245,7 +245,7 @@ void calc_payload_curve_with_set_lp_params(struct LV lv) {
 	for(int i = 0; i < data_points; i++) {
 		payload_mass[i] = (i < data_points-1) ? highest_payload_mass * pow(0.75, i) : 0;
 		printf("Checking Payload mass of %f t\n", payload_mass[i] / 1000);
-		lr = run_launch_simulation(lv, payload_mass[i], deg2rad(28.6), deg2rad(0), 0.005, 0, 0);
+		lr = run_launch_simulation(lv, payload_mass[i], deg2rad(28.6), deg2rad(0), 0.005, 0, 0, 0);
 		for(int k = 0; k < MAX_NUM_LP_PARAMS; k++) curve_data[i].lp_params[k] = lv.lp_params[k];
 		curve_data[i].dv = lr.dv;
 		curve_data[i].pe = lr.pe;
