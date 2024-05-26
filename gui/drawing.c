@@ -308,7 +308,7 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 	}
 }
 
-void draw_launch_data(cairo_t *cr, double width, double height, double *x, double *y, int num_points) {
+void draw_plot(cairo_t *cr, double width, double height, double *x, double *y, int num_points) {
 	struct Vector2D origin = {60, height-30};
 
 	double min_x = x[0], max_x = x[0];

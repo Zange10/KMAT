@@ -5,6 +5,7 @@
 #include "launch_calculator/launch_sim.h"
 #include "launch_calculator/launch_calculator.h"
 #include "gui/drawing.h"
+#include "gui/launch_app.h"
 
 
 
@@ -39,9 +40,6 @@ GObject *tf_la_coast_time_after_launch;
 GObject *rb_la_dispx[NUM_DISP_VAR];
 GObject *rb_la_dispy[NUM_DISP_VAR];
 
-struct LV *all_launcher;
-int *launcher_ids;
-int num_launcher;
 struct LaunchState *launch_state;
 
 int disp1x, disp1y, disp2x, disp2y, curr_sel_disp;
@@ -54,8 +52,6 @@ void on_change_la_display_yvariable(GtkWidget* widget, gpointer data);
 void on_run_launch_simulation(GtkWidget* widget, gpointer data);
 void on_change_launcher(GtkWidget* widget, gpointer data);
 void update_la_display_radios();
-void update_launcher_dropdown();
-void update_profile_dropdown();
 
 struct LaunchDataPoints {
 	int num_points;
@@ -76,7 +72,6 @@ struct LaunchDataPoints {
 struct LaunchDataPoints ldp;
 
 void init_launch_analyzer(GtkBuilder *builder) {
-	num_launcher = get_all_launch_vehicles_from_database(&all_launcher, &launcher_ids);
 	disp1x = DV_TIME, disp1y = DV_ALT, disp2x = DV_TIME, disp2y = DV_ORBV, curr_sel_disp = 1;
 	
 	cb_la_sel_profile = gtk_builder_get_object(builder, "cb_la_sel_profile");
@@ -109,9 +104,9 @@ void init_launch_analyzer(GtkBuilder *builder) {
 		sprintf(rb_id, "rb_la_dispy_%d", i);
 		rb_la_dispy[i] = gtk_builder_get_object(builder, rb_id);
 	}
+
 	
-	
-	update_launcher_dropdown();
+	update_launcher_dropdown(GTK_COMBO_BOX(cb_la_sel_launcher));
 	update_la_display_radios();
 
 	// Create a cell renderer for dropdowns/ComboBox
@@ -231,7 +226,7 @@ void on_launch_analyzer_disp_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 		case DV_INCL: 	y = ldp.incl;	break;
 		default: return;
 	}
-	if(launch_state != NULL) draw_launch_data(cr, area_width, area_height, x, y, ldp.num_points);
+	if(launch_state != NULL) draw_plot(cr, area_width, area_height, x, y, ldp.num_points);
 }
 
 void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
@@ -245,60 +240,7 @@ void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data
 	cairo_set_source_rgb(cr, 0.15,0.15, 0.15);
 	cairo_fill(cr);
 
-	if(launch_state != NULL) draw_launch_data(cr, area_width, area_height, ldp.t, ldp.alt, ldp.num_points);
-}
-
-
-void update_launcher_dropdown() {
-	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
-	GtkTreeIter iter;
-	// Add items to the list store
-	for(int i = 0; i < num_launcher; i++) {
-		gtk_list_store_append(store, &iter);
-		char entry[30];
-		sprintf(entry, "%s", all_launcher[i].name);
-		gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
-	}
-	
-	gtk_combo_box_set_model(GTK_COMBO_BOX(cb_la_sel_launcher), GTK_TREE_MODEL(store));
-	gtk_combo_box_set_active(GTK_COMBO_BOX(cb_la_sel_launcher), 0);
-	
-	g_object_unref(store);
-}
-
-void update_profile_dropdown() {
-	int id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_la_sel_launcher));
-	struct LaunchProfiles_DB profiles = db_get_launch_profiles_from_lv_id(launcher_ids[id]);
-	
-	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
-	GtkTreeIter iter;
-	// Add items to the list store
-	for(int i = 0; i < profiles.num_profiles; i++) {
-		gtk_list_store_append(store, &iter);
-		char entry[50];
-		switch(profiles.profile[i].profiletype) {
-			case 1: sprintf(entry, "p = %.0f", profiles.profile[i].lp_params[0]);
-				break;
-			case 2: sprintf(entry, "p = 90*exp(-%f*h)", profiles.profile[i].lp_params[0]);
-				break;
-			case 3: sprintf(entry, "p = (90-%.0f)*exp(-%f*h) + %.0f",
-							profiles.profile[i].lp_params[1],
-							profiles.profile[i].lp_params[0],
-							profiles.profile[i].lp_params[1]);
-				break;
-			case 4: sprintf(entry, "p4(%f, %f, %f)",
-						   profiles.profile[i].lp_params[0],
-						   profiles.profile[i].lp_params[2],
-						   profiles.profile[i].lp_params[1]);
-				break;
-		}
-		gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
-	}
-	
-	gtk_combo_box_set_model(GTK_COMBO_BOX(cb_la_sel_profile), GTK_TREE_MODEL(store));
-	gtk_combo_box_set_active(GTK_COMBO_BOX(cb_la_sel_profile), 0);
-	
-	g_object_unref(store);
+	if(launch_state != NULL) draw_plot(cr, area_width, area_height, ldp.t, ldp.alt, ldp.num_points);
 }
 
 void update_launch_result_values(double dur, double alt, double ap, double pe, double sma, double ecc, double incl,
@@ -335,14 +277,17 @@ void update_launch_result_values(double dur, double alt, double ap, double pe, d
 	gtk_label_set_label(GTK_LABEL(lb_la_res_dwnrng), value_string);
 }
 
-void on_change_launcher(GtkWidget* widget, gpointer data) {
-	update_profile_dropdown();
+void on_la_change_launcher(GtkWidget* widget, gpointer data) {
+	update_profile_dropdown(GTK_COMBO_BOX(cb_la_sel_launcher), GTK_COMBO_BOX(cb_la_sel_profile));
 }
 
 
 void on_run_launch_simulation(GtkWidget* widget, gpointer data) {
 	int launcher_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_la_sel_launcher));
 	int profile_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_la_sel_profile));
+	struct LV *all_launcher = get_all_launcher();
+	int *launcher_ids = get_launcher_ids();
+
 	if(launcher_id < 0 || profile_id < 0) return;
 
 	struct LaunchProfiles_DB profiles = db_get_launch_profiles_from_lv_id(launcher_ids[launcher_id]);

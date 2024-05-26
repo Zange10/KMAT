@@ -18,6 +18,6 @@ void set_cairo_body_color(cairo_t *cr, int id);
 void draw_transfer_point(cairo_t *cr, struct Vector2D center, double scale, struct Vector r);
 void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf);
 void draw_porkchop(cairo_t *cr, double width, double height, const double *porkchop, int fb0_pow1);
-void draw_launch_data(cairo_t *cr, double width, double height, double *x, double *y, int num_points);
+void draw_plot(cairo_t *cr, double width, double height, double *x, double *y, int num_points);
 
 #endif //KSP_DRAWING_H
