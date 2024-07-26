@@ -1,6 +1,7 @@
 #include "launch_app.h"
 #include "launch_app/launch_analyzer.h"
 #include "launch_app/capability_analyzer.h"
+#include "launch_app/launch_parameter_analyzer.h"
 #include "database/lv_database.h"
 #include "launch_calculator/lv_profile.h"
 
@@ -30,6 +31,7 @@ void activate_launch_app(GtkApplication *app, gpointer user_data) {
 	
 	init_launch_analyzer(builder);
 	init_capability_analyzer(builder);
+	init_launch_parameter_analyzer(builder);
 	
 	/* We do not need the builder anymore */
 	g_object_unref(builder);
@@ -44,6 +46,7 @@ void start_launch_app() {
 
 	close_launch_analyzer();
 	close_capability_analyzer();
+	close_launch_parameter_analyzer();
 }
 
 
