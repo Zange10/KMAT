@@ -3,7 +3,7 @@
 #include "orbit_calculator/orbit_calculator.h"
 #include "tools/tool_funcs.h"
 #include "gui/transfer_app.h"
-#include "gui/database_app.h"
+#include "gui/launch_app.h"
 #include "database/database.h"
 
 
@@ -14,7 +14,7 @@ int main() {
 
     int selection;
     char title[] = "CHOOSE PROGRAM:";
-    char options[] = "Exit; Launch Calculator; Orbit Calculator; Transfer Calculator; Database App";
+    char options[] = "Exit; Launch Calculator; Orbit Calculator; Transfer Calculator; Launch App";
     char question[] = "Program: ";
 
     do {
@@ -32,7 +32,7 @@ int main() {
 			break;
 		case 4:
 			init_db();
-			start_db_app();
+			start_launch_app();
 			close_db();
 			break;
         default:
