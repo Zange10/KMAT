@@ -5,6 +5,7 @@
 #include "gui/transfer_app.h"
 #include "gui/launch_app.h"
 #include "database/database.h"
+#include "gui/database_app.h"
 
 
 // ------------------------------------------------------------
@@ -14,7 +15,7 @@ int main() {
 
     int selection;
     char title[] = "CHOOSE PROGRAM:";
-    char options[] = "Exit; Launch Calculator; Orbit Calculator; Transfer Calculator; Launch App";
+    char options[] = "Exit; Launch Calculator; Orbit Calculator; Transfer Calculator; Launch App; DB Test";
     char question[] = "Program: ";
 
     do {
@@ -33,6 +34,11 @@ int main() {
 		case 4:
 			init_db();
 			start_launch_app();
+			close_db();
+			break;
+		case 5:
+			init_db();
+			start_db_app();
 			close_db();
 			break;
         default:

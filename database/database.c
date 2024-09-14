@@ -89,7 +89,7 @@ int db_new_lv(const char *lv_name, int family_id, double payload_diameter, doubl
 }
 
 int db_get_missions(struct Mission_DB **p_missions) {
-	const char *query = "SELECT * FROM Mission_DB;";
+	const char *query = "SELECT * FROM Mission;";
 	sqlite3_stmt *stmt;
 
 	int rc = sqlite3_prepare(db, query, -1, &stmt, 0);
@@ -243,7 +243,7 @@ struct MissionProgram_DB db_get_program_from_id(int id) {
 }
 
 void init_db() {
-	int rc = sqlite3_open("test.db", &db);
+	int rc = sqlite3_open("DERA.db", &db);
 
 	if (rc != SQLITE_OK) {
 		fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
