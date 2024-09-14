@@ -18,6 +18,13 @@ struct Mission_DB {
 	int plane_id;
 };
 
+
+struct Mission_Filter {
+	char name[30];
+	int program_id;
+	int ytf, in_prog, ended;
+};
+
 // Mathematical Planes and Aeroplanes have for some reason the same name...
 struct PlaneInfo_DB {
 	int id;
@@ -41,7 +48,8 @@ struct MissionProgram_DB {
 void init_db();
 sqlite3_stmt * execute_single_row_request(const char *query);
 sqlite3_stmt * execute_multirow_request(const char *query);
-int db_get_missions(struct Mission_DB **missions);
+int db_get_missions(struct Mission_DB **p_missions);
+int db_get_missions_ordered_by_launch_date(struct Mission_DB **p_missions, struct Mission_Filter filter);
 struct PlaneInfo_DB db_get_plane_from_id(int id);
 struct MissionProgram_DB db_get_program_from_id(int id);
 void close_db();
