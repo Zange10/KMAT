@@ -99,7 +99,7 @@ struct LauncherInfo_DB db_get_launcherInfo_from_id(int id) {
 		} else if 	(strcmp(columnName, "c_d") == 0) {
 			lv.c_d = sqlite3_column_double(stmt, i);
 		} else {
-			fprintf(stderr, "!!!!!! %s not yet implemented for LV !!!!!\n", columnName);
+			//fprintf(stderr, "!!!!!! %s not yet implemented for LV !!!!!\n", columnName);
 		}
 	}
 	sqlite3_finalize(stmt);

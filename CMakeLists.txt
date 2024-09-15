@@ -86,6 +86,8 @@ add_executable(KSP
         gui/launch_app/launch_parameter_analyzer.h
         gui/database_app/mission_db.c
         gui/database_app/mission_db.h
+        database/mission_database.c
+        database/mission_database.h
 )
 
 target_link_libraries(KSP m;
