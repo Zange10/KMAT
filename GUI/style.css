@@ -1,0 +1,21 @@
+#missiondb-successful-mission {
+    background-color: #004000;
+    padding: 10px;  /* Optional: Add padding for better layout */
+}
+
+#missiondb-partial-mission {
+    background-color: #404000;
+    padding: 10px;  /* Optional: Add padding for better layout */
+}
+
+#missiondb-failure-mission {
+    background-color: #400000;
+    padding: 10px;  /* Optional: Add padding for better layout */
+}
+
+#missiondb-header {
+    font-weight: bold;
+    font-size: 1.2em;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}

@@ -1,7 +1,7 @@
 #include "gui/database_app/mission_db.h"
 #include <gtk/gtk.h>
 #include <locale.h>
-
+#include "gui/css_loader.h"
 
 
 
@@ -30,6 +30,8 @@ void activate_db_app(GtkApplication *app, gpointer user_data) {
 	GObject *window = gtk_builder_get_object (builder, "window");
 	gtk_window_set_application(GTK_WINDOW (window), app);
 	gtk_widget_set_visible(GTK_WIDGET (window), TRUE);
+
+	load_css();
 
 	init_mission_db(builder);
 

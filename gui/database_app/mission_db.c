@@ -1,7 +1,7 @@
 #include "mission_db.h"
 #include "database/mission_database.h"
 #include "database/lv_database.h"
-
+#include "gui/css_loader.h"
 
 
 GObject *mission_vp;
@@ -72,21 +72,19 @@ void update_db_box() {
 		char label_text[20];
 		int req_width = -1;
 		switch(col) {
-			case 1: sprintf(label_text, "Name"); req_width = 150; break;
-			case 2: sprintf(label_text, "Program"); req_width = 100; break;
-			case 3: sprintf(label_text, "Status"); req_width = 100; break;
-			case 4: sprintf(label_text, "Vehicle"); req_width = 100; break;
+			case 1: sprintf(label_text, "Mission"); req_width = 150; break;
+			case 2: sprintf(label_text, "Program"); req_width = 120; break;
+			case 3: sprintf(label_text, "Status"); req_width = 120; break;
+			case 4: sprintf(label_text, "Vehicle"); req_width = 150; break;
 			default:sprintf(label_text, "#"); req_width = 20; break;
 		}
 
 		// Create a GtkLabel
 		GtkWidget *label = gtk_label_new(label_text);
-
-		gtk_widget_set_margin_start(GTK_WIDGET(label), 15);
-		gtk_widget_set_margin_end(GTK_WIDGET(label), 15);
-		gtk_widget_set_margin_top(GTK_WIDGET(label), 5);
-		gtk_widget_set_margin_bottom(GTK_WIDGET(label), 5);
+		// width request
 		gtk_widget_set_size_request(GTK_WIDGET(label), req_width, -1);
+		// set css class
+		set_css_class_for_widget(GTK_WIDGET(label), "missiondb-header");
 
 		// Set the label in the grid at the specified row and column
 		gtk_grid_attach(GTK_GRID(mission_grid), label, col*2+1, 1, 1, 1);
@@ -125,13 +123,11 @@ void update_db_box() {
 
 			// Create a GtkLabel
 			GtkWidget *label = gtk_label_new(label_text);
-
-			gtk_widget_set_margin_start(GTK_WIDGET(label), 15);
-			gtk_widget_set_margin_end(GTK_WIDGET(label), 15);
-			gtk_widget_set_margin_top(GTK_WIDGET(label), 5);
-			gtk_widget_set_margin_bottom(GTK_WIDGET(label), 5);
+			// left-align (and right-align for id)
 			gtk_label_set_xalign(GTK_LABEL(label), (gfloat) 0.0);
 			if(j == 0) gtk_label_set_xalign(GTK_LABEL(label), (gfloat) 1.0);
+			// set css class
+			set_css_class_for_widget(GTK_WIDGET(label), "missiondb-hardpartial-mission");
 
 			// Set the label in the grid at the specified row and column
 			gtk_grid_attach(GTK_GRID(mission_grid), label, col, row, 1, 1);
