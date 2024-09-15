@@ -13,6 +13,16 @@
     padding: 10px;  /* Optional: Add padding for better layout */
 }
 
+#missiondb-inprog-mission {
+    background-color: #003060;
+    padding: 10px;  /* Optional: Add padding for better layout */
+}
+
+#missiondb-ytf-mission {
+    /*background-color: #003060;*/
+    padding: 10px;  /* Optional: Add padding for better layout */
+}
+
 #missiondb-header {
     font-weight: bold;
     font-size: 1.2em;

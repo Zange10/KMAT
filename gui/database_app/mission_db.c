@@ -126,8 +126,24 @@ void update_db_box() {
 			// left-align (and right-align for id)
 			gtk_label_set_xalign(GTK_LABEL(label), (gfloat) 0.0);
 			if(j == 0) gtk_label_set_xalign(GTK_LABEL(label), (gfloat) 1.0);
+
 			// set css class
-			set_css_class_for_widget(GTK_WIDGET(label), "missiondb-hardpartial-mission");
+			if(m.status == ENDED) {
+				enum MissionSuccess mission_success = db_get_mission_success(m.id);
+				if(mission_success == MISSION_SUCCESS)
+					set_css_class_for_widget(GTK_WIDGET(label), "missiondb-successful-mission");
+				else if(mission_success == MISSION_PARTIAL_SUCCESS)
+					set_css_class_for_widget(GTK_WIDGET(label), "missiondb-partial-mission");
+				else if(mission_success == MISSION_FAIL)
+					set_css_class_for_widget(GTK_WIDGET(label), "missiondb-failure-mission");
+				else
+					set_css_class_for_widget(GTK_WIDGET(label), "missiondb-inprog-mission");
+			} else if(m.status == IN_PROGRESS) {
+				set_css_class_for_widget(GTK_WIDGET(label), "missiondb-inprog-mission");
+			} else {
+				set_css_class_for_widget(GTK_WIDGET(label), "missiondb-ytf-mission");
+			}
+
 
 			// Set the label in the grid at the specified row and column
 			gtk_grid_attach(GTK_GRID(mission_grid), label, col, row, 1, 1);

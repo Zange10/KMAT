@@ -200,3 +200,55 @@ struct MissionProgram_DB db_get_program_from_id(int id) {
 	return program;
 }
 
+int db_get_number_of_tbd_primary_objectives(int mission_id) {
+	char query[255];
+
+	sprintf(query, "SELECT COUNT(*) FROM MissionObjective WHERE MissionID = %d AND Status = 0 AND ObjectiveRank = 1;", mission_id);
+	sqlite3_stmt *stmt = execute_single_row_request(query);
+	if(stmt == NULL) return 0;
+
+	int amt = sqlite3_column_int(stmt, 0);
+
+	sqlite3_finalize(stmt);
+
+	return amt;
+}
+
+int db_get_number_of_achieved_primary_objectives(int mission_id) {
+	char query[255];
+
+	sprintf(query, "SELECT COUNT(*) FROM MissionObjective WHERE MissionID = %d AND Status = 1 AND ObjectiveRank = 1;", mission_id);
+	sqlite3_stmt *stmt = execute_single_row_request(query);
+	if(stmt == NULL) return 0;
+
+	int amt = sqlite3_column_int(stmt, 0);
+
+	sqlite3_finalize(stmt);
+
+	return amt;
+}
+
+int db_get_number_of_failed_primary_objectives(int mission_id) {
+	char query[255];
+
+	sprintf(query, "SELECT COUNT(*) FROM MissionObjective WHERE MissionID = %d AND Status = 2 AND ObjectiveRank = 1;", mission_id);
+	sqlite3_stmt *stmt = execute_single_row_request(query);
+	if(stmt == NULL) return 0;
+
+	int amt = sqlite3_column_int(stmt, 0);
+
+	sqlite3_finalize(stmt);
+
+	return amt;
+}
+
+enum MissionSuccess db_get_mission_success(int mission_id) {
+	if(db_get_number_of_tbd_primary_objectives(mission_id) > 0) return MISSION_SUCCESS_TBD;
+	int num_success = db_get_number_of_achieved_primary_objectives(mission_id);
+	int num_fail = db_get_number_of_failed_primary_objectives(mission_id);
+
+	if(num_success > 0 && num_fail > 0) return MISSION_PARTIAL_SUCCESS;
+	if(num_success > 0) return MISSION_SUCCESS;
+	else return MISSION_FAIL;
+}
+
