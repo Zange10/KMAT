@@ -10,9 +10,17 @@ GObject *cb_mdbfilt_program;
 GObject *cb_mdbfilt_ytf;
 GObject *cb_mdbfilt_inprog;
 GObject *cb_mdbfilt_ended;
-GObject *bt_mdb_reset;
-GObject *bt_mdb_show;
+GObject *stack_missiondb;
 GtkWidget *mission_grid;
+
+
+GObject *lb_mman_updatenew;
+GObject *tf_mman_name;
+GObject *cb_mman_program;
+GObject *cb_mman_missionstatus;
+GObject *cb_mman_launcher;
+GObject *cb_mman_objrank;
+GObject *bt_mman_updatenew;
 
 
 void update_db_box();
@@ -26,8 +34,15 @@ void init_mission_db(GtkBuilder *builder) {
 	cb_mdbfilt_ytf = gtk_builder_get_object(builder, "cb_mdbfilt_ytf");
 	cb_mdbfilt_inprog = gtk_builder_get_object(builder, "cb_mdbfilt_inprog");
 	cb_mdbfilt_ended = gtk_builder_get_object(builder, "cb_mdbfilt_ended");
-	bt_mdb_reset = gtk_builder_get_object(builder, "bt_mdb_reset");
-	bt_mdb_show = gtk_builder_get_object(builder, "bt_mdb_show");
+	stack_missiondb = gtk_builder_get_object(builder, "stack_missiondb");
+
+	lb_mman_updatenew = gtk_builder_get_object(builder, "lb_mman_updatenew");
+	tf_mman_name = gtk_builder_get_object(builder, "tf_mman_name");
+	cb_mman_program = gtk_builder_get_object(builder, "cb_mman_program");
+	cb_mman_missionstatus = gtk_builder_get_object(builder, "cb_mman_missionstatus");
+	cb_mman_launcher = gtk_builder_get_object(builder, "cb_mman_launcher");
+	cb_mman_objrank = gtk_builder_get_object(builder, "cb_mman_objrank");
+	bt_mman_updatenew = gtk_builder_get_object(builder, "bt_mman_updatenew");
 
 	// Create a cell renderer for dropdowns/ComboBox
 	GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
@@ -189,6 +204,17 @@ void update_program_dropdown() {
 	free(programs);
 }
 
+void switch_to_mission_manager(int mission_id) {
+	if(mission_id < 0) {
+		gtk_entry_set_text(GTK_ENTRY(tf_mman_name), "NEW MISSION:");
+
+		gtk_button_set_label(GTK_BUTTON(bt_mman_updatenew), "ADD MISSION");
+	}
+
+
+	gtk_stack_set_visible_child_name(GTK_STACK(stack_missiondb), "page1");
+}
+
 void on_show_missions(GtkWidget* widget, gpointer data) {
 	update_db_box();
 }
@@ -200,6 +226,14 @@ void on_reset_mission_filter(GtkWidget* widget, gpointer data) {
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(cb_mdbfilt_ytf), 1);
 	gtk_combo_box_set_active(GTK_COMBO_BOX(cb_mdbfilt_program), 0);
 	update_db_box();
+}
+
+void on_new_mission() {
+	switch_to_mission_manager(-1);
+}
+
+void on_mman_back() {
+	gtk_stack_set_visible_child_name(GTK_STACK(stack_missiondb), "page0");
 }
 
 void close_mission_db() {
