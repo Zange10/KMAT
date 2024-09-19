@@ -13,10 +13,10 @@ void db_new_program(const char *program_name, const char *vision) {
 	if(execute_query(query) != SQLITE_OK) fprintf(stderr, "\n!!!!! Program insert Error !!!!!!!!\n");
 }
 
-void db_new_mission(const char *mission_name, int program_id) {
+void db_new_mission(const char *mission_name, int program_id, int launcher_id, int status) {
 	char query[500];
-	sprintf(query, "INSERT INTO Mission_DB (Name, ProgramID) "
-				   "VALUES ('%s', %d);", mission_name, program_id);
+	sprintf(query, "INSERT INTO Mission (Name, ProgramID, LauncherID, Status) "
+				   "VALUES ('%s', %d, %d, %d);", mission_name, program_id, launcher_id, status);
 	if(execute_query(query) != SQLITE_OK) fprintf(stderr, "\n!!!!! Mission insert Error !!!!!!!!\n");
 }
 

@@ -30,6 +30,8 @@ struct MissionProgram_DB {
 	char vision[255];
 };
 
+void db_new_program(const char *program_name, const char *vision);
+void db_new_mission(const char *mission_name, int program_id, int launcher_id, int status);
 int db_get_number_of_programs();
 int db_get_missions_ordered_by_launch_date(struct Mission_DB **p_missions, struct Mission_Filter filter);
 int db_get_all_programs(struct MissionProgram_DB **p_programs);
