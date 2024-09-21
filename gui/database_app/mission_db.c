@@ -3,6 +3,7 @@
 #include "database/lv_database.h"
 #include "gui/css_loader.h"
 #include "launch_calculator/lv_profile.h"
+#include "gui/database_app/database_app_tools/mission_db_tools.h"
 
 
 GObject *mission_vp;
@@ -26,12 +27,16 @@ GObject *tf_mman_newprogram;
 GObject *stack_newprogram;
 
 int mission_id_newupdate;
+struct Mission_DB *missions;
+int num_missions;
 
 
 void update_db_box();
 void update_program_dropdown();
 void update_mman_launcher_dropdown();
-int get_active_combobox_id(GtkComboBox *combo_box);
+void on_showhide_mission_objectives(GtkWidget *button, gpointer data);
+void on_showhide_mission_events(GtkWidget *button, gpointer data);
+void on_edit_mission(GtkWidget *button, gpointer data);
 
 
 void init_mission_db(GtkBuilder *builder) {
@@ -74,6 +79,8 @@ void init_mission_db(GtkBuilder *builder) {
 
 
 void update_db_box() {
+	int num_mission_cols = 8;
+
 	// Remove grid if exists
 	if (mission_grid != NULL && GTK_WIDGET(mission_vp) == gtk_widget_get_parent(mission_grid)) {
 		gtk_container_remove(GTK_CONTAINER(mission_vp), mission_grid);
@@ -82,25 +89,25 @@ void update_db_box() {
 	mission_grid = gtk_grid_new();
 	GtkWidget *separator;
 
-	struct Mission_DB *missions;
 	struct MissionProgram_DB *programs;
 	int num_programs = db_get_all_programs(&programs);
 
 	struct Mission_Filter filter;
 	sprintf(filter.name, "%s", (char*) gtk_entry_get_text(GTK_ENTRY(tf_mdbfilt_name)));
-	filter.program_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_mdbfilt_program));
+	filter.program_id = get_active_combobox_id(GTK_COMBO_BOX(cb_mdbfilt_program));
 	filter.ytf 		= gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(cb_mdbfilt_ytf));
 	filter.in_prog 	= gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(cb_mdbfilt_inprog));
 	filter.ended	= gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(cb_mdbfilt_ended));
-	int mission_count = db_get_missions_ordered_by_launch_date(&missions, filter);
+	if(missions != NULL) free(missions);
+	num_missions = db_get_missions_ordered_by_launch_date(&missions, filter);
 
 
 	separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-	gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, 0, MISSION_COLS*2+1, 1);
+	gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, 0, num_mission_cols*2+1, 1);
 	separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 	gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, 1, 1, 1);
 
-	for (int col = 0; col < MISSION_COLS; ++col) {
+	for (int col = 0; col < num_mission_cols; ++col) {
 		char label_text[20];
 		int req_width = -1;
 		switch(col) {
@@ -108,6 +115,9 @@ void update_db_box() {
 			case 2: sprintf(label_text, "Program"); req_width = 120; break;
 			case 3: sprintf(label_text, "Status"); req_width = 120; break;
 			case 4: sprintf(label_text, "Vehicle"); req_width = 150; break;
+			case 5: sprintf(label_text, "Objectives"); req_width = 100; break;
+			case 6: sprintf(label_text, "Events"); req_width = 100; break;
+			case 7: sprintf(label_text, "Edit"); req_width = 50; break;
 			default:sprintf(label_text, "#"); req_width = 20; break;
 		}
 
@@ -127,72 +137,74 @@ void update_db_box() {
 	}
 
 	separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-	gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, 2, MISSION_COLS*2+1, 1);
+	gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, 2, num_mission_cols*2+1, 1);
 
 	struct LauncherInfo_DB lv;
 	struct PlaneInfo_DB fv;
 
-	// Create labels and add them to the grid
-	for (int i = 0; i < mission_count; ++i) {
+	// Create labels and buttons and add them to the grid
+	for (int i = 0; i < num_missions; ++i) {
 		struct Mission_DB m = missions[i];
 		int row = i*2+3;
 
-		for (int j = 0; j < MISSION_COLS; ++j) {
+		for (int j = 0; j < num_mission_cols; ++j) {
 			int col = j*2+1;
-			char label_text[30];
+			char widget_text[30];
 			if(m.launcher_id != 0) lv = db_get_launcherInfo_from_id(m.launcher_id);
 			else if(m.plane_id != 0) fv = db_get_plane_from_id(m.plane_id);
 			switch(j) {
-				case 1: sprintf(label_text, "%s", m.name); break;
-				case 2: sprintf(label_text, "%s", programs[m.program_id-1].name); break;
-				case 3: sprintf(label_text, "%s",(m.status == YET_TO_FLY ? "YET TO FLY" : (m.status == IN_PROGRESS ? "IN PROGRESS" : "ENDED"))); break;
+				case 0: sprintf(widget_text, "%d", i + 1); break;
+				case 1: sprintf(widget_text, "%s", m.name); break;
+				case 2: sprintf(widget_text, "%s", get_program_from_id(programs, num_programs, m.program_id).name); break;
+				case 3: sprintf(widget_text, "%s", (m.status == YET_TO_FLY ? "YET TO FLY" : (m.status == IN_PROGRESS ? "IN PROGRESS" : "ENDED"))); break;
 				case 4:
-					if(m.launcher_id != 0) sprintf(label_text, "%s", lv.name);
-					else if(m.plane_id != 0) sprintf(label_text, "%s", fv.name);
-					else sprintf(label_text, "/"); break;
-				default:sprintf(label_text, "%d", i+1); break;
+					if(m.launcher_id != 0) sprintf(widget_text, "%s", lv.name);
+					else if(m.plane_id != 0) sprintf(widget_text, "%s", fv.name);
+					else sprintf(widget_text, "/"); break;
+				case 7: sprintf(widget_text, "x"); break;
+				default:sprintf(widget_text, "↓"); break;
 			}
 
-			// Create a GtkLabel
-			GtkWidget *label = gtk_label_new(label_text);
-			// left-align (and right-align for id)
-			gtk_label_set_xalign(GTK_LABEL(label), (gfloat) 0.0);
-			if(j == 0) gtk_label_set_xalign(GTK_LABEL(label), (gfloat) 1.0);
+			GtkWidget *widget;
+
+			if(j < 5) {
+				// Create a Label
+				widget = gtk_label_new(widget_text);
+				// left-align (and right-align for id)
+				gtk_label_set_xalign(GTK_LABEL(widget), (gfloat) 0.0);
+				if(j == 0) gtk_label_set_xalign(GTK_LABEL(widget), (gfloat) 1.0);
+			} else {
+				// Create a Button
+				widget = gtk_button_new_with_label(widget_text);
+				// Connect the clicked signal to the callback function, passing `&data` as user_data
+				switch(j) {
+					case 5: g_signal_connect(widget, "clicked", G_CALLBACK(on_showhide_mission_objectives), &(missions[i].id)); break;
+					case 6: g_signal_connect(widget, "clicked", G_CALLBACK(on_showhide_mission_events), &(missions[i].id)); break;
+					case 7: g_signal_connect(widget, "clicked", G_CALLBACK(on_edit_mission), &(missions[i].id)); break;
+					default:break;
+				}
+
+			}
 
 			// set css class
-			if(m.status == ENDED) {
-				enum MissionSuccess mission_success = db_get_mission_success(m.id);
-				if(mission_success == MISSION_SUCCESS)
-					set_css_class_for_widget(GTK_WIDGET(label), "missiondb-successful-mission");
-				else if(mission_success == MISSION_PARTIAL_SUCCESS)
-					set_css_class_for_widget(GTK_WIDGET(label), "missiondb-partial-mission");
-				else if(mission_success == MISSION_FAIL)
-					set_css_class_for_widget(GTK_WIDGET(label), "missiondb-failure-mission");
-				else
-					set_css_class_for_widget(GTK_WIDGET(label), "missiondb-inprog-mission");
-			} else if(m.status == IN_PROGRESS) {
-				set_css_class_for_widget(GTK_WIDGET(label), "missiondb-inprog-mission");
-			} else {
-				set_css_class_for_widget(GTK_WIDGET(label), "missiondb-ytf-mission");
-			}
+			set_gtk_widget_class_by_mission_success(widget, m);
 
 
 			// Set the label in the grid at the specified row and column
-			gtk_grid_attach(GTK_GRID(mission_grid), label, col, row, 1, 1);
+			gtk_grid_attach(GTK_GRID(mission_grid), widget, col, row, 1, 1);
 
 			// Create a horizontal separator line (optional)
 			separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 			gtk_grid_attach(GTK_GRID(mission_grid), separator, col+1, row, 1, 1);
 		}
 		separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-		gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, row+1, MISSION_COLS*2+1, 1);
+		gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, row+1, num_mission_cols*2+1, 1);
 	}
 
 	gtk_container_add (GTK_CONTAINER (mission_vp),
 					   mission_grid);
 	gtk_widget_show_all(GTK_WIDGET(mission_vp));
 
-	free(missions);
 	free(programs);
 }
 
@@ -226,17 +238,28 @@ void update_program_dropdown() {
 }
 
 void switch_to_mission_manager(int mission_id) {
+	mission_id_newupdate = mission_id;
+	update_mman_launcher_dropdown();
+
 	if(mission_id < 0) {
 		gtk_label_set_label(GTK_LABEL(lb_mman_updatenew), "NEW MISSION:");
 		gtk_entry_set_text(GTK_ENTRY(tf_mman_name), "");
-
 		gtk_button_set_label(GTK_BUTTON(bt_mman_updatenew), "Add Mission");
+		set_active_combobox_id(GTK_COMBO_BOX(cb_mman_program), -1);
+		set_active_combobox_id(GTK_COMBO_BOX(cb_mman_launcher), -1);
+		gtk_combo_box_set_active(GTK_COMBO_BOX(cb_mman_missionstatus), 0);
+	} else {
+		struct Mission_DB mission = get_mission_from_id(missions, num_missions, mission_id);
+		gtk_label_set_label(GTK_LABEL(lb_mman_updatenew), "EDIT MISSION:");
+		gtk_entry_set_text(GTK_ENTRY(tf_mman_name), mission.name);
+		gtk_button_set_label(GTK_BUTTON(bt_mman_updatenew), "Update Mission");
+		set_active_combobox_id(GTK_COMBO_BOX(cb_mman_program), mission.program_id);
+		set_active_combobox_id(GTK_COMBO_BOX(cb_mman_launcher), mission.launcher_id);
+		gtk_combo_box_set_active(GTK_COMBO_BOX(cb_mman_missionstatus), mission.status);
 	}
 
 
 	gtk_stack_set_visible_child_name(GTK_STACK(stack_missiondb), "page1");
-
-	update_mman_launcher_dropdown();
 }
 
 void update_mman_launcher_dropdown() {
@@ -274,8 +297,7 @@ void on_reset_mission_filter(GtkWidget* widget, gpointer data) {
 }
 
 void on_new_mission() {
-	mission_id_newupdate = -1;
-	switch_to_mission_manager(mission_id_newupdate);
+	switch_to_mission_manager(-1);
 }
 
 void on_enter_new_program() {
@@ -301,29 +323,29 @@ void on_newupdate_mission() {
 	int status = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_mman_missionstatus));
 	if(mission_id_newupdate < 0 && mission_name[0] != '\0') {
 		db_new_mission(mission_name, program_id, launcher_id, status);
+	} else if(mission_name[0] != '\0') {
+		db_update_mission(mission_id_newupdate, mission_name, program_id, launcher_id, status);
 	}
 	gtk_stack_set_visible_child_name(GTK_STACK(stack_missiondb), "page0");
 	update_db_box();
 }
 
-// Function to get the active program ID from the combo box
-int get_active_combobox_id(GtkComboBox *combo_box) {
-	GtkTreeIter iter;
-	GtkTreeModel *model;
-	int program_id = -1;  // Default value if no program is selected
+void on_showhide_mission_objectives(GtkWidget *button, gpointer data) {
+	int mission_id = *((int *)data);  // Cast data back to int
+	g_print("Objective of mission %d\n", mission_id);
+}
 
-	// Get the active row's iterator
-	if (gtk_combo_box_get_active_iter(combo_box, &iter)) {
-		// Get the model from the combo box
-		model = gtk_combo_box_get_model(combo_box);
+void on_showhide_mission_events(GtkWidget *button, gpointer data) {
+	int mission_id = *((int *) data);  // Cast data back to int
+	g_print("Events of mission %d\n", mission_id);
+}
 
-		// Retrieve the 'id' from column 1 (assuming id is stored in the second column)
-		gtk_tree_model_get(model, &iter, 1, &program_id, -1);
-	}
-
-	return program_id;
+void on_edit_mission(GtkWidget *button, gpointer data) {
+	int mission_id = *((int *) data);  // Cast data back to int
+	switch_to_mission_manager(mission_id);
 }
 
 void close_mission_db() {
-
+	if(missions != NULL) free(missions);
+	missions = NULL;
 }

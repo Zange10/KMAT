@@ -2,10 +2,6 @@
 #define KSP_MISSION_DATABASE_H
 
 
-
-#define MISSION_COLS 5	// one less than table has columns because plane and lv get in one
-
-
 enum MissionStatus_DB {YET_TO_FLY, IN_PROGRESS, ENDED};
 enum MissionSuccess {MISSION_SUCCESS, MISSION_PARTIAL_SUCCESS, MISSION_FAIL, MISSION_SUCCESS_TBD};
 
@@ -32,6 +28,7 @@ struct MissionProgram_DB {
 
 void db_new_program(const char *program_name, const char *vision);
 void db_new_mission(const char *mission_name, int program_id, int launcher_id, int status);
+void db_update_mission(int mission_id, const char *mission_name, int program_id, int launcher_id, int status);
 int db_get_number_of_programs();
 int db_get_missions_ordered_by_launch_date(struct Mission_DB **p_missions, struct Mission_Filter filter);
 int db_get_all_programs(struct MissionProgram_DB **p_programs);

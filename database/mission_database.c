@@ -20,6 +20,14 @@ void db_new_mission(const char *mission_name, int program_id, int launcher_id, i
 	if(execute_query(query) != SQLITE_OK) fprintf(stderr, "\n!!!!! Mission insert Error !!!!!!!!\n");
 }
 
+void db_update_mission(int mission_id, const char *mission_name, int program_id, int launcher_id, int status) {
+	char query[500];
+	sprintf(query, "UPDATE Mission "
+				   "SET Name = '%s', ProgramID = %d, LauncherID = %d, Status = %d "
+				   "WHERE MissionID = %d;", mission_name, program_id, launcher_id, status, mission_id);
+	if(execute_query(query) != SQLITE_OK) fprintf(stderr, "\n!!!!! Mission insert Error !!!!!!!!\n");
+}
+
 int db_get_missions_ordered_by_launch_date(struct Mission_DB **p_missions, struct Mission_Filter filter) {
 	char query[550];
 	char string_programId[20];

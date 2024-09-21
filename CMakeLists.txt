@@ -90,6 +90,8 @@ add_executable(KSP
         database/mission_database.h
         gui/css_loader.c
         gui/css_loader.h
+        gui/database_app/database_app_tools/mission_db_tools.c
+        gui/database_app/database_app_tools/mission_db_tools.h
 )
 
 target_link_libraries(KSP m;

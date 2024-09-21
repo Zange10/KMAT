@@ -1,26 +1,59 @@
+/* ------- successful mission -------*/
 #missiondb-successful-mission {
     background-color: #004000;
     padding: 10px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
 }
 
+#missiondb-successful-mission:active {
+    background-color: #004040;
+    padding: 10px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+
+/* ------- partial successful mission -------*/
 #missiondb-partial-mission {
     background-color: #404000;
     padding: 10px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
 }
 
+#missiondb-partial-mission:active {
+    background-color: #404040;
+    padding: 10px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+
+/* ------- failure mission -------*/
 #missiondb-failure-mission {
     background-color: #400000;
     padding: 10px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+#missiondb-failure-mission:active {
+    background-color: #402000;
+    padding: 10px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
 }
 
+/* ------- in progress mission -------*/
 #missiondb-inprog-mission {
     background-color: #003060;
     padding: 10px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
 }
 
+#missiondb-inprog-mission:active {
+    background-color: #005060;
+    padding: 10px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+
+/* ------- yet to fly mission -------*/
 #missiondb-ytf-mission {
     /*background-color: #003060;*/
     padding: 10px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
 }
 
 #missiondb-header {
