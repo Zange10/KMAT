@@ -117,11 +117,11 @@ void update_db_box() {
 	struct PlaneInfo_DB fv;
 
 
-	int added_objective_rows = 0, added_event_rows = 0;
+	int added_objectives = 0, added_events = 0;
 	// Create labels and buttons and add them to the grid
 	for (int i = 0; i < num_missions; ++i) {
 		struct Mission_DB m = missions[i];
-		int row = i*2+3 + added_objective_rows+added_event_rows;
+		int row = i*2+3 + 2*added_objectives + 2*added_events;
 
 		for (int j = 0; j < num_mission_cols; ++j) {
 			int col = j*2+1;
@@ -177,6 +177,23 @@ void update_db_box() {
 		}
 		separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 		gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, row+1, num_mission_cols*2+1, 1);
+
+		// Show Objectives
+		if(is_mission_id_on_objective_show_list(m.id)) {
+			struct MissionObjective_DB *objectives;
+			int num_objectives = db_get_objectives_from_mission_id(&objectives, m.id);
+			for(int j = 0; j < num_objectives; j++) {
+				row+=2; added_objectives++;
+				GtkWidget *label = gtk_label_new(objectives[j].objective);
+				gtk_grid_attach(GTK_GRID(mission_grid), label, 1, row + 1, num_mission_cols * 2, 1);
+				separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+				gtk_grid_attach(GTK_GRID(mission_grid), separator, 1, row + 1, num_mission_cols * 2 + 1, 1);
+			}
+			free(objectives);
+		}
+
+		// Show Events
+
 	}
 
 	gtk_container_add (GTK_CONTAINER (mission_vp),

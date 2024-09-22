@@ -4,6 +4,8 @@
 
 enum MissionStatus_DB {YET_TO_FLY, IN_PROGRESS, ENDED};
 enum MissionSuccess {MISSION_SUCCESS, MISSION_PARTIAL_SUCCESS, MISSION_FAIL, MISSION_SUCCESS_TBD};
+enum MissionObjectiveRank {OBJ_PRIMARY, OBJ_SECONDARY};
+enum MissionObjectiveStatus {OBJ_TBD, OBJ_SUCCESS, OBJ_FAIL};
 
 struct Mission_DB {
 	int id;
@@ -26,6 +28,14 @@ struct MissionProgram_DB {
 	char vision[255];
 };
 
+struct MissionObjective_DB {
+	int id, mission_id;
+	enum MissionObjectiveRank rank;
+	char objective[10000];
+	char notes[10000];
+	enum MissionObjectiveStatus status;
+};
+
 void db_new_program(const char *program_name, const char *vision);
 void db_new_mission(const char *mission_name, int program_id, int launcher_id, int status);
 void db_update_mission(int mission_id, const char *mission_name, int program_id, int launcher_id, int status);
@@ -34,5 +44,6 @@ int db_get_missions_ordered_by_launch_date(struct Mission_DB **p_missions, struc
 int db_get_all_programs(struct MissionProgram_DB **p_programs);
 struct MissionProgram_DB db_get_program_from_id(int id);
 enum MissionSuccess db_get_mission_success(int mission_id);
+int db_get_objectives_from_mission_id(struct MissionObjective_DB **p_objectives, int mission_id);
 
 #endif //KSP_MISSION_DATABASE_H

@@ -260,3 +260,62 @@ enum MissionSuccess db_get_mission_success(int mission_id) {
 	else return MISSION_FAIL;
 }
 
+
+
+int db_get_objectives_from_mission_id(struct MissionObjective_DB **p_objectives, int mission_id) {
+	char query[500];
+	sprintf(query, "SELECT * FROM MissionObjective WHERE MissionID = %d;", mission_id);
+
+	sqlite3_stmt *stmt = execute_multirow_request(query);
+	int rc;
+
+	int index = 0;
+	int max_size = 10;
+	struct MissionObjective_DB *objectives = (struct MissionObjective_DB *) malloc(max_size*sizeof(struct MissionObjective_DB));
+	*p_objectives = objectives;
+
+	while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+		// Process each row of the result set
+		for (int i = 0; i < sqlite3_column_count(stmt); i++) {
+			const char *columnName = sqlite3_column_name(stmt, i);
+
+			if 			(strcmp(columnName, "ObjectiveID") == 0) {
+				objectives[index].id = sqlite3_column_int(stmt, i);
+			} else if	(strcmp(columnName, "MissionID") == 0) {
+				objectives[index].mission_id = sqlite3_column_int(stmt, i);
+			} else if	(strcmp(columnName, "Status") == 0) {
+				objectives[index].status = sqlite3_column_int(stmt, i);
+			} else if	(strcmp(columnName, "ObjectiveRank") == 0) {
+				objectives[index].rank = sqlite3_column_int(stmt, i);
+			} else if 	(strcmp(columnName, "Objective") == 0) {
+				sprintf(objectives[index].objective, (char *) sqlite3_column_text(stmt, i));
+			} else if 	(strcmp(columnName, "Notes") == 0) {
+				const unsigned char *text = sqlite3_column_text(stmt, i);
+				if (text != NULL) sprintf(objectives[index].notes, "%s", (const char *) text);
+				else sprintf(objectives[index].notes, "");
+			} else {
+				fprintf(stderr, "!!!!!! %s not yet implemented for Mission !!!!!\n", columnName);
+			}
+		}
+		index++;
+		if(index >= max_size) {
+			max_size *= 2;
+			struct MissionObjective_DB *temp = (struct MissionObjective_DB *) realloc(objectives, max_size*sizeof(struct MissionObjective_DB));
+			if(temp == NULL) {
+				fprintf(stderr, "!!!!!! Reallocation failed for missions from database !!!!!!!!!!");
+				return index;
+			}
+			objectives = temp;
+			*p_objectives = objectives;
+		}
+	}
+
+	if (rc != SQLITE_DONE) {
+		fprintf(stderr, "Error stepping through the result set");
+	}
+
+	sqlite3_finalize(stmt);
+
+	return index;
+}
+
