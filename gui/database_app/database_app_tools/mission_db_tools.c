@@ -1,8 +1,18 @@
 #include "mission_db_tools.h"
 #include "gui/css_loader.h"
+#include "launch_calculator/lv_profile.h"
+#include "database/lv_database.h"
+
+GObject *stack_missiondb;
 
 
 int get_highest_combobox_iter_id(GtkComboBox *combobox);
+
+
+void init_mission_db_tools(GtkBuilder *builder) {
+	stack_missiondb = gtk_builder_get_object(builder, "stack_missiondb");
+}
+
 
 // Function to get the active program ID from the combo box
 int get_active_combobox_id(GtkComboBox *combo_box) {
@@ -101,4 +111,60 @@ int get_highest_combobox_iter_id(GtkComboBox *combobox) {
 	}
 
 	return highest_id;
+}
+
+void update_program_dropdown(GtkComboBox *combo_box, int show_init_all) {
+	GtkListStore *store;
+	GtkTreeIter iter;
+	char entry[50];
+
+	struct MissionProgram_DB *programs;
+	int num_programs = db_get_all_programs(&programs);
+
+	store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
+	if(show_init_all) {
+		gtk_list_store_append(store, &iter);
+		gtk_list_store_set(store, &iter, 0, "ALL", 1, 0, -1);
+	}
+	// Add items to the list store
+	for(int i = 0; i < num_programs; i++) {
+		gtk_list_store_append(store, &iter);
+		sprintf(entry, "%s", programs[i].name);
+		gtk_list_store_set(store, &iter, 0, entry, 1, programs[i].id, -1);
+	}
+
+	gtk_combo_box_set_model(combo_box, GTK_TREE_MODEL(store));
+	gtk_combo_box_set_active(combo_box, 0);
+
+	g_object_unref(store);
+	free(programs);
+}
+
+void update_mission_launcher_dropdown(GtkComboBox *combo_box) {
+	struct LV *all_launcher;
+	int *launcher_ids;
+	int num_launcher = get_all_launch_vehicles_from_database(&all_launcher, &launcher_ids);
+
+	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
+	GtkTreeIter iter;
+	// Add items to the list store
+	for(int i = 0; i < num_launcher; i++) {
+		gtk_list_store_append(store, &iter);
+		char entry[30];
+		sprintf(entry, "%s", all_launcher[i].name);
+		gtk_list_store_set(store, &iter, 0, entry, 1, launcher_ids[i], -1);
+	}
+
+	gtk_combo_box_set_model(combo_box, GTK_TREE_MODEL(store));
+	gtk_combo_box_set_active(combo_box, 0);
+
+	g_object_unref(store);
+}
+
+void switch_to_mission_database_page() {
+	gtk_stack_set_visible_child_name(GTK_STACK(stack_missiondb), "page0");
+}
+
+void switch_to_mission_manager_page() {
+	gtk_stack_set_visible_child_name(GTK_STACK(stack_missiondb), "page1");
 }
