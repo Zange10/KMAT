@@ -168,3 +168,59 @@ void switch_to_mission_database_page() {
 void switch_to_mission_manager_page() {
 	gtk_stack_set_visible_child_name(GTK_STACK(stack_missiondb), "page1");
 }
+
+void add_mission_id_to_info_show_list(int **show_mission_info, int *num_mission_info, int mission_id) {
+	// empty list
+	if(*show_mission_info == NULL) {
+		*show_mission_info = (int*) calloc(1, sizeof(int));
+		*show_mission_info[0] = mission_id;
+		*num_mission_info = 1;
+		return;
+	}
+	// is mission_id already in list
+	for(int i = 0; i < *num_mission_info; i++) {
+		if((*show_mission_info)[i] == mission_id) return;
+	}
+	// use empty spaces
+	for(int i = 0; i < *num_mission_info; i++) {
+		if((*show_mission_info)[i] == 0) {
+			(*show_mission_info)[i] = mission_id;
+			return;
+		}
+	}
+
+	// double size list and enter mission_id to first empty space
+	int *new_list = realloc(*show_mission_info, *num_mission_info * 2 * sizeof(int));
+
+	// Check if reallocation succeeded
+	if (new_list == NULL) {
+		printf("Memory reallocation failed\n");
+		return;  // Return NULL to indicate failure
+	}
+
+	// Initialize the newly allocated portion to 0
+	for (int i = *num_mission_info; i < *num_mission_info*2; i++) {
+		new_list[i] = 0;
+	}
+	new_list[*num_mission_info] = mission_id;
+	*num_mission_info *= 2;
+	*show_mission_info = new_list;
+}
+
+void remove_mission_id_from_info_show_list(int *show_mission_info, int num_mission_info, int mission_id) {
+	for(int i = 0; i < num_mission_info; i++) {
+		if(show_mission_info[i] == mission_id) {
+			show_mission_info[i] = 0;
+			return;
+		}
+	}
+}
+
+int is_mission_id_on_info_show_list(const int *show_mission_info, int num_mission_info, int mission_id) {
+	for(int i = 0; i < num_mission_info; i++) {
+		if(show_mission_info[i] == mission_id) {
+			return 1;
+		}
+	}
+	return 0;
+}

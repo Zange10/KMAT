@@ -127,14 +127,10 @@ void update_mman_objective_box() {
 		char label_text[20];
 		int req_width = -1;
 		switch(col) {
+			case 0: sprintf(label_text, "#"); req_width = 20; break;
 			case 1: sprintf(label_text, "Mission"); req_width = 150; break;
 			case 2: sprintf(label_text, "Program"); req_width = 120; break;
-			case 3: sprintf(label_text, "Status"); req_width = 120; break;
-			case 4: sprintf(label_text, "Vehicle"); req_width = 150; break;
-			case 5: sprintf(label_text, "Objectives"); req_width = 100; break;
-			case 6: sprintf(label_text, "Events"); req_width = 100; break;
-			case 7: sprintf(label_text, "Edit"); req_width = 50; break;
-			default:sprintf(label_text, "#"); req_width = 20; break;
+			default:sprintf(label_text, ""); req_width = 20; break;
 		}
 
 		// Create a GtkLabel

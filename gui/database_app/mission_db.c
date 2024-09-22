@@ -16,15 +16,19 @@ GtkWidget *mission_grid;
 
 struct Mission_DB *missions;
 int num_missions;
+int *show_mission_objectives, *show_mission_events, num_show_mission_objectives, num_show_mission_events;
 
 
-void update_db_box();
 void on_showhide_mission_objectives(GtkWidget *button, gpointer data);
 void on_showhide_mission_events(GtkWidget *button, gpointer data);
 void on_edit_mission(GtkWidget *button, gpointer data);
+int is_mission_id_on_objective_show_list(int mission_id);
+int is_mission_id_on_event_show_list(int mission_id);
 
 
 void init_mission_db(GtkBuilder *builder) {
+	num_show_mission_objectives = 0;
+	num_show_mission_events = 0;
 	mission_vp = gtk_builder_get_object(builder, "vp_missiondb");
 	tf_mdbfilt_name = gtk_builder_get_object(builder, "tf_mdbfilt_name");
 	cb_mdbfilt_program = gtk_builder_get_object(builder, "cb_mdbfilt_program");
@@ -51,7 +55,7 @@ void init_mission_db(GtkBuilder *builder) {
 void update_db_box() {
 	int num_mission_cols = 8;
 
-	// Remove grid if exists
+	// Remove grid if exists (POSSIBLE MEMORY LEAD WITH GRID AND CHILDREN?)
 	if (mission_grid != NULL && GTK_WIDGET(mission_vp) == gtk_widget_get_parent(mission_grid)) {
 		gtk_container_remove(GTK_CONTAINER(mission_vp), mission_grid);
 	}
@@ -79,7 +83,7 @@ void update_db_box() {
 
 	for (int col = 0; col < num_mission_cols; ++col) {
 		char label_text[20];
-		int req_width = -1;
+		int req_width;
 		switch(col) {
 			case 1: sprintf(label_text, "Mission"); req_width = 150; break;
 			case 2: sprintf(label_text, "Program"); req_width = 120; break;
@@ -112,10 +116,12 @@ void update_db_box() {
 	struct LauncherInfo_DB lv;
 	struct PlaneInfo_DB fv;
 
+
+	int added_objective_rows = 0, added_event_rows = 0;
 	// Create labels and buttons and add them to the grid
 	for (int i = 0; i < num_missions; ++i) {
 		struct Mission_DB m = missions[i];
-		int row = i*2+3;
+		int row = i*2+3 + added_objective_rows+added_event_rows;
 
 		for (int j = 0; j < num_mission_cols; ++j) {
 			int col = j*2+1;
@@ -131,8 +137,10 @@ void update_db_box() {
 					if(m.launcher_id != 0) sprintf(widget_text, "%s", lv.name);
 					else if(m.plane_id != 0) sprintf(widget_text, "%s", fv.name);
 					else sprintf(widget_text, "/"); break;
+				case 5: sprintf(widget_text, "%s", is_mission_id_on_objective_show_list(m.id) ? "↑" : "↓"); break;
+				case 6: sprintf(widget_text, "%s", is_mission_id_on_event_show_list(m.id) ? "↑" : "↓"); break;
 				case 7: sprintf(widget_text, "x"); break;
-				default:sprintf(widget_text, "↓"); break;
+				default:sprintf(widget_text, ""); break;
 			}
 
 			GtkWidget *widget;
@@ -178,6 +186,47 @@ void update_db_box() {
 	free(programs);
 }
 
+
+void print_lists() {
+	printf("Objectives: ");
+	for(int i = 0; i < num_show_mission_objectives; i++) {
+		if(i != 0) printf(", ");
+		printf("%d", show_mission_objectives[i]);
+	}
+	printf("\nEvents: ");
+	for(int i = 0; i < num_show_mission_events; i++) {
+		if(i != 0) printf(", ");
+		printf("%d", show_mission_events[i]);
+	}
+	printf("\n\n");
+}
+
+void add_mission_id_to_objective_show_list(int mission_id) {
+	add_mission_id_to_info_show_list(&show_mission_objectives, &num_show_mission_objectives, mission_id);
+}
+
+void remove_mission_id_from_objective_show_list(int mission_id) {
+	remove_mission_id_from_info_show_list(show_mission_objectives, num_show_mission_objectives, mission_id);
+}
+
+int is_mission_id_on_objective_show_list(int mission_id) {
+	return is_mission_id_on_info_show_list(show_mission_objectives, num_show_mission_objectives, mission_id);
+}
+
+void add_mission_id_to_event_show_list(int mission_id) {
+	add_mission_id_to_info_show_list(&show_mission_events, &num_show_mission_events, mission_id);
+}
+
+void remove_mission_id_from_event_show_list(int mission_id) {
+	remove_mission_id_from_info_show_list(show_mission_events, num_show_mission_events, mission_id);
+}
+
+int is_mission_id_on_event_show_list(int mission_id) {
+	return is_mission_id_on_info_show_list(show_mission_events, num_show_mission_events, mission_id);
+}
+
+
+
 void on_show_missions(GtkWidget* widget, gpointer data) {
 	update_db_box();
 }
@@ -188,6 +237,12 @@ void on_reset_mission_filter(GtkWidget* widget, gpointer data) {
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(cb_mdbfilt_inprog), 1);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(cb_mdbfilt_ytf), 1);
 	gtk_combo_box_set_active(GTK_COMBO_BOX(cb_mdbfilt_program), 0);
+	if(show_mission_objectives != NULL) free(show_mission_objectives);
+	if(show_mission_events != NULL) free(show_mission_events);
+	show_mission_objectives = NULL;
+	show_mission_events = NULL;
+	num_show_mission_objectives = 0;
+	num_show_mission_events = 0;
 	update_db_box();
 }
 
@@ -198,13 +253,25 @@ void on_new_mission() {
 }
 
 void on_showhide_mission_objectives(GtkWidget *button, gpointer data) {
-	int mission_id = *((int *)data);  // Cast data back to int
-	g_print("Objective of mission %d\n", mission_id);
+	int mission_id = *((int *) data);  // Cast data back to int
+	if(is_mission_id_on_objective_show_list(mission_id)) remove_mission_id_from_objective_show_list(mission_id);
+	else {
+		if(is_mission_id_on_event_show_list(mission_id)) remove_mission_id_from_event_show_list(mission_id);
+		add_mission_id_to_objective_show_list(mission_id);
+	}
+	print_lists();
+	update_db_box();
 }
 
 void on_showhide_mission_events(GtkWidget *button, gpointer data) {
 	int mission_id = *((int *) data);  // Cast data back to int
-	g_print("Events of mission %d\n", mission_id);
+	if(is_mission_id_on_event_show_list(mission_id)) remove_mission_id_from_event_show_list(mission_id);
+	else {
+		if(is_mission_id_on_objective_show_list(mission_id)) remove_mission_id_from_objective_show_list(mission_id);
+		add_mission_id_to_event_show_list(mission_id);
+	}
+	print_lists();
+	update_db_box();
 }
 
 void on_edit_mission(GtkWidget *button, gpointer data) {
@@ -217,5 +284,9 @@ void on_edit_mission(GtkWidget *button, gpointer data) {
 
 void close_mission_db() {
 	if(missions != NULL) free(missions);
+	if(show_mission_objectives != NULL) free(show_mission_objectives);
+	if(show_mission_events != NULL) free(show_mission_events);
 	missions = NULL;
+	show_mission_objectives = NULL;
+	show_mission_events = NULL;
 }
