@@ -264,7 +264,7 @@ enum MissionSuccess db_get_mission_success(int mission_id) {
 
 int db_get_objectives_from_mission_id(struct MissionObjective_DB **p_objectives, int mission_id) {
 	char query[500];
-	sprintf(query, "SELECT * FROM MissionObjective WHERE MissionID = %d;", mission_id);
+	sprintf(query, "SELECT * FROM MissionObjective WHERE MissionID = %d ORDER BY ObjectiveRank ASC;", mission_id);
 
 	sqlite3_stmt *stmt = execute_multirow_request(query);
 	int rc;
@@ -286,7 +286,7 @@ int db_get_objectives_from_mission_id(struct MissionObjective_DB **p_objectives,
 			} else if	(strcmp(columnName, "Status") == 0) {
 				objectives[index].status = sqlite3_column_int(stmt, i);
 			} else if	(strcmp(columnName, "ObjectiveRank") == 0) {
-				objectives[index].rank = sqlite3_column_int(stmt, i);
+				objectives[index].rank = sqlite3_column_int(stmt, i)-1;
 			} else if 	(strcmp(columnName, "Objective") == 0) {
 				sprintf(objectives[index].objective, (char *) sqlite3_column_text(stmt, i));
 			} else if 	(strcmp(columnName, "Notes") == 0) {

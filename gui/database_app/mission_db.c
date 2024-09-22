@@ -92,7 +92,7 @@ void update_db_box() {
 			case 5: sprintf(label_text, "Objectives"); req_width = 100; break;
 			case 6: sprintf(label_text, "Events"); req_width = 100; break;
 			case 7: sprintf(label_text, "Edit"); req_width = 50; break;
-			default:sprintf(label_text, "#"); req_width = 20; break;
+			default:sprintf(label_text, "#"); req_width = 30; break;
 		}
 
 		// Create a GtkLabel
@@ -185,9 +185,44 @@ void update_db_box() {
 			for(int j = 0; j < num_objectives; j++) {
 				row+=2; added_objectives++;
 				GtkWidget *label = gtk_label_new(objectives[j].objective);
-				gtk_grid_attach(GTK_GRID(mission_grid), label, 1, row + 1, num_mission_cols * 2, 1);
+				GtkWidget *rank_label = gtk_label_new("");
+				gtk_label_set_xalign(GTK_LABEL(label), (gfloat) 0.0);
+
+				// Word wrap
+				gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+				gtk_label_set_line_wrap_mode(GTK_LABEL(label), PANGO_WRAP_WORD);
+				// Set maximum width in characters to control the wrapping (Somehow this works...)
+				gtk_label_set_max_width_chars(GTK_LABEL(label), 1);
+
+				// set css class
+				char css_class[50];
+				if(objectives[j].rank == OBJ_PRIMARY) {
+					gtk_label_set_label(GTK_LABEL(rank_label), "PRIMARY");
+					if(objectives[j].status == OBJ_SUCCESS) sprintf(css_class, "missiondb-primary-obj-success");
+					else if(objectives[j].status == OBJ_FAIL) sprintf(css_class, "missiondb-primary-obj-fail");
+					else sprintf(css_class, "missiondb-primary-obj-tbd");
+				} else {
+					gtk_label_set_label(GTK_LABEL(rank_label), "SECONDARY");
+					if(objectives[j].status == OBJ_SUCCESS) sprintf(css_class, "missiondb-secondary-obj-success");
+					else if(objectives[j].status == OBJ_FAIL) sprintf(css_class, "missiondb-secondary-obj-fail");
+					else sprintf(css_class, "missiondb-secondary-obj-tbd");
+				}
+
+				set_css_class_for_widget(label, css_class);
+				set_css_class_for_widget(rank_label, css_class);
+
 				separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-				gtk_grid_attach(GTK_GRID(mission_grid), separator, 1, row + 1, num_mission_cols * 2 + 1, 1);
+				gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, row, 1, 1);
+				separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+				gtk_grid_attach(GTK_GRID(mission_grid), separator, 2, row, 1, 1);
+				gtk_grid_attach(GTK_GRID(mission_grid), rank_label, 3, row, 1, 1);
+				separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+				gtk_grid_attach(GTK_GRID(mission_grid), separator, 4, row, 1, 1);
+				gtk_grid_attach(GTK_GRID(mission_grid), label, 5, row, num_mission_cols * 2 - 5, 1);
+				separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+				gtk_grid_attach(GTK_GRID(mission_grid), separator, num_mission_cols * 2, row, 1, 1);
+				separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+				gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, row + 1, num_mission_cols * 2 + 1, 1);
 			}
 			free(objectives);
 		}
@@ -201,21 +236,6 @@ void update_db_box() {
 	gtk_widget_show_all(GTK_WIDGET(mission_vp));
 
 	free(programs);
-}
-
-
-void print_lists() {
-	printf("Objectives: ");
-	for(int i = 0; i < num_show_mission_objectives; i++) {
-		if(i != 0) printf(", ");
-		printf("%d", show_mission_objectives[i]);
-	}
-	printf("\nEvents: ");
-	for(int i = 0; i < num_show_mission_events; i++) {
-		if(i != 0) printf(", ");
-		printf("%d", show_mission_events[i]);
-	}
-	printf("\n\n");
 }
 
 void add_mission_id_to_objective_show_list(int mission_id) {
@@ -276,7 +296,6 @@ void on_showhide_mission_objectives(GtkWidget *button, gpointer data) {
 		if(is_mission_id_on_event_show_list(mission_id)) remove_mission_id_from_event_show_list(mission_id);
 		add_mission_id_to_objective_show_list(mission_id);
 	}
-	print_lists();
 	update_db_box();
 }
 
@@ -287,7 +306,6 @@ void on_showhide_mission_events(GtkWidget *button, gpointer data) {
 		if(is_mission_id_on_objective_show_list(mission_id)) remove_mission_id_from_objective_show_list(mission_id);
 		add_mission_id_to_event_show_list(mission_id);
 	}
-	print_lists();
 	update_db_box();
 }
 

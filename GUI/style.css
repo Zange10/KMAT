@@ -49,6 +49,44 @@
     background-image: none;  /* Ensure no theme background is interfering */
 }
 
+/* ------- Primary Objectives -------*/
+#missiondb-primary-obj-success {
+    background-color: #205520;
+    padding: 5px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+
+#missiondb-primary-obj-fail {
+    background-color: #552020;
+    padding: 5px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+
+#missiondb-primary-obj-tbd {
+    background-color: #333333;
+    padding: 5px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+
+/* ------- Secondary Objectives -------*/
+#missiondb-secondary-obj-success {
+    background-color: #305530;
+    padding: 5px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+
+#missiondb-secondary-obj-fail {
+    background-color: #553030;
+    padding: 5px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+
+#missiondb-secondary-obj-tbd {
+    background-color: #444444;
+    padding: 5px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+
 /* ------- yet to fly mission -------*/
 #missiondb-ytf-mission {
     /*background-color: #003060;*/
