@@ -4,6 +4,7 @@
 #include "gui/css_loader.h"
 #include "gui/database_app/database_app_tools/mission_db_tools.h"
 #include "gui/database_app/database_app_tools/mission_manager_tools.h"
+#include "ephem.h"
 
 
 GObject *mission_vp;
@@ -228,6 +229,42 @@ void update_db_box() {
 		}
 
 		// Show Events
+		if(is_mission_id_on_event_show_list(m.id)) {
+			struct MissionEvent_DB *events;
+			int num_events = db_get_events_from_mission_id(&events, m.id);
+			for(int j = 0; j < num_events; j++) {
+				row+=2; added_events++;
+				char date_string[25];
+				date_to_string(convert_JD_date(events[j].epoch), date_string, 1);
+				GtkWidget *epoch_label = gtk_label_new(date_string);
+				GtkWidget *event_label = gtk_label_new(events[j].event);
+				gtk_label_set_xalign(GTK_LABEL(event_label), (gfloat) 0.0);
+
+				// Word wrap
+				gtk_label_set_line_wrap(GTK_LABEL(event_label), TRUE);
+				gtk_label_set_line_wrap_mode(GTK_LABEL(event_label), PANGO_WRAP_WORD);
+				// Set maximum width in characters to control the wrapping (Somehow this works...)
+				gtk_label_set_max_width_chars(GTK_LABEL(event_label), 1);
+
+				// set css class
+				set_css_class_for_widget(epoch_label, "missiondb-passed-events");
+				set_css_class_for_widget(event_label, "missiondb-passed-events");
+
+				separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+				gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, row, 1, 1);
+				separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+				gtk_grid_attach(GTK_GRID(mission_grid), separator, 2, row, 1, 1);
+				gtk_grid_attach(GTK_GRID(mission_grid), epoch_label, 3, row, 1, 1);
+				separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+				gtk_grid_attach(GTK_GRID(mission_grid), separator, 4, row, 1, 1);
+				gtk_grid_attach(GTK_GRID(mission_grid), event_label, 5, row, num_mission_cols * 2 - 5, 1);
+				separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+				gtk_grid_attach(GTK_GRID(mission_grid), separator, num_mission_cols * 2, row, 1, 1);
+				separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+				gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, row + 1, num_mission_cols * 2 + 1, 1);
+			}
+			free(events);
+		}
 
 	}
 

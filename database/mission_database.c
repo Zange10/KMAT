@@ -260,8 +260,6 @@ enum MissionSuccess db_get_mission_success(int mission_id) {
 	else return MISSION_FAIL;
 }
 
-
-
 int db_get_objectives_from_mission_id(struct MissionObjective_DB **p_objectives, int mission_id) {
 	char query[500];
 	sprintf(query, "SELECT * FROM MissionObjective WHERE MissionID = %d ORDER BY ObjectiveRank ASC;", mission_id);
@@ -307,6 +305,57 @@ int db_get_objectives_from_mission_id(struct MissionObjective_DB **p_objectives,
 			}
 			objectives = temp;
 			*p_objectives = objectives;
+		}
+	}
+
+	if (rc != SQLITE_DONE) {
+		fprintf(stderr, "Error stepping through the result set");
+	}
+
+	sqlite3_finalize(stmt);
+
+	return index;
+}
+
+int db_get_events_from_mission_id(struct MissionEvent_DB **p_events, int mission_id) {
+	char query[500];
+	sprintf(query, "SELECT EventID, MissionID, JULIANDAY(Time), Event FROM MissionEvent WHERE MissionID = %d ORDER BY Time ASC;", mission_id);
+
+	sqlite3_stmt *stmt = execute_multirow_request(query);
+	int rc;
+
+	int index = 0;
+	int max_size = 10;
+	struct MissionEvent_DB *events = (struct MissionEvent_DB *) malloc(max_size * sizeof(struct MissionEvent_DB));
+	*p_events = events;
+
+	while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
+		// Process each row of the result set
+		for (int i = 0; i < sqlite3_column_count(stmt); i++) {
+			const char *columnName = sqlite3_column_name(stmt, i);
+
+			if 			(strcmp(columnName, "EventID") == 0) {
+				events[index].id = sqlite3_column_int(stmt, i);
+			} else if	(strcmp(columnName, "MissionID") == 0) {
+				events[index].mission_id = sqlite3_column_int(stmt, i);
+			} else if	(strcmp(columnName, "JULIANDAY(Time)") == 0) {
+				events[index].epoch = sqlite3_column_double(stmt, i);
+			} else if	(strcmp(columnName, "Event") == 0) {
+				sprintf(events[index].event, (char *) sqlite3_column_text(stmt, i));
+			} else {
+				fprintf(stderr, "!!!!!! %s not yet implemented for Mission !!!!!\n", columnName);
+			}
+		}
+		index++;
+		if(index >= max_size) {
+			max_size *= 2;
+			struct MissionEvent_DB *temp = (struct MissionEvent_DB *) realloc(events, max_size * sizeof(struct MissionEvent_DB));
+			if(temp == NULL) {
+				fprintf(stderr, "!!!!!! Reallocation failed for missions from database !!!!!!!!!!");
+				return index;
+			}
+			events = temp;
+			*p_events = events;
 		}
 	}
 

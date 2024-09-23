@@ -1,3 +1,10 @@
+#missiondb-header {
+    font-weight: bold;
+    font-size: 1.2em;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
 /* ------- successful mission -------*/
 #missiondb-successful-mission {
     background-color: #004000;
@@ -49,6 +56,13 @@
     background-image: none;  /* Ensure no theme background is interfering */
 }
 
+/* ------- yet to fly mission -------*/
+#missiondb-ytf-mission {
+    /*background-color: #003060;*/
+    padding: 10px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+
 /* ------- Primary Objectives -------*/
 #missiondb-primary-obj-success {
     background-color: #205520;
@@ -87,16 +101,18 @@
     background-image: none;  /* Ensure no theme background is interfering */
 }
 
-/* ------- yet to fly mission -------*/
-#missiondb-ytf-mission {
-    /*background-color: #003060;*/
-    padding: 10px;  /* Optional: Add padding for better layout */
+/* ------- Passed Events -------*/
+#missiondb-passed-events {
+    background-color: #333333;
+    padding: 5px;  /* Optional: Add padding for better layout */
     background-image: none;  /* Ensure no theme background is interfering */
 }
 
-#missiondb-header {
-    font-weight: bold;
-    font-size: 1.2em;
-    padding-top: 10px;
-    padding-bottom: 10px;
+/* ------- Future Events -------*/
+#missiondb-future-events {
+    background-color: #444444;
+    padding: 5px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
 }
+
+

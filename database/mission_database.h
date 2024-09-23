@@ -31,9 +31,15 @@ struct MissionProgram_DB {
 struct MissionObjective_DB {
 	int id, mission_id;
 	enum MissionObjectiveRank rank;
-	char objective[10000];
-	char notes[10000];
+	char objective[500];
+	char notes[500];
 	enum MissionObjectiveStatus status;
+};
+
+struct MissionEvent_DB {
+	int id, mission_id;
+	double epoch;
+	char event[500];
 };
 
 void db_new_program(const char *program_name, const char *vision);
@@ -45,5 +51,6 @@ int db_get_all_programs(struct MissionProgram_DB **p_programs);
 struct MissionProgram_DB db_get_program_from_id(int id);
 enum MissionSuccess db_get_mission_success(int mission_id);
 int db_get_objectives_from_mission_id(struct MissionObjective_DB **p_objectives, int mission_id);
+int db_get_events_from_mission_id(struct MissionEvent_DB **p_events, int mission_id);
 
 #endif //KSP_MISSION_DATABASE_H

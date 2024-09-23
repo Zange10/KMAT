@@ -19,7 +19,7 @@ void print_date(struct Date date, int line_break) {
 }
 
 void date_to_string(struct Date date, char *s, int clocktime) {
-	if(clocktime) sprintf(s,"%4d-%02d-%02d %02d:%02d:%06.3f", date.y, date.m, date.d, date.h, date.min, date.s);
+	if(clocktime) sprintf(s,"%4d-%02d-%02d %02d:%02d:%02.0f", date.y, date.m, date.d, date.h, date.min, date.s);
 	else sprintf(s,"%4d-%02d-%02d", date.y, date.m, date.d);
 }
 
