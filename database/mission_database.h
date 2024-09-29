@@ -45,6 +45,9 @@ struct MissionEvent_DB {
 void db_new_program(const char *program_name, const char *vision);
 void db_new_mission(const char *mission_name, int program_id, int launcher_id, int status);
 void db_update_mission(int mission_id, const char *mission_name, int program_id, int launcher_id, int status);
+void db_new_objective(int mission_id, int status, int rank, const char *objective);
+void db_update_objective(int objective_id, int mission_id, int status, int rank, const char *objective);
+void db_remove_objective(int objective_id);
 int db_get_number_of_programs();
 int db_get_missions_ordered_by_launch_date(struct Mission_DB **p_missions, struct Mission_Filter filter);
 int db_get_all_programs(struct MissionProgram_DB **p_programs);
@@ -52,5 +55,7 @@ struct MissionProgram_DB db_get_program_from_id(int id);
 enum MissionSuccess db_get_mission_success(int mission_id);
 int db_get_objectives_from_mission_id(struct MissionObjective_DB **p_objectives, int mission_id);
 int db_get_events_from_mission_id(struct MissionEvent_DB **p_events, int mission_id);
+int is_initial_event(const char *event);
+int db_get_last_inserted_id();
 
 #endif //KSP_MISSION_DATABASE_H

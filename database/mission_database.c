@@ -6,6 +6,14 @@
 
 
 
+const int NUM_INIT_EVENTS_DESIGNATORS = 3;
+const char *INIT_EVENTS_DESIGNATORS[] = {
+		"Launch",
+		"Take-off",
+		"Airlaunch"
+};
+
+
 void db_new_program(const char *program_name, const char *vision) {
 	char query[500];
 	sprintf(query, "INSERT INTO Program (Name, Vision) "
@@ -25,7 +33,28 @@ void db_update_mission(int mission_id, const char *mission_name, int program_id,
 	sprintf(query, "UPDATE Mission "
 				   "SET Name = '%s', ProgramID = %d, LauncherID = %d, Status = %d "
 				   "WHERE MissionID = %d;", mission_name, program_id, launcher_id, status, mission_id);
-	if(execute_query(query) != SQLITE_OK) fprintf(stderr, "\n!!!!! Mission insert Error !!!!!!!!\n");
+	if(execute_query(query) != SQLITE_OK) fprintf(stderr, "\n!!!!! Mission update Error !!!!!!!!\n");
+}
+
+void db_new_objective(int mission_id, int status, int rank, const char *objective) {
+	char query[500];
+	sprintf(query, "INSERT INTO MissionObjective (MissionID, Status, ObjectiveRank, Objective) "
+				   "VALUES (%d, %d, %d, '%s');", mission_id, status, rank, objective);
+	if(execute_query(query) != SQLITE_OK) fprintf(stderr, "\n!!!!! MissionObjective insert Error !!!!!!!!\n");
+}
+
+void db_update_objective(int objective_id, int mission_id, int status, int rank, const char *objective) {
+	char query[500];
+	sprintf(query, "UPDATE MissionObjective "
+				   "SET MissionId = %d, Status = %d, ObjectiveRank = %d, Objective = '%s' "
+				   "WHERE ObjectiveID = %d;", mission_id, status, rank, objective, objective_id);
+	if(execute_query(query) != SQLITE_OK) fprintf(stderr, "\n!!!!! MissionObjective update Error !!!!!!!!\n");
+}
+
+void db_remove_objective(int objective_id) {
+	char query[500];
+	sprintf(query, "DELETE FROM MissionObjective WHERE ObjectiveID = %d;", objective_id);
+	if(execute_query(query) != SQLITE_OK) fprintf(stderr, "\n!!!!! MissionObjective delete Error !!!!!!!!\n");
 }
 
 int db_get_missions_ordered_by_launch_date(struct Mission_DB **p_missions, struct Mission_Filter filter) {
@@ -366,5 +395,16 @@ int db_get_events_from_mission_id(struct MissionEvent_DB **p_events, int mission
 	sqlite3_finalize(stmt);
 
 	return index;
+}
+
+int db_get_last_inserted_id() {
+	return db_get_id_of_last_inserted_row();
+}
+
+int is_initial_event(const char *event) {
+	for(int i = 0; i < NUM_INIT_EVENTS_DESIGNATORS; i++) {
+		if(strcmp(event, INIT_EVENTS_DESIGNATORS[i]) == 0) return 1;
+	}
+	return 0;
 }
 

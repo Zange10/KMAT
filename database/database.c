@@ -125,6 +125,10 @@ struct PlaneInfo_DB db_get_plane_from_id(int id) {
 	return fv;
 }
 
+int db_get_id_of_last_inserted_row() {
+	return (int) sqlite3_last_insert_rowid(db);
+}
+
 void init_db() {
 	int rc = sqlite3_open("DERA.db", &db);
 

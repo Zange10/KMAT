@@ -115,4 +115,23 @@
     background-image: none;  /* Ensure no theme background is interfering */
 }
 
+/* ------- Mission Manager Update -------*/
+#mman-added {
+    background-color: #204020;
+    padding: 5px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+
+#mman-removed {
+    background-color: #402020;
+    padding: 5px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+
+#mman-norm {
+    background-color: #303030;
+    padding: 5px;  /* Optional: Add padding for better layout */
+    background-image: none;  /* Ensure no theme background is interfering */
+}
+
 

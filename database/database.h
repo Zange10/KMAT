@@ -26,6 +26,7 @@ sqlite3_stmt * execute_single_row_request(const char *query);
 sqlite3_stmt * execute_multirow_request(const char *query);
 struct PlaneInfo_DB db_get_plane_from_id(int id);
 struct MissionProgram_DB db_get_program_from_id(int id);
+int db_get_id_of_last_inserted_row();
 void close_db();
 
 #endif //KSP_DATABASE_H
