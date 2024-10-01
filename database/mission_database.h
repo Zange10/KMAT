@@ -48,6 +48,9 @@ void db_update_mission(int mission_id, const char *mission_name, int program_id,
 void db_new_objective(int mission_id, int status, int rank, const char *objective);
 void db_update_objective(int objective_id, int mission_id, int status, int rank, const char *objective);
 void db_remove_objective(int objective_id);
+void db_new_event(int mission_id, double epoch, char *event);
+void db_update_event(int event_id, int mission_id, double epoch, char *event);
+void db_remove_event(int event_id);
 int db_get_number_of_programs();
 int db_get_missions_ordered_by_launch_date(struct Mission_DB **p_missions, struct Mission_Filter filter);
 int db_get_all_programs(struct MissionProgram_DB **p_programs);

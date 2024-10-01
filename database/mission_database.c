@@ -57,6 +57,27 @@ void db_remove_objective(int objective_id) {
 	if(execute_query(query) != SQLITE_OK) fprintf(stderr, "\n!!!!! MissionObjective delete Error !!!!!!!!\n");
 }
 
+void db_new_event(int mission_id, double epoch, char *event) {
+	char query[500];
+	sprintf(query, "INSERT INTO MissionEvent (MissionID, Time, Event) "
+				   "VALUES (%d, datetime(%f), '%s');", mission_id, epoch, event);
+	if(execute_query(query) != SQLITE_OK) fprintf(stderr, "\n!!!!! MissionObjective insert Error !!!!!!!!\n");
+}
+
+void db_update_event(int event_id, int mission_id, double epoch, char *event) {
+	char query[500];
+	sprintf(query, "UPDATE MissionEvent "
+				   "SET MissionId = %d, Time = datetime(%f), Event = '%s' "
+				   "WHERE EventID = %d;", mission_id, epoch, event, event_id);
+	if(execute_query(query) != SQLITE_OK) fprintf(stderr, "\n!!!!! MissionObjective update Error !!!!!!!!\n");
+}
+
+void db_remove_event(int event_id) {
+	char query[500];
+	sprintf(query, "DELETE FROM MissionEvent WHERE EventID = %d;", event_id);
+	if(execute_query(query) != SQLITE_OK) fprintf(stderr, "\n!!!!! MissionObjective delete Error !!!!!!!!\n");
+}
+
 int db_get_missions_ordered_by_launch_date(struct Mission_DB **p_missions, struct Mission_Filter filter) {
 	char query[550];
 	char string_programId[20];
