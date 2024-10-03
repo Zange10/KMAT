@@ -5,12 +5,16 @@
 #include "gui/transfer_app.h"
 #include "gui/launch_app.h"
 #include "database/database.h"
+#include "tools/gmat_interface.h"
 
 
 // ------------------------------------------------------------
 
 int main() {
     init_celestial_bodies();
+	write_gmat_script();
+
+	return 0;
 
     int selection;
     char title[] = "CHOOSE PROGRAM:";
