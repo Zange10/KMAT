@@ -77,6 +77,11 @@ void write_gmat_script(struct ItinStep *step2pr, const char *filepath) {
 	int num_steps = get_num_of_itin_layers(step2pr);
 	int num_bodies = (sizeof(body_name) / sizeof(body_name[0]));
 
+	if(num_steps <= 2) {
+		printf("\nCannot create GMAT Optimizing Script for simple transfers (Must have at least one fly-by before arrial)\n");
+		return;
+	}
+
 	// Open the file in write mode
 	FILE *filePointer = fopen(filepath, "w");
 
