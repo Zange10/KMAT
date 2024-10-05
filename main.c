@@ -12,9 +12,6 @@
 
 int main() {
     init_celestial_bodies();
-	write_gmat_script();
-
-	return 0;
 
     int selection;
     char title[] = "CHOOSE PROGRAM:";

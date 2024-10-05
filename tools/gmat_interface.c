@@ -46,8 +46,9 @@ char propagator[] = "SunProp";
 char force_model[] = "SunProp_ForceModel";
 
 char solver[] = "NLPOpt";
-char solvermode[] = "RunInitialGuess";
-//char solvermode[] = "Solve";
+//char solvermode[] = "RunInitialGuess";
+char solvermode[] = "Solve";
+char propagator_algo[] = "PrinceDormand45";
 
 
 int gmat_jd_mod = 2430000;
@@ -69,9 +70,9 @@ void write_gmat_final_optimizer(FILE *filePointer, int num_steps, struct ItinSte
 
 void write_gmat_script() {
 	struct ItinStep *curr_transfer_tp;
-	curr_transfer_tp = load_single_itinerary_from_bfile("Itineraries/Ea-Ve-Ea-Ma-Ea-Ju-67.itin");
+//	curr_transfer_tp = load_single_itinerary_from_bfile("Itineraries/Ea-Ve-Ea-Ma-Ea-Ju-67.itin");
 //	curr_transfer_tp = load_single_itinerary_from_bfile("Itineraries/Ea-Ve-Ma-Ea-59.itin");
-//	curr_transfer_tp = load_single_itinerary_from_bfile("Itineraries/Voyager.itin");
+	curr_transfer_tp = load_single_itinerary_from_bfile("Itineraries/Voyager2.itin");
 	struct ItinStep *step2pr = get_first(curr_transfer_tp);
 
 	int num_steps = get_num_of_itin_layers(step2pr);
@@ -176,13 +177,13 @@ void create_gmat_propagator(FILE *filePointer, int num_bodies) {
 		if(i != 0) fprintf(filePointer, ", ");
 		fprintf(filePointer, "%s", body_name[i]);
 	}
-	fprintf(filePointer, "}\n");
+	fprintf(filePointer, ", Luna}\n");
 
 
 	print_gmat_section(filePointer, "Propagators");
 	fprintf(filePointer, "Create Propagator %s\n", propagator);
 	fprintf(filePointer, "%s.FM = %s\n", propagator, force_model);
-	fprintf(filePointer, "%s.Type = PrinceDormand78\n", propagator);
+	fprintf(filePointer, "%s.Type = %s\n", propagator, propagator_algo);
 }
 
 void create_gmat_coordinate_systems(FILE *filePointer, int num_bodies) {
@@ -261,7 +262,7 @@ void create_gmat_subscribers(FILE *filePointer, int num_steps) {
 	fprintf(filePointer, "%s.XVariable = loopIdx\n", cost_plot);
 	fprintf(filePointer, "%s.YVariables = {Cost}\n", cost_plot);
 	fprintf(filePointer, "%s.ShowGrid = true\n", cost_plot);
-	fprintf(filePointer, "%s.ShowPlot = false\n", cost_plot);
+	fprintf(filePointer, "%s.ShowPlot = true\n", cost_plot);
 
 	fprintf(filePointer, "\nCreate ReportFile RF1\n");
 	fprintf(filePointer, "RF1.Filename = 'ReportStates.txt'\n");
@@ -471,6 +472,7 @@ void write_gmat_final_optimizer(FILE *filePointer, int num_steps, struct ItinSte
 	fprintf(filePointer, "\tloopIdx = loopIdx + 1\n\n");
 	fprintf(filePointer, "\t%% Vary states\n");
 
+	fprintf(filePointer, "\tVary NLPOpt(%s_epoch  = %s_epoch)\n", sc_var[0], sc_var[0]);
 	fprintf(filePointer, "\tVary NLPOpt(%s_c3  = %s_c3)\n", sc_var[0], sc_var[0]);
 	fprintf(filePointer, "\tVary NLPOpt(%s_rha = %s_rha)\n", sc_var[0], sc_var[0]);
 	fprintf(filePointer, "\tVary NLPOpt(%s_dha = %s_dha)\n", sc_var[0], sc_var[0]);
@@ -479,7 +481,7 @@ void write_gmat_final_optimizer(FILE *filePointer, int num_steps, struct ItinSte
 		char var[20];
 		if(i < num_steps-1) sprintf(var, "%s%i", sc_var[1], i);
 		else sprintf(var, "%s", sc_var[2]);
-		if(i > 1) fprintf(filePointer, "\tVary NLPOpt(%s_epoch = %s_epoch)\n", var, var);
+		/*if(i > 1)*/ fprintf(filePointer, "\tVary NLPOpt(%s_epoch = %s_epoch)\n", var, var);
 		fprintf(filePointer, "\tVary NLPOpt(%s_c3  = %s_c3)\n", var, var);
 		fprintf(filePointer, "\tVary NLPOpt(%s_rha = %s_rha)\n", var, var);
 		fprintf(filePointer, "\tVary NLPOpt(%s_dha = %s_dha)\n", var, var);
@@ -490,6 +492,10 @@ void write_gmat_final_optimizer(FILE *filePointer, int num_steps, struct ItinSte
 	set_gmat_all_sc_setup(filePointer, num_steps, step2pr, 1);
 
 	step2pr = get_first(step2pr);
+
+	fprintf(filePointer, "\n\t%% Delta-v from parking orbit\n");
+	fprintf(filePointer, "\tCost = %s.%s.VMAG - sqrt(EarthGravParam/6571)\n", sc_name[0], coord_name[step2pr->body->id]);
+
 	fprintf(filePointer, "\n\t%% Store inclinations\n");
 	fprintf(filePointer, "\t%s_incl = %s.%s.INC\n", sc_var[0], sc_name[0], coord_name[step2pr->body->id]);
 	for(int i = 1; i < num_steps-1; i++) {
@@ -557,5 +563,6 @@ void write_gmat_final_optimizer(FILE *filePointer, int num_steps, struct ItinSte
 		fprintf(filePointer, "\tNonlinearConstraint NLPOpt(%s.%s.VZ = %s.%s.VZ)\n", sc1, coord_name[0], sc2, coord_name[0]);
 	}
 
+	fprintf(filePointer, "\n\tMinimize NLPOpt(Cost)\n");
 	fprintf(filePointer, "EndOptimize\n");
 }
