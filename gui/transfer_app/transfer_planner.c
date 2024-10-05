@@ -515,31 +515,63 @@ void on_load_itinerary(GtkWidget* widget, gpointer data) {
 	
 	step2pr = step2pr->next[0];
 	while(step2pr->num_next_nodes != 0) {
-		struct Vector v_arr = step2pr->v_arr;
-		struct Vector v_dep = step2pr->next[0]->v_dep;
-		struct Vector v_body = step2pr->v_body;
-		double rp = get_flyby_periapsis(v_arr, v_dep, v_body, step2pr->body);
-		double incl = get_flyby_inclination(v_arr, v_dep, v_body);
-		
-		struct FlybyHyperbolaParams hyp_params = get_hyperbola_params(step2pr->v_arr, step2pr->next[0]->v_dep, step2pr->v_body, step2pr->body, rp-step2pr->body->radius);
-		double dt_in_days = step2pr->date - step2pr->prev->date;
-		
-		printf("\nFly-by Hyperbola %s (Travel Time: %.2f days)\n"
-			   "Date: %f\n"
-			   "RadPer: %f km\n"
-			   "Inclination: %f°\n"
-			   "C3Energy: %f km²/s²\n"
-			   "IncomingRHA: %f°\n"
-			   "IncomingDHA: %f°\n"
-			   "IncomingBVAZI: %f°\n"
-			   "OutgoingRHA: %f°\n"
-			   "OutgoingDHA: %f°\n"
-			   "OutgoingBVAZI: %f°\n"
-			   "TA: 0.0°\n",
-			   step2pr->body->name, dt_in_days, step2pr->date,hyp_params.dep_hyp.r_pe/1000, rad2deg(incl), hyp_params.dep_hyp.c3_energy/1e6,
-			   rad2deg(hyp_params.arr_hyp.bplane_angle), rad2deg(hyp_params.arr_hyp.decl), rad2deg(hyp_params.arr_hyp.bvazi),
-			   rad2deg(hyp_params.dep_hyp.bplane_angle), rad2deg(hyp_params.dep_hyp.decl), rad2deg(hyp_params.dep_hyp.bvazi));
-		step2pr = step2pr->next[0];
+		if(step2pr->body != NULL) {
+			struct Vector v_arr = step2pr->v_arr;
+			struct Vector v_dep = step2pr->next[0]->v_dep;
+			struct Vector v_body = step2pr->v_body;
+			double rp = get_flyby_periapsis(v_arr, v_dep, v_body, step2pr->body);
+			double incl = get_flyby_inclination(v_arr, v_dep, v_body);
+
+			struct FlybyHyperbolaParams hyp_params = get_hyperbola_params(step2pr->v_arr, step2pr->next[0]->v_dep,
+																		  step2pr->v_body, step2pr->body,
+																		  rp - step2pr->body->radius);
+			double dt_in_days = step2pr->date - step2pr->prev->date;
+
+			printf("\nFly-by Hyperbola %s (Travel Time: %.2f days)\n"
+				   "Date: %f\n"
+				   "RadPer: %f km\n"
+				   "Inclination: %f°\n"
+				   "C3Energy: %f km²/s²\n"
+				   "IncomingRHA: %f°\n"
+				   "IncomingDHA: %f°\n"
+				   "IncomingBVAZI: %f°\n"
+				   "OutgoingRHA: %f°\n"
+				   "OutgoingDHA: %f°\n"
+				   "OutgoingBVAZI: %f°\n"
+				   "TA: 0.0°\n",
+				   step2pr->body->name, dt_in_days, step2pr->date, hyp_params.dep_hyp.r_pe / 1000, rad2deg(incl),
+				   hyp_params.dep_hyp.c3_energy / 1e6,
+				   rad2deg(hyp_params.arr_hyp.bplane_angle), rad2deg(hyp_params.arr_hyp.decl),
+				   rad2deg(hyp_params.arr_hyp.bvazi),
+				   rad2deg(hyp_params.dep_hyp.bplane_angle), rad2deg(hyp_params.dep_hyp.decl),
+				   rad2deg(hyp_params.dep_hyp.bvazi));
+			step2pr = step2pr->next[0];
+		} else {
+			double dt_in_days = step2pr->date - step2pr->prev->date;
+			double dist_to_sun = vector_mag(step2pr->r);
+
+			struct Vector orbit_prograde = step2pr->v_arr;
+			struct Vector orbit_normal = cross_product(step2pr->r, step2pr->v_arr);
+			struct Vector orbit_radialin = cross_product(orbit_normal, step2pr->v_arr);
+			struct Vector dv_vec = subtract_vectors(step2pr->next[0]->v_dep, step2pr->v_arr);
+
+			// dv vector in S/C coordinate system (prograde, radial in, normal) (sign it if projected vector more than 90° from target vector / pointing in opposite direction)
+			struct Vector dv_vec_sc = {
+					vector_mag(proj_vec_vec(dv_vec, orbit_prograde)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_prograde), orbit_prograde) < M_PI/2 ? 1 : -1),
+					vector_mag(proj_vec_vec(dv_vec, orbit_radialin)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_radialin), orbit_radialin) < M_PI/2 ? 1 : -1),
+					vector_mag(proj_vec_vec(dv_vec, orbit_normal)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_normal), orbit_normal) < M_PI/2 ? 1 : -1)
+			};
+
+			printf("\nDeep Space Maneuver (Travel Time: %.2f days)\n"
+				   "Date: %f\n"
+				   "Distance to the Sun: %.3f AU\n"
+				   "Dv Prograde: %f m/s\n"
+				   "Dv Radial: %f m/s\n"
+				   "Dv Normal: %f m/s\n"
+				   "Total: %f m/s\n",
+				   dt_in_days, step2pr->date, dist_to_sun / 1.495978707e11, dv_vec_sc.x, dv_vec_sc.y, dv_vec_sc.z, vector_mag(dv_vec_sc));
+			step2pr = step2pr->next[0];
+		}
 	}
 	
 	double rp = 100000e3;
