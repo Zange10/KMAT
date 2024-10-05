@@ -14,7 +14,8 @@ char *body_name[] = {
 		"Jupiter",
 		"Saturn",
 		"Uranus",
-		"Neptune"
+		"Neptune",
+		"Pluto"
 };
 
 char *coord_name[] = {
@@ -26,7 +27,8 @@ char *coord_name[] = {
 		"JupiterEc",
 		"SaturnEc",
 		"UranusEc",
-		"NeptuneEc"
+		"NeptuneEc",
+		"PlutoEc"
 };
 
 char *sc_var[] = {
@@ -45,7 +47,7 @@ char propagator[] = "SunProp";
 
 char force_model[] = "SunProp_ForceModel";
 
-char solver[] = "NLPOpt";
+char vf13ad_solver[] = "NLPOpt";	// not so accurate but for refining initial guess
 //char solvermode[] = "RunInitialGuess";
 char solvermode[] = "Solve";
 char propagator_algo[] = "PrinceDormand45";
@@ -107,13 +109,11 @@ void write_gmat_script() {
 
 	fprintf(filePointer, "\n\nReport RF1 %s_epoch %s_c3 %s_rha %s_dha ", sc_var[0], sc_var[0], sc_var[0], sc_var[0]);
 	for(int i = 1; i < num_steps-1; i++) {
-		step2pr = step2pr->next[0];
 		char var[20];
 		sprintf(var, "%s%i", sc_var[1], i);
 
 		fprintf(filePointer, "%s_epoch %s_incl %s_periapsis ", var, var, var);
 	}
-	step2pr = step2pr->next[0];
 	fprintf(filePointer, "%s_epoch %s_c3\n", sc_var[2], sc_var[2]);
 
 
@@ -200,11 +200,10 @@ void create_gmat_coordinate_systems(FILE *filePointer, int num_bodies) {
 void create_gmat_solver(FILE *filePointer) {
 	print_gmat_section(filePointer, "Solvers");
 
-	fprintf(filePointer, "Create VF13ad %s\n", solver);
-	fprintf(filePointer, "%s.ShowProgress = true\n", solver);
-	fprintf(filePointer, "%s.Tolerance = 1e-05\n", solver); // tolerance to minimize
-//	fprintf(filePointer, "%s.FeasibilityTolerance = 0.01\n", solver); // tolerance to constraints
-	fprintf(filePointer, "%s.FeasibilityTolerance = 1\n", solver); // tolerance to constraints
+	fprintf(filePointer, "Create VF13ad %s\n", vf13ad_solver);
+	fprintf(filePointer, "%s.ShowProgress = true\n", vf13ad_solver);
+	fprintf(filePointer, "%s.Tolerance = 1e-05\n", vf13ad_solver); // tolerance to minimize
+	fprintf(filePointer, "%s.FeasibilityTolerance = 0.1\n", vf13ad_solver); // tolerance to constraints
 }
 
 void create_gmat_subscribers(FILE *filePointer, int num_steps) {
@@ -266,6 +265,9 @@ void create_gmat_subscribers(FILE *filePointer, int num_steps) {
 
 	fprintf(filePointer, "\nCreate ReportFile RF1\n");
 	fprintf(filePointer, "RF1.Filename = 'ReportStates.txt'\n");
+
+	fprintf(filePointer, "\nCreate ReportFile RFDepStates\n");
+	fprintf(filePointer, "RFDepStates.Filename = 'DepartureStates.txt'\n");
 }
 
 void create_gmat_sc_variables(FILE *filePointer, const char *var) {
@@ -395,22 +397,22 @@ void determine_gmat_mean_epochs(FILE *filePointer, int num_steps, struct ItinSte
 }
 
 void write_gmat_optimizer(FILE *filePointer, int traj_id, const char *sc1, const char *var1, const char *coord1, const char *body1, const char *sc2, const char *var2, const char *coord2, const char *body2, int is_departure) {
-	fprintf(filePointer, "\nOptimize 'Optimize Trajectory %d' NLPOpt {SolveMode = %s, ExitMode = DiscardAndContinue, ShowProgressWindow = true}\n", traj_id, solvermode);
+	fprintf(filePointer, "\nOptimize 'Optimize Trajectory %d' %s {SolveMode = %s, ExitMode = DiscardAndContinue, ShowProgressWindow = true}\n", traj_id, vf13ad_solver, solvermode);
 	fprintf(filePointer, "\tloopIdx = loopIdx + 1\n\n");
 	fprintf(filePointer, "\t%% Vary states\n");
 
 	if(is_departure) {
-		fprintf(filePointer, "\tVary NLPOpt(%s_c3  = %s_c3)\n", var1, var1);
-		fprintf(filePointer, "\tVary NLPOpt(%s_rha = %s_rha)\n", var1, var1);
-		fprintf(filePointer, "\tVary NLPOpt(%s_dha = %s_dha)\n", var1, var1);
+		fprintf(filePointer, "\tVary %s(%s_c3  = %s_c3)\n", vf13ad_solver, var1, var1);
+		fprintf(filePointer, "\tVary %s(%s_rha = %s_rha)\n", vf13ad_solver, var1, var1);
+		fprintf(filePointer, "\tVary %s(%s_dha = %s_dha)\n", vf13ad_solver, var1, var1);
 	} else {
-		fprintf(filePointer, "\tVary NLPOpt(%s_bvazi  = %s_bvazi)\n", var1, var1);
-		fprintf(filePointer, "\tVary NLPOpt(%s_periapsis = %s_periapsis)\n", var1, var1);
-		fprintf(filePointer, "\tVary NLPOpt(%s_epoch = %s_epoch)\n", var2, var2);
+		fprintf(filePointer, "\tVary %s(%s_bvazi  = %s_bvazi)\n", vf13ad_solver, var1, var1);
+		fprintf(filePointer, "\tVary %s(%s_periapsis = %s_periapsis)\n", vf13ad_solver, var1, var1);
+		fprintf(filePointer, "\tVary %s(%s_epoch = %s_epoch)\n", vf13ad_solver, var2, var2);
 	}
-	fprintf(filePointer, "\tVary NLPOpt(%s_c3  = %s_c3)\n", var2, var2);
-	fprintf(filePointer, "\tVary NLPOpt(%s_rha = %s_rha)\n", var2, var2);
-	fprintf(filePointer, "\tVary NLPOpt(%s_dha = %s_dha)\n", var2, var2);
+	fprintf(filePointer, "\tVary %s(%s_c3  = %s_c3)\n", vf13ad_solver, var2, var2);
+	fprintf(filePointer, "\tVary %s(%s_rha = %s_rha)\n", vf13ad_solver, var2, var2);
+	fprintf(filePointer, "\tVary %s(%s_dha = %s_dha)\n", vf13ad_solver, var2, var2);
 
 	fprintf(filePointer, "\n\tBeginScript 'Set-up S/C'\n");
 	setup_gmat_sc(filePointer, sc1, var1, body1, coord1, 2, is_departure);
@@ -431,12 +433,12 @@ void write_gmat_optimizer(FILE *filePointer, int traj_id, const char *sc1, const
 			traj_id, sc1, coord_name[0], sc2, coord_name[0], sc1, coord_name[0], sc2, coord_name[0], sc1, coord_name[0], sc2, coord_name[0]);
 
 	fprintf(filePointer, "\n\t%% Apply the collocation constraints constraints on final states\n");
-	fprintf(filePointer, "\tNonlinearConstraint NLPOpt(%s.%s.X  = %s.%s.X)\n", sc1, coord_name[0], sc2, coord_name[0]);
-	fprintf(filePointer, "\tNonlinearConstraint NLPOpt(%s.%s.Y  = %s.%s.Y)\n", sc1, coord_name[0], sc2, coord_name[0]);
-	fprintf(filePointer, "\tNonlinearConstraint NLPOpt(%s.%s.Z  = %s.%s.Z)\n", sc1, coord_name[0], sc2, coord_name[0]);
-	fprintf(filePointer, "\tNonlinearConstraint NLPOpt(%s.%s.VX = %s.%s.VX)\n", sc1, coord_name[0], sc2, coord_name[0]);
-	fprintf(filePointer, "\tNonlinearConstraint NLPOpt(%s.%s.VY = %s.%s.VY)\n", sc1, coord_name[0], sc2, coord_name[0]);
-	fprintf(filePointer, "\tNonlinearConstraint NLPOpt(%s.%s.VZ = %s.%s.VZ)\n", sc1, coord_name[0], sc2, coord_name[0]);
+	fprintf(filePointer, "\tNonlinearConstraint %s(%s.%s.X  = %s.%s.X)\n", vf13ad_solver, sc1, coord_name[0], sc2, coord_name[0]);
+	fprintf(filePointer, "\tNonlinearConstraint %s(%s.%s.Y  = %s.%s.Y)\n", vf13ad_solver, sc1, coord_name[0], sc2, coord_name[0]);
+	fprintf(filePointer, "\tNonlinearConstraint %s(%s.%s.Z  = %s.%s.Z)\n", vf13ad_solver, sc1, coord_name[0], sc2, coord_name[0]);
+	fprintf(filePointer, "\tNonlinearConstraint %s(%s.%s.VX = %s.%s.VX)\n", vf13ad_solver, sc1, coord_name[0], sc2, coord_name[0]);
+	fprintf(filePointer, "\tNonlinearConstraint %s(%s.%s.VY = %s.%s.VY)\n", vf13ad_solver, sc1, coord_name[0], sc2, coord_name[0]);
+	fprintf(filePointer, "\tNonlinearConstraint %s(%s.%s.VZ = %s.%s.VZ)\n", vf13ad_solver, sc1, coord_name[0], sc2, coord_name[0]);
 
 	fprintf(filePointer, "EndOptimize\n");
 }
@@ -468,25 +470,25 @@ void write_gmat_optimizers(FILE *filePointer, int num_steps, struct ItinStep *st
 }
 
 void write_gmat_final_optimizer(FILE *filePointer, int num_steps, struct ItinStep *step2pr) {
-	fprintf(filePointer, "\nOptimize 'Final Trajectory Optimization' NLPOpt {SolveMode = %s, ExitMode = DiscardAndContinue, ShowProgressWindow = true}\n", solvermode);
+	fprintf(filePointer, "\nOptimize 'Final Trajectory Optimization' %s {SolveMode = %s, ExitMode = DiscardAndContinue, ShowProgressWindow = true}\n", vf13ad_solver, solvermode);
 	fprintf(filePointer, "\tloopIdx = loopIdx + 1\n\n");
 	fprintf(filePointer, "\t%% Vary states\n");
 
-	fprintf(filePointer, "\tVary NLPOpt(%s_epoch  = %s_epoch)\n", sc_var[0], sc_var[0]);
-	fprintf(filePointer, "\tVary NLPOpt(%s_c3  = %s_c3)\n", sc_var[0], sc_var[0]);
-	fprintf(filePointer, "\tVary NLPOpt(%s_rha = %s_rha)\n", sc_var[0], sc_var[0]);
-	fprintf(filePointer, "\tVary NLPOpt(%s_dha = %s_dha)\n", sc_var[0], sc_var[0]);
+	// fprintf(filePointer, "\tVary %s(%s_epoch  = %s_epoch)\n", vf13ad_solver, sc_var[0], sc_var[0]);
+	fprintf(filePointer, "\tVary %s(%s_c3  = %s_c3)\n", vf13ad_solver, sc_var[0], sc_var[0]);
+	fprintf(filePointer, "\tVary %s(%s_rha = %s_rha)\n", vf13ad_solver, sc_var[0], sc_var[0]);
+	fprintf(filePointer, "\tVary %s(%s_dha = %s_dha)\n", vf13ad_solver, sc_var[0], sc_var[0]);
 	for(int i = 1; i < num_steps; i++) {
 		fprintf(filePointer, "\n");
 		char var[20];
 		if(i < num_steps-1) sprintf(var, "%s%i", sc_var[1], i);
 		else sprintf(var, "%s", sc_var[2]);
-		/*if(i > 1)*/ fprintf(filePointer, "\tVary NLPOpt(%s_epoch = %s_epoch)\n", var, var);
-		fprintf(filePointer, "\tVary NLPOpt(%s_c3  = %s_c3)\n", var, var);
-		fprintf(filePointer, "\tVary NLPOpt(%s_rha = %s_rha)\n", var, var);
-		fprintf(filePointer, "\tVary NLPOpt(%s_dha = %s_dha)\n", var, var);
-		if(i < num_steps-1) fprintf(filePointer, "\tVary NLPOpt(%s_bvazi  = %s_bvazi)\n", var, var);
-		if(i < num_steps-1) fprintf(filePointer, "\tVary NLPOpt(%s_periapsis = %s_periapsis)\n", var, var);
+		/*if(i > 1)*/ fprintf(filePointer, "\tVary %s(%s_epoch = %s_epoch)\n", vf13ad_solver, var, var);
+		fprintf(filePointer, "\tVary %s(%s_c3  = %s_c3)\n", vf13ad_solver, var, var);
+		fprintf(filePointer, "\tVary %s(%s_rha = %s_rha)\n", vf13ad_solver, var, var);
+		fprintf(filePointer, "\tVary %s(%s_dha = %s_dha)\n", vf13ad_solver, var, var);
+		if(i < num_steps-1) fprintf(filePointer, "\tVary %s(%s_bvazi  = %s_bvazi)\n", vf13ad_solver, var, var);
+		if(i < num_steps-1) fprintf(filePointer, "\tVary %s(%s_periapsis = %s_periapsis)\n", vf13ad_solver, var, var);
 	}
 
 	set_gmat_all_sc_setup(filePointer, num_steps, step2pr, 1);
@@ -555,14 +557,26 @@ void write_gmat_final_optimizer(FILE *filePointer, int num_steps, struct ItinSte
 		else sprintf(sc2, "%s%i_Arr", sc_name[1], i+1);
 
 
-		fprintf(filePointer, "\n\tNonlinearConstraint NLPOpt(%s.%s.X  = %s.%s.X)\n", sc1, coord_name[0], sc2, coord_name[0]);
-		fprintf(filePointer, "\tNonlinearConstraint NLPOpt(%s.%s.Y  = %s.%s.Y)\n", sc1, coord_name[0], sc2, coord_name[0]);
-		fprintf(filePointer, "\tNonlinearConstraint NLPOpt(%s.%s.Z  = %s.%s.Z)\n", sc1, coord_name[0], sc2, coord_name[0]);
-		fprintf(filePointer, "\tNonlinearConstraint NLPOpt(%s.%s.VX = %s.%s.VX)\n", sc1, coord_name[0], sc2, coord_name[0]);
-		fprintf(filePointer, "\tNonlinearConstraint NLPOpt(%s.%s.VY = %s.%s.VY)\n", sc1, coord_name[0], sc2, coord_name[0]);
-		fprintf(filePointer, "\tNonlinearConstraint NLPOpt(%s.%s.VZ = %s.%s.VZ)\n", sc1, coord_name[0], sc2, coord_name[0]);
+		fprintf(filePointer, "\n\tNonlinearConstraint %s(%s.%s.X  = %s.%s.X)\n", vf13ad_solver, sc1, coord_name[0], sc2, coord_name[0]);
+		fprintf(filePointer, "\tNonlinearConstraint %s(%s.%s.Y  = %s.%s.Y)\n", vf13ad_solver, sc1, coord_name[0], sc2, coord_name[0]);
+		fprintf(filePointer, "\tNonlinearConstraint %s(%s.%s.Z  = %s.%s.Z)\n", vf13ad_solver, sc1, coord_name[0], sc2, coord_name[0]);
+		fprintf(filePointer, "\tNonlinearConstraint %s(%s.%s.VX = %s.%s.VX)\n", vf13ad_solver, sc1, coord_name[0], sc2, coord_name[0]);
+		fprintf(filePointer, "\tNonlinearConstraint %s(%s.%s.VY = %s.%s.VY)\n", vf13ad_solver, sc1, coord_name[0], sc2, coord_name[0]);
+		fprintf(filePointer, "\tNonlinearConstraint %s(%s.%s.VZ = %s.%s.VZ)\n", vf13ad_solver, sc1, coord_name[0], sc2, coord_name[0]);
 	}
 
-	fprintf(filePointer, "\n\tMinimize NLPOpt(Cost)\n");
+	fprintf(filePointer, "\n\tMinimize %s(Cost)\n", vf13ad_solver);
 	fprintf(filePointer, "EndOptimize\n");
+
+	fprintf(filePointer, "\nReport RFDepStates %s_epoch %s_c3 %s_rha %s_dha %s_bvazi %s_periapsis\n",
+			sc_var[0], sc_var[0], sc_var[0], sc_var[0], sc_var[0], sc_var[0]);
+	char *coord = coord_name[0];
+	for(int i = 1; i < num_steps-1; i++) {
+		char sc[20];
+		sprintf(sc, "%s%i_Arr", sc_name[1], i);
+		fprintf(filePointer, "Report RFDepStates %s.UTCModJulian %s.%s.X %s.%s.Y %s.%s.Z %s.%s.VX %s.%s.VY %s.%s.VZ\n",
+				sc, sc, coord, sc, coord, sc, coord, sc, coord, sc, coord, sc, coord);
+	}
+	fprintf(filePointer, "Report RFDepStates %s.UTCModJulian %s.%s.X %s.%s.Y %s.%s.Z %s.%s.VX %s.%s.VY %s.%s.VZ %s_epoch\n",
+			sc_name[2], sc_name[2], coord, sc_name[2], coord, sc_name[2], coord, sc_name[2], coord, sc_name[2], coord, sc_name[2], coord, sc_var[2]);
 }
