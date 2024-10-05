@@ -5,7 +5,6 @@
 #include "gui/transfer_app.h"
 #include "gui/launch_app.h"
 #include "database/database.h"
-#include "tools/gmat_interface.h"
 
 
 // ------------------------------------------------------------

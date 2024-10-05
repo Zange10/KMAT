@@ -71,14 +71,14 @@ void write_gmat_optimizers(FILE *filePointer, int num_steps, struct ItinStep *st
 void write_gmat_final_optimizer(FILE *filePointer, int num_steps, struct ItinStep *step2pr);
 
 
-void write_gmat_script(struct ItinStep *step2pr) {
+void write_gmat_script(struct ItinStep *step2pr, const char *filepath) {
 	step2pr = get_first(step2pr);
 
 	int num_steps = get_num_of_itin_layers(step2pr);
 	int num_bodies = (sizeof(body_name) / sizeof(body_name[0]));
 
 	// Open the file in write mode
-	FILE *filePointer = fopen("test.script", "w");
+	FILE *filePointer = fopen(filepath, "w");
 
 	// Check if the file was successfully opened
 	if (filePointer == NULL) {
@@ -114,6 +114,8 @@ void write_gmat_script(struct ItinStep *step2pr) {
 	}
 	fprintf(filePointer, "%s_epoch %s_c3\n", sc_var[2], sc_var[2]);
 
+
+	printf("\nCreated GMAT-Script: %s\n\n", filepath);
 
 	// Close the file
 	fclose(filePointer);
@@ -155,10 +157,6 @@ void create_gmat_header(FILE *filePointer, int num_steps, struct ItinStep *step2
 
 	// Format the time string
 	strftime(timeString, sizeof(timeString), "%Y-%m-%d %H:%M:%S", localTime);
-
-	// Display the formatted time
-	printf("Current time: %s\n", timeString);
-
 
 	fprintf(filePointer, "%% ------------------------------------------------\n");
 	fprintf(filePointer, "%% General Mission Analysis Tool(GMAT) Script\n");

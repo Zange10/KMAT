@@ -1986,7 +1986,7 @@
                         <property name="can-focus">False</property>
                         <property name="margin-top">15</property>
                         <property name="orientation">vertical</property>
-                        <property name="spacing">10</property>
+                        <property name="spacing">5</property>
                         <child>
                           <object class="GtkButton" id="bt_tp_save_itin">
                             <property name="label" translatable="yes">Save Itinerary</property>
@@ -2016,16 +2016,30 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkLabel" id="lb_tp_last_transfer">
+                          <object class="GtkButton" id="bt_tp_gmatscript">
+                            <property name="label" translatable="yes">GMAT Script</property>
                             <property name="visible">True</property>
-                            <property name="can-focus">False</property>
-                            <property name="margin-top">30</property>
-                            <property name="label" translatable="yes">Last Transfer:</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_create_gmat_script" swapped="no"/>
                           </object>
                           <packing>
                             <property name="expand">False</property>
                             <property name="fill">True</property>
                             <property name="position">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="lb_tp_last_transfer">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="margin-top">24</property>
+                            <property name="label" translatable="yes">Last Transfer:</property>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">3</property>
                           </packing>
                         </child>
                         <child>
@@ -2089,7 +2103,7 @@
                           <packing>
                             <property name="expand">False</property>
                             <property name="fill">True</property>
-                            <property name="position">3</property>
+                            <property name="position">4</property>
                           </packing>
                         </child>
                       </object>

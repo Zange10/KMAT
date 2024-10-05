@@ -4,6 +4,7 @@
 #include "orbit_calculator/transfer_tools.h"
 #include "gui/drawing.h"
 #include "gui/transfer_app.h"
+#include "tools/gmat_interface.h"
 
 #include <string.h>
 #include <gtk/gtk.h>
@@ -560,4 +561,9 @@ void on_load_itinerary(GtkWidget* widget, gpointer data) {
 	
 	// Destroy the dialog
 	gtk_widget_destroy(dialog);
+}
+
+
+void on_create_gmat_script() {
+	if(curr_transfer_tp != NULL) write_gmat_script(curr_transfer_tp, "transfer.script");
 }
