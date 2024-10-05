@@ -1,8 +1,9 @@
 #ifndef KSP_GMAT_INTERFACE_H
 #define KSP_GMAT_INTERFACE_H
 
+#include "orbit_calculator/transfer_calc.h"
 
-void write_gmat_script();
+void write_gmat_script(struct ItinStep *step2pr);
 
 
 #endif //KSP_GMAT_INTERFACE_H

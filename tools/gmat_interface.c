@@ -1,8 +1,8 @@
 #include "gmat_interface.h"
 #include <stdio.h>
-#include "orbit_calculator/transfer_calc.h"
 #include "orbit_calculator/transfer_tools.h"
 #include <math.h>
+#include <time.h>
 
 
 char *body_name[] = {
@@ -57,6 +57,7 @@ int gmat_jd_mod = 2430000;
 
 
 void print_gmat_section(FILE *filePointer, const char *section);
+void create_gmat_header(FILE *filePointer, int num_steps, struct ItinStep *step2pr);
 void create_gmat_spacecrafts(FILE *filePointer, int num_steps);
 void create_gmat_propagator(FILE *filePointer, int num_bodies);
 void create_gmat_coordinate_systems(FILE *filePointer, int num_bodies);
@@ -70,12 +71,8 @@ void write_gmat_optimizers(FILE *filePointer, int num_steps, struct ItinStep *st
 void write_gmat_final_optimizer(FILE *filePointer, int num_steps, struct ItinStep *step2pr);
 
 
-void write_gmat_script() {
-	struct ItinStep *curr_transfer_tp;
-//	curr_transfer_tp = load_single_itinerary_from_bfile("Itineraries/Ea-Ve-Ea-Ma-Ea-Ju-67.itin");
-//	curr_transfer_tp = load_single_itinerary_from_bfile("Itineraries/Ea-Ve-Ma-Ea-59.itin");
-	curr_transfer_tp = load_single_itinerary_from_bfile("Itineraries/Voyager2.itin");
-	struct ItinStep *step2pr = get_first(curr_transfer_tp);
+void write_gmat_script(struct ItinStep *step2pr) {
+	step2pr = get_first(step2pr);
 
 	int num_steps = get_num_of_itin_layers(step2pr);
 	int num_bodies = (sizeof(body_name) / sizeof(body_name[0]));
@@ -90,6 +87,7 @@ void write_gmat_script() {
 	}
 
 
+	create_gmat_header(filePointer, num_steps, step2pr);
 	create_gmat_spacecrafts(filePointer, num_steps);
 	create_gmat_propagator(filePointer, num_bodies);
 	create_gmat_coordinate_systems(filePointer, num_bodies);
@@ -119,9 +117,6 @@ void write_gmat_script() {
 
 	// Close the file
 	fclose(filePointer);
-
-	// REMOVE WHEN TESTS FINISHED ------------
-	free_itinerary(curr_transfer_tp);
 }
 
 
@@ -144,6 +139,44 @@ void setup_gmat_sc(FILE *filePointer, const char *sc, const char *var_sc, const 
 	fprintf(filePointer, "%s.%s.TA = 0\n", sc, body);
 }
 
+
+void create_gmat_header(FILE *filePointer, int num_steps, struct ItinStep *step2pr) {
+	step2pr = get_first(step2pr);
+
+	time_t currentTime;
+	struct tm *localTime;
+	char timeString[100];
+
+	// Get the current time
+	time(&currentTime);
+
+	// Convert to local time
+	localTime = localtime(&currentTime);
+
+	// Format the time string
+	strftime(timeString, sizeof(timeString), "%Y-%m-%d %H:%M:%S", localTime);
+
+	// Display the formatted time
+	printf("Current time: %s\n", timeString);
+
+
+	fprintf(filePointer, "%% ------------------------------------------------\n");
+	fprintf(filePointer, "%% General Mission Analysis Tool(GMAT) Script\n");
+	fprintf(filePointer, "%% Current time: %s\n", timeString);
+	fprintf(filePointer, "\n%% Itinerary: \t");
+	for(int i = 0; i < num_steps; i++){
+		if(i != 0) {fprintf(filePointer, " -> "); step2pr = step2pr->next[0];}
+		fprintf(filePointer, "%s", step2pr->body->name);
+	}
+	fprintf(filePointer, "\n");
+	step2pr = get_first(step2pr);
+	date_to_string(convert_JD_date(step2pr->date), timeString, 1);
+	fprintf(filePointer, "%% Departure: \t%s\n", timeString);
+	step2pr = get_last(step2pr);
+	date_to_string(convert_JD_date(step2pr->date), timeString, 1);
+	fprintf(filePointer, "%% Arrival: \t\t%s (Estimated)\n", timeString);
+	fprintf(filePointer, "%% ------------------------------------------------\n");
+}
 
 void print_gmat_section(FILE *filePointer, const char *section) {
 //	%----------------------------------------
