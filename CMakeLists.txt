@@ -84,6 +84,16 @@ add_executable(KSP
         launch_calculator/capability_calculator.h
         gui/launch_app/launch_parameter_analyzer.c
         gui/launch_app/launch_parameter_analyzer.h
+        gui/database_app/mission_db.c
+        gui/database_app/mission_db.h
+        database/mission_database.c
+        database/mission_database.h
+        gui/css_loader.c
+        gui/css_loader.h
+        gui/database_app/database_app_tools/mission_db_tools.c
+        gui/database_app/database_app_tools/mission_db_tools.h
+        gui/database_app/database_app_tools/mission_manager_tools.c
+        gui/database_app/database_app_tools/mission_manager_tools.h
 )
 
 target_link_libraries(KSP m;

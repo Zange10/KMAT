@@ -19,7 +19,7 @@ void print_date(struct Date date, int line_break) {
 }
 
 void date_to_string(struct Date date, char *s, int clocktime) {
-	if(clocktime) sprintf(s,"%4d-%02d-%02d %02d:%02d:%06.3f", date.y, date.m, date.d, date.h, date.min, date.s);
+	if(clocktime) sprintf(s,"%4d-%02d-%02d %02d:%02d:%02.0f", date.y, date.m, date.d, date.h, date.min, date.s);
 	else sprintf(s,"%4d-%02d-%02d", date.y, date.m, date.d);
 }
 
@@ -142,6 +142,19 @@ double jd_change_date(double jd, int delta_years, int delta_months, double delta
 	date.y += delta_years;
 	jd = convert_date_JD(date);
 	return jd;
+}
+
+struct Date get_date_difference_from_epochs(double jd0, double jd1) {
+	double epoch_diff = jd1 - jd0;
+	struct Date date = {0, 0};
+	// floating-point imprecision when converting to seconds 1 -> 0.999997
+	if(fmod(epoch_diff*24*60*60, 1) > 0.9) epoch_diff += 1.0/(24*60*60*10);
+	if(fmod(epoch_diff*24*60*60, 1) < -0.9) epoch_diff -= 1.0/(24*60*60*10);
+	date.d = (int) epoch_diff;
+	date.h = (int) (epoch_diff*24) % 24;
+	date.min = (int) (epoch_diff*24*60) % 60;
+	date.s = (int) (epoch_diff*24*60*60) % 60;
+	return date;
 }
 
 void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_steps, double jd0, double jd1, int download) {
