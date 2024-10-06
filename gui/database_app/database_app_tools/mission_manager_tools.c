@@ -191,7 +191,7 @@ void update_lists_with_id_and_references() {
 	for(int i = 0; i < num_events; i++) {
 		event_list[i].event = &(events[i]);
 		event_list[i].list_id = i;
-		if(event_list->event_type == INITIAL_EVENT) initial_event_id = i;
+		if(event_list[i].event_type == INITIAL_EVENT) initial_event_id = i;
 	}
 }
 
