@@ -12,6 +12,7 @@
 
 int main() {
     init_celestial_bodies();
+	init_db();
 
     int selection;
     char title[] = "CHOOSE PROGRAM:";
@@ -32,18 +33,15 @@ int main() {
 			start_transfer_app();
 			break;
 		case 4:
-			init_db();
 			start_launch_app();
-			close_db();
 			break;
 		case 5:
-			init_db();
 			start_db_app();
-			close_db();
 			break;
         default:
             break;
         }
     } while(selection != 0);
+	close_db();
     return 0;
 }
