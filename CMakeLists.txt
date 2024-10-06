@@ -94,6 +94,8 @@ add_executable(KSP
         gui/database_app/database_app_tools/mission_db_tools.h
         gui/database_app/database_app_tools/mission_manager_tools.c
         gui/database_app/database_app_tools/mission_manager_tools.h
+        tools/gmat_interface.c
+        tools/gmat_interface.h
 )
 
 target_link_libraries(KSP m;
