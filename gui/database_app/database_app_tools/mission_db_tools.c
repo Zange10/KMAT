@@ -173,7 +173,7 @@ void add_mission_id_to_info_show_list(int **show_mission_info, int *num_mission_
 	// empty list
 	if(*show_mission_info == NULL) {
 		*show_mission_info = (int*) calloc(1, sizeof(int));
-		*show_mission_info[0] = mission_id;
+		(*show_mission_info)[0] = mission_id;
 		*num_mission_info = 1;
 		return;
 	}
@@ -223,4 +223,68 @@ int is_mission_id_on_info_show_list(const int *show_mission_info, int num_missio
 		}
 	}
 	return 0;
+}
+
+
+
+void add_event_id_to_init_event_list(int **init_event_list, int *num_init_events, int mission_id, int event_id) {
+	// empty list
+	if(*init_event_list == NULL) {
+		*init_event_list = (int*) calloc(2, sizeof(int));
+		(*init_event_list)[0] = mission_id;
+		(*init_event_list)[1] = event_id;
+		*num_init_events = 1;
+		return;
+	}
+	// is mission_id already in list
+	for(int i = 0; i < *num_init_events*2; i+=2) {
+		if((*init_event_list)[i] == mission_id) {
+			(*init_event_list)[i+1] = event_id;
+			return;
+		}
+	}
+	// use empty spaces
+	for(int i = 0; i < *num_init_events*2; i+=2) {
+		if((*init_event_list)[i] == 0) {
+			(*init_event_list)[i] = mission_id;
+			(*init_event_list)[i+1] = event_id;
+			return;
+		}
+	}
+
+	// double size list and enter mission_id to first empty space
+	int *new_list = realloc(*init_event_list, *num_init_events * 2 * 2 * sizeof(int));
+
+	// Check if reallocation succeeded
+	if (new_list == NULL) {
+		printf("Memory reallocation failed\n");
+		return;  // Return NULL to indicate failure
+	}
+
+	// Initialize the newly allocated portion to 0
+	for (int i = *num_init_events*2; i < *num_init_events*2*2; i++) {
+		new_list[i] = 0;
+	}
+	new_list[*num_init_events*2] = mission_id;
+	new_list[*num_init_events*2+1] = event_id;
+	*num_init_events *= 2;
+	*init_event_list = new_list;
+}
+
+void remove_event_id_from_init_event_list(int *init_event_list, int num_init_events, int mission_id) {
+	for(int i = 0; i < num_init_events*2; i+=2) {
+		if(init_event_list[i] == mission_id) {
+			init_event_list[i+1] = -1;
+			return;
+		}
+	}
+}
+
+int get_init_event_id_from_init_event_list(const int *init_event_list, int num_init_events, int mission_id) {
+	for(int i = 0; i < num_init_events*2; i+=2) {
+		if(init_event_list[i] == mission_id) {
+			return init_event_list[i+1];
+		}
+	}
+	return -1;
 }

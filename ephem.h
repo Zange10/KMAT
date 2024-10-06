@@ -87,6 +87,15 @@ double jd_change_date(double jd, int delta_years, int delta_months, double delta
 
 
 /**
+ * @brief calculates the date difference (days, hours, minutes, seconds) between two julian dates
+ *
+ * @param jd0 Initial Epoch / Julian Date
+ * @param jd1 Second Epoch / Julian Date (if greater than jd0, result is positive)
+ */
+struct Date get_date_difference_from_epochs(double jd0, double jd1);
+
+
+/**
  * @brief Prints the date, position and velocity vector of the given ephemeris
  *
  * @param ephem The given ephemeris

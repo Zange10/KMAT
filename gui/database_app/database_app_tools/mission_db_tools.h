@@ -18,6 +18,9 @@ void switch_to_mission_manager_page();
 void add_mission_id_to_info_show_list(int **show_mission_info, int *num_mission_info, int mission_id);
 void remove_mission_id_from_info_show_list(int *show_mission_info, int num_mission_info, int mission_id);
 int is_mission_id_on_info_show_list(const int *show_mission_info, int num_mission_info, int mission_id);
+void add_event_id_to_init_event_list(int **init_event_list, int *num_init_events, int mission_id, int event_id);
+void remove_event_id_from_init_event_list(int *init_event_list, int num_init_events, int mission_id);
+int get_init_event_id_from_init_event_list(const int *init_event_list, int num_init_events, int mission_id);
 
 
 

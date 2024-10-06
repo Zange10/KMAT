@@ -437,13 +437,7 @@ void update_mman_event_box() {
 		if(event_list[i].event_type != TIMESINCE_EVENT) {
 			date = convert_JD_date(events[i].epoch);
 		} else {
-			double epoch_diff = event_list[i].event->epoch - event_list[initial_event_id].event->epoch;
-			// floating-point inprecision when converting to seconds 1 -> 0.999997
-			if(fmod(epoch_diff*24*60*60, 1) > 0.9) epoch_diff += 1.0/(24*60*60*10);
-			date.d = (int) epoch_diff;
-			date.h = (int) (epoch_diff*24) % 24;
-			date.min = (int) (epoch_diff*24*60) % 60;
-			date.s = (int) (epoch_diff*24*60*60) % 60;
+			date = get_date_difference_from_epochs(event_list[initial_event_id].event->epoch, event_list[i].event->epoch);
 		}
 
 
@@ -655,7 +649,7 @@ void on_mman_remove_event(GtkWidget *button, gpointer data) {
 
 void on_mman_change_event_time_type(GtkWidget *combo_box, gpointer data) {
 	update_mman_event_list();
-	struct MissionEventList *event = (struct MissionEventList *) data;  // Cast data back to int
+	struct MissionEventList *event = (struct MissionEventList *) data;
 
 	int new_event_type = gtk_combo_box_get_active(GTK_COMBO_BOX(combo_box));
 

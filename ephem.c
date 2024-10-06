@@ -144,6 +144,18 @@ double jd_change_date(double jd, int delta_years, int delta_months, double delta
 	return jd;
 }
 
+struct Date get_date_difference_from_epochs(double jd0, double jd1) {
+	double epoch_diff = jd1 - jd0;
+	struct Date date = {0, 0};
+	// floating-point inprecision when converting to seconds 1 -> 0.999997
+	if(fmod(epoch_diff*24*60*60, 1) > 0.9) epoch_diff += 1.0/(24*60*60*10);
+	date.d = (int) epoch_diff;
+	date.h = (int) (epoch_diff*24) % 24;
+	date.min = (int) (epoch_diff*24*60) % 60;
+	date.s = (int) (epoch_diff*24*60*60) % 60;
+	return date;
+}
+
 void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_steps, double jd0, double jd1, int download) {
     if(download) {
         struct Date d0 = convert_JD_date(jd0);

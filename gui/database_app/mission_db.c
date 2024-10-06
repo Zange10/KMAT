@@ -17,7 +17,10 @@ GtkWidget *mission_grid;
 
 struct Mission_DB *missions;
 int num_missions;
-int *show_mission_objectives, *show_mission_events, num_show_mission_objectives, num_show_mission_events;
+int *show_mission_objectives, *show_mission_events, *init_mission_events;
+int num_show_mission_objectives, num_show_mission_events, num_init_mission_events;
+
+
 
 
 void on_showhide_mission_objectives(GtkWidget *button, gpointer data);
@@ -25,11 +28,13 @@ void on_showhide_mission_events(GtkWidget *button, gpointer data);
 void on_edit_mission(GtkWidget *button, gpointer data);
 int is_mission_id_on_objective_show_list(int mission_id);
 int is_mission_id_on_event_show_list(int mission_id);
+void on_update_mission_init_event(GtkWidget *button, gpointer data);
 
 
 void init_mission_db(GtkBuilder *builder) {
 	num_show_mission_objectives = 0;
 	num_show_mission_events = 0;
+	num_init_mission_events = 0;
 	mission_vp = gtk_builder_get_object(builder, "vp_missiondb");
 	tf_mdbfilt_name = gtk_builder_get_object(builder, "tf_mdbfilt_name");
 	cb_mdbfilt_program = gtk_builder_get_object(builder, "cb_mdbfilt_program");
@@ -179,6 +184,7 @@ void update_db_box() {
 		separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 		gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, row+1, num_mission_cols*2+1, 1);
 
+
 		// Show Objectives
 		if(is_mission_id_on_objective_show_list(m.id)) {
 			struct MissionObjective_DB *objectives;
@@ -232,13 +238,30 @@ void update_db_box() {
 		if(is_mission_id_on_event_show_list(m.id)) {
 			struct MissionEvent_DB *events;
 			int num_events = db_get_events_from_mission_id(&events, m.id);
+			struct MissionEvent_DB *init_event = NULL;
+
+			for(int j = 0; j < num_events; j++) {
+				if(events[j].id == get_init_event_id_from_init_event_list(init_mission_events, num_init_mission_events, m.id))
+					init_event = &(events[j]);
+			}
 			for(int j = 0; j < num_events; j++) {
 				row+=2; added_events++;
 				char date_string[25];
-				date_to_string(convert_JD_date(events[j].epoch), date_string, 1);
-				GtkWidget *epoch_label = gtk_label_new(date_string);
+				if(init_event == NULL || init_event->id == events[j].id)
+					date_to_string(convert_JD_date(events[j].epoch), date_string, 1);
+				else {
+					struct Date date = get_date_difference_from_epochs(init_event->epoch, events[j].epoch);
+					if(events[j].epoch < init_event->epoch)
+						sprintf(date_string, "T-% 4dd %02d:%02d:%02d", -date.d, -date.h, -date.min, (int) -date.s);
+					else
+						sprintf(date_string, "T+% 4dd %02d:%02d:%02d", date.d, date.h, date.min, (int) date.s);
+				}
+				GtkWidget *epoch_label = gtk_button_new_with_label(date_string);
 				GtkWidget *event_label = gtk_label_new(events[j].event);
 				gtk_label_set_xalign(GTK_LABEL(event_label), (gfloat) 0.0);
+
+				// Connect the button-press-event signal to the callback
+				g_signal_connect(epoch_label, "button-press-event", G_CALLBACK(on_update_mission_init_event), NULL);
 
 				// Word wrap
 				gtk_label_set_line_wrap(GTK_LABEL(event_label), TRUE);
@@ -246,9 +269,14 @@ void update_db_box() {
 				// Set maximum width in characters to control the wrapping (Somehow this works...)
 				gtk_label_set_max_width_chars(GTK_LABEL(event_label), 1);
 
-				// set css class
-				set_css_class_for_widget(epoch_label, "missiondb-passed-events");
+				// set css class (epoch_label class resets with new name, see below)
+				// set_css_class_for_widget(epoch_label, "missiondb-passed-events");
 				set_css_class_for_widget(event_label, "missiondb-passed-events");
+
+				// passed as data to on_update_mission_init_event (other pointers get freed)
+				char epoch_label_name[10];
+				sprintf(epoch_label_name, "%dM%dE", events[j].mission_id, events[j].id);
+				gtk_widget_set_name(GTK_WIDGET(epoch_label), epoch_label_name);
 
 				separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 				gtk_grid_attach(GTK_GRID(mission_grid), separator, 0, row, 1, 1);
@@ -354,11 +382,29 @@ void on_edit_mission(GtkWidget *button, gpointer data) {
 	switch_to_mission_manager(mission);
 }
 
+
+void on_update_mission_init_event(GtkWidget *button, gpointer data) {
+	char *name = (char*) gtk_widget_get_name(button);
+	int event_id, mission_id;
+
+	// Use sscanf to extract mission id and event id from the name (previously stored during creation)
+	sscanf(name, "%dM%dE", &mission_id, &event_id);
+
+	int curr_init_event = get_init_event_id_from_init_event_list(init_mission_events, num_init_mission_events, mission_id);
+	if(curr_init_event != event_id)
+		add_event_id_to_init_event_list(&init_mission_events, &num_init_mission_events, mission_id, event_id);
+	else
+		remove_event_id_from_init_event_list(init_mission_events, num_init_mission_events, mission_id);
+	update_db_box();
+}
+
 void close_mission_db() {
 	if(missions != NULL) free(missions);
 	if(show_mission_objectives != NULL) free(show_mission_objectives);
 	if(show_mission_events != NULL) free(show_mission_events);
+	if(init_mission_events != NULL) free(init_mission_events);
 	missions = NULL;
 	show_mission_objectives = NULL;
 	show_mission_events = NULL;
+	init_mission_events = NULL;
 }
