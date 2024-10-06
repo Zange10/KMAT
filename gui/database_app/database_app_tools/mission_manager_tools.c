@@ -615,9 +615,13 @@ void on_mman_add_event(GtkWidget *button, gpointer data) {
 	// Initialize the new objective
 	struct Date date = {1950, 01, 01};
 	events[num_events-1].id = 0;
-	events[num_events-1].epoch = convert_date_JD(date);
+	if(initial_event_id < 0)
+		events[num_events-1].epoch = convert_date_JD(date);
+	else
+		events[num_events-1].epoch = events[initial_event_id].epoch;
 	events[num_events-1].mission_id = mission.id;
 	sprintf(events[num_events-1].event, "<EVENT>");
+	event_list[num_events-1].event_type = EPOCH_EVENT;
 	update_lists_with_id_and_references();
 	update_mman_event_box();
 }
