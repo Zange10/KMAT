@@ -68,7 +68,6 @@ void init_mission_manager(GtkBuilder *builder) {
 	cb_mman_program = gtk_builder_get_object(builder, "cb_mman_program");
 	cb_mman_missionstatus = gtk_builder_get_object(builder, "cb_mman_missionstatus");
 	cb_mman_launcher = gtk_builder_get_object(builder, "cb_mman_launcher");
-	cb_mman_objrank = gtk_builder_get_object(builder, "cb_mman_objrank");
 	bt_mman_updatenew = gtk_builder_get_object(builder, "bt_mman_updatenew");
 	tf_mman_newprogram = gtk_builder_get_object(builder, "tf_mman_newprogram");
 	stack_newprogram = gtk_builder_get_object(builder, "stack_newprogram");
