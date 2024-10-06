@@ -101,12 +101,7 @@ void switch_to_mission_manager(struct Mission_DB m) {
 	update_lists_with_id_and_references();
 	initial_event_id = -1;
 
-	for(int i = 0; i < num_events; i++) {
-		if(is_initial_event(events[i].event) && initial_event_id < 0) {
-			event_list[i].event_type = INITIAL_EVENT;
-			initial_event_id = i;
-		} else event_list[i].event_type = EPOCH_EVENT;
-	}
+	for(int i = 0; i < num_events; i++) event_list[i].event_type = EPOCH_EVENT;
 
 
 	if(mission.id < 0) {
@@ -196,7 +191,7 @@ void update_lists_with_id_and_references() {
 	for(int i = 0; i < num_events; i++) {
 		event_list[i].event = &(events[i]);
 		event_list[i].list_id = i;
-		if(event_list->cb_type == INITIAL_EVENT) initial_event_id = i;
+		if(event_list->event_type == INITIAL_EVENT) initial_event_id = i;
 	}
 }
 
@@ -409,7 +404,7 @@ void update_mman_event_box() {
 		switch(col) {
 			case 0: sprintf(label_text, "Type"); req_width = 75; break;
 			case 1: sprintf(label_text, "Epoch / T+"); req_width = 260; break;
-			case 7: sprintf(label_text, "Event"); req_width = 545; break;
+			case 7: sprintf(label_text, "Event"); req_width = 535; break;
 			default: sprintf(label_text, ""); req_width = 50; break;
 		}
 		// Create a GtkLabel
@@ -631,6 +626,10 @@ void on_mman_remove_event(GtkWidget *button, gpointer data) {
 	struct MissionEventList *event = (struct MissionEventList *) data;  // Cast data back to int
 	if(event->event->id != 0) event->event->id *= -1;
 	else {
+		if(event->event_type == INITIAL_EVENT) {
+			initial_event_id = -1;
+			for(int i = 0; i < num_events; i++) event_list[i].event_type = EPOCH_EVENT;
+		}
 		// remove previously added objective from list and objectives
 		if(event->list_id < num_events-1){
 			for(int i = event->list_id; i < num_events-1; i++) {

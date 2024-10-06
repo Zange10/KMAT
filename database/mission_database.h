@@ -58,7 +58,10 @@ struct MissionProgram_DB db_get_program_from_id(int id);
 enum MissionSuccess db_get_mission_success(int mission_id);
 int db_get_objectives_from_mission_id(struct MissionObjective_DB **p_objectives, int mission_id);
 int db_get_events_from_mission_id(struct MissionEvent_DB **p_events, int mission_id);
-int is_initial_event(const char *event);
 int db_get_last_inserted_id();
+
+
+// UNUSED
+int is_initial_event(const char *event);
 
 #endif //KSP_MISSION_DATABASE_H
