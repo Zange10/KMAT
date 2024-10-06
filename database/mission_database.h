@@ -60,8 +60,4 @@ int db_get_objectives_from_mission_id(struct MissionObjective_DB **p_objectives,
 int db_get_events_from_mission_id(struct MissionEvent_DB **p_events, int mission_id);
 int db_get_last_inserted_id();
 
-
-// UNUSED
-int is_initial_event(const char *event);
-
 #endif //KSP_MISSION_DATABASE_H

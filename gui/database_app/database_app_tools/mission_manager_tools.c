@@ -18,7 +18,6 @@ GObject *tf_mman_name;
 GObject *cb_mman_program;
 GObject *cb_mman_missionstatus;
 GObject *cb_mman_launcher;
-GObject *cb_mman_objrank;
 GObject *bt_mman_updatenew;
 GObject *tf_mman_newprogram;
 GObject *stack_newprogram;
@@ -668,8 +667,7 @@ void on_mman_change_event_time_type(GtkWidget *combo_box, gpointer data) {
 			event->event_type = EPOCH_EVENT;
 			break;
 		case TIMESINCE_EVENT:
-			if(/*event_list[initial_event_id].event->epoch > event->event->epoch ||*/
-					initial_event_id < 0 || initial_event_id == event->list_id) break;
+			if(initial_event_id < 0 || initial_event_id == event->list_id) break;
 			event->event_type = TIMESINCE_EVENT;
 			break;
 		default: break;

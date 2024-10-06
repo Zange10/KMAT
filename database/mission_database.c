@@ -415,19 +415,3 @@ int db_get_last_inserted_id() {
 	return db_get_id_of_last_inserted_row();
 }
 
-
-// UNUSED
-const int NUM_INIT_EVENTS_DESIGNATORS = 3;
-const char *INIT_EVENTS_DESIGNATORS[] = {
-		"Launch",
-		"Take-off",
-		"Airlaunch"
-};
-
-int is_initial_event(const char *event) {
-	for(int i = 0; i < NUM_INIT_EVENTS_DESIGNATORS; i++) {
-		if(strcmp(event, INIT_EVENTS_DESIGNATORS[i]) == 0) return 1;
-	}
-	return 0;
-}
-
