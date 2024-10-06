@@ -4,6 +4,8 @@
 #include "gui/database_app/mission_db.h"
 #include "ephem.h"
 
+#include <math.h>
+
 
 GtkWidget *grid_mman_objectives;
 GtkWidget *grid_mman_events;
@@ -31,6 +33,7 @@ enum MissionEventType {INITIAL_EVENT, EPOCH_EVENT, TIMESINCE_EVENT};
 
 struct MissionEventList {
 	struct MissionEvent_DB *event;
+	enum MissionEventType event_type;
 	int list_id;
 	GtkWidget *cb_type, *tf_year, *tf_month, *tf_day, *tf_hour, *tf_min, *tf_sec, *tf_event;
 };
@@ -39,7 +42,7 @@ struct MissionObjective_DB *objectives;
 struct MissionObjectiveList *obj_list;
 struct MissionEvent_DB *events;
 struct MissionEventList *event_list;
-int num_objectives, num_events;
+int num_objectives, num_events, initial_event_id;
 
 struct Mission_DB mission;
 
@@ -55,6 +58,7 @@ void on_mman_add_event(GtkWidget *button, gpointer data);
 void update_mman_event_list();
 void update_lists_with_id_and_references();
 double get_event_epoch(struct MissionEventList *event);
+void on_mman_change_event_time_type(GtkWidget *combo_box, gpointer data);
 
 
 void init_mission_manager(GtkBuilder *builder) {
@@ -95,6 +99,14 @@ void switch_to_mission_manager(struct Mission_DB m) {
 	update_program_dropdown(GTK_COMBO_BOX(cb_mman_program), 0);
 
 	update_lists_with_id_and_references();
+	initial_event_id = -1;
+
+	for(int i = 0; i < num_events; i++) {
+		if(is_initial_event(events[i].event) && initial_event_id < 0) {
+			event_list[i].event_type = INITIAL_EVENT;
+			initial_event_id = i;
+		} else event_list[i].event_type = EPOCH_EVENT;
+	}
 
 
 	if(mission.id < 0) {
@@ -184,6 +196,7 @@ void update_lists_with_id_and_references() {
 	for(int i = 0; i < num_events; i++) {
 		event_list[i].event = &(events[i]);
 		event_list[i].list_id = i;
+		if(event_list->cb_type == INITIAL_EVENT) initial_event_id = i;
 	}
 }
 
@@ -425,7 +438,20 @@ void update_mman_event_box() {
 	// Create labels and buttons and add them to the grid
 	for (int i = 0; i < num_events; i++) {
 		int row = i*2+3;
-		struct Date date = convert_JD_date(events[i].epoch);
+		struct Date date = {};
+		if(event_list[i].event_type != TIMESINCE_EVENT) {
+			date = convert_JD_date(events[i].epoch);
+		} else {
+			double epoch_diff = event_list[i].event->epoch - event_list[initial_event_id].event->epoch;
+			// floating-point inprecision when converting to seconds 1 -> 0.999997
+			if(fmod(epoch_diff*24*60*60, 1) > 0.9) epoch_diff += 1.0/(24*60*60*10);
+			date.d = (int) epoch_diff;
+			date.h = (int) (epoch_diff*24) % 24;
+			date.min = (int) (epoch_diff*24*60) % 60;
+			date.s = (int) (epoch_diff*24*60*60) % 60;
+		}
+
+
 		for (int j = 0; j < num_cols; j++) {
 			int col = j*2+1;
 			char widget_text[500];
@@ -437,10 +463,16 @@ void update_mman_event_box() {
 					gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget), NULL, "INIT");
 					gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget), NULL, "EPOCH");
 					gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(widget), NULL, "T+");
-					gtk_combo_box_set_active(GTK_COMBO_BOX(widget), 1);
+					gtk_combo_box_set_active(GTK_COMBO_BOX(widget), event_list[i].event_type);
+					g_signal_connect(widget, "changed", G_CALLBACK(on_mman_change_event_time_type), &(event_list[i]));
 					event_list[i].cb_type = widget;
 					break;
 				case 1: // Year Entry box
+					if(event_list[i].event_type == TIMESINCE_EVENT) {
+						event_list[i].tf_year = NULL;
+						event_list[i].tf_month = NULL;
+						j+=2; goto case_3;
+					}
 					widget = gtk_entry_new();
 					sprintf(widget_text, "%d", date.y);
 					gtk_entry_set_text(GTK_ENTRY(widget), widget_text);
@@ -455,31 +487,37 @@ void update_mman_event_box() {
 					event_list[i].tf_month = widget;
 					break;
 				case 3: // Day Entry box
+				case_3:
 					widget = gtk_entry_new();
-					sprintf(widget_text, "%02d", date.d);
+					if(event_list[i].event_type != TIMESINCE_EVENT) {
+						sprintf(widget_text, "%02d", date.d);
+						gtk_entry_set_width_chars(GTK_ENTRY(widget), 2);
+					} else {
+						sprintf(widget_text, "%d", date.d);
+						gtk_entry_set_width_chars(GTK_ENTRY(widget), 5);
+					}
 					gtk_entry_set_text(GTK_ENTRY(widget), widget_text);
-					gtk_entry_set_width_chars(GTK_ENTRY(widget), 2);
 					event_list[i].tf_day = widget;
 					break;
 				case 4: // Hour Entry box
 					widget = gtk_entry_new();
 					sprintf(widget_text, "%02d", date.h);
 					gtk_entry_set_text(GTK_ENTRY(widget), widget_text);
-					gtk_entry_set_width_chars(GTK_ENTRY(widget), 2);
+					gtk_entry_set_width_chars(GTK_ENTRY(widget), 3);
 					event_list[i].tf_hour = widget;
 					break;
 				case 5: // Minute Entry box
 					widget = gtk_entry_new();
 					sprintf(widget_text, "%02d", date.min);
 					gtk_entry_set_text(GTK_ENTRY(widget), widget_text);
-					gtk_entry_set_width_chars(GTK_ENTRY(widget), 2);
+					gtk_entry_set_width_chars(GTK_ENTRY(widget), 3);
 					event_list[i].tf_min = widget;
 					break;
 				case 6: // Second Entry box
 					widget = gtk_entry_new();
 					sprintf(widget_text, "%02.0f", date.s);
 					gtk_entry_set_text(GTK_ENTRY(widget), widget_text);
-					gtk_entry_set_width_chars(GTK_ENTRY(widget), 2);
+					gtk_entry_set_width_chars(GTK_ENTRY(widget), 3);
 					event_list[i].tf_sec = widget;
 					break;
 				case 7:
@@ -498,6 +536,9 @@ void update_mman_event_box() {
 					break;
 			}
 
+			if(j > 0 && j < 7)
+				gtk_entry_set_alignment(GTK_ENTRY(widget), (gfloat) 1.0);
+
 			if(j>0) {
 				if(events[i].id == 0) set_css_class_for_widget(widget, "mman-added");
 				if(events[i].id <  0) set_css_class_for_widget(widget, "mman-removed");
@@ -506,7 +547,11 @@ void update_mman_event_box() {
 
 
 			// Set the label in the grid at the specified row and column
-			gtk_grid_attach(GTK_GRID(grid_mman_events), widget, col, row, 1, 1);
+			if(j == 3 && event_list[i].event_type == TIMESINCE_EVENT) {
+				gtk_grid_attach(GTK_GRID(grid_mman_events), widget, col, row, 5, 1);
+				col = j*2+1;
+			} else gtk_grid_attach(GTK_GRID(grid_mman_events), widget, col, row, 1, 1);
+
 
 			// Create a horizontal separator line (optional)
 			if(j == 0 || j >= 6) {
@@ -588,6 +633,7 @@ void on_mman_remove_event(GtkWidget *button, gpointer data) {
 				events[i].id = events[i+1].id;
 				events[i].epoch = events[i+1].epoch;
 				sprintf(events[i].event, "%s", events[i+1].event);
+				event_list[i].event_type= event_list[i+1].event_type;
 				event_list[i].cb_type 	= event_list[i+1].cb_type;
 				event_list[i].tf_year 	= event_list[i+1].tf_year;
 				event_list[i].tf_month 	= event_list[i+1].tf_month;
@@ -604,15 +650,58 @@ void on_mman_remove_event(GtkWidget *button, gpointer data) {
 	update_mman_event_box();
 }
 
+void on_mman_change_event_time_type(GtkWidget *combo_box, gpointer data) {
+	update_mman_event_list();
+	struct MissionEventList *event = (struct MissionEventList *) data;  // Cast data back to int
+
+	int new_event_type = gtk_combo_box_get_active(GTK_COMBO_BOX(combo_box));
+
+	switch(new_event_type) {
+		case INITIAL_EVENT:
+			if(initial_event_id < 0) {
+				initial_event_id = event->list_id;
+				event->event_type = INITIAL_EVENT;
+			}
+			break;
+		case EPOCH_EVENT:
+			if(event->event_type == INITIAL_EVENT) {
+				initial_event_id = -1;
+				for(int i = 0; i < num_events; i++) event_list[i].event_type = EPOCH_EVENT;
+			}
+			event->event_type = EPOCH_EVENT;
+			break;
+		case TIMESINCE_EVENT:
+			if(/*event_list[initial_event_id].event->epoch > event->event->epoch ||*/
+					initial_event_id < 0 || initial_event_id == event->list_id) break;
+			event->event_type = TIMESINCE_EVENT;
+			break;
+		default: break;
+	}
+
+	update_mman_event_box();
+}
+
 double get_event_epoch(struct MissionEventList *event) {
 	char *endptr;
-	struct Date date = {
-			.y   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_year)), &endptr, 10),
-			.m   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_month)), &endptr, 10),
-			.d   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_day)), &endptr, 10),
-			.h   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_hour)), &endptr, 10),
-			.min = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_min)), &endptr, 10),
-			.s   = (double) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_sec)), &endptr, 10)
-	};
-	return convert_date_JD(date);
+	if(event->event_type != TIMESINCE_EVENT) {
+		struct Date date = {
+				.y   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_year)), &endptr, 10),
+				.m   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_month)), &endptr, 10),
+				.d   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_day)), &endptr, 10),
+				.h   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_hour)), &endptr, 10),
+				.min = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_min)), &endptr, 10),
+				.s   = (double) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_sec)), &endptr, 10)
+		};
+		return convert_date_JD(date);
+	} else {
+		struct Date date_diff = {
+				.d   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_day)), &endptr, 10),
+				.h   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_hour)), &endptr, 10),
+				.min = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_min)), &endptr, 10),
+				.s   = (double) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_sec)), &endptr, 10)
+		};
+		double initial_epoch = event_list[initial_event_id].event->epoch;
+		double epoch_diff = (date_diff.d) + ((double)date_diff.h/24) + ((double)date_diff.min/(24*60)) + ((double)date_diff.s/(24*60*60));
+		return initial_epoch + epoch_diff;
+	}
 }
