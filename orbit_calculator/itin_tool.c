@@ -380,8 +380,46 @@ int calc_next_step2(struct ItinStep *curr_step, struct Ephem **body_ephems, stru
 		return 0;
 	}
 
+	int num_of_end_nodes = find_copy_and_store_end_nodes(curr_step, arr_body);
 
-	// TODO: move to separate function
+	// TODO remove later
+//	if(curr_step->num_next_nodes > 0) {
+//		for(int i = 0; i < curr_step->num_next_nodes; i++) {
+//			printf("%3d/%d  ", i+1, curr_step->num_next_nodes);
+//			print_date(convert_JD_date(curr_step->prev->date), 0);
+//			printf("       ");
+//			print_date(convert_JD_date(curr_step->date), 0);
+//			printf("       ");
+//			print_date(convert_JD_date(curr_step->next[i]->date), 1);
+//			printf("----  %s      %s      %s  ----\n", get_first(curr_step)->body->name, curr_step->body->name, curr_step->next[i]->body->name);
+//		}
+//	}
+
+	// remove end nodes that do not satisfy dv requirements
+	num_of_end_nodes = remove_end_nodes_that_do_not_satisfy_dv_requirements(curr_step, num_of_end_nodes, dv_filter);
+	if(curr_step->num_next_nodes <= 0) return 0;
+
+	// returns 1 if has valid steps (0 otherwise)
+	return continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, body_ephems, arr_body, jd_max_arr, max_total_duration, dv_filter);
+}
+
+int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
+	int num_valid = num_of_end_nodes;
+	int init_num_nodes = curr_step->num_next_nodes;
+	int step_del = 0;
+	int has_valid_init;
+
+	for(int i = 0; i < init_num_nodes-num_of_end_nodes; i++) {
+		int idx = i - step_del;
+		has_valid_init = calc_next_step2(curr_step->next[idx], body_ephems, arr_body, jd_max_arr, max_total_duration, dv_filter);
+		num_valid += has_valid_init;
+		if(!has_valid_init) step_del++;
+	}
+
+	return num_valid > 0;
+}
+
+int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_body) {
 	int num_of_end_nodes = 0;
 	for(int i = 0; i < curr_step->num_next_nodes; i++) {
 		if(curr_step->next[i]->body->id == arr_body->id) num_of_end_nodes++;
@@ -417,53 +455,28 @@ int calc_next_step2(struct ItinStep *curr_step, struct Ephem **body_ephems, stru
 	}
 
 	curr_step->num_next_nodes += num_of_end_nodes;
+	return num_of_end_nodes;
+}
 
-	// TODO remove later
-//	if(curr_step->num_next_nodes > 0) {
-//		for(int i = 0; i < curr_step->num_next_nodes; i++) {
-//			printf("%3d/%d  ", i+1, curr_step->num_next_nodes);
-//			print_date(convert_JD_date(curr_step->prev->date), 0);
-//			printf("       ");
-//			print_date(convert_JD_date(curr_step->date), 0);
-//			printf("       ");
-//			print_date(convert_JD_date(curr_step->next[i]->date), 1);
-//			printf("----  %s      %s      %s  ----\n", get_first(curr_step)->body->name, curr_step->body->name, curr_step->next[i]->body->name);
-//		}
-//	}
-
-	// remove end nodes that do not satisfy dv requirements
+int remove_end_nodes_that_do_not_satisfy_dv_requirements(struct ItinStep *curr_step, int num_of_end_nodes, struct Dv_Filter *dv_filter) {
 	for(int i = curr_step->num_next_nodes-num_of_end_nodes; i < curr_step->num_next_nodes; i++) {
 		struct ItinStep *next = curr_step->next[i];
 		double porkchop[5];
 		create_porkchop_point(next, porkchop, dv_filter->last_transfer_type == 1);
 		int fb0_pow1 = dv_filter->last_transfer_type != 0;
 		if(porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_satdv ||
-				porkchop[2] + porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_totdv) {
+		   porkchop[2] + porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_totdv) {
 			if(curr_step->num_next_nodes <= 1) {
 				remove_step_from_itinerary(next);
-				return 0;
+				curr_step->num_next_nodes = 0;
 			} else {
 				remove_step_from_itinerary(next);
 			}
 			i--;
+			num_of_end_nodes--;
 		}
 	}
-	struct ItinStep *first_end_node = num_of_end_nodes > 0 ? curr_step->next[curr_step->num_next_nodes-num_of_end_nodes] : NULL;
-
-	int num_valid = 0;
-	int init_num_nodes = curr_step->num_next_nodes;
-	int step_del = 0;
-	int result;
-
-	for(int i = 0; i < init_num_nodes; i++) {
-		int idx = i - step_del;
-		if(curr_step->next[idx] == first_end_node) return 1;
-		result = calc_next_step2(curr_step->next[idx], body_ephems, arr_body, jd_max_arr, max_total_duration, dv_filter);
-		num_valid += result;
-		if(!result) step_del++;
-	}
-
-	return num_valid > 0;
+	return num_of_end_nodes;
 }
 
 int get_num_of_itin_layers(struct ItinStep *step) {

@@ -223,18 +223,15 @@ void *calc_from_departure2(void *args) {
 												   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, data);
 
 
+				if(data[1] > dv_filter->max_totdv || data[1] > dv_filter->max_depdv) continue;
+
 				curr_step = get_first(curr_step);
 				curr_step->next[next_step_id] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
 				curr_step->next[next_step_id]->prev = curr_step;
 				curr_step->next[next_step_id]->next = NULL;
 
-				if(data[1] > dv_filter->max_totdv || data[1] > dv_filter->max_depdv) {
-					struct ItinStep *rem_step = curr_step->next[next_step_id];
-					remove_step_from_itinerary(rem_step);
-					continue;
-				}
-
 				curr_step = curr_step->next[next_step_id];
+
 				curr_step->body = get_body_from_id(body_id);
 				curr_step->date = jd_arr;
 				curr_step->r = osv_body1.r;
@@ -243,18 +240,23 @@ void *calc_from_departure2(void *args) {
 				curr_step->v_body = osv_body1.v;
 				curr_step->num_next_nodes = 0;
 
-//				if(num_steps > 2) {
-					if(!calc_next_step2(curr_step, body_ephems, arr_body, jd_max_arr, max_total_duration, thread_args->dv_filter)) {
-						continue;
-					}
-//				}
 				next_step_id++;
 			}
 		}
-		get_first(curr_step)->num_next_nodes = next_step_id;
+
+		curr_step = get_first(curr_step);
+		curr_step->num_next_nodes = next_step_id;
+
+		int num_of_end_nodes = find_copy_and_store_end_nodes(curr_step, arr_body);
+
+		// remove end nodes that do not satisfy dv requirements
+		num_of_end_nodes = remove_end_nodes_that_do_not_satisfy_dv_requirements(curr_step, num_of_end_nodes, dv_filter);
+		if(curr_step->num_next_nodes > 0) {
+			continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, body_ephems, arr_body, jd_max_arr, max_total_duration, dv_filter);
+		}
 
 		double progress = get_incr_thread_counter(1);
-		show_progress("Transfer Calculation progress: ", progress, jd_diff);
+		show_progress("Transfer Calculation progress", progress, jd_diff);
 		index = get_incr_thread_counter(0);
 		jd_dep = jd_min_dep + index;
 	}
@@ -280,26 +282,26 @@ void test_itinerary() {
 	}
 
 	struct Body *dep_body = EARTH();
-	struct Body *arr_body = NEPTUNE();
+	struct Body *arr_body = JUPITER();
 
 	// Voyager
-	double jd_min_dep = 2441683.5000000;
-	double jd_max_dep = 2442413.5000000;
-	double jd_max_arr = 2449718.5000000;
+//	double jd_min_dep = 2441683.5000000;
+//	double jd_max_dep = 2442413.5000000;
+//	double jd_max_arr = 2449718.5000000;
 
 // Earth -> Jupiter 1967
-//	double jd_min_dep = 2439500.5000000;
-//	double jd_max_dep = 2439720.5000000;
-//	double jd_max_arr = 2442510.5000000;
+	double jd_min_dep = 2439500.5000000;
+	double jd_max_dep = 2439920.5000000;
+	double jd_max_arr = 2442510.5000000;
 
 	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
 
-	int max_duration = 6000;
+	int max_duration = 3000;
 
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 
-	struct Dv_Filter dv_filter = {5000, 1e6, 1e6, 0};
+	struct Dv_Filter dv_filter = {7000, 1e6, 1e6, 0};
 
 	struct Itin_Thread_Args2 thread_args = {
 			departures,
@@ -313,11 +315,11 @@ void test_itinerary() {
 			&dv_filter
 	};
 
-	show_progress("Transfer Calculation progress: ", 0, 1);
+	show_progress("Transfer Calculation progress", 0, 1);
 	struct Thread_Pool thread_pool = use_thread_pool64(calc_from_departure2, &thread_args);
 	join_thread_pool(thread_pool);
 //	calc_from_departure2(&thread_args);
-	show_progress("Transfer Calculation progress: ", 1, 1);
+	show_progress("Transfer Calculation progress", 1, 1);
 	printf("\n");
 
 	// remove departure dates with no valid itinerary
@@ -373,32 +375,32 @@ void test_itinerary() {
 
 
 	// TODO: Remove later
-	struct ItinStep **arrivals = malloc(num_itins * sizeof(struct ItinStep*));
-	int arridx = 0;
-	for(int i = 0; i < num_deps; i++) {
-		store_itineraries_in_array(departures[i], arrivals, &arridx);
-	}
-	for(int i = 0; i < num_itins; i++) {
-		struct ItinStep *arr = arrivals[i];
-		struct ItinStep *ptr = arr;
-		int num_layers = 1;
-		while(ptr->prev != NULL) {num_layers++; ptr = ptr->prev;}
-		for(int j = num_layers-1; j >= 0; j--) {
-			ptr = arr;
-			for(int k = 0; k < j; k++) ptr = ptr->prev;
-			if(j != num_layers-1) printf("  ");
-			print_date(convert_JD_date(ptr->date), 0);
-		}
-		printf("\n");
-		for(int j = num_layers-1; j >= 0; j--) {
-			ptr = arr;
-			for(int k = 0; k < j; k++) ptr = ptr->prev;
-			if(j != num_layers-1) printf(" -> ");
-			printf("%s", ptr->body->name);
-			ptr = ptr->prev;
-		}
-		printf("\n");
-	}
+//	struct ItinStep **arrivals = malloc(num_itins * sizeof(struct ItinStep*));
+//	int arridx = 0;
+//	for(int i = 0; i < num_deps; i++) {
+//		store_itineraries_in_array(departures[i], arrivals, &arridx);
+//	}
+//	for(int i = 0; i < num_itins; i++) {
+//		struct ItinStep *arr = arrivals[i];
+//		struct ItinStep *ptr = arr;
+//		int num_layers = 1;
+//		while(ptr->prev != NULL) {num_layers++; ptr = ptr->prev;}
+//		for(int j = num_layers-1; j >= 0; j--) {
+//			ptr = arr;
+//			for(int k = 0; k < j; k++) ptr = ptr->prev;
+//			if(j != num_layers-1) printf("  ");
+//			print_date(convert_JD_date(ptr->date), 0);
+//		}
+//		printf("\n");
+//		for(int j = num_layers-1; j >= 0; j--) {
+//			ptr = arr;
+//			for(int k = 0; k < j; k++) ptr = ptr->prev;
+//			if(j != num_layers-1) printf(" -> ");
+//			printf("%s", ptr->body->name);
+//			ptr = ptr->prev;
+//		}
+//		printf("\n");
+//	}
 	for(int i = 0; i < num_deps; i++) {
 		free_itinerary(departures[i]);
 	}

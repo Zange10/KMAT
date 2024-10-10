@@ -59,6 +59,15 @@ int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Bod
 // TODO: rename
 int calc_next_step2(struct ItinStep *curr_step, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
 
+// initiate calc of next itinerary steps and return 0 if no steps are remaining in this itinerary (1 otherwise)
+int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
+
+// find end nodes (next step at arrival body) and copy to the end of the next steps array of curr_step
+int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_body);
+
+// removes end nodes from initerary that do not satisfy dv requirements (returns new number of end nodes)
+int remove_end_nodes_that_do_not_satisfy_dv_requirements(struct ItinStep *curr_step, int num_of_end_nodes, struct Dv_Filter *dv_filter);
+
 // get the number of layers/steps in the given itinerary (departure first)
 int get_num_of_itin_layers(struct ItinStep *step);
 
