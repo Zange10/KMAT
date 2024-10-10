@@ -146,20 +146,20 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
         }
 
         if(isnan(dt)){  // at this theta1 orbit not solvable
-			printf("%.10f°, %f°, %f, %f, %f, %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
-			printf("%f°, %f°, %f, %f, %f, %f, %f, %f\n", rad2deg(min_theta1), rad2deg(max_theta1), t1/86400, t2/86400, T/86400, T/2/86400, e, a);
-			printf("theta1 = [");
-			for(int j = 1; j <= data[0].x; j++) {
-				if(j!=1) printf(", ");
-				printf("%.10f", rad2deg(data[j].x));
-			}
-			printf("]\ndt = [");
-			for(int j = 1; j <= data[0].x; j++) {
-				if(j!=1) printf(", ");
-				printf("%.4f", data[j].y/86400);
-			}
-			printf("]\n");
-			printf("---!!!!   NAN   !!!!---\n");
+//			printf("%.10f°, %f°, %f, %f, %f, %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
+//			printf("%f°, %f°, %f, %f, %f, %f, %f, %f\n", rad2deg(min_theta1), rad2deg(max_theta1), t1/86400, t2/86400, T/86400, T/2/86400, e, a);
+//			printf("theta1 = [");
+//			for(int j = 1; j <= data[0].x; j++) {
+//				if(j!=1) printf(", ");
+//				printf("%.10f", rad2deg(data[j].x));
+//			}
+//			printf("]\ndt = [");
+//			for(int j = 1; j <= data[0].x; j++) {
+//				if(j!=1) printf(", ");
+//				printf("%.4f", data[j].y/86400);
+//			}
+//			printf("]\n");
+//			printf("---!!!!   NAN   !!!!---\n");
             break;
         }
 		

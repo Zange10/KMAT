@@ -55,6 +55,10 @@ void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_ca
 // from current step and given information, initiate calculation of next steps
 int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step);
 
+// from current step and given information, initiate calculation of next steps
+// TODO: rename
+int calc_next_step2(struct ItinStep *curr_step, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
+
 // get the number of layers/steps in the given itinerary (departure first)
 int get_num_of_itin_layers(struct ItinStep *step);
 

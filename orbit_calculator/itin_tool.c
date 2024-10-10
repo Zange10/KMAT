@@ -16,7 +16,7 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, str
 	if(cross_product(proj_vec, osv_arr0.r).z < 0) theta_conj_opp *= -1;
 	else theta_conj_opp -= M_PI;
 
-	int max_new_steps = 10;
+	int max_new_steps = 100;
 	struct ItinStep *new_steps[max_new_steps];
 
 	int counter = 0;
@@ -121,9 +121,31 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, str
 	}
 
 	if(counter > 0) {
-		tf->next = (struct ItinStep **) malloc(counter * sizeof(struct ItinStep *));
-		for(int i = 0; i < counter; i++) tf->next[i] = new_steps[i];
-		tf->num_next_nodes = counter;
+		if(tf->num_next_nodes == 0) tf->next = (struct ItinStep **) malloc(counter * sizeof(struct ItinStep *));
+		else {
+			struct ItinStep ** new_next = realloc(tf->next, (counter+tf->num_next_nodes) * sizeof(struct ItinStep *));
+			if(new_next == NULL) {
+				printf("\nERROR WHILE REALLOCATING ITINERARIES DURING TRANSFER CALCULATION!!!\n");
+				return;
+			}
+			tf->next = new_next;
+		}
+		for(int i = 0; i < counter; i++) tf->next[i+tf->num_next_nodes] = new_steps[i];
+
+		tf->num_next_nodes += counter;
+
+		// TODO: remove later
+//		if(tf->num_next_nodes > 1) {
+//			for(int i = 0; i < tf->num_next_nodes; i++) {
+//				printf("\n");
+//				print_date(convert_JD_date(tf->prev->date), 0);
+//				printf("       ");
+//				print_date(convert_JD_date(tf->date), 0);
+//				printf("       ");
+//				print_date(convert_JD_date(new_steps[i]->date), 1);
+//				printf("----  %s      %s       %s  ----\n", get_first(tf)->body->name, tf->body->name, tf->next[i]->body->name);
+//			}
+//		}
 	}
 }
 
@@ -232,6 +254,7 @@ void print_itinerary(struct ItinStep *itin) {
 }
 
 int get_number_of_itineraries(struct ItinStep *itin) {
+	if(itin == NULL) return 0;
 	if(itin->num_next_nodes == 0) return 1;
 	int counter = 0;
 	for(int i = 0; i < itin->num_next_nodes; i++) {
@@ -241,6 +264,7 @@ int get_number_of_itineraries(struct ItinStep *itin) {
 }
 
 int get_total_number_of_stored_steps(struct ItinStep *itin) {
+	if(itin == NULL) return 0;
 	if(itin->num_next_nodes == 0) return 1;
 	int counter = 1;
 	for(int i = 0; i < itin->num_next_nodes; i++) {
@@ -331,6 +355,113 @@ int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Bod
 			if(!result) step_del++;
 		}
 	} else return 1;
+
+	return num_valid > 0;
+}
+
+// TODO: rename
+int calc_next_step2(struct ItinStep *curr_step, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
+	for(int body_id = 1; body_id <= 8; body_id++) {
+		if(body_id == curr_step->body->id) continue;
+		double jd_max;
+		if(get_first(curr_step)->date + max_total_duration < jd_max_arr)
+			jd_max = get_first(curr_step)->date + max_total_duration;
+		else
+			jd_max = jd_max_arr;
+		double max_duration = jd_max-curr_step->date;
+		double min_duration = 10;	// [days]
+		if(max_duration > min_duration)
+			find_viable_flybys(curr_step, body_ephems[body_id], get_body_from_id(body_id), min_duration*86400, max_duration*86400);
+	}
+
+
+	if(curr_step->num_next_nodes == 0) {
+		remove_step_from_itinerary(curr_step);
+		return 0;
+	}
+
+
+	// TODO: move to separate function
+	int num_of_end_nodes = 0;
+	for(int i = 0; i < curr_step->num_next_nodes; i++) {
+		if(curr_step->next[i]->body->id == arr_body->id) num_of_end_nodes++;
+	}
+	// if there were end nodes found, copy them and store them at the end
+	if(num_of_end_nodes > 0) {
+		struct ItinStep ** new_next = realloc(curr_step->next, (num_of_end_nodes+curr_step->num_next_nodes) * sizeof(struct ItinStep *));
+		if(new_next == NULL) {
+			printf("\nERROR WHILE REALLOCATING ITINERARIES DURING END NODE COPYING!!!\n");
+			return 0;
+		}
+		curr_step->next = new_next;
+
+		int end_node_idx = 0;
+
+		for(int i = 0; i < curr_step->num_next_nodes; i++) {
+			if(curr_step->next[i]->body->id == arr_body->id) {
+				struct ItinStep *end_node = malloc(num_of_end_nodes * sizeof(struct ItinStep));
+				end_node->body 	= curr_step->next[i]->body;
+				end_node->date 	= curr_step->next[i]->date;
+				end_node->r 	= curr_step->next[i]->r;
+				end_node->v_dep = curr_step->next[i]->v_dep;
+				end_node->v_arr = curr_step->next[i]->v_arr;
+				end_node->v_body= curr_step->next[i]->v_body;
+				end_node->num_next_nodes = 0;
+				end_node->prev 	= curr_step->next[i]->prev;
+				end_node->next 	= NULL;
+
+				curr_step->next[curr_step->num_next_nodes + end_node_idx] = end_node;
+				end_node_idx++;
+			}
+		}
+	}
+
+	curr_step->num_next_nodes += num_of_end_nodes;
+
+	// TODO remove later
+//	if(curr_step->num_next_nodes > 0) {
+//		for(int i = 0; i < curr_step->num_next_nodes; i++) {
+//			printf("%3d/%d  ", i+1, curr_step->num_next_nodes);
+//			print_date(convert_JD_date(curr_step->prev->date), 0);
+//			printf("       ");
+//			print_date(convert_JD_date(curr_step->date), 0);
+//			printf("       ");
+//			print_date(convert_JD_date(curr_step->next[i]->date), 1);
+//			printf("----  %s      %s      %s  ----\n", get_first(curr_step)->body->name, curr_step->body->name, curr_step->next[i]->body->name);
+//		}
+//	}
+
+	// remove end nodes that do not satisfy dv requirements
+	for(int i = curr_step->num_next_nodes-num_of_end_nodes; i < curr_step->num_next_nodes; i++) {
+		struct ItinStep *next = curr_step->next[i];
+		double porkchop[5];
+		create_porkchop_point(next, porkchop, dv_filter->last_transfer_type == 1);
+		int fb0_pow1 = dv_filter->last_transfer_type != 0;
+		if(porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_satdv ||
+				porkchop[2] + porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_totdv) {
+			if(curr_step->num_next_nodes <= 1) {
+				remove_step_from_itinerary(next);
+				return 0;
+			} else {
+				remove_step_from_itinerary(next);
+			}
+			i--;
+		}
+	}
+	struct ItinStep *first_end_node = num_of_end_nodes > 0 ? curr_step->next[curr_step->num_next_nodes-num_of_end_nodes] : NULL;
+
+	int num_valid = 0;
+	int init_num_nodes = curr_step->num_next_nodes;
+	int step_del = 0;
+	int result;
+
+	for(int i = 0; i < init_num_nodes; i++) {
+		int idx = i - step_del;
+		if(curr_step->next[idx] == first_end_node) return 1;
+		result = calc_next_step2(curr_step->next[idx], body_ephems, arr_body, jd_max_arr, max_total_duration, dv_filter);
+		num_valid += result;
+		if(!result) step_del++;
+	}
 
 	return num_valid > 0;
 }
@@ -771,6 +902,7 @@ void remove_step_from_itinerary(struct ItinStep *step) {
 }
 
 void free_itinerary(struct ItinStep *step) {
+	if(step == NULL) return;
 	if(step->next != NULL) {
 		for(int i = 0; i < step->num_next_nodes; i++) {
 			free_itinerary(step->next[i]);

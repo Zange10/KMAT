@@ -1,4 +1,5 @@
 #include "data_tool.h"
+#include <stdio.h>
 
 void insert_new_data_point(struct Vector2D data[], double x, double y) {
 	for (int i = 1; i <= data[0].x; i++) {
@@ -123,4 +124,16 @@ int can_be_negative_monot_deriv(struct Vector2D *data) {
 	if(gradient*dx + data[mind].y < 0) return 1;
 	
 	return 0;
+}
+
+
+
+
+void print_double_array(char *name, double *array, int size) {
+	printf("\n%s = [", name);
+	for(int i = 0; i < size; i++) {
+		if(i!=0) printf(", ");
+		printf("%f", array[i]);
+	}
+	printf("]\n");
 }

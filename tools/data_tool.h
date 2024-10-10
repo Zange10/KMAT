@@ -12,4 +12,6 @@ void insert_new_data_point(struct Vector2D data[], double x, double y);
 
 int can_be_negative_monot_deriv(struct Vector2D *data);
 
+void print_double_array(char *name, double *array, int size);
+
 #endif //KSP_DATA_TOOL_H
