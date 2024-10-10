@@ -29,10 +29,12 @@ double theta1_at_max_dt(double r0, double r1, double dtheta) {
 	double p = (2*pxr)/(pxr*pxr + pyr*pyr);
 	double q = (1-pyr*pyr)/(pxr*pxr + pyr*pyr);
 
+	// IF NAN IN 2D TRANSFER CALC, LOOK HERE. SQRT SHOULD NOT GET NEGATIVE
+	double inside_sqrt = p*p/4 - q;
+	if(inside_sqrt < 0) inside_sqrt *= -1;
 
-	double mx1 = -p/2 - sqrt(p*p/4 - q);
-	double mx2 = -p/2 + sqrt(p*p/4 - q);
-
+	double mx1 = -p/2 - sqrt(inside_sqrt);
+	double mx2 = -p/2 + sqrt(inside_sqrt);
 
 	struct Vector2D m_n[] = {
 			{mx1, +sqrt(1-mx1*mx1)},
@@ -61,9 +63,11 @@ double theta1_at_max_dt(double r0, double r1, double dtheta) {
 
 
 struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt, double dtheta, struct Body *attractor) {
-	if(fabs(dtheta) < 0.0001 ||
-	   fabs(dtheta-M_PI) < 0.0001 ||
-	   fabs(dtheta-2*M_PI) < 0.0001) dtheta += 0.001;
+	// 0°, 180° and 360° are extreme edge cases with funky stuff happening with floating point imprecision -> adjust dtheta
+	if(fabs(dtheta) < 0.001 ||
+	   fabs(dtheta-M_PI) < 0.001) dtheta += 0.001;
+	if(fabs(dtheta-2*M_PI) < 0.001) dtheta -= 0.001;
+
 	double min_theta1 = r1 / r0 > 1 ? theta1_at_min_dt(r0, r1, dtheta) : theta1_at_max_dt(r0, r1, dtheta);
 	double max_theta1 = r1 / r0 > 1 ? theta1_at_max_dt(r0, r1, dtheta) : theta1_at_min_dt(r0, r1, dtheta);
 
@@ -146,20 +150,20 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
         }
 
         if(isnan(dt)){  // at this theta1 orbit not solvable
-//			printf("%.10f°, %f°, %f, %f, %f, %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
-//			printf("%f°, %f°, %f, %f, %f, %f, %f, %f\n", rad2deg(min_theta1), rad2deg(max_theta1), t1/86400, t2/86400, T/86400, T/2/86400, e, a);
-//			printf("theta1 = [");
-//			for(int j = 1; j <= data[0].x; j++) {
-//				if(j!=1) printf(", ");
-//				printf("%.10f", rad2deg(data[j].x));
-//			}
-//			printf("]\ndt = [");
-//			for(int j = 1; j <= data[0].x; j++) {
-//				if(j!=1) printf(", ");
-//				printf("%.4f", data[j].y/86400);
-//			}
-//			printf("]\n");
-//			printf("---!!!!   NAN   !!!!---\n");
+			printf("%.10f°, %f°, %f, %f, %f, %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
+			printf("%f°, %f°, %f, %f, %f, %f, %f, %f\n", rad2deg(min_theta1), rad2deg(max_theta1), t1/86400, t2/86400, T/86400, T/2/86400, e, a);
+			printf("theta1 = [");
+			for(int j = 1; j <= data[0].x; j++) {
+				if(j!=1) printf(", ");
+				printf("%.10f", rad2deg(data[j].x));
+			}
+			printf("]\ndt = [");
+			for(int j = 1; j <= data[0].x; j++) {
+				if(j!=1) printf(", ");
+				printf("%.4f", data[j].y/86400);
+			}
+			printf("]\n");
+			printf("---!!!!   NAN   !!!!---\n");
             break;
         }
 		
