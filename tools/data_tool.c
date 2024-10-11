@@ -130,7 +130,7 @@ int can_be_negative_monot_deriv(struct Vector2D *data) {
 
 
 void print_double_array(char *name, double *array, int size) {
-	printf("\n%s = [", name);
+	printf("%s = [", name);
 	for(int i = 0; i < size; i++) {
 		if(i!=0) printf(", ");
 		printf("%f", array[i]);

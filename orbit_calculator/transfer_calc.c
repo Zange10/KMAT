@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include "tools/thread_pool.h"
 #include "tools/data_tool.h"
+#include "double_swing_by.h"
 
 
 struct Itin_Thread_Args {
@@ -503,118 +504,184 @@ struct Transfer_Calc_Results create_itinerary(struct Transfer_Calc_Data calc_dat
 
 
 void test_dsb() {
+	struct Body *bodies[6];
+
+	int num_bodies = 8+2;	// planets + arrival body + departure body (arr and dep body ephems = NULL if planet)
+	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	struct Ephem **body_ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
+	body_ephems[0] = NULL;
+	body_ephems[9] = NULL;
+	for(int i = 1; i <= num_bodies-2; i++) {
+		body_ephems[i] = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
+		get_body_ephem(body_ephems[i], i);
+	}
+
+	int min_duration[6], max_duration[6];
+	int counter = 0;
+	double jd_min_dep, jd_max_dep;
+
+
+	bodies[counter] = EARTH();
 	struct Date min_date = {1997, 10, 06};	// Cassini: 1997-10-06
 	struct Date max_date = {1997, 10, 06};
-
-
-	int num_steps = 5;
-	struct Transfer_Calc_Data calc_data;
-	calc_data.num_steps = num_steps;
-	calc_data.jd_min_dep = convert_date_JD(min_date);
-	calc_data.jd_max_dep = convert_date_JD(max_date);
-	calc_data.dv_filter.max_totdv = 1e9;
-	calc_data.dv_filter.max_depdv = 1e9;
-	calc_data.dv_filter.max_satdv = 1e9;
-	calc_data.dv_filter.last_transfer_type = 0;
-
-	calc_data.bodies = (struct Body**) malloc(num_steps * sizeof(struct Body*));
-	calc_data.min_duration = (int*) malloc((num_steps-1) * sizeof(int));
-	calc_data.max_duration = (int*) malloc((num_steps-1) * sizeof(int));
-
-	int counter = 0;
-	calc_data.bodies[counter] = EARTH();
+	jd_min_dep = convert_date_JD(min_date);
+	jd_max_dep = convert_date_JD(max_date);
 	counter++;
 
-	calc_data.bodies[counter] = VENUS();
-	calc_data.min_duration[counter-1] = 197;	// Cassini 197
-	calc_data.max_duration[counter-1] = 197;
+	bodies[counter] = VENUS();
+	min_duration[counter] = 197;	// Cassini 197
+	max_duration[counter] = 197;
 	counter++;
 
-	calc_data.bodies[counter] = VENUS();
-	calc_data.min_duration[counter-1] = 423;	// Cassini 425
-	calc_data.max_duration[counter-1] = 427;
+	bodies[counter] = VENUS();
+	min_duration[counter] = 427;	// Cassini 425
+	max_duration[counter] = 427;
 	counter++;
 
-	calc_data.bodies[counter] = EARTH();
-	calc_data.min_duration[counter-1] = 20;	// Cassini 65
-	calc_data.max_duration[counter-1] = 90;
+	bodies[counter] = EARTH();
+	min_duration[counter] = 30;	// Cassini 65
+	max_duration[counter] = 300;
 	counter++;
 
-	calc_data.bodies[counter] = JUPITER();
-	calc_data.min_duration[counter-1] = 200;	// Cassini 559
-	calc_data.max_duration[counter-1] = 2000;
+	bodies[counter] = JUPITER();
+	min_duration[counter] = 200;	// Cassini 559
+	max_duration[counter] = 2000;
 	counter++;
 
-//	calc_data.bodies[counter] = SATURN();
-//	calc_data.min_duration[counter-1] = 800;	// Cassini 1273
-//	calc_data.max_duration[counter-1] = 2000;
+	bodies[counter] = SATURN();
+	min_duration[counter] = 800;	// Cassini 1273
+	max_duration[counter] = 2000;
 
 
-	struct Transfer_Calc_Results results = create_itinerary(calc_data);
+	struct Dv_Filter dv_filter = {1e9, 1e9, 1e9};
+	double t[4], tf_duration[4];
 
+	double all_d_v[100000], all_dep[100000], all_fb0[100000], all_fb1[100000], all_fb2[100000], all_alt[100000], all_ddv[100000];
+	double id_v[10000], idep[10000], ifb0[10000], ifb1[10000], ifb2[10000], ialt[100000], iddv[100000];;
+	double d_v[10000], dep[10000], fb0[10000], fb1[10000], fb2[10000];
+	int num_all = 0, inum_viable = 0, num_viable = 0;
 
-	struct ItinStep **all_arrivals, *temp;
+	for(double jd_dep = jd_min_dep; jd_dep <= jd_max_dep; jd_dep+=1.0) {
+		for(tf_duration[0] = min_duration[1]; tf_duration[0] <= max_duration[1]; tf_duration[0]+=0.1) {
+			for(tf_duration[1] = min_duration[2]; tf_duration[1] <= max_duration[2]; tf_duration[1]+=0.1) {
+				for(tf_duration[2] = min_duration[3]; tf_duration[2] <= max_duration[3]; tf_duration[2]+=0.1) {
 
+					t[0] = jd_dep + tf_duration[0];
+					t[1] = t[0] + tf_duration[1];
+					t[2] = t[1] + tf_duration[2];
 
-	int num_itins = 0, tot_num_itins = 0, num_deps = results.num_deps;
-	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(results.departures[i]);
-	for(int i = 0; i < num_deps; i++) tot_num_itins += get_total_number_of_stored_steps(results.departures[i]);
+					struct OSV osv_dep = osv_from_ephem(body_ephems[bodies[0]->id], jd_dep, SUN());
+					struct OSV dsb_osv[3] = {
+							osv_from_ephem(body_ephems[bodies[1]->id], t[0], SUN()),
+							osv_from_ephem(body_ephems[bodies[2]->id], t[1], SUN()),
+							osv_from_ephem(body_ephems[bodies[3]->id], t[2], SUN())
+					};
 
-	int index = 0;
-	all_arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
-	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(results.departures[i], all_arrivals, &index);
+					double data[3];
+					struct Transfer tf_launch = calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v,
+															  dsb_osv[0].r,
+															  dsb_osv[0].v, tf_duration[0] * 86400, data);
+					struct Transfer tf_after_dsb = calc_transfer(circfb, bodies[2], bodies[3], dsb_osv[1].r,
+																 dsb_osv[1].v,
+																 dsb_osv[2].r, dsb_osv[2].v, tf_duration[2] * 86400,
+																 NULL);
 
+					struct OSV s0 = {tf_launch.r1, tf_launch.v1};
+					struct OSV p0 = {dsb_osv[0].r, dsb_osv[0].v};
+					struct OSV s1 = {tf_after_dsb.r0, tf_after_dsb.v0};
+					struct OSV p1 = {dsb_osv[1].r, dsb_osv[1].v};
 
-	double *dv = (double*) malloc(num_itins*sizeof(double));
-	double **t = (double**) malloc((num_steps+1)*sizeof(double*));
-	for(int i = 0; i < num_steps+1; i++) {
-		t[i] = (double*) malloc(num_itins*sizeof(double));
-	}
+					struct DSB dsb = calc_double_swing_by(s0, p0, s1, p1, tf_duration[1], bodies[1]);
 
+					if(dsb.dv < 1e8) {
+						all_d_v[num_all] = dsb.dv;
+						all_dep[num_all] = jd_dep;
+						all_fb0[num_all] = tf_duration[0];
+						all_fb1[num_all] = tf_duration[1];
+						all_fb2[num_all] = tf_duration[2];
+						num_all++;
+					} else continue;
 
+					struct ItinStep itin_step = {
+							bodies[3],
+							tf_after_dsb.r1,
+							tf_after_dsb.v1,
+							dsb_osv[2].v,
+							tf_after_dsb.v0,
+							t[2],
+							0,
+							NULL,
+							NULL
+					};
 
-	for(int i = 0; i < num_itins; i++) {
-		temp = all_arrivals[i];
-		counter = num_steps;
-		while(temp != NULL) {
-			if(temp->body == NULL) {
-				dv[i] = vector_mag(subtract_vectors(temp->next[0]->v_dep, temp->v_arr));
+					find_viable_flybys(&itin_step, body_ephems[bodies[4]->id], bodies[4], min_duration[4] * 86400,
+									   max_duration[4] * 86400);
+
+					all_alt[num_all-1] = get_best_alt();
+					all_ddv[num_all-1] = get_best_diff_vinf();
+
+					if(itin_step.num_next_nodes>0) {
+						id_v[inum_viable] = dsb.dv;
+						idep[inum_viable] = jd_dep;
+						ifb0[inum_viable] = tf_duration[0];
+						ifb1[inum_viable] = tf_duration[1];
+						ifb2[inum_viable] = tf_duration[2];
+						ifb2[inum_viable] = tf_duration[2];
+						ialt[inum_viable] = get_best_alt();
+						iddv[inum_viable] = get_best_diff_vinf();
+						inum_viable++;
+					}
+//					printf("num next nodes: %d\n", itin_step.num_next_nodes);
+
+					for(int i = 0; i < itin_step.num_next_nodes; i++) {
+						find_viable_flybys(itin_step.next[i], body_ephems[bodies[5]->id], bodies[5],
+										   min_duration[5] * 86400,
+										   max_duration[5] * 86400);
+						if(itin_step.next[i]->num_next_nodes>0) {
+							printf("SAT num next nodes: %d\n", itin_step.next[i]->num_next_nodes);
+							printf("%f\n", dsb.dv);
+							print_double_array("data", data, 3);
+
+							d_v[num_viable] = dsb.dv;
+							dep[num_viable] = jd_dep;
+							fb0[num_viable] = tf_duration[0];
+							fb1[num_viable] = tf_duration[1];
+							fb2[num_viable] = tf_duration[2];
+							num_viable++;
+						}
+					}
+
+					for(int i = 0; i < itin_step.num_next_nodes; i++) {
+						free_itinerary(itin_step.next[i]);
+					}
+
+				}
 			}
-
-			t[counter][i] = temp->date;
-			counter--;
-			temp = temp->prev;
 		}
 	}
 
+	print_double_array("all_d_v", all_d_v, num_all);
+	print_double_array("all_dep", all_dep, num_all);
+	print_double_array("all_fb0", all_fb0, num_all);
+	print_double_array("all_fb1", all_fb1, num_all);
+	print_double_array("all_fb2", all_fb2, num_all);
+	print_double_array("all_alt", all_alt, num_all);
+	print_double_array("all_ddv", all_ddv, num_all);
+	printf("\n");
+	print_double_array("id_v", id_v, inum_viable);
+	print_double_array("idep", idep, inum_viable);
+	print_double_array("ifb0", ifb0, inum_viable);
+	print_double_array("ifb1", ifb1, inum_viable);
+	print_double_array("ifb2", ifb2, inum_viable);
+	print_double_array("ialt", ialt, inum_viable);
+	print_double_array("iddv", iddv, inum_viable);
+	printf("\n");
+	print_double_array("d_v", d_v, num_viable);
+	print_double_array("dep", dep, num_viable);
+	print_double_array("fb0", fb0, num_viable);
+	print_double_array("fb1", fb1, num_viable);
+	print_double_array("fb2", fb2, num_viable);
 
-//	for(int i = 0; i < num_itins; i++) {
-//		printf("% 6.0f    |    ", dv[i]);
-//		for(int j = 0; j < num_steps+1; j++) {
-//			if(j != 0) printf(" | ");
-//			print_date(convert_JD_date(t[j][i]), 0);
-//		}
-//		printf("\n");
-//	}
-
-	printf("dv = [");
-	for(int i = 0; i < num_itins; i++) {
-		if(i != 0) printf(",");
-		printf("%.2f", dv[i]);
-	}
-	printf("]\n");
-
-	for(int c = 0; c < num_steps+1; c++) {
-		printf("t%d = [", c);
-		for(int i = 0; i < num_itins; i++) {
-			if(i != 0) printf(",");
-			printf("%.2f", t[c][i]);
-		}
-		printf("]\n");
-	}
-
-
-	free(dv);
-	for(int i = 0; i < num_steps+1; i++) free(t[i]);
-	free(t);
+	for(int i = 0; i < num_bodies; i++) free(body_ephems[i]);
+	free(body_ephems);
 }
