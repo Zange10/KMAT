@@ -21,5 +21,6 @@ struct Transfer_Calc_Results {
 
 struct Transfer_Calc_Results create_itinerary(struct Transfer_Calc_Data calc_data);
 void test_itinerary();
+void test_dsb();
 
 #endif //KSP_TRANSFER_CALC_H
