@@ -19,6 +19,24 @@ void insert_new_data_point(struct Vector2D data[], double x, double y) {
 	data[0].x++;
 }
 
+// TODO RENAME
+void insert_new_data_point2(struct Vector2D data[], double x, double y) {
+	data[(int)data[0].x+1].x = x;
+	data[(int)data[0].x+1].y = y;
+	data[0].x++;
+}
+
+int get_min_value_index_from_data(struct Vector2D data[]) {
+	double min = data[1].y;
+	int minidx = 1;
+	for(int i = 1; i <= data[0].x; i++) {
+		if(data[i].y < min) {
+			min = data[i].y;
+			minidx = i;
+		}
+	}
+	return minidx;
+}
 
 struct Vector2D get_xn(struct Vector2D d0, struct Vector2D d1, double m_l, double m_r) {
 	struct Vector2D xn;
@@ -128,6 +146,20 @@ int can_be_negative_monot_deriv(struct Vector2D *data) {
 
 
 
+void print_data_vector(char *namex, char *namey, struct Vector2D *data) {
+	printf("%s = [", namex);
+	for(int i = 1; i <= data[0].x; i++) {
+		if(i!=1) printf(", ");
+		printf("%f", data[i].x);
+	}
+	printf("]\n");
+	printf("%s = [", namey);
+	for(int i = 1; i <= data[0].x; i++) {
+		if(i!=1) printf(", ");
+		printf("%f", data[i].y);
+	}
+	printf("]\n");
+}
 
 void print_double_array(char *name, double *array, int size) {
 	printf("%s = [", name);

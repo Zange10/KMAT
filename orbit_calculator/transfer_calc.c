@@ -534,13 +534,13 @@ void test_dsb() {
 	counter++;
 
 	bodies[counter] = VENUS();
-	min_duration[counter] = 427;	// Cassini 425
-	max_duration[counter] = 427;
+	min_duration[counter] = 400;	// Cassini 425
+	max_duration[counter] = 600;
 	counter++;
 
 	bodies[counter] = EARTH();
-	min_duration[counter] = 30;	// Cassini 65
-	max_duration[counter] = 300;
+	min_duration[counter] = 57;	// Cassini 65
+	max_duration[counter] = 57;
 	counter++;
 
 	bodies[counter] = JUPITER();
@@ -552,6 +552,8 @@ void test_dsb() {
 	min_duration[counter] = 800;	// Cassini 1273
 	max_duration[counter] = 2000;
 
+	double test[1000];
+	int numtest = 0;
 
 	struct Dv_Filter dv_filter = {1e9, 1e9, 1e9};
 	double t[4], tf_duration[4];
@@ -560,127 +562,220 @@ void test_dsb() {
 	double id_v[10000], idep[10000], ifb0[10000], ifb1[10000], ifb2[10000], ialt[100000], iddv[100000];;
 	double d_v[10000], dep[10000], fb0[10000], fb1[10000], fb2[10000];
 	int num_all = 0, inum_viable = 0, num_viable = 0;
+	struct Vector2D error1ddv[1000];
+	struct Vector2D error1alt[1000];
+	struct Vector2D error2ddv[1000];
+	struct Vector2D error2alt[1000];
+	struct Vector2D viable_dv[1000];
 
-	for(double jd_dep = jd_min_dep; jd_dep <= jd_max_dep; jd_dep+=1.0) {
-		for(tf_duration[0] = min_duration[1]; tf_duration[0] <= max_duration[1]; tf_duration[0]+=0.1) {
-			for(tf_duration[1] = min_duration[2]; tf_duration[1] <= max_duration[2]; tf_duration[1]+=0.1) {
-				for(tf_duration[2] = min_duration[3]; tf_duration[2] <= max_duration[3]; tf_duration[2]+=0.1) {
+	struct Vector2D best_dvs[1000];
 
-					t[0] = jd_dep + tf_duration[0];
-					t[1] = t[0] + tf_duration[1];
-					t[2] = t[1] + tf_duration[2];
-
-					struct OSV osv_dep = osv_from_ephem(body_ephems[bodies[0]->id], jd_dep, SUN());
-					struct OSV dsb_osv[3] = {
-							osv_from_ephem(body_ephems[bodies[1]->id], t[0], SUN()),
-							osv_from_ephem(body_ephems[bodies[2]->id], t[1], SUN()),
-							osv_from_ephem(body_ephems[bodies[3]->id], t[2], SUN())
-					};
-
-					double data[3];
-					struct Transfer tf_launch = calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v,
-															  dsb_osv[0].r,
-															  dsb_osv[0].v, tf_duration[0] * 86400, data);
-					struct Transfer tf_after_dsb = calc_transfer(circfb, bodies[2], bodies[3], dsb_osv[1].r,
-																 dsb_osv[1].v,
-																 dsb_osv[2].r, dsb_osv[2].v, tf_duration[2] * 86400,
-																 NULL);
-
-					struct OSV s0 = {tf_launch.r1, tf_launch.v1};
-					struct OSV p0 = {dsb_osv[0].r, dsb_osv[0].v};
-					struct OSV s1 = {tf_after_dsb.r0, tf_after_dsb.v0};
-					struct OSV p1 = {dsb_osv[1].r, dsb_osv[1].v};
-
-					struct DSB dsb = calc_double_swing_by(s0, p0, s1, p1, tf_duration[1], bodies[1]);
-
-					if(dsb.dv < 1e8) {
-						all_d_v[num_all] = dsb.dv;
-						all_dep[num_all] = jd_dep;
-						all_fb0[num_all] = tf_duration[0];
-						all_fb1[num_all] = tf_duration[1];
-						all_fb2[num_all] = tf_duration[2];
-						num_all++;
-					} else continue;
-
-					struct ItinStep itin_step = {
-							bodies[3],
-							tf_after_dsb.r1,
-							tf_after_dsb.v1,
-							dsb_osv[2].v,
-							tf_after_dsb.v0,
-							t[2],
-							0,
-							NULL,
-							NULL
-					};
-
-					find_viable_flybys(&itin_step, body_ephems[bodies[4]->id], bodies[4], min_duration[4] * 86400,
-									   max_duration[4] * 86400);
-
-					all_alt[num_all-1] = get_best_alt();
-					all_ddv[num_all-1] = get_best_diff_vinf();
-
-					if(itin_step.num_next_nodes>0) {
-						id_v[inum_viable] = dsb.dv;
-						idep[inum_viable] = jd_dep;
-						ifb0[inum_viable] = tf_duration[0];
-						ifb1[inum_viable] = tf_duration[1];
-						ifb2[inum_viable] = tf_duration[2];
-						ifb2[inum_viable] = tf_duration[2];
-						ialt[inum_viable] = get_best_alt();
-						iddv[inum_viable] = get_best_diff_vinf();
-						inum_viable++;
-					}
-//					printf("num next nodes: %d\n", itin_step.num_next_nodes);
-
-					for(int i = 0; i < itin_step.num_next_nodes; i++) {
-						find_viable_flybys(itin_step.next[i], body_ephems[bodies[5]->id], bodies[5],
-										   min_duration[5] * 86400,
-										   max_duration[5] * 86400);
-						if(itin_step.next[i]->num_next_nodes>0) {
-							printf("SAT num next nodes: %d\n", itin_step.next[i]->num_next_nodes);
-							printf("%f\n", dsb.dv);
-							print_double_array("data", data, 3);
-
-							d_v[num_viable] = dsb.dv;
-							dep[num_viable] = jd_dep;
-							fb0[num_viable] = tf_duration[0];
-							fb1[num_viable] = tf_duration[1];
-							fb2[num_viable] = tf_duration[2];
-							num_viable++;
+//	for(tf_duration[2] = min_duration[3]; tf_duration[2] <= max_duration[3]; tf_duration[2] += 40.0) {
+	for(double ttt2 = 460; ttt2 <= 550; ttt2 += 5) {
+		double venus_period = 224.7;
+		double step = venus_period/10;
+		printf("%f\n", ttt2);
+		error1alt[0].x = 0;
+		error1ddv[0].x = 0;
+		error2alt[0].x = 0;
+		error2ddv[0].x = 0;
+		viable_dv[0].x = 0;
+		for(int c = 0; c < 5; c++) {
+			if(c == 0) {
+				for(int j = 0; j < 9; j++) {
+					test[j] = venus_period*2 + (j-4)*step;
+				}
+				numtest = 9;
+			} else if(c == 1) {
+				step /= 4;
+				numtest = 0;
+				for(int i = 0; i < error1ddv[0].x; i++) {
+					if(error1ddv[i+1].y < 1) {
+						for(int j = -2; j <= 2; j++) {
+							if(j == 0) continue;
+							test[numtest] = error1ddv[i + 1].x + j * step;
+							numtest++;
 						}
 					}
-
-					for(int i = 0; i < itin_step.num_next_nodes; i++) {
-						free_itinerary(itin_step.next[i]);
+				}
+			} else if(c == 2) {
+				step /= 8;
+				numtest = 0;
+				for(int i = 0; i < error1ddv[0].x; i++) {
+					if(error1alt[i+1].y > bodies[3]->radius + bodies[3]->atmo_alt) {
+						for(int j = -4; j <= 4; j++) {
+							if(j == 0) continue;
+							test[numtest] = error1ddv[i + 1].x + j * step;
+							numtest++;
+						}
 					}
+				}
+			} else if(c == 3) {
+				step /= 4;
+				numtest = 0;
+				for(int i = 0; i < error2ddv[0].x; i++) {
+					if(error2ddv[i+1].y < 1) {
+						for(int j = -2; j <= 2; j++) {
+							if(j == 0) continue;
+							test[numtest] = error2ddv[i + 1].x + j * step;
+							numtest++;
+						}
+					}
+				}
+			} else if(c == 4) {
+				step /= 16;
+				numtest = 0;
+				int minidx = get_min_value_index_from_data(viable_dv);
+				for(int j = -16; j <= 16; j++) {
+					if(j == 0) continue;
+					test[numtest] = viable_dv[minidx].x + j * step;
+					numtest++;
+				}
+			}
 
+			for(double jd_dep = jd_min_dep; jd_dep <= jd_max_dep; jd_dep+=1.0) {
+				for(tf_duration[0] = min_duration[1]; tf_duration[0] <= max_duration[1]; tf_duration[0] += 40.0) {
+		//			for(tf_duration[1] = min_duration[2]; tf_duration[1] <= max_duration[2]; tf_duration[1]+=1) {
+					for(int testIdx = 0; testIdx < numtest; testIdx++) {
+
+						tf_duration[1] = test[testIdx];
+
+						t[0] = jd_dep + tf_duration[0];
+						t[1] = t[0] + tf_duration[1];
+						//t[2] = t[1] + tf_duration[2];
+						t[2] = t[0] + ttt2;
+						tf_duration[2] = t[2] - t[1];
+
+						if(t[2] < t[1]) continue;
+
+						struct OSV osv_dep = osv_from_ephem(body_ephems[bodies[0]->id], jd_dep, SUN());
+						struct OSV dsb_osv[3] = {
+								osv_from_ephem(body_ephems[bodies[1]->id], t[0], SUN()),
+								osv_from_ephem(body_ephems[bodies[2]->id], t[1], SUN()),
+								osv_from_ephem(body_ephems[bodies[3]->id], t[2], SUN())
+						};
+
+						double data[3];
+						struct Transfer tf_launch = calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v,
+																  dsb_osv[0].r,
+																  dsb_osv[0].v, tf_duration[0] * 86400, data);
+						struct Transfer tf_after_dsb = calc_transfer(circfb, bodies[2], bodies[3], dsb_osv[1].r,dsb_osv[1].v,
+																	 dsb_osv[2].r, dsb_osv[2].v, tf_duration[2] * 86400,
+																	 NULL);
+
+						struct OSV s0 = {tf_launch.r1, tf_launch.v1};
+						struct OSV p0 = {dsb_osv[0].r, dsb_osv[0].v};
+						struct OSV s1 = {tf_after_dsb.r0, tf_after_dsb.v0};
+						struct OSV p1 = {dsb_osv[1].r, dsb_osv[1].v};
+
+						struct DSB dsb = calc_double_swing_by(s0, p0, s1, p1, tf_duration[1], bodies[1]);
+
+						if(dsb.dv < 3000) {
+							all_d_v[num_all] = dsb.dv;
+							all_dep[num_all] = jd_dep;
+							all_fb0[num_all] = tf_duration[0];
+							all_fb1[num_all] = tf_duration[1];
+							all_fb2[num_all] = tf_duration[2];
+							num_all++;
+						} else continue;
+
+						struct ItinStep itin_step = {
+								bodies[3],
+								tf_after_dsb.r1,
+								tf_after_dsb.v1,
+								dsb_osv[2].v,
+								tf_after_dsb.v0,
+								t[2],
+								0,
+								NULL,
+								NULL
+						};
+
+						find_viable_flybys(&itin_step, body_ephems[bodies[4]->id], bodies[4], min_duration[4] * 86400,
+										   max_duration[4] * 86400);
+
+
+						insert_new_data_point2(error1alt, tf_duration[1], get_best_alt());
+						insert_new_data_point2(error1ddv, tf_duration[1], get_best_diff_vinf());
+
+						all_alt[num_all - 1] = get_best_alt();
+						all_ddv[num_all - 1] = get_best_diff_vinf();
+
+						if(itin_step.num_next_nodes > 0) {
+							id_v[inum_viable] = dsb.dv;
+							idep[inum_viable] = jd_dep;
+							ifb0[inum_viable] = tf_duration[0];
+							ifb1[inum_viable] = tf_duration[1];
+							ifb2[inum_viable] = tf_duration[2];
+							ifb2[inum_viable] = tf_duration[2];
+							ialt[inum_viable] = get_best_alt();
+							iddv[inum_viable] = get_best_diff_vinf();
+							inum_viable++;
+						}
+	//					printf("num next nodes: %d\n", itin_step.num_next_nodes);
+
+						for(int i = 0; i < itin_step.num_next_nodes; i++) {
+							find_viable_flybys(itin_step.next[i], body_ephems[bodies[5]->id], bodies[5],
+											   min_duration[5] * 86400,
+											   max_duration[5] * 86400);
+							insert_new_data_point2(error2alt, tf_duration[1], get_best_alt());
+							insert_new_data_point2(error2ddv, tf_duration[1], get_best_diff_vinf());
+							if(itin_step.next[i]->num_next_nodes > 0) {
+								insert_new_data_point2(viable_dv, tf_duration[1], dsb.dv);
+								printf("SAT num next nodes: %d\n", itin_step.next[i]->num_next_nodes);
+								printf("%f\n", dsb.dv);
+								print_double_array("data", data, 3);
+
+								d_v[num_viable] = dsb.dv;
+								dep[num_viable] = jd_dep;
+								fb0[num_viable] = tf_duration[0];
+								fb1[num_viable] = tf_duration[1];
+								fb2[num_viable] = tf_duration[2];
+								num_viable++;
+							}
+						}
+
+						for(int i = 0; i < itin_step.num_next_nodes; i++) {
+							free_itinerary(itin_step.next[i]);
+						}
+
+					}
 				}
 			}
 		}
+		if(viable_dv[0].x > 0) insert_new_data_point2(best_dvs, t[2], viable_dv[get_min_value_index_from_data(viable_dv)].y);
 	}
 
-	print_double_array("all_d_v", all_d_v, num_all);
-	print_double_array("all_dep", all_dep, num_all);
-	print_double_array("all_fb0", all_fb0, num_all);
-	print_double_array("all_fb1", all_fb1, num_all);
-	print_double_array("all_fb2", all_fb2, num_all);
-	print_double_array("all_alt", all_alt, num_all);
-	print_double_array("all_ddv", all_ddv, num_all);
-	printf("\n");
-	print_double_array("id_v", id_v, inum_viable);
-	print_double_array("idep", idep, inum_viable);
-	print_double_array("ifb0", ifb0, inum_viable);
-	print_double_array("ifb1", ifb1, inum_viable);
-	print_double_array("ifb2", ifb2, inum_viable);
-	print_double_array("ialt", ialt, inum_viable);
-	print_double_array("iddv", iddv, inum_viable);
-	printf("\n");
-	print_double_array("d_v", d_v, num_viable);
-	print_double_array("dep", dep, num_viable);
-	print_double_array("fb0", fb0, num_viable);
-	print_double_array("fb1", fb1, num_viable);
-	print_double_array("fb2", fb2, num_viable);
+//	print_double_array("all_d_v", all_d_v, num_all);
+//	print_double_array("all_dep", all_dep, num_all);
+//	print_double_array("all_fb0", all_fb0, num_all);
+//	print_double_array("all_fb1", all_fb1, num_all);
+//	print_double_array("all_fb2", all_fb2, num_all);
+//	print_double_array("all_alt", all_alt, num_all);
+//	print_double_array("all_ddv", all_ddv, num_all);
+//	printf("\n");
+//	print_double_array("id_v", id_v, inum_viable);
+//	print_double_array("idep", idep, inum_viable);
+//	print_double_array("ifb0", ifb0, inum_viable);
+//	print_double_array("ifb1", ifb1, inum_viable);
+//	print_double_array("ifb2", ifb2, inum_viable);
+//	print_double_array("ialt", ialt, inum_viable);
+//	print_double_array("iddv", iddv, inum_viable);
+//	printf("\n");
+//	print_double_array("d_v", d_v, num_viable);
+//	print_double_array("dep", dep, num_viable);
+//	print_double_array("fb0", fb0, num_viable);
+//	print_double_array("fb1", fb1, num_viable);
+//	print_double_array("fb2", fb2, num_viable);
+//	printf("\n");
+//
+//	print_data_vector("fbe1", "errorddv1", error1ddv);
+//	print_data_vector("fbe1", "erroralt1", error1alt);
+//	print_data_vector("fbe2", "errorddv2", error2ddv);
+//	print_data_vector("fbe2", "erroralt2", error2alt);
+
+
+	print_data_vector("t2", "best_dvs", best_dvs);
 
 	for(int i = 0; i < num_bodies; i++) free(body_ephems[i]);
 	free(body_ephems);
