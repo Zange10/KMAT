@@ -291,7 +291,7 @@ void test_itinerary() {
 
 // Earth -> Jupiter 1967
 	double jd_min_dep = 2439500.5000000;
-	double jd_max_dep = 2439920.5000000;
+	double jd_max_dep = 2439900.5000000;
 	double jd_max_arr = 2442510.5000000;
 
 	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
@@ -301,7 +301,7 @@ void test_itinerary() {
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 
-	struct Dv_Filter dv_filter = {7000, 1e6, 1e6, 0};
+	struct Dv_Filter dv_filter = {6000, 1e6, 1e6, 0};
 
 	struct Itin_Thread_Args2 thread_args = {
 			departures,
@@ -375,11 +375,53 @@ void test_itinerary() {
 
 
 	// TODO: Remove later
-//	struct ItinStep **arrivals = malloc(num_itins * sizeof(struct ItinStep*));
-//	int arridx = 0;
-//	for(int i = 0; i < num_deps; i++) {
-//		store_itineraries_in_array(departures[i], arrivals, &arridx);
-//	}
+	struct ItinStep **arrivals = malloc(num_itins * sizeof(struct ItinStep*));
+	int arridx = 0;
+	for(int i = 0; i < num_deps; i++) {
+		store_itineraries_in_array(departures[i], arrivals, &arridx);
+	}
+	int num_groups = 0;
+	int groups[10][10];
+	int group_count[10] = {};
+	for(int i = 0; i < num_itins; i++) {
+		int curr_itin[10] = {};
+		struct ItinStep *ptr = arrivals[i];
+		int num_layers = 1;
+		while(ptr->prev != NULL) {num_layers++; ptr = ptr->prev;}
+		for(int j = 0; j < num_layers; j++) {
+			ptr = arrivals[i];
+			for(int k = 0; k < num_layers-j-1; k++) ptr = ptr->prev;
+			curr_itin[j] = ptr->body->id;
+		}
+		int is_part_of_group = 0;
+		for(int j = 0; j < num_groups; j++) {
+			for(int k = 0; k < 10; k++) {
+				if(groups[j][k] == 0) {
+					group_count[j]++;
+					is_part_of_group = 1;
+					break;
+				}
+				if(groups[j][k] != curr_itin[k]) break;
+			}
+			if(is_part_of_group) break;
+		}
+		if(!is_part_of_group) {
+			for(int j = 0; j < 10; j++) groups[num_groups][j] = curr_itin[j];
+			num_groups++;
+		}
+	}
+
+	for(int i = 0; i < num_groups; i++) {
+		for(int j = 0; j < 10; j++) {
+			if(groups[i][j] == 0) break;
+			if(j != 0) printf(" -> ");
+			printf("%d", groups[i][j]);
+		}
+		printf("    (%d)\n", group_count[i]);
+	}
+
+
+
 //	for(int i = 0; i < num_itins; i++) {
 //		struct ItinStep *arr = arrivals[i];
 //		struct ItinStep *ptr = arr;
