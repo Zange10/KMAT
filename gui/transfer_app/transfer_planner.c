@@ -498,8 +498,12 @@ void on_load_itinerary(GtkWidget* widget, gpointer data) {
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
 		update_itinerary();
 		g_free(filepath);
+	} else {
+		// Destroy the dialog
+		gtk_widget_destroy(dialog);
+		return;
 	}
-	
+
 	struct ItinStep *step2pr = get_first(curr_transfer_tp);
 	struct DepArrHyperbolaParams dep_hyp_params = get_dep_hyperbola_params(step2pr->next[0]->v_dep, step2pr->v_body,
 																		   step2pr->body, 200e3);
@@ -590,7 +594,7 @@ void on_load_itinerary(GtkWidget* widget, gpointer data) {
 		   "TA: 0.0°\n",
 		   step2pr->body->name, dt_in_days, step2pr->date, arr_hyp_params.r_pe/1000, arr_hyp_params.c3_energy/1e6,
 		   rad2deg(arr_hyp_params.bplane_angle), rad2deg(arr_hyp_params.decl));
-	
+
 	// Destroy the dialog
 	gtk_widget_destroy(dialog);
 }
