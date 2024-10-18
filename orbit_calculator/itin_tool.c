@@ -690,8 +690,25 @@ union ItinStepBin {
 	} t1;
 };
 
-struct ItinStepBinT0 convert_ItinStep_bin(struct ItinStep *step) {
-	struct ItinStepBinT0 bin_step = {step->r, step->v_dep, step->v_arr, step->v_body, step->date, step->num_next_nodes};
+union ItinStepBin convert_ItinStep_bin(struct ItinStep *step, int file_type) {
+	union ItinStepBin bin_step;
+	if(file_type == 0) {
+		bin_step.t0.r = step->r;
+		bin_step.t0.v_dep = step->v_dep;
+		bin_step.t0.v_arr = step->v_arr;
+		bin_step.t0.v_body = step->v_body;
+		bin_step.t0.date = step->date;
+		bin_step.t0.num_next_nodes = step->num_next_nodes;
+	} else if(file_type == 1) {
+		bin_step.t1.r = step->r;
+		bin_step.t1.v_dep = step->v_dep;
+		bin_step.t1.v_arr = step->v_arr;
+		bin_step.t1.v_body = step->v_body;
+		bin_step.t1.date = step->date;
+		bin_step.t1.body_id = step->body->id;
+		bin_step.t1.num_next_nodes = step->num_next_nodes;
+	}
+
 	return bin_step;
 }
 
@@ -715,48 +732,59 @@ void convert_bin_ItinStep(union ItinStepBin bin_step, struct ItinStep *step, str
 	}
 }
 
-void store_step_in_bfile(struct ItinStep *step, FILE *file) {
-	struct ItinStepBinT0 bin_step = convert_ItinStep_bin(step);
-	fwrite(&bin_step, sizeof(struct ItinStepBinT0), 1, file);
-
+void store_step_in_bfile(struct ItinStep *step, FILE *file, int file_type) {
+	if(file_type == 0) {
+		union ItinStepBin bin_step = convert_ItinStep_bin(step, 0);
+		fwrite(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
+	}
 	for(int i = 0; i < step->num_next_nodes; i++) {
-		store_step_in_bfile(step->next[i], file);
+		store_step_in_bfile(step->next[i], file, file_type);
 	}
 }
 
-void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, char *filepath) {
+void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, char *filepath, int file_type) {
 	// Check if the string ends with ".itins"
 	if (strlen(filepath) >= 6 && strcmp(filepath + strlen(filepath) - 6, ".itins") != 0) {
 		// If not, append ".itins" to the string
 		strcat(filepath, ".itins");
 	}
 
-	printf("Filesize: ~%.3f MB\n", (double)num_nodes*110/1e6);
+	union ItinStepBinHeader bin_header;
+	FILE *file = fopen(filepath, "wb");
+	fwrite(&file_type, sizeof(int), 1, file);
 
-	struct ItinStepBinHeaderT0 bin_header = {num_nodes, num_deps, get_num_of_itin_layers(departures[0])};
+	// TYPE 0 --------------------------------------------
+	if(file_type == 0) {
+		bin_header.t0.num_nodes = num_nodes;
+		bin_header.t0.num_deps = num_deps;
+		bin_header.t0.num_layers = get_num_of_itin_layers(departures[0]);
 
-	printf("Number of stored nodes: %d\n", num_nodes);
-	printf("Number of Departures: %d, Number of Steps: %d\n", num_deps, bin_header.num_layers);
-	FILE *file;
-	file = fopen(filepath,"wb");
+		printf("Filesize: ~%.3f MB\n", (double) num_nodes*sizeof(struct ItinStepBinT0)/1e6);
 
-	fwrite(&bin_header, sizeof(struct ItinStepBinHeaderT0), 1, file);
+		printf("Number of stored nodes: %d\n", bin_header.t0.num_nodes);
+		printf("Number of Departures: %d, Number of Steps: %d\n", num_deps, bin_header.t0.num_layers);
 
-	struct ItinStep *ptr = departures[0];
+		fwrite(&bin_header, sizeof(struct ItinStepBinHeaderT0), 1, file);
 
-	// same algorithm as layer counter (part of header)
-	while(ptr != NULL) {
-		int body_id = (ptr->body != NULL) ? ptr->body->id : 0;
-		fwrite(&body_id, sizeof(int), 1, file);
-		if(ptr->next != NULL) ptr = ptr->next[0];
-		else break;
-	}
+		struct ItinStep *ptr = departures[0];
 
-	int end_of_bodies_designator = -1;
-	fwrite(&end_of_bodies_designator, sizeof(int), 1, file);
+		// same algorithm as layer counter (part of header)
+		while(ptr != NULL) {
+			int body_id = (ptr->body != NULL) ? ptr->body->id : 0;
+			fwrite(&body_id, sizeof(int), 1, file);
+			if(ptr->next != NULL) ptr = ptr->next[0];
+			else break;
+		}
 
-	for(int i = 0; i < num_deps; i++) {
-		store_step_in_bfile(departures[i], file);
+		int end_of_bodies_designator = -1;
+		fwrite(&end_of_bodies_designator, sizeof(int), 1, file);
+
+		for(int i = 0; i < num_deps; i++) {
+			store_step_in_bfile(departures[i], file, file_type);
+		}
+	// TYPE 1 --------------------------------------------
+	} else if(file_type == 1) {
+
 	}
 
 	fclose(file);
@@ -764,6 +792,7 @@ void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int
 
 void load_step_from_bfile(struct ItinStep *step, FILE *file, struct Body **body, int file_type) {
 	union ItinStepBin bin_step;
+	// TYPE 0 --------------------------------------------
 	if(file_type == 0) {
 		fread(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
 		convert_bin_ItinStep(bin_step, step, body[0], 0);
@@ -776,6 +805,9 @@ void load_step_from_bfile(struct ItinStep *step, FILE *file, struct Body **body,
 			step->next[i]->prev = step;
 			load_step_from_bfile(step->next[i], file, body + 1, 0);
 		}
+	// TYPE 1 --------------------------------------------
+	} else if(file_type == 1) {
+
 	}
 }
 
@@ -889,8 +921,8 @@ void store_single_itinerary_in_bfile(struct ItinStep *itin, char *filepath) {
 
 	ptr = itin;
 	while(ptr != NULL) {
-		struct ItinStepBinT0 bin_step = convert_ItinStep_bin(ptr);
-		fwrite(&bin_step, sizeof(struct ItinStepBinT0), 1, file);
+		union ItinStepBin bin_step = convert_ItinStep_bin(ptr, 0);
+		fwrite(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
 		if(ptr->next != NULL) ptr = ptr->next[0];
 		else break;
 	}

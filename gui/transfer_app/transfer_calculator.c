@@ -217,7 +217,7 @@ void save_itineraries_tc(struct ItinStep **departures, int num_deps, int num_nod
 		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
 		filepath = gtk_file_chooser_get_filename(chooser);
 
-		store_itineraries_in_bfile(departures, num_nodes, num_deps, filepath);
+		store_itineraries_in_bfile(departures, num_nodes, num_deps, filepath, 0);
 		g_free(filepath);
 	}
 

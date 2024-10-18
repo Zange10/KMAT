@@ -93,7 +93,7 @@ int is_valid_itinerary(struct ItinStep *step);
 void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int num_deps);
 
 // store itineraries in binary file from multiple departures (pre-order storing)
-void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, char *filepath);
+void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, char *filepath, int file_type);
 
 // load itineraries from binary file for multiple departures (from pre-order storing)
 struct ItinStep ** load_itineraries_from_bfile(char *filepath);
