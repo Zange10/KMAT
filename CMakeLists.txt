@@ -96,6 +96,8 @@ add_executable(KSP
         gui/database_app/database_app_tools/mission_manager_tools.h
         tools/gmat_interface.c
         tools/gmat_interface.h
+        orbit_calculator/itin_dsb_tool.c
+        orbit_calculator/itin_dsb_tool.h
 )
 
 target_link_libraries(KSP m;

@@ -20,7 +20,9 @@ struct Dv_Filter {
 	int last_transfer_type;
 };
 
-
+// TODO Remove or change later
+double get_best_diff_vinf();
+double get_best_alt();
 
 // find viable flybys to next body with a given arrival trajectory
 void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, struct Body *next_body, double min_dt, double max_dt);

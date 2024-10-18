@@ -8,6 +8,11 @@
 #include <string.h>
 
 
+// TODO Remove or change later
+double best_diff_vinf, best_alt;
+double get_best_diff_vinf() {return best_diff_vinf;}
+double get_best_alt() {return best_alt;}
+
 void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, struct Body *next_body, double min_dt, double max_dt) {
 	struct OSV osv_dep = {tf->r, tf->v_body};
 	struct OSV osv_arr0 = osv_from_ephem(next_body_ephems, tf->date, SUN());
@@ -47,6 +52,8 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, str
 		dt0 = temp;
 	}
 
+	// TODO Remove or change later
+	best_diff_vinf = 1e9, best_alt = 0;
 
 	// x: dt, y: diff_vinf (data[0].x: number of data points beginning at index 1)
 	struct Vector2D data[101];
@@ -55,7 +62,6 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, str
 	double last_dt, dt, t1, diff_vinf;
 
 	struct Vector v_init = subtract_vectors(tf->v_arr, tf->v_body);
-
 
 	while(dt0 < max_dt && counter < max_new_steps) {
 		data[0].x = 0;
@@ -77,9 +83,18 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, str
 
 			diff_vinf = vector_mag(v_dep) - vector_mag(v_init);
 
+			// TODO Remove or change later
+			if(fabs(diff_vinf) < best_diff_vinf) best_diff_vinf = fabs(diff_vinf);
+
 			if (fabs(diff_vinf) < 1) {
 				double beta = (M_PI - angle_vec_vec(v_dep, v_init)) / 2;
 				double rp = (1 / cos(beta) - 1) * (tf->body->mu / (pow(vector_mag(v_dep), 2)));
+
+				// TODO Remove or change later
+//				printf("vinf check: %f\n", fabs(diff_vinf));
+//				printf("Alt check: %f  %f\n", rp, tf->body->radius+tf->body->atmo_alt);
+				if(rp > best_alt) best_alt = rp;
+
 				if (rp > tf->body->radius + tf->body->atmo_alt) {
 					new_steps[counter] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 					new_steps[counter]->body = next_body;
@@ -384,8 +399,7 @@ int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step,
 
 	for(int i = 0; i < init_num_nodes-num_of_end_nodes; i++) {
 		int idx = i - step_del;
-		has_valid_init = calc_next_itin_to_target_step(curr_step->next[idx], body_ephems, arr_body, jd_max_arr,
-													   max_total_duration, dv_filter);
+		has_valid_init = calc_next_itin_to_target_step(curr_step->next[idx], body_ephems, arr_body, jd_max_arr, max_total_duration, dv_filter);
 		num_valid += has_valid_init;
 		if(!has_valid_init) step_del++;
 	}

@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include "tools/thread_pool.h"
-#include "tools/data_tool.h"
 
 
 struct Itin_Spec_Thread_Args {

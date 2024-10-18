@@ -20,8 +20,22 @@ struct DSB_Data {
 	struct Body *body;
 };
 
-//double csv_data[1000000];
+double data_phi[1000000];
+double data_kappa[1000000];
+double data_dv[1000000];
+double data_man_time[1000000];
+double data_period[1000000];
+int num_data;
 
+
+void add_to_data(double phi, double kappa, double dv, double man_time, double period) {
+	data_phi[num_data] = phi;
+	data_kappa[num_data] = kappa;
+	data_dv[num_data] = dv;
+	data_man_time[num_data] = man_time;
+	data_period[num_data] = period;
+	num_data++;
+}
 
 double test[2];
 
@@ -175,7 +189,7 @@ struct DSB calc_man_for_dsb(struct Vector v_soi, struct DSB_Data dd) {
 }
 
 struct DSB calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, struct OSV p1, double transfer_duration, struct Body *body) {
-//	csv_data[0] = 1;
+	num_data = 0;
 	struct DSB dsb = {.dv = 1e9};
 
 	struct timeval start, end;
@@ -196,7 +210,7 @@ struct DSB calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, str
 	double min_beta = acos(1 / (1 + (min_rp * pow(v_inf, 2)) / body->mu));
 	double max_defl = M_PI - 2*min_beta;
 	
-	//printf("\nmin beta: %.2f°; max deflection: %.2f° (vinf: %f m/s)\n\n", rad2deg(min_beta), rad2deg(max_defl), v_inf);
+//	printf("\nmin beta: %.2f°; max deflection: %.2f° (vinf: %f m/s)\n\n", rad2deg(min_beta), rad2deg(max_defl), v_inf);
 
 	double angle_step_size, phi, kappa, max_phi, max_kappa;
 	double angles[3];
@@ -225,8 +239,9 @@ struct DSB calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, str
 			kappa = i == 0 ? -max_defl - angle_step_size : angles[2] - angles[0] - angle_step_size;
 			min_phi_kappa[1] = i == 0 ? -max_defl : angles[2] - angles[0];
 			
-			//printf("%f° %f°\n", rad2deg(phi), rad2deg(max_defl));
+//			printf("%f° %f°\n", rad2deg(phi), rad2deg(max_defl));
 			while (kappa <= max_kappa) {
+//				printf("%f° %f°\n", rad2deg(kappa), rad2deg(max_defl));
 				kappa += angle_step_size;
 				
 				double defl = acos(cos(phi)*sin(M_PI_2 - kappa));
@@ -238,12 +253,8 @@ struct DSB calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, str
 				struct DSB temp_dsb = calc_man_for_dsb(v_soi, dsb_data);
 				
 				if(temp_dsb.dv < 1e8) {
-//					csv_data[(int)csv_data[0]    ] = rad2deg(phi);
-//					csv_data[(int)csv_data[0] + 1] = rad2deg(kappa);
-//					csv_data[(int)csv_data[0] + 2] = temp_dsb.dv;
-//					csv_data[(int)csv_data[0] + 3] = temp_dsb.man_time / (86400);
-//					csv_data[(int)csv_data[0] + 4] = constr_orbit_from_osv(temp_dsb.osv[1].r, temp_dsb.osv[1].v, SUN()).period/86400;
-//					csv_data[0] += 5;
+					add_to_data(rad2deg(phi), rad2deg(kappa), temp_dsb.dv, temp_dsb.man_time/86400,
+								constr_orbit_from_osv(temp_dsb.osv[1].r, temp_dsb.osv[1].v, SUN()).period/86400);
 				}
 				if(temp_dsb.man_time>0 && temp_dsb.dv < dsb.dv) {
 					dsb = temp_dsb;
@@ -254,8 +265,8 @@ struct DSB calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, str
 		}
 //		gettimeofday(&end, NULL);  // Record the ending time
 //		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-		//printf("| Elapsed time: %.3f s |  (%f - %f - %f)\n", elapsed_time, test[0], test[1], test[0]+test[1]);
-		//printf("min_dv: %f\n", dsb.dv);
+//		printf("| Elapsed time: %.3f s |  (%f - %f - %f)\n", elapsed_time, test[0], test[1], test[0]+test[1]);
+//		printf("min_dv: %f\n", dsb.dv);
 		if(dsb.dv >= 1e9) break;
 
 		double phi0, kappa0;
@@ -314,21 +325,21 @@ struct DSB calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, str
 					dsb = temp_dsb;
 					min_phi = phi;
 					min_kappa = kappa;
-//					csv_data[(int) csv_data[0]] = rad2deg(min_phi);
-//					csv_data[(int) csv_data[0] + 1] = rad2deg(min_kappa);
-//					csv_data[(int) csv_data[0] + 2] = dsb.dv;
-//					csv_data[(int) csv_data[0] + 3] = dsb.man_time / (86400);
-//					csv_data[(int) csv_data[0] + 4] =
-//							constr_orbit_from_osv(dsb.osv[1].r, dsb.osv[1].v, SUN()).period / 86400;
-//					csv_data[0] += 5;
+					add_to_data(rad2deg(min_phi), rad2deg(min_kappa), dsb.dv, dsb.man_time / 86400,
+								constr_orbit_from_osv(dsb.osv[1].r, dsb.osv[1].v, SUN()).period / 86400);
 					break;
 				}
 			}
-			//printf("%f %f %f %f\n", dsb.dv, rad2deg(min_phi), rad2deg(min_kappa), rad2deg(l));
+//			printf("%f %f %f %f\n", dsb.dv, rad2deg(min_phi), rad2deg(min_kappa), rad2deg(l));
 			if(min_phi == phi0 && min_kappa == kappa0) l /= 2;
 		}
 	}
-	
+//	print_double_array("phi", data_phi, num_data);
+//	print_double_array("kap", data_kappa, num_data);
+//	print_double_array("d_v", data_dv, num_data);
+//	print_double_array("dur", data_man_time, num_data);
+//	print_double_array("per", data_period, num_data);
+
 	return dsb;
 }
 
