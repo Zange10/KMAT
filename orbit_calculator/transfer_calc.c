@@ -8,7 +8,7 @@
 #include "tools/data_tool.h"
 
 
-struct Itin_Thread_Args {
+struct Itin_Spec_Thread_Args {
 	struct ItinStep **departures;
 	double jd_min_dep;
 	double jd_max_dep;
@@ -20,8 +20,7 @@ struct Itin_Thread_Args {
 	struct Dv_Filter *dv_filter;
 };
 
-// TODO: rename
-struct Itin_Thread_Args2 {
+struct Itin_To_Target_Thread {
 	struct ItinStep **departures;
 	double jd_min_dep;
 	double jd_max_dep;
@@ -65,8 +64,8 @@ int initial_max_transfer_duration[10][10] = {
 
 
 
-void *calc_from_departure(void *args) {
-	struct Itin_Thread_Args *thread_args = (struct Itin_Thread_Args *)args;
+void *calc_spec_itin_from_departure(void *args) {
+	struct Itin_Spec_Thread_Args *thread_args = (struct Itin_Spec_Thread_Args *)args;
 
 	int *min_duration = thread_args->min_duration;
 	int *max_duration = thread_args->max_duration;
@@ -132,7 +131,8 @@ void *calc_from_departure(void *args) {
 			curr_step->num_next_nodes = 0;
 
 			if(num_steps > 2) {
-				if(!calc_next_step(curr_step, ephems, bodies, min_duration, max_duration, thread_args->dv_filter, num_steps, 2)) {
+				if(!calc_next_spec_itin_step(curr_step, ephems, bodies, min_duration, max_duration,
+											 thread_args->dv_filter, num_steps, 2)) {
 					fb1_del++;
 				}
 			}
@@ -147,9 +147,8 @@ void *calc_from_departure(void *args) {
 
 
 
-// TODO: rename
-void *calc_from_departure2(void *args) {
-	struct Itin_Thread_Args2 *thread_args = (struct Itin_Thread_Args2 *)args;
+void *calc_itin_to_target_from_departure(void *args) {
+	struct Itin_To_Target_Thread *thread_args = (struct Itin_To_Target_Thread *)args;
 
 	struct ItinStep **departures = thread_args->departures;
 	struct Dv_Filter *dv_filter = thread_args->dv_filter;
@@ -263,9 +262,8 @@ void *calc_from_departure2(void *args) {
 	return NULL;
 }
 
-// TODO: rename
-void test_itinerary() {
-	struct Transfer_Calc_Results results = {NULL, 0};
+struct Transfer_Calc_Results search_for_itinerary_to_target(struct Transfer_To_Target_Calc_Data calc_data) {
+	struct Transfer_Calc_Results results = {NULL, 0, 0};
 
 	struct timeval start, end;
 	double elapsed_time;
@@ -281,44 +279,27 @@ void test_itinerary() {
 		get_body_ephem(body_ephems[i], i);
 	}
 
-	struct Body *dep_body = EARTH();
-	struct Body *arr_body = JUPITER();
-
-	// Voyager
-//	double jd_min_dep = 2441683.5000000;
-//	double jd_max_dep = 2442413.5000000;
-//	double jd_max_arr = 2449718.5000000;
-
-// Earth -> Jupiter 1967
-	double jd_min_dep = 2439500.5000000;
-	double jd_max_dep = 2439900.5000000;
-	double jd_max_arr = 2442510.5000000;
-
-	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
-
-	int max_duration = 3000;
+	int num_deps = (int) (calc_data.jd_max_dep-calc_data.jd_min_dep+1);
 
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 
-	struct Dv_Filter dv_filter = {6000, 1e6, 1e6, 0};
 
-	struct Itin_Thread_Args2 thread_args = {
+	struct Itin_To_Target_Thread thread_args = {
 			departures,
-			jd_min_dep,
-			jd_max_dep,
-			jd_max_arr,
-			dep_body,
-			arr_body,
+			calc_data.jd_min_dep,
+			calc_data.jd_max_dep,
+			calc_data.jd_max_arr,
+			calc_data.dep_body,
+			calc_data.arr_body,
 			body_ephems,
-			max_duration,
-			&dv_filter
+			calc_data.max_duration,
+			&calc_data.dv_filter
 	};
 
 	show_progress("Transfer Calculation progress", 0, 1);
-	struct Thread_Pool thread_pool = use_thread_pool64(calc_from_departure2, &thread_args);
+	struct Thread_Pool thread_pool = use_thread_pool64(calc_itin_to_target_from_departure, &thread_args);
 	join_thread_pool(thread_pool);
-//	calc_from_departure2(&thread_args);
 	show_progress("Transfer Calculation progress", 1, 1);
 	printf("\n");
 
@@ -332,24 +313,6 @@ void test_itinerary() {
 			i--;
 		}
 	}
-
-	// TODO: Delete later
-//	double x[2000];
-//	for(int i = 0; i < num_deps; i++) {
-//		for(int j = 0; j < departures[i]->num_next_nodes; j++) {
-//			for(int k = 0; k < departures[i]->next[j]->num_next_nodes; k++) {
-//				print_date(convert_JD_date(departures[i]->date), 0);
-//				printf("       ");
-//				print_date(convert_JD_date(departures[i]->next[j]->date), 0);
-//				printf("       ");
-//				print_date(convert_JD_date(departures[i]->next[j]->next[k]->date), 1);
-//				printf("----  %s      %s      %s    (%f)----\n", departures[i]->body->name, departures[i]->next[j]->body->name, departures[i]->next[j]->next[k]->body->name,
-//					   dv_circ(departures[i]->body, 200e3, vector_mag(subtract_vectors(departures[i]->next[j]->v_dep, departures[i]->v_body))));
-//			}
-//		}
-//	}
-//	print_double_array("x", x, 2000);
-//	print_date(convert_JD_date(departures[0]->date), 1);
 
 	gettimeofday(&end, NULL);  // Record the ending time
 	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
@@ -365,91 +328,14 @@ void test_itinerary() {
 	results.num_deps = num_deps;
 	results.num_nodes = num_nodes;
 
-
 	for(int i = 0; i < num_bodies; i++) free(body_ephems[i]);
 	free(body_ephems);
 
-
-
-
-
-
-	// TODO: Remove later
-	struct ItinStep **arrivals = malloc(num_itins * sizeof(struct ItinStep*));
-	int arridx = 0;
-	for(int i = 0; i < num_deps; i++) {
-		store_itineraries_in_array(departures[i], arrivals, &arridx);
-	}
-	int num_groups = 0;
-	int groups[10][10];
-	int group_count[10] = {};
-	for(int i = 0; i < num_itins; i++) {
-		int curr_itin[10] = {};
-		struct ItinStep *ptr = arrivals[i];
-		int num_layers = 1;
-		while(ptr->prev != NULL) {num_layers++; ptr = ptr->prev;}
-		for(int j = 0; j < num_layers; j++) {
-			ptr = arrivals[i];
-			for(int k = 0; k < num_layers-j-1; k++) ptr = ptr->prev;
-			curr_itin[j] = ptr->body->id;
-		}
-		int is_part_of_group = 0;
-		for(int j = 0; j < num_groups; j++) {
-			for(int k = 0; k < 10; k++) {
-				if(groups[j][k] == 0) {
-					group_count[j]++;
-					is_part_of_group = 1;
-					break;
-				}
-				if(groups[j][k] != curr_itin[k]) break;
-			}
-			if(is_part_of_group) break;
-		}
-		if(!is_part_of_group) {
-			for(int j = 0; j < 10; j++) groups[num_groups][j] = curr_itin[j];
-			num_groups++;
-		}
-	}
-
-	for(int i = 0; i < num_groups; i++) {
-		for(int j = 0; j < 10; j++) {
-			if(groups[i][j] == 0) break;
-			if(j != 0) printf(" -> ");
-			printf("%d", groups[i][j]);
-		}
-		printf("    (%d)\n", group_count[i]);
-	}
-
-
-
-//	for(int i = 0; i < num_itins; i++) {
-//		struct ItinStep *arr = arrivals[i];
-//		struct ItinStep *ptr = arr;
-//		int num_layers = 1;
-//		while(ptr->prev != NULL) {num_layers++; ptr = ptr->prev;}
-//		for(int j = num_layers-1; j >= 0; j--) {
-//			ptr = arr;
-//			for(int k = 0; k < j; k++) ptr = ptr->prev;
-//			if(j != num_layers-1) printf("  ");
-//			print_date(convert_JD_date(ptr->date), 0);
-//		}
-//		printf("\n");
-//		for(int j = num_layers-1; j >= 0; j--) {
-//			ptr = arr;
-//			for(int k = 0; k < j; k++) ptr = ptr->prev;
-//			if(j != num_layers-1) printf(" -> ");
-//			printf("%s", ptr->body->name);
-//			ptr = ptr->prev;
-//		}
-//		printf("\n");
-//	}
-	for(int i = 0; i < num_deps; i++) {
-		free_itinerary(departures[i]);
-	}
+	return results;
 }
 
-struct Transfer_Calc_Results create_itinerary(struct Transfer_Calc_Data calc_data) {
-	struct Transfer_Calc_Results results = {NULL, 0};
+struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Calc_Data calc_data) {
+	struct Transfer_Calc_Results results = {NULL, 0, 0};
 
 	struct timeval start, end;
 	double elapsed_time;
@@ -490,7 +376,7 @@ struct Transfer_Calc_Results create_itinerary(struct Transfer_Calc_Data calc_dat
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 
-	struct Itin_Thread_Args thread_args = {
+	struct Itin_Spec_Thread_Args thread_args = {
 			departures,
 			jd_min_dep,
 			jd_max_dep,
@@ -503,7 +389,7 @@ struct Transfer_Calc_Results create_itinerary(struct Transfer_Calc_Data calc_dat
 	};
 
 	show_progress("Transfer Calculation progress: ", 0, 1);
-	struct Thread_Pool thread_pool = use_thread_pool64(calc_from_departure, &thread_args);
+	struct Thread_Pool thread_pool = use_thread_pool64(calc_spec_itin_from_departure, &thread_args);
 	join_thread_pool(thread_pool);
 	show_progress("Transfer Calculation progress: ", 1, 1);
 	printf("\n");

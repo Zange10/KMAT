@@ -305,7 +305,7 @@ void on_calc_tc() {
 
 	update_preview_tc(1);
 
-	struct Transfer_Calc_Results results = create_itinerary(calc_data);
+	struct Transfer_Calc_Results results = search_for_spec_itinerary(calc_data);
 
 	save_itineraries_tc(results.departures, results.num_deps, results.num_nodes);
 	for(int i = 0; i < results.num_deps; i++) free_itinerary(results.departures[i]);

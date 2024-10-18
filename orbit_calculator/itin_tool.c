@@ -57,7 +57,7 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, str
 	struct Vector v_init = subtract_vectors(tf->v_arr, tf->v_body);
 
 
-	while(dt0 < max_dt) {
+	while(dt0 < max_dt && counter < max_new_steps) {
 		data[0].x = 0;
 		int right_side = 0;	// 0 = left, 1 = right
 
@@ -133,19 +133,6 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, str
 		for(int i = 0; i < counter; i++) tf->next[i+tf->num_next_nodes] = new_steps[i];
 
 		tf->num_next_nodes += counter;
-
-		// TODO: remove later
-//		if(tf->num_next_nodes > 1) {
-//			for(int i = 0; i < tf->num_next_nodes; i++) {
-//				printf("\n");
-//				print_date(convert_JD_date(tf->prev->date), 0);
-//				printf("       ");
-//				print_date(convert_JD_date(tf->date), 0);
-//				printf("       ");
-//				print_date(convert_JD_date(new_steps[i]->date), 1);
-//				printf("----  %s      %s       %s  ----\n", get_first(tf)->body->name, tf->body->name, tf->next[i]->body->name);
-//			}
-//		}
 	}
 }
 
@@ -311,7 +298,7 @@ void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_ca
 	porkchop[0] = itin->prev->date;
 }
 
-int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step) {
+int calc_next_spec_itin_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step) {
 	if(bodies[step] != bodies[step-1]) find_viable_flybys(curr_step, ephems[step], bodies[step], min_duration[step-1]*86400, max_duration[step-1]*86400);
 	else {
 		find_viable_dsb_flybys(curr_step, &ephems[step], bodies[step+1],
@@ -349,8 +336,8 @@ int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Bod
 
 	if(step < num_steps-1) {
 		for(int i = 0; i < init_num_nodes; i++) {
-			if(bodies[step] != bodies[step-1]) result = calc_next_step(curr_step->next[i-step_del], ephems, bodies, min_duration, max_duration, dv_filter, num_steps, step+1);
-			else result = calc_next_step(curr_step->next[i-step_del]->next[0]->next[0], ephems, bodies, min_duration, max_duration, dv_filter, num_steps, step+2);
+			if(bodies[step] != bodies[step-1]) result = calc_next_spec_itin_step(curr_step->next[i - step_del], ephems, bodies, min_duration, max_duration, dv_filter, num_steps, step + 1);
+			else result = calc_next_spec_itin_step(curr_step->next[i - step_del]->next[0]->next[0], ephems, bodies, min_duration, max_duration, dv_filter, num_steps, step + 2);
 			num_valid += result;
 			if(!result) step_del++;
 		}
@@ -359,8 +346,7 @@ int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Bod
 	return num_valid > 0;
 }
 
-// TODO: rename
-int calc_next_step2(struct ItinStep *curr_step, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
+int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
 	for(int body_id = 1; body_id <= 8; body_id++) {
 		if(body_id == curr_step->body->id) continue;
 		double jd_max;
@@ -382,19 +368,6 @@ int calc_next_step2(struct ItinStep *curr_step, struct Ephem **body_ephems, stru
 
 	int num_of_end_nodes = find_copy_and_store_end_nodes(curr_step, arr_body);
 
-	// TODO remove later
-//	if(curr_step->num_next_nodes > 0) {
-//		for(int i = 0; i < curr_step->num_next_nodes; i++) {
-//			printf("%3d/%d  ", i+1, curr_step->num_next_nodes);
-//			print_date(convert_JD_date(curr_step->prev->date), 0);
-//			printf("       ");
-//			print_date(convert_JD_date(curr_step->date), 0);
-//			printf("       ");
-//			print_date(convert_JD_date(curr_step->next[i]->date), 1);
-//			printf("----  %s      %s      %s  ----\n", get_first(curr_step)->body->name, curr_step->body->name, curr_step->next[i]->body->name);
-//		}
-//	}
-
 	// remove end nodes that do not satisfy dv requirements
 	num_of_end_nodes = remove_end_nodes_that_do_not_satisfy_dv_requirements(curr_step, num_of_end_nodes, dv_filter);
 	if(curr_step->num_next_nodes <= 0) return 0;
@@ -411,7 +384,8 @@ int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step,
 
 	for(int i = 0; i < init_num_nodes-num_of_end_nodes; i++) {
 		int idx = i - step_del;
-		has_valid_init = calc_next_step2(curr_step->next[idx], body_ephems, arr_body, jd_max_arr, max_total_duration, dv_filter);
+		has_valid_init = calc_next_itin_to_target_step(curr_step->next[idx], body_ephems, arr_body, jd_max_arr,
+													   max_total_duration, dv_filter);
 		num_valid += has_valid_init;
 		if(!has_valid_init) step_del++;
 	}

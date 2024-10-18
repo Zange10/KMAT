@@ -53,11 +53,10 @@ double get_itinerary_duration(struct ItinStep *itin);
 void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_cap1);
 
 // from current step and given information, initiate calculation of next steps
-int calc_next_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step);
+int calc_next_spec_itin_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step);
 
 // from current step and given information, initiate calculation of next steps
-// TODO: rename
-int calc_next_step2(struct ItinStep *curr_step, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
+int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
 
 // initiate calc of next itinerary steps and return 0 if no steps are remaining in this itinerary (1 otherwise)
 int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
