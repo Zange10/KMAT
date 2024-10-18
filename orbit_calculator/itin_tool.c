@@ -663,27 +663,31 @@ void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int 
 	fclose(file);
 }
 
-struct ItinStepBinHeaderT0 {
-	int num_nodes, num_deps, num_layers;
+union ItinStepBinHeader {
+	struct ItinStepBinHeaderT0 {
+		int num_nodes, num_deps, num_layers;
+	} t0;
+
+	struct ItinStepBinHeaderT1 {
+		int num_nodes, num_deps;
+	} t1;
 };
 
-struct ItinStepBinT0 {
-	struct Vector r;
-	struct Vector v_dep, v_arr, v_body;
-	double date;
-	int num_next_nodes;
-};
+union ItinStepBin {
+	struct ItinStepBinT0 {
+		struct Vector r;
+		struct Vector v_dep, v_arr, v_body;
+		double date;
+		int num_next_nodes;
+	} t0;
 
-struct ItinStepBinHeaderT1 {
-	int num_nodes, num_deps;
-};
-
-struct ItinStepBinT1 {
-	double date;
-	struct Vector r;
-	struct Vector v_dep, v_arr, v_body;
-	int body_id;
-	int num_next_nodes;
+	struct ItinStepBinT1 {
+		double date;
+		struct Vector r;
+		struct Vector v_dep, v_arr, v_body;
+		int body_id;
+		int num_next_nodes;
+	} t1;
 };
 
 struct ItinStepBinT0 convert_ItinStep_bin(struct ItinStep *step) {
@@ -691,14 +695,24 @@ struct ItinStepBinT0 convert_ItinStep_bin(struct ItinStep *step) {
 	return bin_step;
 }
 
-void convert_bin_ItinStep(struct ItinStepBinT0 bin_step, struct ItinStep *step, struct Body *body) {
-	step->body = body;
-	step->r = bin_step.r;
-	step->v_arr = bin_step.v_arr;
-	step->v_body = bin_step.v_body;
-	step->v_dep = bin_step.v_dep;
-	step->date = bin_step.date;
-	step->num_next_nodes = bin_step.num_next_nodes;
+void convert_bin_ItinStep(union ItinStepBin bin_step, struct ItinStep *step, struct Body *body, int file_type) {
+	if(file_type == 0) {
+		step->body = body;
+		step->r = bin_step.t0.r;
+		step->v_arr = bin_step.t0.v_arr;
+		step->v_body = bin_step.t0.v_body;
+		step->v_dep = bin_step.t0.v_dep;
+		step->date = bin_step.t0.date;
+		step->num_next_nodes = bin_step.t0.num_next_nodes;
+	} else if(file_type == 1) {
+		step->body = body;
+		step->r = bin_step.t1.r;
+		step->v_arr = bin_step.t1.v_arr;
+		step->v_body = bin_step.t1.v_body;
+		step->v_dep = bin_step.t1.v_dep;
+		step->date = bin_step.t1.date;
+		step->num_next_nodes = bin_step.t1.num_next_nodes;
+	}
 }
 
 void store_step_in_bfile(struct ItinStep *step, FILE *file) {
@@ -748,67 +762,97 @@ void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int
 	fclose(file);
 }
 
-void load_step_from_bfile(struct ItinStep *step, FILE *file, struct Body **body) {
-	struct ItinStepBinT0 bin_step;
-	fread(&bin_step, sizeof(struct ItinStepBinT0), 1, file);
-	convert_bin_ItinStep(bin_step, step, body[0]);
-	if(step->num_next_nodes > 0) step->next = (struct ItinStep**) malloc(step->num_next_nodes*sizeof(struct ItinStep*));
-	else step->next = NULL;
+void load_step_from_bfile(struct ItinStep *step, FILE *file, struct Body **body, int file_type) {
+	union ItinStepBin bin_step;
+	if(file_type == 0) {
+		fread(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
+		convert_bin_ItinStep(bin_step, step, body[0], 0);
+		if(step->num_next_nodes > 0)
+			step->next = (struct ItinStep **) malloc(step->num_next_nodes * sizeof(struct ItinStep *));
+		else step->next = NULL;
 
-	for(int i = 0; i < step->num_next_nodes; i++) {
-		step->next[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
-		step->next[i]->prev = step;
-		load_step_from_bfile(step->next[i], file, body + 1);
+		for(int i = 0; i < step->num_next_nodes; i++) {
+			step->next[i] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
+			step->next[i]->prev = step;
+			load_step_from_bfile(step->next[i], file, body + 1, 0);
+		}
 	}
 }
 
 struct ItinStep ** load_itineraries_from_bfile(char *filepath) {
-	struct ItinStepBinHeaderT0 bin_header;
+	struct ItinStep **departures = NULL;
+	union ItinStepBinHeader bin_header;
 
 	FILE *file;
 	file = fopen(filepath,"rb");
 
-	fread(&bin_header, sizeof(struct ItinStepBinHeaderT0), 1, file);
+	int type;
+	fread(&type, sizeof(int), 1, file);
 
-	int *bodies_id = (int*) malloc(bin_header.num_layers * sizeof(int));
-	fread(bodies_id, sizeof(int), bin_header.num_layers, file);
+	// TYPE 0 --------------------------------------------
+	if(type == 0 || type > 3) {
+		if(type > 3) {fclose(file); file = fopen(filepath,"rb");}	// no type specified in header
+		fread(&bin_header.t0, sizeof(struct ItinStepBinHeaderT0), 1, file);
 
-	int buf;
-	fread(&buf, sizeof(int), 1, file);
+		int *bodies_id = (int *) malloc(bin_header.t0.num_layers * sizeof(int));
+		fread(bodies_id, sizeof(int), bin_header.t0.num_layers, file);
 
-	if(buf != -1) {
-		printf("Problems reading itinerary file (Body list or header wrong)\n");
-		fclose(file);
-		return NULL;
+		int buf;
+		fread(&buf, sizeof(int), 1, file);
+
+		if(buf != -1) {
+			printf("Problems reading itinerary file (Body list or header wrong)\n");
+			fclose(file);
+			return NULL;
+		}
+
+		departures = (struct ItinStep **) malloc(bin_header.t0.num_deps * sizeof(struct ItinStep *));
+
+		struct Body **bodies = (struct Body **) malloc(bin_header.t0.num_layers * sizeof(struct Body *));
+		for(int i = 0; i < bin_header.t0.num_layers; i++)
+			bodies[i] = (bodies_id[i] > 0) ? get_body_from_id(bodies_id[i]) : NULL;
+		free(bodies_id);
+
+		for(int i = 0; i < bin_header.t0.num_deps; i++) {
+			departures[i] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
+			departures[i]->prev = NULL;
+			load_step_from_bfile(departures[i], file, bodies, 0);
+		}
+		free(bodies);
+	// TYPE 1 --------------------------------------------
+	} else if(type == 1) {
+		struct ItinStepBinHeaderT1 bin_header_t1;
+		fread(&bin_header_t1, sizeof(struct ItinStepBinHeaderT1), 1, file);
 	}
 
-	struct ItinStep **departures = (struct ItinStep**) malloc(bin_header.num_deps * sizeof(struct ItinStep*));
-
-	struct Body **bodies = (struct Body**) malloc(bin_header.num_layers * sizeof(struct Body*));
-	for(int i = 0; i < bin_header.num_layers; i++) bodies[i] = (bodies_id[i] > 0) ? get_body_from_id(bodies_id[i]) : NULL;
-	free(bodies_id);
-
-	for(int i = 0; i < bin_header.num_deps; i++) {
-		departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
-		departures[i]->prev = NULL;
-		load_step_from_bfile(departures[i], file, bodies);
-	}
-
+	// ---------------------------------------------------
 
 	fclose(file);
-	free(bodies);
 	return departures;
 }
 
 int get_num_of_deps_of_itinerary_from_bfile(char *filepath) {
-	struct ItinStepBinHeaderT0 bin_header;
-
 	FILE *file;
 	file = fopen(filepath,"rb");
+	union ItinStepBinHeader bin_header;
+	int num_deps = 0;
 
-	fread(&bin_header, sizeof(struct ItinStepBinHeaderT0), 1, file);
+	int type;
+	fread(&type, sizeof(int), 1, file);
+
+	// TYPE 0 --------------------------------------------
+	if(type == 0 || type > 3) {
+		if(type > 3) {fclose(file); file = fopen(filepath,"rb");}	// no type specified in header
+		fread(&bin_header.t0, sizeof(struct ItinStepBinHeaderT0), 1, file);
+		num_deps = bin_header.t0.num_deps;
+	// TYPE 1 --------------------------------------------
+	} else if(type == 1) {
+		fread(&bin_header.t1, sizeof(struct ItinStepBinHeaderT1), 1, file);
+		num_deps = bin_header.t1.num_deps;
+	}
+
 	fclose(file);
-	return bin_header.num_deps;
+	return num_deps;
 }
 
 void store_single_itinerary_in_bfile(struct ItinStep *itin, char *filepath) {
@@ -882,13 +926,13 @@ struct ItinStep * load_single_itinerary_from_bfile(char *filepath) {
 	free(bodies_id);
 
 	struct ItinStep *itin;
-	struct ItinStepBinT0 bin_step;
+	union ItinStepBin bin_step;
 	struct ItinStep *last_step = NULL;
 
 	for(int i = 0; i < num_nodes; i++) {
 		itin = (struct ItinStep*) malloc(sizeof(struct ItinStep));
-		fread(&bin_step, sizeof(struct ItinStepBinT0), 1, file);
-		convert_bin_ItinStep(bin_step, itin, bodies[i]);
+		fread(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
+		convert_bin_ItinStep(bin_step, itin, bodies[i], 0);
 		itin->prev = last_step;
 		itin->next = NULL;
 		if(last_step != NULL) {
