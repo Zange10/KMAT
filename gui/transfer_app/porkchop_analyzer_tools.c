@@ -244,7 +244,7 @@ int get_itinerary_group_index(struct ItinStep *arrival_step, struct Group *group
 		group_ptr = groups[group_idx].sample_arrival_node;
 		while(group_ptr != NULL) {
 			if(ptr == NULL) break;
-			if(ptr->body->id != group_ptr->body->id) break;
+			if(ptr->body != group_ptr->body) break;
 			else {
 				if(ptr->prev == NULL && group_ptr->prev == NULL) {
 					return group_idx;

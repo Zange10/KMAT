@@ -272,11 +272,9 @@ void update_group_overview() {
 		gtk_widget_set_halign(label, GTK_ALIGN_START);
 	}
 
-//	separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-//	gtk_grid_attach(GTK_GRID(grid_pa_groups), separator, 0, 2, num_cols*2+1, 1);
-
-//	// Create labels and buttons and add them to the grid
+	// Create labels and buttons and add them to the grid
 	for (int group_idx = 0; group_idx < pa_num_groups; group_idx++) {
+		if(!pa_groups[group_idx].has_itin_inside_filter) continue;
 		int row = group_idx*2+3;
 
 		for (int j = 0; j < num_cols; j++) {
@@ -299,7 +297,10 @@ void update_group_overview() {
 						ptr = pa_groups[group_idx].sample_arrival_node;
 						for(int k = 0; k < pa_groups[group_idx].num_steps - step_idx - 1; k++) ptr = ptr->prev;
 						if(step_idx != 0) sprintf(widget_text, "%s - ", widget_text);
-						sprintf(widget_text, "%s%d", widget_text, ptr->body->id);
+						if(ptr->body != NULL)
+							sprintf(widget_text, "%s%d", widget_text, ptr->body->id);
+						else
+							sprintf(widget_text, "%sDSB", widget_text);
 					}
 					// Create itinerary group label
 					widget = gtk_label_new(widget_text);
@@ -317,7 +318,7 @@ void update_group_overview() {
 			gtk_grid_attach(GTK_GRID(grid_pa_groups), widget, col, row, 1, 1);
 
 			// Create a horizontal separator line (optional)
-			if(col > 0) {
+			if(col > 1) {
 				separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 				gtk_grid_attach(GTK_GRID(grid_pa_groups), separator, col - 1, row, 1, 1);
 			}
@@ -348,7 +349,7 @@ void update_itinerary_groups() {
 			group_ptr = pa_groups[j].sample_arrival_node;
 			while(group_ptr != NULL) {
 				if(ptr == NULL) break;
-				if(ptr->body->id != group_ptr->body->id) break;
+				if(ptr->body != group_ptr->body) break;
 				else {
 					if(ptr->prev == NULL && group_ptr->prev == NULL) {
 						is_part_of_group = 1; break;
@@ -367,6 +368,7 @@ void update_itinerary_groups() {
 			pa_groups[pa_num_groups].count = 1;
 			pa_groups[pa_num_groups].num_steps = 1;
 			pa_groups[pa_num_groups].show_group = 1;
+			pa_groups[pa_num_groups].has_itin_inside_filter = 1;
 			ptr = pa_arrivals[i];
 			while(ptr->prev != NULL) {ptr = ptr->prev; pa_groups[pa_num_groups].num_steps++;}
 			pa_num_groups++;
@@ -375,20 +377,6 @@ void update_itinerary_groups() {
 
 	qsort(pa_groups, pa_num_groups, sizeof(struct Group), compare_by_count);
 
-
-	for(int i = 0; i < pa_num_groups; i++) {
-		struct ItinStep *ptr;
-		printf("%4d: (%6d)  (%5d)  ", i, pa_groups[i].count, pa_groups[i].num_steps);
-		for(int j = 0; j < pa_groups[i].num_steps; j++) {
-			ptr = pa_groups[i].sample_arrival_node;
-			for(int k = 0; k < pa_groups[i].num_steps - j - 1; k++) ptr = ptr->prev;
-			if(j != 0) printf(" -> ");
-			printf("%d", ptr->body->id);
-		}
-		printf("\n");
-	}
-
-	printf("num of pa_groups: %d\n", pa_num_groups);
 	update_group_overview();
 }
 
@@ -604,7 +592,7 @@ void update_pa() {
 	update_best_itin(pa_num_itins, fb0_pow1);
 	update_porkchop_drawing_area();
 	update_preview();
-//	reset_min_max_feedback(fb0_pow1, pa_num_itins);
+	update_group_overview();
 }
 
 void on_apply_filter(GtkWidget* widget, gpointer data) {
@@ -630,6 +618,11 @@ void on_apply_filter(GtkWidget* widget, gpointer data) {
 	pa_num_itins = filter_porkchop_arrivals_totdv(pa_porkchop, pa_arrivals, min[2], max[2], fb0_pow1);
 	pa_num_itins = filter_porkchop_arrivals_depdv(pa_porkchop, pa_arrivals, min[3], max[3]);
 	pa_num_itins = filter_porkchop_arrivals_satdv(pa_porkchop, pa_arrivals, min[4], max[4], fb0_pow1);
+
+	// show only groups inside filter in gui
+	for(int group_idx = 0; group_idx < pa_num_groups; group_idx++) pa_groups[group_idx].has_itin_inside_filter = 0;
+	for(int i = 0; i < pa_num_itins; i++) pa_groups[get_itinerary_group_index(pa_arrivals[i], pa_groups, pa_num_groups)].has_itin_inside_filter = 1;
+
 	pa_num_itins = filter_porkchop_arrivals_groups(pa_porkchop, pa_arrivals, pa_groups, pa_num_groups);
 
 	printf("Filtered %d Itineraries (%d left)\n", init_num_itins-pa_num_itins, pa_num_itins);

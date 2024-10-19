@@ -8,6 +8,7 @@ struct Group {
 	int num_steps;
 	int count;
 	int show_group;
+	int has_itin_inside_filter;
 	struct ItinStep *sample_arrival_node;
 	GtkWidget *cb_pa_show_group;
 };
