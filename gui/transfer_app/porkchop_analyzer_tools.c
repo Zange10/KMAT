@@ -1,5 +1,6 @@
 #include "porkchop_analyzer_tools.h"
 #include <stdlib.h>
+#include "celestial_bodies.h"
 
 
 
@@ -210,5 +211,49 @@ int filter_porkchop_arrivals_satdv(double *porkchop, struct ItinStep **arrivals,
 	porkchop[0] = new_num_itins*5;
 
 	return new_num_itins;
+}
+
+int filter_porkchop_arrivals_groups(double *porkchop, struct ItinStep **arrivals, struct Group *groups, int num_groups) {
+	int new_num_itins = 0;
+	int num_itins = (int) (porkchop[0]/5);
+
+	int index;
+
+	for(int i = 0; i < num_itins; i++) {
+		index = 1+i*5;
+		if(groups[get_itinerary_group_index(arrivals[i], groups, num_groups)].show_group) {
+			if(new_num_itins != i) {
+				arrivals[new_num_itins] = arrivals[i];
+				swap_porkchop(&porkchop[index], &porkchop[5*new_num_itins+1]);
+			}
+			new_num_itins++;
+		}
+	}
+
+	porkchop[0] = new_num_itins*5;
+
+	return new_num_itins;
+}
+
+
+
+int get_itinerary_group_index(struct ItinStep *arrival_step, struct Group *groups, int num_groups) {
+	struct ItinStep *ptr, *group_ptr;
+	for(int group_idx = 0; group_idx < num_groups; group_idx++) {
+		ptr = arrival_step;
+		group_ptr = groups[group_idx].sample_arrival_node;
+		while(group_ptr != NULL) {
+			if(ptr == NULL) break;
+			if(ptr->body->id != group_ptr->body->id) break;
+			else {
+				if(ptr->prev == NULL && group_ptr->prev == NULL) {
+					return group_idx;
+				}
+			}
+			group_ptr = group_ptr->prev;
+			ptr = ptr->prev;
+		}
+	}
+	return -1;
 }
 

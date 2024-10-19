@@ -134,4 +134,15 @@
     background-image: none;  /* Ensure no theme background is interfering */
 }
 
+/* ------- Porkchop Analyzer Groups -------*/
+#pag-header {
+    font-weight: bold;
+    font-size: 1em;
+    padding: 5px;
+}
+
+#pag-group-itin {
+    font-size: 1em;
+    padding-left: 5px;
+}
 

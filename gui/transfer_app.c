@@ -3,6 +3,7 @@
 #include "transfer_app/porkchop_analyzer.h"
 #include "transfer_app/transfer_calculator.h"
 #include "transfer_app/itinerary_calculator.h"
+#include "css_loader.h"
 
 #include <gtk/gtk.h>
 #include <locale.h>
@@ -51,6 +52,7 @@ void activate_transfer_app(GtkApplication *app, gpointer user_data) {
 	gtk_window_set_application(GTK_WINDOW (window), app);
 	gtk_widget_set_visible(GTK_WIDGET (window), TRUE);
 
+	load_css();
 
 	init_itinerary_calculator(builder);
 	init_transfer_calculator(builder);

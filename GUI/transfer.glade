@@ -1245,7 +1245,7 @@
                     </child>
                     <child>
                       <object class="GtkButton" id="bt_pa_reset_filter">
-                        <property name="label" translatable="yes">Reset Filter</property>
+                        <property name="label" translatable="yes">Update Filter</property>
                         <property name="visible">True</property>
                         <property name="can-focus">True</property>
                         <property name="receives-default">True</property>
@@ -1462,14 +1462,14 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkViewport">
+                      <object class="GtkScrolledWindow">
                         <property name="visible">True</property>
-                        <property name="can-focus">False</property>
+                        <property name="can-focus">True</property>
+                        <property name="shadow-type">in</property>
                         <child>
-                          <object class="GtkScrolledWindow">
+                          <object class="GtkViewport" id="vp_pa_groups">
                             <property name="visible">True</property>
-                            <property name="can-focus">True</property>
-                            <property name="shadow-type">in</property>
+                            <property name="can-focus">False</property>
                             <child>
                               <placeholder/>
                             </child>

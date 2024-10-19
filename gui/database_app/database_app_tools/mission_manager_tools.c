@@ -615,7 +615,7 @@ void on_mman_add_event(GtkWidget *button, gpointer data) {
 
 void on_mman_remove_event(GtkWidget *button, gpointer data) {
 	update_mman_event_list();
-	struct MissionEventList *event = (struct MissionEventList *) data;  // Cast data back to int
+	struct MissionEventList *event = (struct MissionEventList *) data;  // Cast data back to event struct
 	if(event->event->id != 0) event->event->id *= -1;
 	else {
 		if(event->event_type == INITIAL_EVENT) {
