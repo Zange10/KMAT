@@ -198,7 +198,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 
 		struct Body *next_step_body;
 
-		for(int body_id = 1; body_id <= 8; body_id++) {
+		for(int body_id = 1; body_id <= 9; body_id++) {
 			int min_duration = initial_min_transfer_duration[dep_body->id][body_id];
 			int max_duration = initial_max_transfer_duration[dep_body->id][body_id];
 			int max_min_duration_diff = max_duration - min_duration;
@@ -268,11 +268,11 @@ struct Transfer_Calc_Results search_for_itinerary_to_target(struct Transfer_To_T
 	double elapsed_time;
 	gettimeofday(&start, NULL);  // Record the ending time
 
-	int num_bodies = 8+2;	// planets + arrival body + departure body (arr and dep body ephems = NULL if planet)
+	int num_bodies = 9+2;	// planets + arrival body + departure body (arr and dep body ephems = NULL if planet)
 	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
 	struct Ephem **body_ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
 	body_ephems[0] = NULL;
-	body_ephems[9] = NULL;
+	body_ephems[10] = NULL;
 	for(int i = 1; i <= num_bodies-2; i++) {
 		body_ephems[i] = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
 		get_body_ephem(body_ephems[i], i);

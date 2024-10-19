@@ -363,7 +363,7 @@ int calc_next_spec_itin_step(struct ItinStep *curr_step, struct Ephem **ephems, 
 
 // TODO dv filter
 int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
-	for(int body_id = 1; body_id <= 8; body_id++) {
+	for(int body_id = 1; body_id <= 9; body_id++) {
 		if(body_id == curr_step->body->id) continue;
 		double jd_max;
 		if(get_first(curr_step)->date + max_total_duration < jd_max_arr)

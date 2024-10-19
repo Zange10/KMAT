@@ -242,9 +242,6 @@ void update_group_overview() {
 	grid_pa_groups = gtk_grid_new();
 	GtkWidget *separator;
 
-//	separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-//	gtk_grid_attach(GTK_GRID(grid_pa_groups), separator, 0, 0, num_cols*2+1, 1);
-
 	for (int col = 0; col < num_cols; col++) {
 		// Create a horizontal separator line (optional)
 		if(col > 0) {
@@ -324,7 +321,6 @@ void update_group_overview() {
 			}
 		}
 	}
-
 	gtk_container_add (GTK_CONTAINER (vp_pa_groups), grid_pa_groups);
 	gtk_widget_show_all(GTK_WIDGET(vp_pa_groups));
 }
@@ -333,12 +329,11 @@ void update_group_overview() {
 int compare_by_count(const void *a, const void *b) {
 	const struct Group *groupA = (const struct Group *) a;
 	const struct Group *groupB = (const struct Group *) b;
-
 	// Compare based on the count field
 	return (groupB->count - groupA->count);
 }
 
-void update_itinerary_groups() {
+void initialize_itinerary_groups() {
 	pa_groups = malloc(200 * sizeof(struct Group));
 	pa_num_groups = 0;
 	for(int i = 0; i < pa_num_itins; i++) {
@@ -392,8 +387,6 @@ void update_best_itin(int num_itins, int fb0_pow1) {
 	if(curr_transfer_pa != NULL) free_itinerary(get_first(curr_transfer_pa));
 	curr_transfer_pa = create_itin_copy_from_arrival(pa_arrivals[0]);
 	current_date_pa = get_last(curr_transfer_pa)->date;
-
-	printf("Best itin idx: %d\n", get_itinerary_group_index(curr_transfer_pa, pa_groups, pa_num_groups));
 }
 
 void on_porkchop_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
@@ -482,7 +475,7 @@ void analyze_departure_itins() {
 	pa_all_num_itins = num_itins;
 	pa_num_itins = pa_all_num_itins;
 	reset_porkchop_and_arrivals(pa_all_porkchop, pa_porkchop, pa_all_arrivals, pa_arrivals);
-	update_itinerary_groups();
+	initialize_itinerary_groups();
 	update_best_itin(num_itins, fb0_pow1);
 	reset_min_max_feedback(fb0_pow1, pa_num_itins);
 }
