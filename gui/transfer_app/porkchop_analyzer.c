@@ -639,11 +639,15 @@ void on_reset_porkchop(GtkWidget* widget, gpointer data) {
 	if(pa_all_porkchop == NULL) return;
 	for(int i = 0; i < pa_num_groups; i++) {
 		pa_groups[i].show_group = 1;
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(pa_groups[i].cb_pa_show_group), 1);
+		if(pa_groups[i].has_itin_inside_filter)
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(pa_groups[i].cb_pa_show_group), 1);
+		else
+			pa_groups[i].has_itin_inside_filter = 1;
 	}
 	reset_porkchop_and_arrivals(pa_all_porkchop, pa_porkchop, pa_all_arrivals, pa_arrivals);
 	pa_num_itins = pa_all_num_itins;
 	update_pa();
+	on_reset_filter(NULL, NULL);
 }
 
 void on_prev_transfer_pa(GtkWidget* widget, gpointer data) {
