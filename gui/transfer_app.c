@@ -2,6 +2,7 @@
 #include "transfer_app/transfer_planner.h"
 #include "transfer_app/porkchop_analyzer.h"
 #include "transfer_app/transfer_calculator.h"
+#include "transfer_app/itinerary_calculator.h"
 
 #include <gtk/gtk.h>
 #include <locale.h>
@@ -31,6 +32,7 @@ void start_transfer_app() {
 
 	remove_all_transfers();
 	free_all_porkchop_analyzer_itins();
+	reset_ic();
 	reset_tc();
 	for(int i = 0; i < 9; i++) free(body_ephems[i]);
 	free(body_ephems);
@@ -50,6 +52,7 @@ void activate_transfer_app(GtkApplication *app, gpointer user_data) {
 	gtk_widget_set_visible(GTK_WIDGET (window), TRUE);
 
 
+	init_itinerary_calculator(builder);
 	init_transfer_calculator(builder);
 	init_porkchop_analyzer(builder);
 	init_transfer_planner(builder);

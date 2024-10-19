@@ -98,6 +98,8 @@ add_executable(KSP
         tools/gmat_interface.h
         orbit_calculator/itin_dsb_tool.c
         orbit_calculator/itin_dsb_tool.h
+        gui/transfer_app/itinerary_calculator.c
+        gui/transfer_app/itinerary_calculator.h
 )
 
 target_link_libraries(KSP m;
