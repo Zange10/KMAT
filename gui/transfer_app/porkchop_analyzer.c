@@ -26,6 +26,8 @@ GObject *lb_pa_tfbody;
 GObject *lb_pa_transfer_dv;
 GObject *lb_pa_total_dv;
 GObject *lb_pa_periapsis;
+GObject *st_pa_step_group_selector;
+
 
 void init_porkchop_analyzer(GtkBuilder *builder) {
 	pa_num_deps = 0;
@@ -54,6 +56,7 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 	lb_pa_transfer_dv = gtk_builder_get_object(builder, "lb_pa_transfer_dv");
 	lb_pa_total_dv = gtk_builder_get_object(builder, "lb_pa_total_dv");
 	lb_pa_periapsis = gtk_builder_get_object(builder, "lb_pa_periapsis");
+	st_pa_step_group_selector = gtk_builder_get_object(builder, "st_pa_step_group_selector");
 	for(int i = 0; i < 9; i++) body_show_status_pa[i] = 0;
 }
 
@@ -314,6 +317,71 @@ void analyze_departure_itins() {
 	pa_num_itins = pa_all_num_itins;
 	reset_porkchop_and_arrivals(pa_all_porkchop, pa_porkchop, pa_all_arrivals, pa_arrivals);
 	update_best_itin(num_itins, fb0_pow1);
+
+
+
+
+	struct Group {
+		int num_steps;
+		int count;
+		struct ItinStep **arrival_nodes;
+	};
+
+	// TODO: Remove later
+	int num_groups = 0;
+	struct Group *groups = malloc(200*sizeof(struct Group));
+
+	for(int i = 0; i < num_itins; i++) {
+		struct ItinStep *ptr, *group_ptr;
+		int is_part_of_group = 0;
+		for(int j = 0; j < num_groups; j++) {
+			ptr = pa_arrivals[i];
+			group_ptr = groups[j].arrival_nodes[0];
+			while(group_ptr != NULL) {
+				if(ptr == NULL) break;
+				if(ptr->body->id != group_ptr->body->id) break;
+				else {
+					if(ptr->prev == NULL && group_ptr->prev == NULL) {
+						is_part_of_group = 1; break;
+					}
+				}
+				group_ptr = group_ptr->prev;
+				ptr = ptr->prev;
+			}
+			if(is_part_of_group) {
+				groups[j].arrival_nodes[groups[j].count] = pa_arrivals[i];
+				groups[j].count++;
+				break;
+			}
+		}
+		if(!is_part_of_group) {
+			groups[num_groups].arrival_nodes = malloc(10000 * sizeof(struct ItinStep*));
+			groups[num_groups].arrival_nodes[0] = pa_arrivals[i];
+			groups[num_groups].count = 1;
+			groups[num_groups].num_steps = 1;
+			ptr = pa_arrivals[i];
+			while(ptr->prev != NULL) {ptr = ptr->prev; groups[num_groups].num_steps++;}
+			num_groups++;
+		}
+	}
+
+
+
+	for(int i = 0; i < num_groups; i++) {
+		struct ItinStep *ptr;
+		printf("(%5d)   ", groups[i].num_steps);
+		for(int j = 0; j < groups[i].num_steps; j++) {
+			ptr = groups[i].arrival_nodes[0];
+			for(int k = 0; k < groups[i].num_steps-j-1; k++) ptr = ptr->prev;
+			if(j != 0) printf(" -> ");
+			printf("%d", ptr->body->id);
+		}
+		printf("    (%d)\n", groups[i].count);
+	}
+
+	printf("num of groups: %d\n", num_groups);
+
+	free(groups);
 }
 
 void on_load_itineraries(GtkWidget* widget, gpointer data) {
@@ -477,4 +545,11 @@ void on_next_transfer_pa(GtkWidget* widget, gpointer data) {
 	if(curr_transfer_pa->next != NULL) curr_transfer_pa = curr_transfer_pa->next[0];
 	current_date_pa = curr_transfer_pa->date;
 	update_preview();
+}
+
+void on_switch_steps_groups(GtkWidget* widget, gpointer data) {
+	if(strcmp(gtk_stack_get_visible_child_name(GTK_STACK(st_pa_step_group_selector)), "page0") == 0)
+		gtk_stack_set_visible_child_name(GTK_STACK(st_pa_step_group_selector), "page1");
+	else
+		gtk_stack_set_visible_child_name(GTK_STACK(st_pa_step_group_selector), "page0");
 }
