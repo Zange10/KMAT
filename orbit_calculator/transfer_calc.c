@@ -34,12 +34,13 @@ struct Itin_To_Target_Thread {
 
 
 
-int initial_min_transfer_duration[10][10] = {
+int initial_min_transfer_duration[11][11] = {
 		{},
 		{},
 		{},
 		{0, 50, 70, 0, 100, 500},
 		{},
+		{0, 0, 400, 400, 400},
 		{},
 		{},
 		{},
@@ -47,12 +48,13 @@ int initial_min_transfer_duration[10][10] = {
 		{}
 };
 
-int initial_max_transfer_duration[10][10] = {
+int initial_max_transfer_duration[11][11] = {
 		{},
 		{},
 		{},
 		{0, 200, 300, 0, 500, 2000},
 		{},
+		{0, 0, 2000, 2000, 2000},
 		{},
 		{},
 		{},
@@ -184,7 +186,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 		curr_step->v_dep = vec(0, 0, 0);
 		curr_step->v_arr = vec(0, 0, 0);
 		curr_step->num_next_nodes = 0;
-		for(int i = 0; i <= 9; i++) {
+		for(int i = 0; i <= 10; i++) {
 			int min_duration = initial_min_transfer_duration[dep_body->id][i];
 			int max_duration = initial_max_transfer_duration[dep_body->id][i];
 			int max_min_duration_diff = max_duration - min_duration;
@@ -198,7 +200,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 
 		struct Body *next_step_body;
 
-		for(int body_id = 1; body_id <= 9; body_id++) {
+		for(int body_id = 1; body_id <= 10; body_id++) {
 			int min_duration = initial_min_transfer_duration[dep_body->id][body_id];
 			int max_duration = initial_max_transfer_duration[dep_body->id][body_id];
 			int max_min_duration_diff = max_duration - min_duration;
