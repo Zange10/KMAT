@@ -66,7 +66,7 @@ void activate_app(GtkApplication *app, gpointer user_data) {
 	/* Construct a GtkBuilder instance and load our UI description */
 	setlocale(LC_NUMERIC, "C");	// Glade somehow uses commas instead of points for decimals...
 	GtkBuilder *builder = gtk_builder_new ();
-	gtk_builder_add_from_file(builder, "../GUI/unified_gui.glade", NULL);
+	gtk_builder_add_from_file(builder, "../GUI/GUI.glade", NULL);
 
 	gtk_builder_connect_signals(builder, NULL);
 
