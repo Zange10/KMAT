@@ -44,8 +44,6 @@ add_executable(KSP
         ephem.h
         tools/thread_pool.c
         tools/thread_pool.h
-        gui/transfer_app.c
-        gui/transfer_app.h
         gui/drawing.c
         gui/drawing.h
         tools/thread_pool.h
@@ -53,8 +51,6 @@ add_executable(KSP
         orbit_calculator/double_swing_by.h
         database/database.c
         database/database.h
-        gui/database_app.c
-        gui/database_app.h
         orbit_calculator/double_swing_by.h
         tools/data_tool.c
         tools/data_tool.h
@@ -72,8 +68,6 @@ add_executable(KSP
         launch_calculator/launch_sim.h
         launch_calculator/launch_state.c
         launch_calculator/launch_state.h
-        gui/launch_app.c
-        gui/launch_app.h
         gui/launch_app/launch_analyzer.c
         gui/launch_app/launch_analyzer.h
         database/lv_database.c
@@ -100,6 +94,8 @@ add_executable(KSP
         orbit_calculator/itin_dsb_tool.h
         gui/transfer_app/itinerary_calculator.c
         gui/transfer_app/itinerary_calculator.h
+        gui/gui_manager.c
+        gui/gui_manager.h
 )
 
 target_link_libraries(KSP m;

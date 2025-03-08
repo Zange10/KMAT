@@ -2,10 +2,8 @@
 #include "launch_calculator/launch_calculator.h"
 #include "orbit_calculator/orbit_calculator.h"
 #include "tools/tool_funcs.h"
-#include "gui/transfer_app.h"
-#include "gui/launch_app.h"
+#include "gui/gui_manager.h"
 #include "database/database.h"
-#include "gui/database_app.h"
 
 
 // ------------------------------------------------------------
@@ -13,6 +11,8 @@
 int main() {
     init_celestial_bodies();
 	init_db();
+
+	start_gui();
 
     int selection;
     char title[] = "CHOOSE PROGRAM:";
@@ -30,13 +30,13 @@ int main() {
             orbit_calculator();
             break;
 		case 3:
-			start_transfer_app();
+//			start_transfer_app();
 			break;
 		case 4:
-			start_launch_app();
+//			start_launch_app();
 			break;
 		case 5:
-			start_db_app();
+			start_gui();
 			break;
         default:
             break;

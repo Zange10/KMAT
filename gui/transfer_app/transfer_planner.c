@@ -3,7 +3,7 @@
 #include "celestial_bodies.h"
 #include "orbit_calculator/transfer_tools.h"
 #include "gui/drawing.h"
-#include "gui/transfer_app.h"
+#include "gui/gui_manager.h"
 #include "tools/gmat_interface.h"
 
 #include <string.h>

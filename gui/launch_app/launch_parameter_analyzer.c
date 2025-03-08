@@ -1,5 +1,5 @@
 #include "launch_parameter_analyzer.h"
-#include "gui/launch_app.h"
+#include "gui/gui_manager.h"
 #include "tools/analytic_geometry.h"
 #include "launch_calculator/lp_parameters.h"
 #include "gui/drawing.h"
