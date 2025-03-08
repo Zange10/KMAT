@@ -2,7 +2,7 @@
 #include "porkchop_analyzer_tools.h"
 #include "celestial_bodies.h"
 #include "gui/drawing.h"
-#include "gui/transfer_app.h"
+#include "gui/gui_manager.h"
 #include "gui/css_loader.h"
 
 #include <string.h>

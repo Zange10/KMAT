@@ -2,13 +2,13 @@
 #include "launch_calculator/launch_calculator.h"
 #include "orbit_calculator/orbit_calculator.h"
 #include "tools/tool_funcs.h"
-#include "gui/transfer_app.h"
-#include "gui/launch_app.h"
+#include "gui/gui_manager.h"
 #include "database/database.h"
-#include "gui/database_app.h"
 
 
 // ------------------------------------------------------------
+
+void test();
 
 int main() {
     init_celestial_bodies();
@@ -16,7 +16,7 @@ int main() {
 
     int selection;
     char title[] = "CHOOSE PROGRAM:";
-    char options[] = "Exit; Launch Calculator; Orbit Calculator; Transfer Calculator; Launch App; DB Test";
+    char options[] = "Exit; Launch Calculator; Orbit Calculator; GUI; Test";
     char question[] = "Program: ";
 
     do {
@@ -30,13 +30,10 @@ int main() {
             orbit_calculator();
             break;
 		case 3:
-			start_transfer_app();
+			start_gui();
 			break;
 		case 4:
-			start_launch_app();
-			break;
-		case 5:
-			start_db_app();
+			test();
 			break;
         default:
             break;
@@ -44,4 +41,10 @@ int main() {
     } while(selection != 0);
 	close_db();
     return 0;
+}
+
+
+
+void test() {
+
 }

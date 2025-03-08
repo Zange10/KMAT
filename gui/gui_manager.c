@@ -1,56 +1,109 @@
-#include "launch_app.h"
+#include "gui_manager.h"
+#include <gtk/gtk.h>
+#include <locale.h>
+#include "gui/css_loader.h"
+#include "transfer_app/transfer_planner.h"
+#include "transfer_app/porkchop_analyzer.h"
+#include "transfer_app/transfer_calculator.h"
+#include "transfer_app/itinerary_calculator.h"
 #include "launch_app/launch_analyzer.h"
 #include "launch_app/capability_analyzer.h"
 #include "launch_app/launch_parameter_analyzer.h"
 #include "database/lv_database.h"
 #include "launch_calculator/lv_profile.h"
+#include "gui/database_app/mission_db.h"
 
-#include <locale.h>
 
 
 struct LV *all_launcher;
 int *launcher_ids;
 int num_launcher;
 
+struct Ephem **body_ephems;
 
-void activate_launch_app(GtkApplication *app, gpointer user_data) {
+
+void activate_app(GtkApplication *app, gpointer user_data);
+
+void start_gui() {
+	// init body ephems for transfer planner gui
+	int num_bodies = 9;
+	int num_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	body_ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
+	for(int i = 0; i < num_bodies; i++) {
+		body_ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
+		get_body_ephem(body_ephems[i], i+1);
+	}
+
+	// init launcher from db for launch calc gui
 	num_launcher = get_all_launch_vehicles_from_database(&all_launcher, &launcher_ids);
+	setlocale(LC_NUMERIC, "C");	// Glade somehow uses commas instead of points for decimals...
 
+	// init app
+	GtkApplication *app = gtk_application_new ("org.gtk.example", G_APPLICATION_DEFAULT_FLAGS);
+	g_signal_connect (app, "activate", G_CALLBACK (activate_app), NULL);
+
+	g_application_run (G_APPLICATION (app), 0, NULL);
+	g_object_unref (app);
+
+	// gui runs...
+
+	// reset transfer gui
+	remove_all_transfers();
+	free_all_porkchop_analyzer_itins();
+	reset_ic();
+	reset_tc();
+	for(int i = 0; i < 9; i++) free(body_ephems[i]);
+	free(body_ephems);
+	// reset launch gui
+	close_launch_analyzer();
+	close_capability_analyzer();
+	close_launch_parameter_analyzer();
+	// reset db gui
+	close_mission_db();
+}
+
+void activate_app(GtkApplication *app, gpointer user_data) {
 	/* Construct a GtkBuilder instance and load our UI description */
 	setlocale(LC_NUMERIC, "C");	// Glade somehow uses commas instead of points for decimals...
 	GtkBuilder *builder = gtk_builder_new ();
-	gtk_builder_add_from_file(builder, "../GUI/launch.glade", NULL);
-	
+	gtk_builder_add_from_file(builder, "../GUI/GUI.glade", NULL);
+
 	gtk_builder_connect_signals(builder, NULL);
-	
+
 	/* Connect signal handlers to the constructed widgets. */
 	GObject *window = gtk_builder_get_object (builder, "window");
 	gtk_window_set_application(GTK_WINDOW (window), app);
 	gtk_widget_set_visible(GTK_WIDGET (window), TRUE);
-	
-	
+
+	load_css();
+
+	// init transfer planner gui
+	init_itinerary_calculator(builder);
+	init_transfer_calculator(builder);
+	init_porkchop_analyzer(builder);
+	init_transfer_planner(builder);
+//	// init launch calc gui
 	init_launch_analyzer(builder);
 	init_capability_analyzer(builder);
 	init_launch_parameter_analyzer(builder);
-	
+//	// init db gui
+	init_mission_db(builder);
+
 	/* We do not need the builder anymore */
 	g_object_unref(builder);
 }
 
-void start_launch_app() {
-	GtkApplication *app = gtk_application_new ("org.gtk.example", G_APPLICATION_FLAGS_NONE);
-	g_signal_connect (app, "activate", G_CALLBACK (activate_launch_app), NULL);
-	
-	g_application_run (G_APPLICATION (app), 0, NULL);
-	g_object_unref (app);
 
-	close_launch_analyzer();
-	close_capability_analyzer();
-	close_launch_parameter_analyzer();
+
+
+
+// transfer planner gui stuff -----------------------------------------------------------
+struct Ephem ** get_body_ephems() {
+	return body_ephems;
 }
 
 
-
+// launch calc gui stuff ----------------------------------------------------------------
 void update_launcher_dropdown(GtkComboBox *cb_sel_launcher) {
 	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
 	GtkTreeIter iter;
@@ -110,4 +163,6 @@ struct LV * get_all_launcher() {
 int * get_launcher_ids() {
 	return launcher_ids;
 }
+
+
 

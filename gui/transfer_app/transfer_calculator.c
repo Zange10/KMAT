@@ -1,6 +1,6 @@
 #include "transfer_calculator.h"
 #include "orbit_calculator/transfer_calc.h"
-#include "gui/transfer_app.h"
+#include "gui/gui_manager.h"
 #include "celestial_bodies.h"
 #include <string.h>
 #include <sys/time.h>

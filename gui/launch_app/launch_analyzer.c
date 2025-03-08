@@ -5,7 +5,7 @@
 #include "launch_calculator/launch_sim.h"
 #include "launch_calculator/launch_calculator.h"
 #include "gui/drawing.h"
-#include "gui/launch_app.h"
+#include "gui/gui_manager.h"
 
 
 
