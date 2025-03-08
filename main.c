@@ -8,15 +8,15 @@
 
 // ------------------------------------------------------------
 
+void test();
+
 int main() {
     init_celestial_bodies();
 	init_db();
 
-	start_gui();
-
     int selection;
     char title[] = "CHOOSE PROGRAM:";
-    char options[] = "Exit; Launch Calculator; Orbit Calculator; Transfer Calculator; Launch App; DB Test";
+    char options[] = "Exit; Launch Calculator; Orbit Calculator; GUI; Test";
     char question[] = "Program: ";
 
     do {
@@ -30,13 +30,10 @@ int main() {
             orbit_calculator();
             break;
 		case 3:
-//			start_transfer_app();
+			start_gui();
 			break;
 		case 4:
-//			start_launch_app();
-			break;
-		case 5:
-			start_gui();
+			test();
 			break;
         default:
             break;
@@ -44,4 +41,10 @@ int main() {
     } while(selection != 0);
 	close_db();
     return 0;
+}
+
+
+
+void test() {
+
 }

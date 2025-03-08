@@ -2546,7 +2546,8 @@
           <object class="GtkLabel">
             <property name="visible">True</property>
             <property name="can-focus">False</property>
-            <property name="label" translatable="yes">page 1</property>
+            <property name="hexpand">True</property>
+            <property name="label" translatable="yes">Transfer Planner</property>
           </object>
           <packing>
             <property name="tab-fill">False</property>
@@ -4636,7 +4637,8 @@
           <object class="GtkLabel">
             <property name="visible">True</property>
             <property name="can-focus">False</property>
-            <property name="label" translatable="yes">page 2</property>
+            <property name="hexpand">True</property>
+            <property name="label" translatable="yes">Launch Calculator</property>
           </object>
           <packing>
             <property name="position">1</property>
@@ -5276,7 +5278,8 @@
           <object class="GtkLabel">
             <property name="visible">True</property>
             <property name="can-focus">False</property>
-            <property name="label" translatable="yes">page 3</property>
+            <property name="hexpand">True</property>
+            <property name="label" translatable="yes">Database</property>
           </object>
           <packing>
             <property name="position">2</property>
