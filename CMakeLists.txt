@@ -100,6 +100,8 @@ add_executable(KSP
         orbit_calculator/itin_dsb_tool.h
         gui/transfer_app/itinerary_calculator.c
         gui/transfer_app/itinerary_calculator.h
+        projection_test/projection_test.c
+        projection_test/projection_test.h
 )
 
 target_link_libraries(KSP m;

@@ -6,11 +6,15 @@
 #include "gui/launch_app.h"
 #include "database/database.h"
 #include "gui/database_app.h"
+#include "projection_test/projection_test.h"
 
 
 // ------------------------------------------------------------
 
 int main() {
+	init_test();
+
+	return 0;
     init_celestial_bodies();
 	init_db();
 

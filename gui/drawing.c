@@ -407,3 +407,30 @@ void draw_multi_plot(cairo_t *cr, double width, double height, double *x, double
 		}
 	}
 }
+
+struct Vector2D p3d_to_p2d(struct Vector observer, struct Vector looking, struct Vector p3d, int width, int height) {
+	struct Vector2D p2d;
+	struct Vector v3d = subtract_vectors(p3d, observer);
+
+	struct Vector right = cross_product(looking, vec(0,0,1));
+	struct Vector up = cross_product(right, looking);
+
+	// Project this vector onto the camera's coordinate system (view space)
+	double x = dot_product(v3d, right);
+	double y = dot_product(v3d, up);
+	double z = dot_product(v3d, looking);
+
+	// If the point is behind the observer, return a point at the center of the screen
+	if (z <= 0) {
+		return (struct Vector2D){width *10, height * 10};
+	}
+
+	double hw = (width < height) ? width : height;
+
+	// Calculate the 2D coordinates based on perspective projection
+	float scale = 1.0f / z;  // Perspective divide
+	int px = (int)((x * scale) * (hw / 2.0f) + hw / 2);
+	int py = (int)((-y * scale) * (hw / 2.0f) + hw / 2);
+
+	return (struct Vector2D){px, py};
+}
