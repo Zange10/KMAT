@@ -4,6 +4,7 @@
   <requires lib="gtk+" version="3.24"/>
   <object class="GtkWindow" id="progress_window">
     <property name="can-focus">False</property>
+    <property name="title" translatable="yes">Analyzing...</property>
     <property name="resizable">False</property>
     <property name="deletable">False</property>
     <child>
@@ -61,6 +62,7 @@
     <property name="width-request">1000</property>
     <property name="height-request">800</property>
     <property name="can-focus">False</property>
+    <property name="title" translatable="yes">Trajectory Planner</property>
     <child>
       <object class="GtkNotebook">
         <property name="visible">True</property>
@@ -105,7 +107,6 @@
                         <property name="visible">True</property>
                         <property name="can-focus">True</property>
                         <property name="has-frame">False</property>
-                        <property name="text" translatable="yes">3</property>
                         <property name="xalign">0.5</property>
                       </object>
                       <packing>
@@ -130,7 +131,7 @@
                         <property name="visible">True</property>
                         <property name="can-focus">True</property>
                         <property name="has-frame">False</property>
-                        <property name="text" translatable="yes">1951-01-01</property>
+                        <property name="text" translatable="yes">1950-01-01</property>
                         <property name="xalign">0.5</property>
                       </object>
                       <packing>
@@ -168,7 +169,6 @@
                         <property name="visible">True</property>
                         <property name="can-focus">True</property>
                         <property name="has-frame">False</property>
-                        <property name="text" translatable="yes">2</property>
                         <property name="xalign">0.5</property>
                       </object>
                       <packing>
@@ -205,7 +205,7 @@
                         <property name="visible">True</property>
                         <property name="can-focus">True</property>
                         <property name="has-frame">False</property>
-                        <property name="text" translatable="yes">500</property>
+                        <property name="text" translatable="yes">10000</property>
                         <property name="xalign">0.5</property>
                       </object>
                       <packing>
@@ -306,7 +306,7 @@
                         <property name="visible">True</property>
                         <property name="can-focus">True</property>
                         <property name="has-frame">False</property>
-                        <property name="text" translatable="yes">5000</property>
+                        <property name="text" translatable="yes">100000</property>
                         <property name="xalign">1</property>
                       </object>
                       <packing>
