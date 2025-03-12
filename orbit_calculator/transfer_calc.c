@@ -428,3 +428,10 @@ struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Calc_Data
 
 	return results;
 }
+
+struct Transfer_Calc_Status get_current_transfer_calc_status() {
+	return (struct Transfer_Calc_Status) {
+		.num_deps = 3,
+		.progress = 0.2
+	};
+}

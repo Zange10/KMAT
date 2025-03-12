@@ -29,8 +29,15 @@ struct Transfer_Calc_Results {
 	int num_deps, num_nodes;
 };
 
+struct Transfer_Calc_Status {
+	int num_deps;
+	double progress;
+};
+
 struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Calc_Data calc_data);
 
 struct Transfer_Calc_Results search_for_itinerary_to_target(struct Transfer_To_Target_Calc_Data calc_data);
+
+struct Transfer_Calc_Status get_current_transfer_calc_status();
 
 #endif //KSP_TRANSFER_CALC_H

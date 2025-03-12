@@ -13,8 +13,16 @@ GObject *cb_ic_transfertype;
 GObject *tf_ic_totdv;
 GObject *tf_ic_depdv;
 GObject *tf_ic_satdv;
+GObject *tf_ic_window;
+GObject *tf_ic_prog_window;
+GObject *tf_ic_prog_bar;
+GObject *lb_ic_prog_info;
 
 void init_itinerary_calculator(GtkBuilder *builder) {
+	tf_ic_window = gtk_builder_get_object(builder, "window");
+	tf_ic_prog_window = gtk_builder_get_object(builder, "progress_window");
+	tf_ic_prog_bar = gtk_builder_get_object(builder, "pb_pw_prog_bar");
+	lb_ic_prog_info = gtk_builder_get_object(builder, "lb_pw_prog_info");
 	tf_ic_depbody = gtk_builder_get_object(builder, "tf_ic_depbody");
 	tf_ic_arrbody = gtk_builder_get_object(builder, "tf_ic_arrbody");
 	tf_ic_mindepdate = gtk_builder_get_object(builder, "tf_ic_mindepdate");
@@ -64,7 +72,8 @@ void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nod
 	gtk_widget_destroy(dialog);
 }
 
-void on_calc_ic() {
+
+void ic_calc_thread() {
 	char *string;
 	struct Transfer_To_Target_Calc_Data calc_data;
 
@@ -92,10 +101,38 @@ void on_calc_ic() {
 	calc_data.arr_body = get_body_from_id((int) strtol(string, NULL, 10));
 
 	struct Transfer_Calc_Results results = search_for_itinerary_to_target(calc_data);
-	save_itineraries_ic(results.departures, results.num_deps, results.num_nodes);
 
+//	gtk_widget_set_visible(GTK_WIDGET(tf_ic_window), 1);
+//	gtk_widget_set_visible(GTK_WIDGET(tf_ic_prog_window), 0);
+
+	save_itineraries_ic(results.departures, results.num_deps, results.num_nodes);
 	for(int i = 0; i < results.num_deps; i++) free_itinerary(results.departures[i]);
 	free(results.departures);
+
+}
+
+int testcounter = 0;
+
+// Function to update the progress window
+static gboolean update_tc_ic_progress_window(gpointer data) {
+	testcounter++;
+	gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(tf_ic_prog_bar), (double)testcounter/3200);
+	char s[32];
+	sprintf(s, "%f", (double)testcounter/3200);
+	gtk_label_set_text(GTK_LABEL(lb_ic_prog_info), s);
+
+	if (!gtk_widget_is_visible(GTK_WIDGET(tf_ic_prog_window))) {
+		return G_SOURCE_REMOVE;  // Stop the timeout
+	}
+	return G_SOURCE_CONTINUE;  // Continue updating
+}
+
+void on_calc_ic() {
+//	gtk_widget_set_visible(GTK_WIDGET(tf_ic_prog_window), 1);
+//	gtk_widget_set_visible(GTK_WIDGET(tf_ic_window), 0);
+	g_thread_new("calc_thread", (GThreadFunc) ic_calc_thread, NULL);
+	// update progress window every 0.1s
+//	g_timeout_add(100, update_tc_ic_progress_window, NULL);
 }
 
 void reset_ic() {

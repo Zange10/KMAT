@@ -13,6 +13,7 @@ void test();
 int main() {
     init_celestial_bodies();
 	init_db();
+	start_gui();
 
     int selection;
     char title[] = "CHOOSE PROGRAM:";
