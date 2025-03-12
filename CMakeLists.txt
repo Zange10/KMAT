@@ -96,6 +96,8 @@ add_executable(KSP
         gui/transfer_app/itinerary_calculator.h
         gui/gui_manager.c
         gui/gui_manager.h
+        gui/prog_win_manager.c
+        gui/prog_win_manager.h
 )
 
 target_link_libraries(KSP m;

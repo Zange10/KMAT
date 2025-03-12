@@ -1,4 +1,5 @@
 #include "gui_manager.h"
+#include "prog_win_manager.h"
 #include <gtk/gtk.h>
 #include <locale.h>
 #include "gui/css_loader.h"
@@ -82,12 +83,14 @@ void activate_app(GtkApplication *app, gpointer user_data) {
 	init_transfer_calculator(builder);
 	init_porkchop_analyzer(builder);
 	init_transfer_planner(builder);
-//	// init launch calc gui
+	// init launch calc gui
 	init_launch_analyzer(builder);
 	init_capability_analyzer(builder);
 	init_launch_parameter_analyzer(builder);
-//	// init db gui
+	// init db gui
 	init_mission_db(builder);
+	// init progress window
+	init_prog_window(builder);
 
 	/* We do not need the builder anymore */
 	g_object_unref(builder);

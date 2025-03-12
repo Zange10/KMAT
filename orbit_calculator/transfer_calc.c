@@ -290,6 +290,7 @@ struct Transfer_Calc_Results search_for_itinerary_to_target(struct Transfer_To_T
 
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+	for(int i = 0; i < num_deps; i++) departures[i]->num_next_nodes = 0;
 
 
 	struct Itin_To_Target_Thread thread_args = {
