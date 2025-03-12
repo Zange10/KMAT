@@ -31,6 +31,12 @@ struct Itin_To_Target_Thread {
 	struct Dv_Filter *dv_filter;
 };
 
+struct Thread_Progress_and_Prop_Info {
+	struct ItinStep **departures;
+	double jd_min_dep;
+	double jd_max_dep;
+} thread_progress_and_prop_info;
+
 
 
 
@@ -298,6 +304,12 @@ struct Transfer_Calc_Results search_for_itinerary_to_target(struct Transfer_To_T
 			&calc_data.dv_filter
 	};
 
+	thread_progress_and_prop_info = (struct Thread_Progress_and_Prop_Info) {
+			departures,
+			calc_data.jd_min_dep,
+			calc_data.jd_max_dep
+	};
+
 	show_progress("Transfer Calculation progress", 0, 1);
 	struct Thread_Pool thread_pool = use_thread_pool64(calc_itin_to_target_from_departure, &thread_args);
 	join_thread_pool(thread_pool);
@@ -389,6 +401,12 @@ struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Calc_Data
 			&calc_data.dv_filter
 	};
 
+	thread_progress_and_prop_info = (struct Thread_Progress_and_Prop_Info) {
+		departures,
+		jd_min_dep,
+		jd_max_dep
+	};
+
 	show_progress("Transfer Calculation progress: ", 0, 1);
 	struct Thread_Pool thread_pool = use_thread_pool64(calc_spec_itin_from_departure, &thread_args);
 	join_thread_pool(thread_pool);
@@ -430,8 +448,12 @@ struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Calc_Data
 }
 
 struct Transfer_Calc_Status get_current_transfer_calc_status() {
+	double jd_diff = thread_progress_and_prop_info.jd_max_dep-thread_progress_and_prop_info.jd_min_dep+1;
+	int num_deps = get_thread_counter(1);
+
 	return (struct Transfer_Calc_Status) {
-		.num_deps = 3,
-		.progress = 0.2
+		.num_deps = num_deps,
+		.jd_diff = jd_diff,
+		.progress = (double)num_deps/jd_diff
 	};
 }

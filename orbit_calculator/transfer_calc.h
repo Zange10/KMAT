@@ -31,6 +31,7 @@ struct Transfer_Calc_Results {
 
 struct Transfer_Calc_Status {
 	int num_deps;
+	double jd_diff;
 	double progress;
 };
 

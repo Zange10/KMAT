@@ -73,6 +73,19 @@ void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nod
 }
 
 
+int testcounter = 0;
+struct Transfer_Calc_Results results;
+
+gboolean end_calc_thread() {
+	gtk_widget_set_sensitive(GTK_WIDGET(tf_ic_window), 1);
+	gtk_widget_set_visible(GTK_WIDGET(tf_ic_prog_window), 0);
+
+	save_itineraries_ic(results.departures, results.num_deps, results.num_nodes);
+	for(int i = 0; i < results.num_deps; i++) free_itinerary(results.departures[i]);
+	free(results.departures);
+	return G_SOURCE_REMOVE;
+}
+
 void ic_calc_thread() {
 	char *string;
 	struct Transfer_To_Target_Calc_Data calc_data;
@@ -100,39 +113,31 @@ void ic_calc_thread() {
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_arrbody));
 	calc_data.arr_body = get_body_from_id((int) strtol(string, NULL, 10));
 
-	struct Transfer_Calc_Results results = search_for_itinerary_to_target(calc_data);
+	results = search_for_itinerary_to_target(calc_data);
 
-//	gtk_widget_set_visible(GTK_WIDGET(tf_ic_window), 1);
-//	gtk_widget_set_visible(GTK_WIDGET(tf_ic_prog_window), 0);
-
-	save_itineraries_ic(results.departures, results.num_deps, results.num_nodes);
-	for(int i = 0; i < results.num_deps; i++) free_itinerary(results.departures[i]);
-	free(results.departures);
-
+	g_idle_add((GSourceFunc)end_calc_thread, NULL);
 }
-
-int testcounter = 0;
 
 // Function to update the progress window
 static gboolean update_tc_ic_progress_window(gpointer data) {
-	testcounter++;
-	gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(tf_ic_prog_bar), (double)testcounter/3200);
-	char s[32];
-	sprintf(s, "%f", (double)testcounter/3200);
-	gtk_label_set_text(GTK_LABEL(lb_ic_prog_info), s);
-
 	if (!gtk_widget_is_visible(GTK_WIDGET(tf_ic_prog_window))) {
 		return G_SOURCE_REMOVE;  // Stop the timeout
 	}
+	struct Transfer_Calc_Status calc_status =  get_current_transfer_calc_status();
+	gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(tf_ic_prog_bar), calc_status.progress);
+	char s[32];
+	sprintf(s, "Departures analyzed: %d / %d", calc_status.num_deps, (int) calc_status.jd_diff);
+	gtk_label_set_text(GTK_LABEL(lb_ic_prog_info), s);
+
 	return G_SOURCE_CONTINUE;  // Continue updating
 }
 
 void on_calc_ic() {
-//	gtk_widget_set_visible(GTK_WIDGET(tf_ic_prog_window), 1);
-//	gtk_widget_set_visible(GTK_WIDGET(tf_ic_window), 0);
+	gtk_widget_set_visible(GTK_WIDGET(tf_ic_prog_window), 1);
+	gtk_widget_set_sensitive(GTK_WIDGET(tf_ic_window), 0);
 	g_thread_new("calc_thread", (GThreadFunc) ic_calc_thread, NULL);
 	// update progress window every 0.1s
-//	g_timeout_add(100, update_tc_ic_progress_window, NULL);
+	g_timeout_add(100, update_tc_ic_progress_window, NULL);
 }
 
 void reset_ic() {
