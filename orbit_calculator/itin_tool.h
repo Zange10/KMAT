@@ -26,7 +26,7 @@ double get_best_diff_vinf();
 double get_best_alt();
 
 // find viable flybys to next body with a given arrival trajectory
-void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, struct Body *next_body, double min_dt, double max_dt);
+void find_viable_flybys(struct ItinStep *tf, struct Body *next_body, double min_dt, double max_dt);
 
 // find viable flybys to next body with a given arrival trajectory
 void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *next_body, double min_dt0, double max_dt0, double min_dt1, double max_dt1);
@@ -56,7 +56,7 @@ double get_itinerary_duration(struct ItinStep *itin);
 void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_cap1);
 
 // from current step and given information, initiate calculation of next steps
-int calc_next_spec_itin_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step);
+int calc_next_spec_itin_step(struct ItinStep *curr_step, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step);
 
 // from current step and given information, initiate calculation of next steps
 int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct System *system, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);

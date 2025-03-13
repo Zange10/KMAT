@@ -50,11 +50,11 @@ struct Vector2D * calc_viable_dsb_range(struct Vector2D *viable_range, struct OS
 					NULL
 			};
 
-			find_viable_flybys(&itin_step, body_ephems[bodies[3]->id], bodies[3], 200 * 86400, 2000 * 86400);
+			find_viable_flybys(&itin_step, /*body_ephems[bodies[3]->id],*/ bodies[3], 200 * 86400, 2000 * 86400);
 
 			if(itin_step.num_next_nodes > 0) {
 				for(int i = 0; i < itin_step.num_next_nodes; i++) {
-					find_viable_flybys(itin_step.next[i], body_ephems[bodies[4]->id], bodies[4], 800 * 86400, 2000 * 86400);
+					find_viable_flybys(itin_step.next[i], /*body_ephems[bodies[4]->id],*/ bodies[4], 800 * 86400, 2000 * 86400);
 					if(itin_step.next[i]->num_next_nodes > 0) {
 						insert_new_data_point2(viable_range, t1, t2);
 					}
@@ -175,14 +175,14 @@ void test_dsb() {
 					NULL
 			};
 
-			find_viable_flybys(&itin_step, body_ephems[bodies[4]->id], bodies[4], 200 * 86400, 2000 * 86400);
+			find_viable_flybys(&itin_step, /*body_ephems[bodies[4]->id],*/ bodies[4], 200 * 86400, 2000 * 86400);
 
 			insert_new_data_point2(error1ddv, t2-t1, get_best_diff_vinf());
 			insert_new_data_point2(error1alt, t2-t1, get_best_alt());
 
 			if(itin_step.num_next_nodes > 0) {
 				for(int i = 0; i < itin_step.num_next_nodes; i++) {
-					find_viable_flybys(itin_step.next[i], body_ephems[bodies[5]->id], bodies[5], 200 * 86400, 2000 * 86400);
+					find_viable_flybys(itin_step.next[i], /*body_ephems[bodies[5]->id],*/ bodies[5], 200 * 86400, 2000 * 86400);
 					insert_new_data_point2(error2ddv, t2-t1, get_best_diff_vinf());
 					insert_new_data_point2(error2alt, t2-t1, get_best_alt());
 //					if(itin_step.next[i]->num_next_nodes > 0) {
@@ -257,7 +257,7 @@ void test_dsb() {
 						NULL
 				};
 
-				find_viable_flybys(&itin_step, body_ephems[bodies[4]->id], bodies[4], min_duration[4] * 86400,
+				find_viable_flybys(&itin_step, /*body_ephems[bodies[4]->id],*/ bodies[4], min_duration[4] * 86400,
 								   max_duration[4] * 86400);
 
 
@@ -277,7 +277,7 @@ void test_dsb() {
 										   t2 - jd_min_dep - min_duration[1]);
 
 					for(int i = 0; i < itin_step.num_next_nodes; i++) {
-						find_viable_flybys(itin_step.next[i], body_ephems[bodies[5]->id], bodies[5],
+						find_viable_flybys(itin_step.next[i], /*body_ephems[bodies[5]->id],*/ bodies[5],
 										   min_duration[5] * 86400,
 										   max_duration[5] * 86400);
 						if(itin_step.next[i]->num_next_nodes > 0) {
@@ -384,7 +384,7 @@ void test_dsb() {
 						NULL
 				};
 
-				find_viable_flybys(&itin_step, body_ephems[bodies[4]->id], bodies[4], min_duration[4] * 86400,
+				find_viable_flybys(&itin_step, /*body_ephems[bodies[4]->id],*/ bodies[4], min_duration[4] * 86400,
 								   max_duration[4] * 86400);
 
 
@@ -408,7 +408,7 @@ void test_dsb() {
 				printf("num next nodes: %d\n", itin_step.num_next_nodes);
 
 				for(int j = 0; j < itin_step.num_next_nodes; j++) {
-					find_viable_flybys(itin_step.next[j], body_ephems[bodies[5]->id], bodies[5],
+					find_viable_flybys(itin_step.next[j], /*body_ephems[bodies[5]->id],*/ bodies[5],
 									   min_duration[5] * 86400,
 									   max_duration[5] * 86400);
 					insert_new_data_point2(error2alt, tf_duration[1], get_best_alt());

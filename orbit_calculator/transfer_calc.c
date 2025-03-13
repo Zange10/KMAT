@@ -138,7 +138,7 @@ void *calc_spec_itin_from_departure(void *args) {
 			curr_step->num_next_nodes = 0;
 
 			if(num_steps > 2) {
-				if(!calc_next_spec_itin_step(curr_step, ephems, bodies, min_duration, max_duration,
+				if(!calc_next_spec_itin_step(curr_step, bodies, min_duration, max_duration,
 											 thread_args->dv_filter, num_steps, 2)) {
 					fb1_del++;
 				}

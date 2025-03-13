@@ -369,7 +369,7 @@ int find_closest_transfer(struct ItinStep *step) {
 	temp->next = NULL;
 	temp->prev = NULL;
 	temp->num_next_nodes = 0;
-	find_viable_flybys(temp, get_body_ephems()[step->body->id-1], step->body, 86400, 86400*365.25*50);
+	find_viable_flybys(temp, step->body, 86400, 86400*365.25*50);
 
 	if(temp->next != NULL) {
 		struct ItinStep *new_step = temp->next[0];
