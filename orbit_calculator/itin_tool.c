@@ -361,10 +361,9 @@ int calc_next_spec_itin_step(struct ItinStep *curr_step, struct Ephem **ephems, 
 	return num_valid > 0;
 }
 
-// TODO dv filter
-int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
-	for(int body_id = 1; body_id <= 9; body_id++) {
-		if(body_id == curr_step->body->id) continue;
+int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct System *system, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
+	for(int body_id = 0; body_id < system->num_bodies; body_id++) {
+		if(system->bodies[body_id] == curr_step->body) continue;
 		double jd_max;
 		if(get_first(curr_step)->date + max_total_duration < jd_max_arr)
 			jd_max = get_first(curr_step)->date + max_total_duration;
@@ -373,7 +372,7 @@ int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct Ephem **bod
 		double max_duration = jd_max-curr_step->date;
 		double min_duration = 10;	// [days]
 		if(max_duration > min_duration)
-			find_viable_flybys(curr_step, body_ephems[body_id], get_body_from_id(body_id), min_duration*86400, max_duration*86400);
+			find_viable_flybys(curr_step, system->bodies[body_id]->ephem, system->bodies[body_id], min_duration*86400, max_duration*86400);
 	}
 
 
@@ -389,10 +388,10 @@ int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct Ephem **bod
 	if(curr_step->num_next_nodes <= 0) return 0;
 
 	// returns 1 if has valid steps (0 otherwise)
-	return continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, body_ephems, arr_body, jd_max_arr, max_total_duration, dv_filter);
+	return continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, system, arr_body, jd_max_arr, max_total_duration, dv_filter);
 }
 
-int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
+int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct System *system, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
 	int num_valid = num_of_end_nodes;
 	int init_num_nodes = curr_step->num_next_nodes;
 	int step_del = 0;
@@ -400,7 +399,7 @@ int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step,
 
 	for(int i = 0; i < init_num_nodes-num_of_end_nodes; i++) {
 		int idx = i - step_del;
-		has_valid_init = calc_next_itin_to_target_step(curr_step->next[idx], body_ephems, arr_body, jd_max_arr, max_total_duration, dv_filter);
+		has_valid_init = calc_next_itin_to_target_step(curr_step->next[idx], system, arr_body, jd_max_arr, max_total_duration, dv_filter);
 		num_valid += has_valid_init;
 		if(!has_valid_init) step_del++;
 	}
@@ -411,7 +410,7 @@ int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step,
 int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_body) {
 	int num_of_end_nodes = 0;
 	for(int i = 0; i < curr_step->num_next_nodes; i++) {
-		if(curr_step->next[i]->body->id == arr_body->id) num_of_end_nodes++;
+		if(curr_step->next[i]->body == arr_body) num_of_end_nodes++;
 	}
 	// if there were end nodes found, copy them and store them at the end
 	if(num_of_end_nodes > 0) {
@@ -425,7 +424,7 @@ int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_b
 		int end_node_idx = 0;
 
 		for(int i = 0; i < curr_step->num_next_nodes; i++) {
-			if(curr_step->next[i]->body->id == arr_body->id) {
+			if(curr_step->next[i]->body == arr_body) {
 				struct ItinStep *end_node = malloc(num_of_end_nodes * sizeof(struct ItinStep));
 				end_node->body 	= curr_step->next[i]->body;
 				end_node->date 	= curr_step->next[i]->date;

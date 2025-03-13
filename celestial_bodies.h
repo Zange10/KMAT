@@ -20,6 +20,12 @@ struct Body ** all_celest_bodies();
  */
 struct Body * get_body_from_id(int id);
 
+
+/**
+ * @brief Returns the current system with central and orbiting bodies
+ */
+struct System * get_current_system();
+
 struct Body * SUN();
 struct Body * MERCURY();
 struct Body * VENUS();
@@ -34,5 +40,15 @@ struct Body * PLUTO();
 
 struct Body * KERBOL();
 struct Body * KERBIN();
+
+enum SystemCalcMethod {ORB_ELEMENTS, EPHEMS};
+
+struct System {
+	char name[32];
+	int num_bodies;
+	struct Body *cb;					// central body of system
+	struct Body **bodies;				// bodies orbiting the central body
+	enum SystemCalcMethod calc_method;	// Propagation using orbital elements or ephemerides
+};
 
 #endif

@@ -3,6 +3,7 @@
 
 #include "tools/analytic_geometry.h"
 #include "itin_tool.h"
+#include "celestial_bodies.h"
 
 struct Transfer_Calc_Data {
 	struct Body **bodies;
@@ -18,9 +19,10 @@ struct Transfer_To_Target_Calc_Data {
 	double jd_min_dep;
 	double jd_max_dep;
 	double jd_max_arr;
-	struct Body *dep_body;
-	struct Body *arr_body;
 	int max_duration;
+	int dep_body_id;
+	int arr_body_id;
+	struct System *system;
 	struct Dv_Filter dv_filter;
 };
 

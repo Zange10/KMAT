@@ -24,10 +24,10 @@ struct Itin_To_Target_Thread {
 	double jd_min_dep;
 	double jd_max_dep;
 	double jd_max_arr;
-	struct Body *dep_body;
-	struct Body *arr_body;
-	struct Ephem **body_ephems;
 	int max_duration;
+	int dep_body_id;
+	int arr_body_id;
+	struct System *system;
 	struct Dv_Filter *dv_filter;
 };
 
@@ -40,33 +40,33 @@ struct Thread_Progress_and_Prop_Info {
 
 
 
-int initial_min_transfer_duration[11][11] = {
-		{},
-		{},
-		{},
-		{0, 50, 70, 0, 100, 500},
-		{},
-		{0, 0, 400, 400, 400},
-		{},
-		{},
-		{},
-		{},
-		{}
-};
-
-int initial_max_transfer_duration[11][11] = {
-		{},
-		{},
-		{},
-		{0, 200, 300, 0, 500, 2000},
-		{},
-		{0, 0, 2000, 2000, 2000},
-		{},
-		{},
-		{},
-		{},
-		{}
-};
+//int initial_min_transfer_duration[11][11] = {
+//		{},
+//		{},
+//		{},
+//		{0, 50, 70, 0, 100, 500},
+//		{},
+//		{0, 0, 400, 400, 400},
+//		{},
+//		{},
+//		{},
+//		{},
+//		{}
+//};
+//
+//int initial_max_transfer_duration[11][11] = {
+//		{},
+//		{},
+//		{},
+//		{0, 200, 300, 0, 500, 2000},
+//		{},
+//		{0, 0, 2000, 2000, 2000},
+//		{},
+//		{},
+//		{},
+//		{},
+//		{}
+//};
 
 
 
@@ -162,10 +162,10 @@ void *calc_itin_to_target_from_departure(void *args) {
 	double jd_min_dep = thread_args->jd_min_dep;
 	double jd_max_dep = thread_args->jd_max_dep;
 	double jd_max_arr = thread_args->jd_max_arr;
-	struct Body *dep_body = thread_args->dep_body;
-	struct Body *arr_body = thread_args->arr_body;
 	int max_total_duration = thread_args->max_duration;
-	struct Ephem **body_ephems = thread_args->body_ephems;
+	struct System *system = thread_args->system;
+	struct Body *dep_body = system->bodies[thread_args->dep_body_id];
+	struct Body *arr_body = system->bodies[thread_args->arr_body_id];
 
 	int index = get_incr_thread_counter(0);
 	// increase finished counter to 1 (first finished should reflect a num of finished of 1)
@@ -179,10 +179,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 	double jd_diff = jd_max_dep-jd_min_dep+1;
 
 	while(jd_dep <= jd_max_dep) {
-		if(body_ephems[0] != NULL)
-			osv_body0 = osv_from_ephem(body_ephems[0], jd_dep, SUN());
-		else
-			osv_body0 = osv_from_ephem(body_ephems[dep_body->id], jd_dep, SUN());
+		osv_body0 = osv_from_ephem(dep_body->ephem, jd_dep, system->cb);
 
 		curr_step = departures[index];
 		curr_step->body = dep_body;
@@ -193,8 +190,8 @@ void *calc_itin_to_target_from_departure(void *args) {
 		curr_step->v_arr = vec(0, 0, 0);
 		curr_step->num_next_nodes = 0;
 		for(int i = 0; i <= 10; i++) {
-			int min_duration = initial_min_transfer_duration[dep_body->id][i];
-			int max_duration = initial_max_transfer_duration[dep_body->id][i];
+			int min_duration = 50;//initial_min_transfer_duration[dep_body->id][i];
+			int max_duration = 500;//initial_max_transfer_duration[dep_body->id][i];
 			int max_min_duration_diff = max_duration - min_duration;
 			if(max_duration == 0) max_min_duration_diff = -1; // gets added afterward to 1 making it 0
 			curr_step->num_next_nodes += max_min_duration_diff+1;
@@ -206,22 +203,22 @@ void *calc_itin_to_target_from_departure(void *args) {
 
 		struct Body *next_step_body;
 
-		for(int body_id = 1; body_id <= 10; body_id++) {
-			int min_duration = initial_min_transfer_duration[dep_body->id][body_id];
-			int max_duration = initial_max_transfer_duration[dep_body->id][body_id];
+		for(int body_id = 0; body_id < system->num_bodies; body_id++) {
+			int min_duration = 50;//initial_min_transfer_duration[dep_body->id][body_id];
+			int max_duration = 500;//initial_max_transfer_duration[dep_body->id][body_id];
 			int max_min_duration_diff = max_duration - min_duration;
 
 			if(max_duration == 0) continue;
 
 
-			next_step_body = get_body_from_id(body_id);
+			next_step_body = system->bodies[body_id];
 
 			for(int j = 0; j <= max_min_duration_diff; j++) {
 				double jd_arr = jd_dep + min_duration + j;
 
 				if(jd_arr > jd_max_arr) break;
 
-				osv_body1 = osv_from_ephem(body_ephems[body_id], jd_arr, SUN());
+				osv_body1 = osv_from_ephem(system->bodies[body_id]->ephem, jd_arr, system->cb);
 
 				double data[3];
 
@@ -238,7 +235,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 
 				curr_step = curr_step->next[next_step_id];
 
-				curr_step->body = get_body_from_id(body_id);
+				curr_step->body = system->bodies[body_id];
 				curr_step->date = jd_arr;
 				curr_step->r = osv_body1.r;
 				curr_step->v_dep = tf.v0;
@@ -258,7 +255,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 		// remove end nodes that do not satisfy dv requirements
 		num_of_end_nodes = remove_end_nodes_that_do_not_satisfy_dv_requirements(curr_step, num_of_end_nodes, dv_filter);
 		if(curr_step->num_next_nodes > 0) {
-			continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, body_ephems, arr_body, jd_max_arr, max_total_duration, dv_filter);
+			continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, system, arr_body, jd_max_arr, max_total_duration, dv_filter);
 		}
 
 		double progress = get_incr_thread_counter(1);
@@ -276,16 +273,6 @@ struct Transfer_Calc_Results search_for_itinerary_to_target(struct Transfer_To_T
 	double elapsed_time;
 	gettimeofday(&start, NULL);  // Record the ending time
 
-	int num_bodies = 9+2;	// planets + arrival body + departure body (arr and dep body ephems = NULL if planet)
-	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-	struct Ephem **body_ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
-	body_ephems[0] = NULL;
-	body_ephems[10] = NULL;
-	for(int i = 1; i <= num_bodies-2; i++) {
-		body_ephems[i] = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
-		get_body_ephem(body_ephems[i], i);
-	}
-
 	int num_deps = (int) (calc_data.jd_max_dep-calc_data.jd_min_dep+1);
 
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
@@ -298,10 +285,10 @@ struct Transfer_Calc_Results search_for_itinerary_to_target(struct Transfer_To_T
 			calc_data.jd_min_dep,
 			calc_data.jd_max_dep,
 			calc_data.jd_max_arr,
-			calc_data.dep_body,
-			calc_data.arr_body,
-			body_ephems,
 			calc_data.max_duration,
+			calc_data.dep_body_id,
+			calc_data.arr_body_id,
+			calc_data.system,
 			&calc_data.dv_filter
 	};
 
@@ -341,9 +328,6 @@ struct Transfer_Calc_Results search_for_itinerary_to_target(struct Transfer_To_T
 	results.departures = departures;
 	results.num_deps = num_deps;
 	results.num_nodes = num_nodes;
-
-	for(int i = 0; i < num_bodies; i++) free(body_ephems[i]);
-	free(body_ephems);
 
 	return results;
 }

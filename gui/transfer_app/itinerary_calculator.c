@@ -105,9 +105,11 @@ void ic_calc_thread() {
 	calc_data.dv_filter.last_transfer_type = (int) strtol(string, NULL, 10);
 
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_depbody));
-	calc_data.dep_body = get_body_from_id((int) strtol(string, NULL, 10));
+	calc_data.dep_body_id = (int) strtol(string, NULL, 10);
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_arrbody));
-	calc_data.arr_body = get_body_from_id((int) strtol(string, NULL, 10));
+	calc_data.arr_body_id = (int) strtol(string, NULL, 10);
+
+	calc_data.system = get_current_system();
 
 	results = search_for_itinerary_to_target(calc_data);
 

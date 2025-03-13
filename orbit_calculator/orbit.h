@@ -3,6 +3,7 @@
 
 #include "celestial_bodies.h"
 #include "tools/analytic_geometry.h"
+#include "ephem.h"
 
 struct Orbit {
     struct Body * body; // parent body
@@ -30,6 +31,7 @@ struct Body {
     double scale_height;    // the height at which the atmospheric pressure decreases by the factor e [m]
     double atmo_alt;        // highest altitude with atmosphere (ksp-specific) [m]
     struct Orbit orbit;     // orbit of body
+	struct Ephem *ephem;	// Ephemerides of body (if available)
 };
 
 // constructs orbit using orbital elements

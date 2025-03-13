@@ -3,6 +3,7 @@
 
 #include "tools/analytic_geometry.h"
 #include "ephem.h"
+#include "celestial_bodies.h"
 #include <stdio.h>
 
 struct ItinStep {
@@ -58,10 +59,10 @@ void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_ca
 int calc_next_spec_itin_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step);
 
 // from current step and given information, initiate calculation of next steps
-int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
+int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct System *system, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
 
 // initiate calc of next itinerary steps and return 0 if no steps are remaining in this itinerary (1 otherwise)
-int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
+int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct System *system, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
 
 // find end nodes (next step at arrival body) and copy to the end of the next steps array of curr_step
 int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_body);

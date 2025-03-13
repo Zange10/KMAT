@@ -19,7 +19,14 @@ struct Body *kerbin;
 
 struct Body * all_celestial_bodies[20];
 
+struct System *curr_system;
+struct System *solar_system;
 
+
+
+struct System * get_current_system() {
+	return curr_system;
+}
 
 struct Body ** all_celest_bodies() {
     all_celestial_bodies[0] = SUN();
@@ -69,6 +76,10 @@ void init_MERCURY() {
         /*  ω  */ 77.45645-48.33167,   // longitude of perihelion - longitude of ascending node
         /*pbody*/ SUN()
     );
+
+	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	mercury->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
+	get_body_ephem(mercury->ephem, mercury->id);
 }
 
 void init_VENUS() {
@@ -89,6 +100,10 @@ void init_VENUS() {
         /*  ω  */ 131.53298-76.68069,   // longitude of perihelion - longitude of ascending node
         /*pbody*/ SUN()
     );
+
+	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	venus->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
+	get_body_ephem(venus->ephem, venus->id);
 }
 
 void init_EARTH() {
@@ -109,6 +124,10 @@ void init_EARTH() {
         /*  w  */ 102.94719-(-11.26064),
         /*pbody*/ SUN()
     );
+
+	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	earth->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
+	get_body_ephem(earth->ephem, earth->id);
 }
 
 void init_MOON() {
@@ -149,6 +168,10 @@ void init_MARS() {
         /*  w  */ 336.04084-49.57854,
         /*pbody*/ SUN()
     );
+
+	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	mars->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
+	get_body_ephem(mars->ephem, mars->id);
 }
 
 void init_JUPITER() {
@@ -169,6 +192,10 @@ void init_JUPITER() {
         /*  w  */ 14.75385-100.55615,
         /*pbody*/ SUN()
     );
+
+	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	jupiter->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
+	get_body_ephem(jupiter->ephem, jupiter->id);
 }
 
 void init_SATURN() {
@@ -189,6 +216,10 @@ void init_SATURN() {
         /*  w  */ 92.43194-113.71504,
         /*pbody*/ SUN()
     );
+
+	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	saturn->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
+	get_body_ephem(saturn->ephem, saturn->id);
 }
 
 void init_URANUS() {
@@ -209,6 +240,10 @@ void init_URANUS() {
         /*  ω  */ 170.96424-74.22988,   // longitude of perihelion - longitude of ascending node
         /*pbody*/ SUN()
     );
+
+	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	uranus->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
+	get_body_ephem(uranus->ephem, uranus->id);
 }
 
 void init_NEPTUNE() {
@@ -229,6 +264,10 @@ void init_NEPTUNE() {
         /*  ω  */ 44.97135-131.72169,   // longitude of perihelion - longitude of ascending node
         /*pbody*/ SUN()
     );
+
+	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	neptune->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
+	get_body_ephem(neptune->ephem, neptune->id);
 }
 
 void init_PLUTO() {
@@ -249,6 +288,10 @@ void init_PLUTO() {
         /*  ω  */ 224.06676-110.30347,   // longitude of perihelion - longitude of ascending node
         /*pbody*/ SUN()
     );
+
+	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
+	pluto->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
+	get_body_ephem(pluto->ephem, pluto->id);
 }
 
 
@@ -285,8 +328,27 @@ void init_KERBIN() {
     );
 }
 
+// ##############################################################################################
 
 
+void init_solar_system() {
+	solar_system = (struct System*)malloc(sizeof(struct System));
+	strcpy(solar_system->name, "Solar System (RSS)");
+	solar_system->cb = SUN();
+	solar_system->calc_method = EPHEMS;
+	solar_system->num_bodies = 9;
+
+	solar_system->bodies = (struct Body**)malloc(9*sizeof(struct Body*));
+	solar_system->bodies[0] = MERCURY();
+	solar_system->bodies[1] = VENUS();
+	solar_system->bodies[2] = EARTH();
+	solar_system->bodies[3] = MARS();
+	solar_system->bodies[4] = JUPITER();
+	solar_system->bodies[5] = SATURN();
+	solar_system->bodies[6] = URANUS();
+	solar_system->bodies[7] = NEPTUNE();
+	solar_system->bodies[8] = PLUTO();
+}
 
 
 // ##############################################################################################
@@ -306,6 +368,9 @@ void init_celestial_bodies() {
 
     init_KERBOL();
     init_KERBIN();
+
+	init_solar_system();
+	curr_system = solar_system;
 }
 
 
