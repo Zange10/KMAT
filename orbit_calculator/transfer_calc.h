@@ -12,6 +12,7 @@ struct Transfer_Calc_Data {
 	double jd_max_dep;
 	int *min_duration;
 	int *max_duration;
+	struct System *system;
 	struct Dv_Filter dv_filter;
 };
 

@@ -63,7 +63,7 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 		if(i == 0) dtheta = min_dtheta;
 
 		gettimeofday(&start, NULL);  // Record the starting time
-		struct OSV osv_m0 = propagate_orbit_theta(dd.p0.r, v_t00, dtheta, SUN());
+		struct OSV osv_m0 = propagate_orbit_theta(constr_orbit_from_osv(dd.p0.r, v_t00, SUN()), dtheta, SUN());
 
 		gettimeofday(&end, NULL);  // Record the ending time
 		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;

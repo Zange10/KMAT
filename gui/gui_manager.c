@@ -20,21 +20,10 @@ struct LV *all_launcher;
 int *launcher_ids;
 int num_launcher;
 
-struct Ephem **body_ephems;
-
 
 void activate_app(GtkApplication *app, gpointer user_data);
 
 void start_gui() {
-	// init body ephems for transfer planner gui
-	int num_bodies = 9;
-	int num_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-	body_ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
-	for(int i = 0; i < num_bodies; i++) {
-		body_ephems[i] = (struct Ephem*) malloc(num_ephems*sizeof(struct Ephem));
-		get_body_ephem(body_ephems[i], i+1);
-	}
-
 	// init launcher from db for launch calc gui
 	num_launcher = get_all_launch_vehicles_from_database(&all_launcher, &launcher_ids);
 	setlocale(LC_NUMERIC, "C");	// Glade somehow uses commas instead of points for decimals...
@@ -53,8 +42,6 @@ void start_gui() {
 	free_all_porkchop_analyzer_itins();
 	reset_ic();
 	reset_tc();
-	for(int i = 0; i < 9; i++) free(body_ephems[i]);
-	free(body_ephems);
 	// reset launch gui
 	close_launch_analyzer();
 	close_capability_analyzer();
@@ -97,13 +84,6 @@ void activate_app(GtkApplication *app, gpointer user_data) {
 }
 
 
-
-
-
-// transfer planner gui stuff -----------------------------------------------------------
-struct Ephem ** get_body_ephems() {
-	return body_ephems;
-}
 
 
 // launch calc gui stuff ----------------------------------------------------------------

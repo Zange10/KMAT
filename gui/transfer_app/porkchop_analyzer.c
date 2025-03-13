@@ -21,6 +21,8 @@ double current_date_pa;
 int pa_num_groups = 0;
 struct Group *pa_groups;
 
+struct System *pa_system;
+
 gboolean body_show_status_pa[9];
 GObject *tf_pa_min_feedback[5];
 GObject *tf_pa_max_feedback[5];
@@ -65,6 +67,7 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 	st_pa_step_group_selector = gtk_builder_get_object(builder, "st_pa_step_group_selector");
 	vp_pa_groups = gtk_builder_get_object(builder, "vp_pa_groups");
 	for(int i = 0; i < 9; i++) body_show_status_pa[i] = 0;
+	pa_system = get_current_system();
 }
 
 double calc_step_dv_pa(struct ItinStep *step) {
@@ -431,9 +434,11 @@ void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 		if(body_show_status_pa[i]) {
 			int id = i+1;
 			set_cairo_body_color(cr, id);
-			struct OSV osv = osv_from_ephem(get_body_ephems()[i], current_date_pa, SUN());
+			struct OSV osv = pa_system->calc_method == ORB_ELEMENTS ?
+					osv_from_elements(pa_system->bodies[i]->orbit, current_date_pa, pa_system->cb) :
+					osv_from_ephem(pa_system->bodies[i]->ephem, current_date_pa, pa_system->cb);
 			draw_body(cr, center, scale, osv.r);
-			draw_orbit(cr, center, scale, osv.r, osv.v, SUN());
+			draw_orbit(cr, center, scale, osv.r, osv.v, pa_system->cb);
 		}
 	}
 
@@ -446,7 +451,7 @@ void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 				set_cairo_body_color(cr, id);
 			} else temp_transfer->v_body.x = 1;	// set to 1 to draw trajectory
 			draw_transfer_point(cr, center, scale, temp_transfer->r);
-			if(temp_transfer->prev != NULL) draw_trajectory(cr, center, scale, temp_transfer);
+			if(temp_transfer->prev != NULL) draw_trajectory(cr, center, scale, temp_transfer, pa_system->cb);
 			temp_transfer = temp_transfer->next != NULL ? temp_transfer->next[0] : NULL;
 		}
 	}

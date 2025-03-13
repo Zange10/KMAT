@@ -20,7 +20,7 @@ struct Body *kerbin;
 struct Body * all_celestial_bodies[20];
 
 struct System *curr_system;
-struct System *solar_system;
+struct System *solar_system_ephem, *solar_system;
 
 
 
@@ -71,9 +71,10 @@ void init_MERCURY() {
     mercury->orbit = constr_orbit(
         /*  a  */ 57.90917568e+9,
         /*  e  */ 0.20563069,
-        /*  i  */ 7.00487,
-        /* raan */ 48.33167,
-        /*  ω  */ 77.45645-48.33167,   // longitude of perihelion - longitude of ascending node
+        /*  i  */ deg2rad(7.00487),
+        /* raan */ deg2rad(48.33167),
+        /*  ω  */ deg2rad((77.45645-48.33167)),   // longitude of perihelion - longitude of ascending node
+		/*  θ  */ deg2rad(0),
         /*pbody*/ SUN()
     );
 
@@ -95,9 +96,10 @@ void init_VENUS() {
     venus->orbit = constr_orbit(
         /*  a  */ 108.2089255e+9,
         /*  e  */ 0.00677323,
-        /*  i  */ 3.39471,
-        /* raan */ 76.68069,
-        /*  ω  */ 131.53298-76.68069,   // longitude of perihelion - longitude of ascending node
+        /*  i  */ deg2rad(3.39471),
+        /* raan */ deg2rad(76.68069),
+		/*  θ  */ deg2rad(0),
+        /*  ω  */ deg2rad((131.53298-76.68069)),   // longitude of perihelion - longitude of ascending node
         /*pbody*/ SUN()
     );
 
@@ -119,9 +121,10 @@ void init_EARTH() {
     earth->orbit = constr_orbit(
         /*  a  */ 149.5978872e+9,
         /*  e  */ 0.01671022,
-        /*  i  */ 0.00005,
-        /* raan */ -11.26064,
-        /*  w  */ 102.94719-(-11.26064),
+        /*  i  */ deg2rad(0.00005),
+        /* raan */ deg2rad(-11.26064),
+        /*  w  */ deg2rad((102.94719-(-11.26064))),
+		/*  θ  */ deg2rad(0),
         /*pbody*/ SUN()
     );
 
@@ -143,9 +146,10 @@ void init_MOON() {
     moon->orbit = constr_orbit(
         /*  a  */ 0.3844e9,
         /*  e  */ 0.0549,
-        /*  i  */ 5.145,
-        /* raan */ 0,    // not static
-        /*  w  */ 0,    // not static
+        /*  i  */ deg2rad(5.145),
+        /* raan */ deg2rad(0),    // not static
+        /*  w  */ deg2rad(0),    // not static
+		/*  θ  */ deg2rad(0),
         /*pbody*/ EARTH()
     );
 }
@@ -163,9 +167,10 @@ void init_MARS() {
     mars->orbit = constr_orbit(
         /*  a  */ 227.9366372e+9,
         /*  e  */ 0.09341233,
-        /*  i  */ 1.85061,
-        /* raan */ 49.57854,
-        /*  w  */ 336.04084-49.57854,
+        /*  i  */ deg2rad(1.85061),
+        /* raan */ deg2rad(49.57854),
+        /*  w  */ deg2rad((336.04084-49.57854)),
+		/*  θ  */ deg2rad(0),
         /*pbody*/ SUN()
     );
 
@@ -187,9 +192,10 @@ void init_JUPITER() {
     jupiter->orbit = constr_orbit(
         /*  a  */ 778.4120268e+9,
         /*  e  */ 0.04839266,
-        /*  i  */ 1.30530,
-        /* raan */ 100.55615,
-        /*  w  */ 14.75385-100.55615,
+        /*  i  */ deg2rad(1.30530),
+        /* raan */ deg2rad(100.55615),
+        /*  w  */ deg2rad((14.75385-100.55615)),
+		/*  θ  */ deg2rad(0),
         /*pbody*/ SUN()
     );
 
@@ -211,9 +217,10 @@ void init_SATURN() {
     saturn->orbit = constr_orbit(
         /*  a  */ 1426.725413e+9,
         /*  e  */ 0.05415060,
-        /*  i  */ 2.48446,
-        /* raan */ 113.71504,
-        /*  w  */ 92.43194-113.71504,
+        /*  i  */ deg2rad(2.48446),
+        /* raan */ deg2rad(113.71504),
+        /*  w  */ deg2rad((92.43194-113.71504)),
+		/*  θ  */ deg2rad(0),
         /*pbody*/ SUN()
     );
 
@@ -235,9 +242,10 @@ void init_URANUS() {
     uranus->orbit = constr_orbit(
         /*  a  */ 2870.97222e+9,
         /*  e  */ 0.04716771,
-        /*  i  */ 0.76986,
-        /* raan */ 74.22988,
-        /*  ω  */ 170.96424-74.22988,   // longitude of perihelion - longitude of ascending node
+        /*  i  */ deg2rad(0.76986),
+        /* raan */ deg2rad(74.22988),
+        /*  ω  */ deg2rad((170.96424-74.22988)),   // longitude of perihelion - longitude of ascending node
+		/*  θ  */ deg2rad(0),
         /*pbody*/ SUN()
     );
 
@@ -259,9 +267,10 @@ void init_NEPTUNE() {
     neptune->orbit = constr_orbit(
         /*  a  */ 4498.2529108e+9,
         /*  e  */ 0.00858587,
-        /*  i  */ 1.76917,
-        /* raan */ 131.72169,
-        /*  ω  */ 44.97135-131.72169,   // longitude of perihelion - longitude of ascending node
+        /*  i  */ deg2rad(1.76917),
+        /* raan */ deg2rad(131.72169),
+        /*  ω  */ deg2rad((44.97135-131.72169)),   // longitude of perihelion - longitude of ascending node
+		/*  θ  */ deg2rad(0),
         /*pbody*/ SUN()
     );
 
@@ -283,9 +292,10 @@ void init_PLUTO() {
     pluto->orbit = constr_orbit(
         /*  a  */ 5906.3762724e+9,
         /*  e  */ 0.24880766,
-        /*  i  */ 17.14175,
-        /* raan */ 110.30347,
-        /*  ω  */ 224.06676-110.30347,   // longitude of perihelion - longitude of ascending node
+        /*  i  */ deg2rad(17.14175),
+        /* raan */ deg2rad(110.30347),
+        /*  ω  */ deg2rad((224.06676-110.30347)),   // longitude of perihelion - longitude of ascending node
+		/*  θ  */ deg2rad(0),
         /*pbody*/ SUN()
     );
 
@@ -321,9 +331,10 @@ void init_KERBIN() {
     kerbin->orbit = constr_orbit(
         /*  a  */ 13.599840256e9,
         /*  e  */ 0,
-        /*  i  */ 0,
-        /* raan */ 0,
-        /*  w  */ 0,
+        /*  i  */ deg2rad(0),
+        /* raan */ deg2rad(0),
+        /*  w  */ deg2rad(0),
+		/*  θ  */ deg2rad(0),
         /*pbody*/ KERBOL()
     );
 }
@@ -335,7 +346,7 @@ void init_solar_system() {
 	solar_system = (struct System*)malloc(sizeof(struct System));
 	strcpy(solar_system->name, "Solar System (RSS)");
 	solar_system->cb = SUN();
-	solar_system->calc_method = EPHEMS;
+	solar_system->calc_method = ORB_ELEMENTS;
 	solar_system->num_bodies = 9;
 
 	solar_system->bodies = (struct Body**)malloc(9*sizeof(struct Body*));
@@ -348,6 +359,26 @@ void init_solar_system() {
 	solar_system->bodies[6] = URANUS();
 	solar_system->bodies[7] = NEPTUNE();
 	solar_system->bodies[8] = PLUTO();
+}
+
+
+void init_solar_system_ephem() {
+	solar_system_ephem = (struct System*)malloc(sizeof(struct System));
+	strcpy(solar_system_ephem->name, "Solar System (RSS Ephem)");
+	solar_system_ephem->cb = SUN();
+	solar_system_ephem->calc_method = EPHEMS;
+	solar_system_ephem->num_bodies = 9;
+
+	solar_system_ephem->bodies = (struct Body**)malloc(9 * sizeof(struct Body*));
+	solar_system_ephem->bodies[0] = MERCURY();
+	solar_system_ephem->bodies[1] = VENUS();
+	solar_system_ephem->bodies[2] = EARTH();
+	solar_system_ephem->bodies[3] = MARS();
+	solar_system_ephem->bodies[4] = JUPITER();
+	solar_system_ephem->bodies[5] = SATURN();
+	solar_system_ephem->bodies[6] = URANUS();
+	solar_system_ephem->bodies[7] = NEPTUNE();
+	solar_system_ephem->bodies[8] = PLUTO();
 }
 
 
@@ -369,6 +400,7 @@ void init_celestial_bodies() {
     init_KERBOL();
     init_KERBIN();
 
+	init_solar_system_ephem();
 	init_solar_system();
 	curr_system = solar_system;
 }

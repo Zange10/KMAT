@@ -14,6 +14,8 @@
 
 struct ItinStep *curr_transfer_tp;
 
+struct System *tp_system;
+
 GObject *da_tp;
 GObject *lb_tp_date;
 GObject *tb_tp_tfdate;
@@ -46,6 +48,8 @@ void init_transfer_planner(GtkBuilder *builder) {
 
 	update_date_label();
 	update_transfer_panel();
+
+	tp_system = get_current_system();
 }
 
 
@@ -76,9 +80,11 @@ void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 		if(body_show_status_tp[i]) {
 			int id = i+1;
 			set_cairo_body_color(cr, id);
-			struct OSV osv = osv_from_ephem(get_body_ephems()[i], current_date_tp, SUN());
+			struct OSV osv = tp_system->calc_method == ORB_ELEMENTS ?
+					osv_from_elements(tp_system->bodies[i]->orbit, current_date_tp, tp_system->cb) :
+					osv_from_ephem(tp_system->bodies[i]->ephem, current_date_tp, tp_system->cb);
 			draw_body(cr, center, scale, osv.r);
-			draw_orbit(cr, center, scale, osv.r, osv.v, SUN());
+			draw_orbit(cr, center, scale, osv.r, osv.v, tp_system->cb);
 		}
 	}
 
@@ -93,7 +99,7 @@ void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 				// skip not working or draw working double swing-by
 			} else if(temp_transfer->body == NULL && temp_transfer->v_body.x == 1)
 				draw_transfer_point(cr, center, scale, temp_transfer->r);
-			if(temp_transfer->prev != NULL) draw_trajectory(cr, center, scale, temp_transfer);
+			if(temp_transfer->prev != NULL) draw_trajectory(cr, center, scale, temp_transfer, tp_system->cb);
 			temp_transfer = temp_transfer->next != NULL ? temp_transfer->next[0] : NULL;
 		}
 	}
@@ -137,7 +143,7 @@ double calc_periapsis_height_tp() {
 }
 
 void update_itinerary() {
-	update_itin_body_osvs(get_first(curr_transfer_tp), get_body_ephems());
+	update_itin_body_osvs(get_first(curr_transfer_tp), tp_system);
 	calc_itin_v_vectors_from_dates_and_r(get_first(curr_transfer_tp));
 	update();
 }
@@ -369,7 +375,7 @@ int find_closest_transfer(struct ItinStep *step) {
 	temp->next = NULL;
 	temp->prev = NULL;
 	temp->num_next_nodes = 0;
-	find_viable_flybys(temp, step->body, 86400, 86400*365.25*50);
+	find_viable_flybys(temp, tp_system, step->body, 86400, 86400*365.25*50);
 
 	if(temp->next != NULL) {
 		struct ItinStep *new_step = temp->next[0];

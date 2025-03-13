@@ -21,12 +21,8 @@ struct Dv_Filter {
 	int last_transfer_type;
 };
 
-// TODO Remove or change later
-double get_best_diff_vinf();
-double get_best_alt();
-
 // find viable flybys to next body with a given arrival trajectory
-void find_viable_flybys(struct ItinStep *tf, struct Body *next_body, double min_dt, double max_dt);
+void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body *next_body, double min_dt, double max_dt);
 
 // find viable flybys to next body with a given arrival trajectory
 void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *next_body, double min_dt0, double max_dt0, double min_dt1, double max_dt1);
@@ -56,7 +52,7 @@ double get_itinerary_duration(struct ItinStep *itin);
 void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_cap1);
 
 // from current step and given information, initiate calculation of next steps
-int calc_next_spec_itin_step(struct ItinStep *curr_step, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step);
+int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step);
 
 // from current step and given information, initiate calculation of next steps
 int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct System *system, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
@@ -74,7 +70,7 @@ int remove_end_nodes_that_do_not_satisfy_dv_requirements(struct ItinStep *curr_s
 int get_num_of_itin_layers(struct ItinStep *step);
 
 // update r and v_body vectors of itinerary steps (departure first)
-void update_itin_body_osvs(struct ItinStep *step, struct Ephem **body_ephems);
+void update_itin_body_osvs(struct ItinStep *step, struct System *system);
 
 // calculate from velocity vectors for itinerary steps from date and r vector (departure first)
 void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step);

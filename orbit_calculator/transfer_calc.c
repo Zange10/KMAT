@@ -11,11 +11,11 @@ struct Itin_Spec_Thread_Args {
 	struct ItinStep **departures;
 	double jd_min_dep;
 	double jd_max_dep;
-	struct Ephem **ephems;
 	struct Body **bodies;
 	int *min_duration;
 	int *max_duration;
 	int num_steps;
+	struct System *system;
 	struct Dv_Filter *dv_filter;
 };
 
@@ -76,8 +76,8 @@ void *calc_spec_itin_from_departure(void *args) {
 
 	int *min_duration = thread_args->min_duration;
 	int *max_duration = thread_args->max_duration;
-	struct Ephem **ephems = thread_args->ephems;
 	struct Body **bodies = thread_args->bodies;
+	struct System *system = thread_args->system;
 	int num_steps = thread_args->num_steps;
 
 	int index = get_incr_thread_counter(0);
@@ -90,7 +90,9 @@ void *calc_spec_itin_from_departure(void *args) {
 	double jd_diff = thread_args->jd_max_dep-thread_args->jd_min_dep+1;
 
 	while(jd_dep <= thread_args->jd_max_dep) {
-		struct OSV osv_body0 = osv_from_ephem(ephems[0], jd_dep, SUN());
+		struct OSV osv_body0 = system->calc_method == ORB_ELEMENTS ?
+				osv_from_elements(bodies[0]->orbit, jd_dep, system->cb) :
+				osv_from_ephem(bodies[0]->ephem, jd_dep, system->cb);
 
 		curr_step = thread_args->departures[index];
 		curr_step->body = bodies[0];
@@ -108,7 +110,9 @@ void *calc_spec_itin_from_departure(void *args) {
 
 		for(int j = 0; j <= max_duration[0] - min_duration[0]; j++) {
 			double jd_arr = jd_dep + min_duration[0] + j;
-			struct OSV osv_body1 = osv_from_ephem(ephems[1], jd_arr, SUN());
+			struct OSV osv_body1 = system->calc_method == ORB_ELEMENTS ?
+					osv_from_elements(bodies[1]->orbit, jd_arr, system->cb) :
+				    osv_from_ephem(bodies[1]->ephem, jd_arr, system->cb);
 
 			double data[3];
 
@@ -138,7 +142,7 @@ void *calc_spec_itin_from_departure(void *args) {
 			curr_step->num_next_nodes = 0;
 
 			if(num_steps > 2) {
-				if(!calc_next_spec_itin_step(curr_step, bodies, min_duration, max_duration,
+				if(!calc_next_spec_itin_step(curr_step, system, bodies, min_duration, max_duration,
 											 thread_args->dv_filter, num_steps, 2)) {
 					fb1_del++;
 				}
@@ -151,8 +155,6 @@ void *calc_spec_itin_from_departure(void *args) {
 	}
 	return NULL;
 }
-
-
 
 void *calc_itin_to_target_from_departure(void *args) {
 	struct Itin_To_Target_Thread *thread_args = (struct Itin_To_Target_Thread *)args;
@@ -179,7 +181,9 @@ void *calc_itin_to_target_from_departure(void *args) {
 	double jd_diff = jd_max_dep-jd_min_dep+1;
 
 	while(jd_dep <= jd_max_dep) {
-		osv_body0 = osv_from_ephem(dep_body->ephem, jd_dep, system->cb);
+		osv_body0 = system->calc_method == ORB_ELEMENTS ?
+				osv_from_elements(dep_body->orbit, jd_dep, system->cb) :
+				osv_from_ephem(dep_body->ephem, jd_dep, system->cb);
 
 		curr_step = departures[index];
 		curr_step->body = dep_body;
@@ -189,7 +193,8 @@ void *calc_itin_to_target_from_departure(void *args) {
 		curr_step->v_dep = vec(0, 0, 0);
 		curr_step->v_arr = vec(0, 0, 0);
 		curr_step->num_next_nodes = 0;
-		for(int i = 0; i <= 10; i++) {
+		for(int i = 0; i <= system->num_bodies; i++) {
+			if(system->bodies[i] == dep_body) continue;
 			int min_duration = 50;//initial_min_transfer_duration[dep_body->id][i];
 			int max_duration = 500;//initial_max_transfer_duration[dep_body->id][i];
 			int max_min_duration_diff = max_duration - min_duration;
@@ -204,6 +209,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 		struct Body *next_step_body;
 
 		for(int body_id = 0; body_id < system->num_bodies; body_id++) {
+			if(system->bodies[body_id] == dep_body) continue;
 			int min_duration = 50;//initial_min_transfer_duration[dep_body->id][body_id];
 			int max_duration = 500;//initial_max_transfer_duration[dep_body->id][body_id];
 			int max_min_duration_diff = max_duration - min_duration;
@@ -218,7 +224,9 @@ void *calc_itin_to_target_from_departure(void *args) {
 
 				if(jd_arr > jd_max_arr) break;
 
-				osv_body1 = osv_from_ephem(system->bodies[body_id]->ephem, jd_arr, system->cb);
+				osv_body1 = system->calc_method == ORB_ELEMENTS ?
+						osv_from_elements(system->bodies[body_id]->orbit, jd_arr, system->cb) :
+						osv_from_ephem(system->bodies[body_id]->ephem, jd_arr, system->cb);
 
 				double data[3];
 
@@ -339,14 +347,6 @@ struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Calc_Data
 	double elapsed_time;
 	gettimeofday(&start, NULL);  // Record the ending time
 
-	int num_bodies = 9;
-	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-	struct Ephem **body_ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
-	for(int i = 0; i < num_bodies; i++) {
-		body_ephems[i] = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
-		get_body_ephem(body_ephems[i], i+1);
-	}
-
 	struct Body **bodies = calc_data.bodies;
 	int num_steps = calc_data.num_steps;
 
@@ -357,20 +357,6 @@ struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Calc_Data
 	int *min_duration = calc_data.min_duration;
 	int *max_duration = calc_data.max_duration;
 
-	struct Ephem **ephems = (struct Ephem**) malloc(num_steps*sizeof(struct Ephem*));
-	for(int i = 0; i < num_steps; i++) {
-		int ephem_available = 0;
-		for(int j = 0; j < i; j++) {
-			if(bodies[i] == bodies[j]) {
-				ephems[i] = ephems[j];
-				ephem_available = 1;
-				break;
-			}
-		}
-		if(ephem_available) continue;
-		ephems[i] = body_ephems[bodies[i]->id-1];
-	}
-
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 
@@ -378,11 +364,11 @@ struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Calc_Data
 			departures,
 			jd_min_dep,
 			jd_max_dep,
-			ephems,
 			bodies,
 			min_duration,
 			max_duration,
 			num_steps,
+			calc_data.system,
 			&calc_data.dv_filter
 	};
 
@@ -423,11 +409,6 @@ struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Calc_Data
 	results.departures = departures;
 	results.num_deps = num_deps;
 	results.num_nodes = num_nodes;
-
-
-	for(int i = 0; i < num_bodies; i++) free(body_ephems[i]);
-	free(body_ephems);
-	free(ephems);
 
 	return results;
 }

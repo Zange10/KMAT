@@ -293,6 +293,8 @@ void on_calc_tc() {
 	calc_data.min_duration = (int*) malloc((num_steps-1) * sizeof(int));
 	calc_data.max_duration = (int*) malloc((num_steps-1) * sizeof(int));
 
+	calc_data.system = get_current_system();
+
 	for(int i = 0; i < num_steps; i++) {
 		calc_data.bodies[i] = step->body;
 		if(i != 0) {

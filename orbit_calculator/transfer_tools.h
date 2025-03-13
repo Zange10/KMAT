@@ -82,12 +82,15 @@ double get_flyby_inclination(struct Vector v_arr, struct Vector v_dep, struct Ve
 int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body);
 
 // propagate elliptical orbit by time
-struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, struct Body *attractor);
+struct OSV propagate_orbit_time(struct Orbit orbit, double dt, struct Body *attractor);
 
 // propagate elliptical orbit by true anomaly
-struct OSV propagate_orbit_theta(struct Vector r, struct Vector v, double dtheta, struct Body *attractor);
+struct OSV propagate_orbit_theta(struct Orbit orbit, double dtheta, struct Body *attractor);
 
 // calculate the orbital state vector at the given date for a given ephemeris list
 struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor);
+
+// calculate the orbital state vector at the given date for a given initial orbit
+struct OSV osv_from_elements(struct Orbit orbit, double date, struct Body *attractor);
 
 #endif //KSP_TRANSFER_TOOLS_H

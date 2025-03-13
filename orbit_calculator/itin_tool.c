@@ -8,14 +8,13 @@
 #include <string.h>
 
 
-// TODO Remove or change later
-double best_diff_vinf, best_alt;
-double get_best_diff_vinf() {return best_diff_vinf;}
-double get_best_alt() {return best_alt;}
 
-void find_viable_flybys(struct ItinStep *tf, struct Body *next_body, double min_dt, double max_dt) {
+void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body *next_body, double min_dt, double max_dt) {
 	struct OSV osv_dep = {tf->r, tf->v_body};
-	struct OSV osv_arr0 = osv_from_ephem(next_body->ephem, tf->date, SUN());
+	struct OSV osv_arr0 = system->calc_method == ORB_ELEMENTS ?
+			osv_from_elements(next_body->orbit, tf->date, system->cb) :
+			osv_from_ephem(next_body->ephem, tf->date, system->cb);
+
 	struct Vector proj_vec = proj_vec_plane(osv_dep.r, constr_plane(vec(0,0,0), osv_arr0.r, osv_arr0.v));
 	double theta_conj_opp = angle_vec_vec(proj_vec, osv_arr0.r);
 	if(cross_product(proj_vec, osv_arr0.r).z < 0) theta_conj_opp *= -1;
@@ -26,12 +25,12 @@ void find_viable_flybys(struct ItinStep *tf, struct Body *next_body, double min_
 
 	int counter = 0;
 
-	struct OSV osv_arr1 = propagate_orbit_theta(osv_arr0.r, osv_arr0.v, -theta_conj_opp, SUN());
+	struct OSV osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN()), -theta_conj_opp, SUN());
 	struct Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
 	struct Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
 	double dt0 = arr1.t-arr0.t;
 
-	osv_arr1 = propagate_orbit_theta(osv_arr0.r, osv_arr0.v, -theta_conj_opp+M_PI, SUN());
+	osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN()), -theta_conj_opp+M_PI, SUN());
 	arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
 	arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
 	double dt1 = arr1.t-arr0.t;
@@ -52,9 +51,6 @@ void find_viable_flybys(struct ItinStep *tf, struct Body *next_body, double min_
 		dt0 = temp;
 	}
 
-	// TODO Remove or change later
-	best_diff_vinf = 1e9, best_alt = 0;
-
 	// x: dt, y: diff_vinf (data[0].x: number of data points beginning at index 1)
 	struct Vector2D data[101];
 
@@ -74,7 +70,9 @@ void find_viable_flybys(struct ItinStep *tf, struct Body *next_body, double min_
 
 			t1 = t0 + dt / 86400;
 
-			struct OSV osv_arr = osv_from_ephem(next_body->ephem, t1, SUN());
+			struct OSV osv_arr = system->calc_method == ORB_ELEMENTS ?
+					osv_from_elements(next_body->orbit, t1, SUN()) :
+					osv_from_ephem(next_body->ephem, t1, SUN());
 
 			struct Transfer new_transfer = calc_transfer(circfb, tf->body, next_body, osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, dt,
 														 NULL);
@@ -83,17 +81,9 @@ void find_viable_flybys(struct ItinStep *tf, struct Body *next_body, double min_
 
 			diff_vinf = vector_mag(v_dep) - vector_mag(v_init);
 
-			// TODO Remove or change later
-			if(fabs(diff_vinf) < best_diff_vinf) best_diff_vinf = fabs(diff_vinf);
-
 			if (fabs(diff_vinf) < 1) {
 				double beta = (M_PI - angle_vec_vec(v_dep, v_init)) / 2;
 				double rp = (1 / cos(beta) - 1) * (tf->body->mu / (pow(vector_mag(v_dep), 2)));
-
-				// TODO Remove or change later
-//				printf("vinf check: %f\n", fabs(diff_vinf));
-//				printf("Alt check: %f  %f\n", rp, tf->body->radius+tf->body->atmo_alt);
-				if(rp > best_alt) best_alt = rp;
 
 				if (rp > tf->body->radius + tf->body->atmo_alt) {
 					new_steps[counter] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
@@ -313,8 +303,8 @@ void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_ca
 	porkchop[0] = itin->prev->date;
 }
 
-int calc_next_spec_itin_step(struct ItinStep *curr_step, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step) {
-	if(bodies[step] != bodies[step-1]) find_viable_flybys(curr_step, bodies[step], min_duration[step-1]*86400, max_duration[step-1]*86400);
+int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step) {
+	if(bodies[step] != bodies[step-1]) find_viable_flybys(curr_step, system, bodies[step], min_duration[step-1]*86400, max_duration[step-1]*86400);
 	else {
 		find_viable_dsb_flybys(curr_step, &bodies[step+1]->ephem, bodies[step+1],
 							   min_duration[step-1]*86400, max_duration[step-1]*86400, min_duration[step]*86400, max_duration[step]*86400);
@@ -351,8 +341,8 @@ int calc_next_spec_itin_step(struct ItinStep *curr_step, struct Body **bodies, c
 
 	if(step < num_steps-1) {
 		for(int i = 0; i < init_num_nodes; i++) {
-			if(bodies[step] != bodies[step-1]) result = calc_next_spec_itin_step(curr_step->next[i - step_del], bodies, min_duration, max_duration, dv_filter, num_steps, step + 1);
-			else result = calc_next_spec_itin_step(curr_step->next[i - step_del]->next[0]->next[0], bodies, min_duration, max_duration, dv_filter, num_steps, step + 2);
+			if(bodies[step] != bodies[step-1]) result = calc_next_spec_itin_step(curr_step->next[i - step_del], system, bodies, min_duration, max_duration, dv_filter, num_steps, step + 1);
+			else result = calc_next_spec_itin_step(curr_step->next[i - step_del]->next[0]->next[0], system, bodies, min_duration, max_duration, dv_filter, num_steps, step + 2);
 			num_valid += result;
 			if(!result) step_del++;
 		}
@@ -372,7 +362,7 @@ int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct System *sys
 		double max_duration = jd_max-curr_step->date;
 		double min_duration = 10;	// [days]
 		if(max_duration > min_duration)
-			find_viable_flybys(curr_step, system->bodies[body_id], min_duration*86400, max_duration*86400);
+			find_viable_flybys(curr_step, system, system->bodies[body_id], min_duration*86400, max_duration*86400);
 	}
 
 
@@ -477,11 +467,13 @@ int get_num_of_itin_layers(struct ItinStep *step) {
 	return counter;
 }
 
-void update_itin_body_osvs(struct ItinStep *step, struct Ephem **body_ephems) {
+void update_itin_body_osvs(struct ItinStep *step, struct System *system) {
 	struct OSV body_osv;
 	while(step != NULL) {
 		if(step->body != NULL) {
-			body_osv = osv_from_ephem(body_ephems[step->body->id-1], step->date, SUN());
+			body_osv = system->calc_method == ORB_ELEMENTS ?
+					osv_from_elements(step->body->orbit, step->date, system->cb) :
+					osv_from_ephem(step->body->ephem, step->date, system->cb);
 			step->r = body_osv.r;
 			step->v_body = body_osv.v;
 		} else step->v_body = vec(0, 0, 0);	// don't draw the trajectory (except changed in later calc)

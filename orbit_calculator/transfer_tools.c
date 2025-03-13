@@ -173,7 +173,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 		if(fabs(target_dt-dt) < 1) break;
     }
 
-    struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
+    struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, 0, SUN()), theta1, theta2};
     return transfer;
 }
 
@@ -219,8 +219,8 @@ struct Vector2D calc_v_2d(double r_mag, double v_mag, double theta, double gamma
 struct Vector heliocentric_rot(struct Vector2D v, double RAAN, double w, double inc) {
     double Q[3][3] = {
             {-sin(RAAN)*cos(inc)*sin(w)+cos(RAAN)*cos(w),     -sin(RAAN)*cos(inc)*cos(w)-cos(RAAN)*sin(w),   sin(RAAN)*sin(inc)},
-            { cos(RAAN)*cos(inc)*sin(w)+sin(RAAN)*cos(w),      cos(RAAN)*cos(inc)*cos(w)-sin(RAAN)*sin(w),  -cos(RAAN)*sin(inc)},
-            { sin(inc)*sin(w),                                 sin(inc)*cos(w),                              cos(inc)}};
+            { cos(RAAN)*cos(inc)*sin(w)+sin(RAAN)*cos(w),     cos(RAAN)*cos(inc)*cos(w)-sin(RAAN)*sin(w),  -cos(RAAN)*sin(inc)},
+            { sin(inc)*sin(w),                                 		 sin(inc)*cos(w),                              		  cos(inc)}};
 
     double v_vec[3] = {v.x, v.y, 0};
     double result[3] = {0,0,0};
@@ -372,15 +372,13 @@ double get_flyby_inclination(struct Vector v_arr, struct Vector v_dep, struct Ve
 	return angle_plane_plane(ecliptic, hyperbola_plane);
 }
 
-struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
-	struct Orbit orbit = constr_orbit_from_osv(r,v,attractor);
-
+struct OSV propagate_orbit_time(struct Orbit orbit, double dt, struct Body *attractor) {
 	double theta = orbit.theta;
 	double t = orbit.t;
 	double e = orbit.e;
 	double target_t = t + dt;
 	double a = orbit.a;
-	double RAAN = orbit.raan;
+	double raan = orbit.raan;
 	double arg_peri = orbit.arg_peri;
 	double i = orbit.inclination;
 	double mu = attractor->mu;
@@ -445,16 +443,14 @@ struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, str
 	struct Vector2D r_2d = {cos(theta) * r_mag, sin(theta) * r_mag};
 	struct Vector2D v_2d = calc_v_2d(r_mag, v_mag, theta, gamma);
 
-	r = heliocentric_rot(r_2d, RAAN, arg_peri, i);
-	v = heliocentric_rot(v_2d, RAAN, arg_peri, i);
+	struct Vector r = heliocentric_rot(r_2d, raan, arg_peri, i);
+	struct Vector v = heliocentric_rot(v_2d, raan, arg_peri, i);
 
 	struct OSV osv = {r, v};
 	return osv;
 }
 
-struct OSV propagate_orbit_theta(struct Vector r, struct Vector v, double dtheta, struct Body *attractor) {
-	struct Orbit orbit = constr_orbit_from_osv(r,v,attractor);
-
+struct OSV propagate_orbit_theta(struct Orbit orbit, double dtheta, struct Body *attractor) {
 	double theta = pi_norm(orbit.theta+dtheta);
 	double e = orbit.e;
 	double a = orbit.a;
@@ -469,8 +465,8 @@ struct OSV propagate_orbit_theta(struct Vector r, struct Vector v, double dtheta
 	struct Vector2D r_2d = {cos(theta) * r_mag, sin(theta) * r_mag};
 	struct Vector2D v_2d = calc_v_2d(r_mag, v_mag, theta, gamma);
 
-	r = heliocentric_rot(r_2d, RAAN, arg_peri, i);
-	v = heliocentric_rot(v_2d, RAAN, arg_peri, i);
+	struct Vector r = heliocentric_rot(r_2d, RAAN, arg_peri, i);
+	struct Vector v = heliocentric_rot(v_2d, RAAN, arg_peri, i);
 
 	struct OSV osv = {r, v};
 	return osv;
@@ -481,6 +477,13 @@ struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *at
     struct Vector r1 = {ephem.x, ephem.y, ephem.z};
     struct Vector v1 = {ephem.vx, ephem.vy, ephem.vz};
     double dt1 = (date - ephem.date) * (24 * 60 * 60);
-    struct OSV osv = propagate_orbit_time(r1, v1, dt1, attractor);
+    struct OSV osv = propagate_orbit_time(constr_orbit_from_osv(r1,v1,attractor), dt1, attractor);
     return osv;
+}
+
+struct OSV osv_from_elements(struct Orbit orbit, double date, struct Body *attractor) {
+	// TODO introduce some sort of UT0
+	double dt = (date - convert_date_JD((struct Date){2000,1,1, 12})) * (24 * 60 * 60);
+	struct OSV osv = propagate_orbit_time(orbit, dt, attractor);
+	return osv;
 }

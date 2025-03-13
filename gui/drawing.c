@@ -10,7 +10,7 @@ void draw_orbit(cairo_t *cr, struct Vector2D center, double scale, struct Vector
 	struct OSV last_osv = {r,v};
 	for(int i = 1; i <= steps; i++) {
 		double theta = 2*M_PI/steps * i;
-		struct OSV osv = propagate_orbit_theta(r,v,theta,attractor);
+		struct OSV osv = propagate_orbit_theta(constr_orbit_from_osv(r,v,attractor),theta,attractor);
 		// y negative, because in GUI y gets bigger downwards
 		struct Vector2D p1 = {last_osv.r.x, -last_osv.r.y};
 		struct Vector2D p2 = {osv.r.x, -osv.r.y};
@@ -49,7 +49,7 @@ void draw_transfer_point(cairo_t *cr, struct Vector2D center, double scale, stru
 
 
 // Rework trajectory drawing -> OSV + dt   ----------------------------------------------
-void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf) {
+void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf, struct Body *attractor) {
 	// if double swing-by is not worth drawing
 	if(tf->body == NULL && tf->v_body.x == 0) return;
 
@@ -75,7 +75,7 @@ void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct I
 	struct OSV last_osv = {r,v};
 	for(int i = 1; i <= steps; i++) {
 		double time = dt/steps * i;
-		struct OSV osv = propagate_orbit_time(r,v,time,SUN());
+		struct OSV osv = propagate_orbit_time(constr_orbit_from_osv(r,v,attractor),time, attractor);
 		// y negative, because in GUI y gets bigger downwards
 		struct Vector2D p1 = {last_osv.r.x, -last_osv.r.y};
 		struct Vector2D p2 = {osv.r.x, -osv.r.y};

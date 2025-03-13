@@ -4,18 +4,33 @@
 
 
 
-struct Orbit constr_orbit(double a, double e, double i, double lan, double arg_of_peri, struct Body *body) {
+struct Orbit constr_orbit(double a, double e, double i, double raan, double arg_of_peri, double theta, struct Body *central_body) {
     struct Orbit new_orbit;
-    new_orbit.body = body;
+    new_orbit.body = central_body;
     new_orbit.a = a;
     new_orbit.e = e;
     new_orbit.inclination = i;
-    new_orbit.raan = lan;
+    new_orbit.raan = raan;
     new_orbit.arg_peri = arg_of_peri;
-    new_orbit.theta = 0;
+    new_orbit.theta = theta;
     new_orbit.apoapsis  = a*(1+e);
     new_orbit.periapsis = a*(1-e);
-    new_orbit.period = 2*M_PI*sqrt(pow(a,3)/body->mu);
+
+	double n = sqrt(new_orbit.body->mu / pow(fabs(a),3));
+	double t, T = 0;
+	if(e < 1) {
+		double E = 2*atan(sqrt((1 - e)/(1 + e))*tan(theta/2));
+		t = (E - e*sin(E))/n;
+		T = 2*M_PI/n;
+		if(t < 0) t += T;
+	} else {
+		double F = acosh((e + cos(theta)) / (1 + e * cos(theta)));
+		t = (e * sinh(F) - F) / n;
+		if(theta > M_PI) t *= -1;
+	}
+	new_orbit.t = t;
+	new_orbit.period = T;
+
     return new_orbit;
 }
 
