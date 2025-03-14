@@ -15,12 +15,16 @@ struct Body *neptune;
 struct Body *pluto;
 
 struct Body *kerbol;
+struct Body *moho;
+struct Body *eve;
 struct Body *kerbin;
+struct Body *duna;
+struct Body *jool;
 
 struct Body * all_celestial_bodies[20];
 
 struct System *curr_system;
-struct System *solar_system_ephem, *solar_system;
+struct System *solar_system_ephem, *solar_system, *stock_system;
 
 
 
@@ -319,13 +323,33 @@ void init_KERBOL() {
     // kerbol's orbit not declared as it should not be used and can't give any meaningful information
 }
 
+void init_EVE() {
+	eve = (struct Body*)malloc(sizeof(struct Body));
+	strcpy(eve->name, "EVE");
+	eve->mu = 8.1717302e12;
+	eve->radius = 700e3;
+	eve->rotation_period = 80500.0;
+	eve->sl_atmo_p = 506625;
+	eve->scale_height = 7000;
+	eve->atmo_alt = 90e3;
+	eve->orbit = constr_orbit(
+			/*  a  */ 9.832684544e9,
+			/*  e  */ 0.01,
+			/*  i  */ deg2rad(2.1),
+			/* raan */ deg2rad(15),
+			/*  w  */ deg2rad(0),
+			/*  θ  */ deg2rad(0),
+			/*pbody*/ KERBOL()
+	);
+}
+
 void init_KERBIN() {
     kerbin = (struct Body*)malloc(sizeof(struct Body));
     strcpy(kerbin->name, "KERBIN");
     kerbin->mu = 3.5316e12;
     kerbin->radius = 600e3;
     kerbin->rotation_period = 21549.452;
-    kerbin->sl_atmo_p = 101325000;
+    kerbin->sl_atmo_p = 101325;
     kerbin->scale_height = 5600;
     kerbin->atmo_alt = 70e3;
     kerbin->orbit = constr_orbit(
@@ -339,6 +363,47 @@ void init_KERBIN() {
     );
 }
 
+void init_DUNA() {
+	duna = (struct Body*)malloc(sizeof(struct Body));
+	strcpy(duna->name, "DUNA");
+	duna->mu = 3.0136321e11;
+	duna->radius = 320e3;
+	duna->rotation_period = 65517.859;
+	duna->sl_atmo_p = 6755;
+	duna->scale_height = 5600;
+	duna->atmo_alt = 50e3;
+	duna->orbit = constr_orbit(
+			/*  a  */ 20.726155264e9,
+			/*  e  */ 0.051,
+			/*  i  */ deg2rad(0.06),
+			/* raan */ deg2rad(135.5),
+			/*  w  */ deg2rad(0),
+			/*  θ  */ deg2rad(0),
+			/*pbody*/ KERBOL()
+	);
+}
+
+void init_JOOL() {
+	jool = (struct Body*)malloc(sizeof(struct Body));
+	strcpy(jool->name, "JOOL");
+	jool->mu = 2.8252800e14;
+	jool->radius = 6000e3;
+	jool->rotation_period = 36000.0;
+	jool->sl_atmo_p = 1519880;
+	jool->scale_height = 22000;
+	jool->atmo_alt = 200e3;
+	jool->orbit = constr_orbit(
+			/*  a  */ 68.773560320e9,
+			/*  e  */ 0.05,
+			/*  i  */ deg2rad(1.304),
+			/* raan */ deg2rad(52),
+			/*  w  */ deg2rad(0),
+			/*  θ  */ deg2rad(0),
+			/*pbody*/ KERBOL()
+	);
+}
+
+
 // ##############################################################################################
 
 
@@ -349,7 +414,7 @@ void init_solar_system() {
 	solar_system->calc_method = ORB_ELEMENTS;
 	solar_system->num_bodies = 9;
 
-	solar_system->bodies = (struct Body**)malloc(9*sizeof(struct Body*));
+	solar_system->bodies = (struct Body**)malloc(solar_system->num_bodies*sizeof(struct Body*));
 	solar_system->bodies[0] = MERCURY();
 	solar_system->bodies[1] = VENUS();
 	solar_system->bodies[2] = EARTH();
@@ -369,7 +434,7 @@ void init_solar_system_ephem() {
 	solar_system_ephem->calc_method = EPHEMS;
 	solar_system_ephem->num_bodies = 9;
 
-	solar_system_ephem->bodies = (struct Body**)malloc(9 * sizeof(struct Body*));
+	solar_system_ephem->bodies = (struct Body**)malloc(solar_system_ephem->num_bodies * sizeof(struct Body*));
 	solar_system_ephem->bodies[0] = MERCURY();
 	solar_system_ephem->bodies[1] = VENUS();
 	solar_system_ephem->bodies[2] = EARTH();
@@ -379,6 +444,20 @@ void init_solar_system_ephem() {
 	solar_system_ephem->bodies[6] = URANUS();
 	solar_system_ephem->bodies[7] = NEPTUNE();
 	solar_system_ephem->bodies[8] = PLUTO();
+}
+
+void init_stock_system() {
+	stock_system = (struct System*)malloc(sizeof(struct System));
+	strcpy(stock_system->name, "Stock System");
+	stock_system->cb = kerbol;
+	stock_system->calc_method = ORB_ELEMENTS;
+	stock_system->num_bodies = 4;
+
+	stock_system->bodies = (struct Body**)malloc(stock_system->num_bodies*sizeof(struct Body*));
+	stock_system->bodies[0] = eve;
+	stock_system->bodies[1] = kerbin;
+	stock_system->bodies[2] = duna;
+	stock_system->bodies[3] = jool;
 }
 
 
@@ -398,11 +477,15 @@ void init_celestial_bodies() {
     init_PLUTO();
 
     init_KERBOL();
+	init_EVE();
     init_KERBIN();
+	init_DUNA();
+	init_JOOL();
 
 	init_solar_system_ephem();
 	init_solar_system();
-	curr_system = solar_system;
+	init_stock_system();
+	curr_system = stock_system;
 }
 
 
