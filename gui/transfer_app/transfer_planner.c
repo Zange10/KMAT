@@ -110,7 +110,7 @@ void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 		if(body_show_status_tp[i]) {
 			set_cairo_body_color(cr, tp_system->bodies[i]);
 			struct OSV osv = tp_system->calc_method == ORB_ELEMENTS ?
-					osv_from_elements(tp_system->bodies[i]->orbit, current_date_tp, tp_system->cb) :
+					osv_from_elements(tp_system->bodies[i]->orbit, current_date_tp, tp_system) :
 					osv_from_ephem(tp_system->bodies[i]->ephem, current_date_tp, tp_system->cb);
 			draw_body(cr, center, scale, osv.r);
 			draw_orbit(cr, center, scale, osv.r, osv.v, tp_system->cb);

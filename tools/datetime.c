@@ -9,13 +9,13 @@
 void print_date(struct Date date, int line_break) {
 	switch(date.date_type) {
 		case DATE_ISO:
-			printf("%4d-%02d-%02d %02d:%02d:%06.3f    [ISO]", date.y, date.m, date.d, date.h, date.min, date.s);
+			printf("[ISO] %4d-%02d-%02d %02d:%02d:%06.3f", date.y, date.m, date.d, date.h, date.min, date.s);
 			break;
 		case DATE_KERBAL:
-			printf("%4d-%03d %02d:%02d:%06.3f    [KERBAL]", date.y, date.d, date.h, date.min, date.s);
+			printf("[KER] %4d-%03d %02d:%02d:%06.3f", date.y, date.d, date.h, date.min, date.s);
 			break;
 		case DATE_KERBALISO:
-			printf("%4d-%03d %02d:%02d:%06.3f    [ISO-LIKE KERBAL]", date.y, date.d, date.h, date.min, date.s);
+			printf("[ILK] %4d-%03d %02d:%02d:%06.3f", date.y, date.d, date.h, date.min, date.s);
 			break;
 	}
 	if(line_break) printf("\n");

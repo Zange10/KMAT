@@ -91,6 +91,6 @@ struct OSV propagate_orbit_theta(struct Orbit orbit, double dtheta, struct Body 
 struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *attractor);
 
 // calculate the orbital state vector at the given date for a given initial orbit
-struct OSV osv_from_elements(struct Orbit orbit, double date, struct Body *attractor);
+struct OSV osv_from_elements(struct Orbit orbit, double date, struct System *system);
 
 #endif //KSP_TRANSFER_TOOLS_H

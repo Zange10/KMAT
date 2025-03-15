@@ -1,6 +1,8 @@
 #include <stdio.h>
 
 #include "drawing.h"
+#include "tools/datetime.h"
+#include "settings.h"
 #include "math.h"
 #include <stdlib.h>
 
@@ -209,7 +211,7 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 		if(x_axis_label_type == COORD_LABEL_NUMBER)
 			sprintf(string, "%g", label);
 		else if(x_axis_label_type == COORD_LABEL_DATE)
-			date_to_string(convert_JD_date(label), string, 0);
+			date_to_string(convert_JD_date(label, get_settings_datetime_type()), string, 0);
 		draw_center_aligned_text(cr, x, x_label_y, string);
 		cairo_set_source_rgb(cr, 0, 0, 0);
 		draw_stroke(cr, vec2D(x, origin.y), vec2D(x, 0));
@@ -223,7 +225,7 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 		if(y_axis_label_type == COORD_LABEL_NUMBER)
 			sprintf(string, "%g", label);
 		else if(y_axis_label_type == COORD_LABEL_DATE)
-			date_to_string(convert_JD_date(label), string, 0);
+			date_to_string(convert_JD_date(label, get_settings_datetime_type()), string, 0);
 		draw_right_aligned_text(cr, y_label_x, y+half_font_size, string);
 		cairo_set_source_rgb(cr, 0, 0, 0);
 		draw_stroke(cr, vec2D(origin.x, y), vec2D(width, y));

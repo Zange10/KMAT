@@ -21,7 +21,7 @@ struct Date {
 
 
 /**
- * @brief Prints date in the format YYYY-MM-DD hh:mm:ss.f (ISO 8601) or YYYY-DDD hh:mm:ss (Kerbal time)
+ * @brief Prints date in the format [ISO] YYYY-MM-DD hh:mm:ss.f (ISO 8601), [KER] YYYY-DDD hh:mm:ss (Kerbal time) or [ILK] YYYY-DDD hh:mm:ss (ISO-like Kerbal time)
  *
  * @param date The date to be printed
  * @param line_break Is 0 if no line break should follow and 1 if otherwise

@@ -484,9 +484,8 @@ struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *at
     return osv;
 }
 
-struct OSV osv_from_elements(struct Orbit orbit, double date, struct Body *attractor) {
-	// TODO introduce some sort of UT0
-	double dt = (date - convert_date_JD((struct Date){2000,1,1, 12})) * (24 * 60 * 60);
-	struct OSV osv = propagate_orbit_time(orbit, dt, attractor);
+struct OSV osv_from_elements(struct Orbit orbit, double date, struct System *system) {
+	double dt = (date - system->ut0) * (24 * 60 * 60);
+	struct OSV osv = propagate_orbit_time(orbit, dt, system->cb);
 	return osv;
 }

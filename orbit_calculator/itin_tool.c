@@ -12,7 +12,7 @@
 void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body *next_body, double min_dt, double max_dt) {
 	struct OSV osv_dep = {tf->r, tf->v_body};
 	struct OSV osv_arr0 = system->calc_method == ORB_ELEMENTS ?
-			osv_from_elements(next_body->orbit, tf->date, system->cb) :
+			osv_from_elements(next_body->orbit, tf->date, system) :
 			osv_from_ephem(next_body->ephem, tf->date, system->cb);
 
 	struct Vector proj_vec = proj_vec_plane(osv_dep.r, constr_plane(vec(0,0,0), osv_arr0.r, osv_arr0.v));
@@ -71,7 +71,7 @@ void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body 
 			t1 = t0 + dt / 86400;
 
 			struct OSV osv_arr = system->calc_method == ORB_ELEMENTS ?
-					osv_from_elements(next_body->orbit, t1, system->cb) :
+					osv_from_elements(next_body->orbit, t1, system) :
 					osv_from_ephem(next_body->ephem, t1, system->cb);
 
 			struct Transfer new_transfer = calc_transfer(circfb, tf->body, next_body, osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, dt,
@@ -472,7 +472,7 @@ void update_itin_body_osvs(struct ItinStep *step, struct System *system) {
 	while(step != NULL) {
 		if(step->body != NULL) {
 			body_osv = system->calc_method == ORB_ELEMENTS ?
-					osv_from_elements(step->body->orbit, step->date, system->cb) :
+					osv_from_elements(step->body->orbit, step->date, system) :
 					osv_from_ephem(step->body->ephem, step->date, system->cb);
 			step->r = body_osv.r;
 			step->v_body = body_osv.v;

@@ -91,7 +91,7 @@ void *calc_spec_itin_from_departure(void *args) {
 
 	while(jd_dep <= thread_args->jd_max_dep) {
 		struct OSV osv_body0 = system->calc_method == ORB_ELEMENTS ?
-				osv_from_elements(bodies[0]->orbit, jd_dep, system->cb) :
+				osv_from_elements(bodies[0]->orbit, jd_dep, system) :
 				osv_from_ephem(bodies[0]->ephem, jd_dep, system->cb);
 
 		curr_step = thread_args->departures[index];
@@ -111,7 +111,7 @@ void *calc_spec_itin_from_departure(void *args) {
 		for(int j = 0; j <= max_duration[0] - min_duration[0]; j++) {
 			double jd_arr = jd_dep + min_duration[0] + j;
 			struct OSV osv_body1 = system->calc_method == ORB_ELEMENTS ?
-					osv_from_elements(bodies[1]->orbit, jd_arr, system->cb) :
+					osv_from_elements(bodies[1]->orbit, jd_arr, system) :
 				    osv_from_ephem(bodies[1]->ephem, jd_arr, system->cb);
 
 			double data[3];
@@ -182,7 +182,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 
 	while(jd_dep <= jd_max_dep) {
 		osv_body0 = system->calc_method == ORB_ELEMENTS ?
-				osv_from_elements(dep_body->orbit, jd_dep, system->cb) :
+				osv_from_elements(dep_body->orbit, jd_dep, system) :
 				osv_from_ephem(dep_body->ephem, jd_dep, system->cb);
 
 		curr_step = departures[index];
@@ -225,7 +225,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 				if(jd_arr > jd_max_arr) break;
 
 				osv_body1 = system->calc_method == ORB_ELEMENTS ?
-						osv_from_elements(system->bodies[body_id]->orbit, jd_arr, system->cb) :
+						osv_from_elements(system->bodies[body_id]->orbit, jd_arr, system) :
 						osv_from_ephem(system->bodies[body_id]->ephem, jd_arr, system->cb);
 
 				double data[3];

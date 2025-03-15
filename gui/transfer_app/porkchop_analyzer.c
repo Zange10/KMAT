@@ -447,7 +447,7 @@ void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 		if(body_show_status_pa[i]) {
 			set_cairo_body_color(cr, pa_system->bodies[i]);
 			struct OSV osv = pa_system->calc_method == ORB_ELEMENTS ?
-					osv_from_elements(pa_system->bodies[i]->orbit, current_date_pa, pa_system->cb) :
+					osv_from_elements(pa_system->bodies[i]->orbit, current_date_pa, pa_system) :
 					osv_from_ephem(pa_system->bodies[i]->ephem, current_date_pa, pa_system->cb);
 			draw_body(cr, center, scale, osv.r);
 			draw_orbit(cr, center, scale, osv.r, osv.v, pa_system->cb);
