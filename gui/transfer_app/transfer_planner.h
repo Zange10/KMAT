@@ -28,4 +28,6 @@ void on_find_itinerary(GtkWidget* widget, gpointer data);
 void on_save_itinerary(GtkWidget* widget, gpointer data);
 void on_load_itinerary(GtkWidget* widget, gpointer data);
 
+void end_transfer_planner();
+
 #endif //KSP_TRANSFER_PLANNER_H

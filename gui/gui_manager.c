@@ -42,6 +42,7 @@ void start_gui() {
 	free_all_porkchop_analyzer_itins();
 	reset_ic();
 	reset_tc();
+	end_transfer_planner();
 	// reset launch gui
 	close_launch_analyzer();
 	close_capability_analyzer();

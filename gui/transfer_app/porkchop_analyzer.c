@@ -279,7 +279,7 @@ void update_group_overview() {
 
 		for (int j = 0; j < num_cols; j++) {
 			int col = j*2+1;
-			char widget_text[5000];
+			char widget_text[100];
 			GtkWidget *widget;
 			switch(j) {
 				case 0:

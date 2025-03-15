@@ -74,8 +74,7 @@ void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct I
 	struct Vector r = prev->r;
 	struct Vector v = tf->v_dep;
 	struct OSV last_osv = {r,v};
-	print_vector(scalar_multiply(r,1e-9));
-	print_vector(scalar_multiply(v,1e-3));
+
 	for(int i = 1; i <= steps; i++) {
 		double time = dt/steps * i;
 		struct OSV osv = propagate_orbit_time(constr_orbit_from_osv(r,v,attractor),time, attractor);

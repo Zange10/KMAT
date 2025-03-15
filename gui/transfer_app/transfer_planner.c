@@ -5,6 +5,7 @@
 #include "gui/drawing.h"
 #include "gui/gui_manager.h"
 #include "tools/gmat_interface.h"
+#include "gui/css_loader.h"
 
 #include <string.h>
 #include <gtk/gtk.h>
@@ -24,16 +25,19 @@ GObject *lb_tp_transfer_dv;
 GObject *lb_tp_total_dv;
 GObject *lb_tp_periapsis;
 GObject *transfer_panel_tp;
-gboolean body_show_status_tp[9];
+GObject *vp_tp_bodies;
+GtkWidget *grid_tp_bodies;
+gboolean *body_show_status_tp;
 double current_date_tp;
 
 enum LastTransferType tp_last_transfer_type;
 
+void update_body_list();
 
 void init_transfer_planner(GtkBuilder *builder) {
 	struct Date date = {1977, 8, 20, 0, 0, 0};
 	current_date_tp = convert_date_JD(date);
-	for(int i = 0; i < 9; i++) body_show_status_tp[i] = 0;
+
 	remove_all_transfers();
 	tp_last_transfer_type = TF_FLYBY;
 
@@ -45,11 +49,14 @@ void init_transfer_planner(GtkBuilder *builder) {
 	transfer_panel_tp = gtk_builder_get_object(builder, "transfer_panel");
 	lb_tp_date = gtk_builder_get_object(builder, "lb_tp_date");
 	da_tp = gtk_builder_get_object(builder, "da_tp");
+	vp_tp_bodies = gtk_builder_get_object(builder, "vp_tp_bodies");
 
 	update_date_label();
 	update_transfer_panel();
 
 	tp_system = get_current_system();
+
+	update_body_list();
 }
 
 
@@ -79,10 +86,9 @@ void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	cairo_fill(cr);
 
 	// Planets
-	for(int i = 0; i < 9; i++) {
+	for(int i = 0; i < tp_system->num_bodies; i++) {
 		if(body_show_status_tp[i]) {
-			int id = i+1;
-			set_cairo_body_color(cr, id);
+			set_cairo_body_color(cr, i+1);
 			struct OSV osv = tp_system->calc_method == ORB_ELEMENTS ?
 					osv_from_elements(tp_system->bodies[i]->orbit, current_date_tp, tp_system->cb) :
 					osv_from_ephem(tp_system->bodies[i]->ephem, current_date_tp, tp_system->cb);
@@ -203,10 +209,53 @@ void update_transfer_panel() {
 
 }
 
+void update_body_list() {
+	if(body_show_status_tp != NULL) free(body_show_status_tp);
+	body_show_status_tp = (gboolean*) malloc(tp_system->num_bodies*sizeof(gboolean));
+	for(int i = 0; i < tp_system->num_bodies; i++) body_show_status_tp[i] = 0;
+
+	int num_cols = 1;
+
+	// Remove grid if exists
+	if (grid_tp_bodies != NULL && GTK_WIDGET(vp_tp_bodies) == gtk_widget_get_parent(grid_tp_bodies)) {
+		gtk_container_remove(GTK_CONTAINER(vp_tp_bodies), grid_tp_bodies);
+	}
+
+	grid_tp_bodies = gtk_grid_new();
+
+	// Create a GtkLabel
+	GtkWidget *label = gtk_label_new("Show Orbit");
+	// width request
+	gtk_widget_set_size_request(GTK_WIDGET(label), -1, -1);
+	// set css class
+	set_css_class_for_widget(GTK_WIDGET(label), "pag-header");
+
+	// Set the label in the grid at the specified row and column
+	gtk_grid_attach(GTK_GRID(grid_tp_bodies), label, 0, 0, 1, 1);
+	gtk_widget_set_halign(label, GTK_ALIGN_START);
+
+	// Create labels and buttons and add them to the grid
+	for (int body_idx = 0; body_idx < tp_system->num_bodies; body_idx++) {
+		int row = body_idx+1;
+		GtkWidget *widget;
+		// Create a show body check button
+		widget = gtk_check_button_new_with_label(tp_system->bodies[body_idx]->name);
+		gtk_widget_set_halign(widget, GTK_ALIGN_CENTER);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), 0);
+		g_signal_connect(widget, "clicked", G_CALLBACK(on_body_toggle), &(body_show_status_tp[body_idx]));
+		gtk_widget_set_halign(widget, GTK_ALIGN_START);
+
+		// Set the label in the grid at the specified row and column
+		gtk_grid_attach(GTK_GRID(grid_tp_bodies), widget, 0, row, 1, 1);
+	}
+	gtk_container_add (GTK_CONTAINER (vp_tp_bodies), grid_tp_bodies);
+	gtk_widget_show_all(GTK_WIDGET(vp_tp_bodies));
+}
+
 
 void on_body_toggle(GtkWidget* widget, gpointer data) {
-	int id = (int) gtk_widget_get_name(widget)[0] - 48;	// char to int
-	body_show_status_tp[id - 1] = body_show_status_tp[id - 1] ? 0 : 1;
+	gboolean *show_body = (gboolean *) data;  // Cast data back to group struct
+	*show_body = !*show_body;
 	gtk_widget_queue_draw(GTK_WIDGET(da_tp));
 }
 
@@ -293,7 +342,6 @@ void on_transfer_body_select(GtkWidget* widget, gpointer data) {
 		curr_transfer_tp->body = NULL;
 	} else {
 		struct Body *body = tp_system->bodies[id-1];
-		printf("%d %s\n", id, body->name);
 		curr_transfer_tp->body = body;
 	}
 	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel_tp), "page0");
@@ -612,4 +660,8 @@ void on_load_itinerary(GtkWidget* widget, gpointer data) {
 
 void on_create_gmat_script() {
 	if(curr_transfer_tp != NULL) write_gmat_script(curr_transfer_tp, "transfer.script");
+}
+
+void end_transfer_planner() {
+	if(body_show_status_tp != NULL) free(body_show_status_tp);
 }

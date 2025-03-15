@@ -25,14 +25,14 @@ void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body 
 
 	int counter = 0;
 
-	struct OSV osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN()), -theta_conj_opp, SUN());
-	struct Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
-	struct Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
+	struct OSV osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb), -theta_conj_opp, SUN());
+	struct Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
+	struct Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, system->cb);
 	double dt0 = arr1.t-arr0.t;
 
-	osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN()), -theta_conj_opp+M_PI, SUN());
-	arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
-	arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
+	osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb), -theta_conj_opp+M_PI, system->cb);
+	arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
+	arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, system->cb);
 	double dt1 = arr1.t-arr0.t;
 
 	while(dt0 < 0) dt0 += arr0.period;
@@ -71,8 +71,8 @@ void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body 
 			t1 = t0 + dt / 86400;
 
 			struct OSV osv_arr = system->calc_method == ORB_ELEMENTS ?
-					osv_from_elements(next_body->orbit, t1, SUN()) :
-					osv_from_ephem(next_body->ephem, t1, SUN());
+					osv_from_elements(next_body->orbit, t1, system->cb) :
+					osv_from_ephem(next_body->ephem, t1, system->cb);
 
 			struct Transfer new_transfer = calc_transfer(circfb, tf->body, next_body, osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, dt,
 														 system->cb, NULL);
