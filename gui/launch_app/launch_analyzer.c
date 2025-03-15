@@ -109,13 +109,8 @@ void init_launch_analyzer(GtkBuilder *builder) {
 	update_launcher_dropdown(GTK_COMBO_BOX(cb_la_sel_launcher));
 	update_la_display_radios();
 
-	// Create a cell renderer for dropdowns/ComboBox
-	GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
-	gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(cb_la_sel_launcher), renderer, TRUE);
-	gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(cb_la_sel_launcher), renderer, "text", 0, NULL);
-	renderer = gtk_cell_renderer_text_new();
-	gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(cb_la_sel_profile), renderer, TRUE);
-	gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(cb_la_sel_profile), renderer, "text", 0, NULL);
+	create_combobox_dropdown_text_renderer(cb_la_sel_launcher);
+	create_combobox_dropdown_text_renderer(cb_la_sel_profile);
 }
 
 void free_launch_data_points() {

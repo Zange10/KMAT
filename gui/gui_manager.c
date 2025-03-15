@@ -85,6 +85,31 @@ void activate_app(GtkApplication *app, gpointer user_data) {
 }
 
 
+void create_combobox_dropdown_text_renderer(GObject *combo_box) {
+	GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+	gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(combo_box), renderer, TRUE);
+	gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(combo_box), renderer, "text", 0, NULL);
+}
+
+
+
+// transfer calc gui stuff ----------------------------------------------------------------
+void update_body_dropdown(GtkComboBox *cb_sel_body, struct System *system) {
+	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
+	GtkTreeIter iter;
+	// Add items to the list store
+	for(int i = 0; i < system->num_bodies; i++) {
+		gtk_list_store_append(store, &iter);
+		char entry[30];
+		sprintf(entry, "%s", system->bodies[i]->name);
+		gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
+	}
+
+	gtk_combo_box_set_model(cb_sel_body, GTK_TREE_MODEL(store));
+	gtk_combo_box_set_active(cb_sel_body, 0);
+
+	g_object_unref(store);
+}
 
 
 // launch calc gui stuff ----------------------------------------------------------------

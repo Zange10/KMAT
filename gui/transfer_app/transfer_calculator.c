@@ -15,7 +15,7 @@ struct PlannedStep {
 };
 
 
-GObject *tf_tc_body;
+GObject *cb_tc_body;
 GObject *tf_tc_mindepdate;
 GObject *tf_tc_maxdepdate;
 GObject *tf_tc_mindur;
@@ -25,7 +25,7 @@ GObject *tf_tc_totdv;
 GObject *tf_tc_depdv;
 GObject *tf_tc_satdv;
 GObject *tf_tc_preview;
-GObject *pb_tc_progress;
+
 struct PlannedStep *tc_step;
 
 struct System *tc_system;
@@ -37,7 +37,7 @@ enum LastTransferType tc_last_transfer_type;
 
 void init_transfer_calculator(GtkBuilder *builder) {
 	tc_step = NULL;
-	tf_tc_body = gtk_builder_get_object(builder, "tf_tc_body");
+	cb_tc_body = gtk_builder_get_object(builder, "cb_tc_body");
 	tf_tc_mindepdate = gtk_builder_get_object(builder, "tf_tc_mindepdate");
 	tf_tc_maxdepdate = gtk_builder_get_object(builder, "tf_tc_maxdepdate");
 	tf_tc_mindur = gtk_builder_get_object(builder, "tf_tc_mindur");
@@ -47,7 +47,11 @@ void init_transfer_calculator(GtkBuilder *builder) {
 	tf_tc_depdv = gtk_builder_get_object(builder, "tf_tc_depdv");
 	tf_tc_satdv = gtk_builder_get_object(builder, "tf_tc_satdv");
 	tf_tc_preview = gtk_builder_get_object(builder, "tf_tc_preview");
-	pb_tc_progress = gtk_builder_get_object(builder, "pb_tc_progress");
+
+	tc_system = get_current_system();
+
+	create_combobox_dropdown_text_renderer(cb_tc_body);
+	update_body_dropdown(GTK_COMBO_BOX(cb_tc_body), tc_system);
 }
 
 void current_time_to_string(char *string) {
@@ -231,18 +235,10 @@ void on_add_transfer_tc() {
 	new_step->prev = NULL;
 	new_step->next = NULL;
 
-	char *string;
-	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_body));
-	int body_id = (int) strtol(string, NULL, 10);
-	if(body_id <= 0 || body_id > 9) {
-		free(new_step);
-		return;
-	}
-
-	new_step->body = tc_system->bodies[body_id];
-
+	new_step->body = tc_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tc_body))];
 
 	if(tc_step != NULL) {
+		char *string;
 		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_mindur));
 		new_step->min_depdur = strtod(string, NULL);
 		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_maxdur));

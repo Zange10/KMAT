@@ -1,11 +1,11 @@
 #include "itinerary_calculator.h"
 #include "orbit_calculator/transfer_calc.h"
-#include "celestial_bodies.h"
+#include "gui/gui_manager.h"
 #include "gui/prog_win_manager.h"
 
 
-GObject *tf_ic_depbody;
-GObject *tf_ic_arrbody;
+GObject *cb_ic_depbody;
+GObject *cb_ic_arrbody;
 GObject *tf_ic_mindepdate;
 GObject *tf_ic_maxdepdate;
 GObject *tf_ic_maxarrdate;
@@ -16,10 +16,12 @@ GObject *tf_ic_depdv;
 GObject *tf_ic_satdv;
 GObject *tf_ic_window;
 
+struct System *ic_system;
+
 void init_itinerary_calculator(GtkBuilder *builder) {
 	tf_ic_window = gtk_builder_get_object(builder, "window");
-	tf_ic_depbody = gtk_builder_get_object(builder, "tf_ic_depbody");
-	tf_ic_arrbody = gtk_builder_get_object(builder, "tf_ic_arrbody");
+	cb_ic_depbody = gtk_builder_get_object(builder, "cb_ic_depbody");
+	cb_ic_arrbody = gtk_builder_get_object(builder, "cb_ic_arrbody");
 	tf_ic_mindepdate = gtk_builder_get_object(builder, "tf_ic_mindepdate");
 	tf_ic_maxdepdate = gtk_builder_get_object(builder, "tf_ic_maxdepdate");
 	tf_ic_maxarrdate = gtk_builder_get_object(builder, "tf_ic_maxarrdate");
@@ -28,6 +30,13 @@ void init_itinerary_calculator(GtkBuilder *builder) {
 	tf_ic_totdv = gtk_builder_get_object(builder, "tf_ic_totdv");
 	tf_ic_depdv = gtk_builder_get_object(builder, "tf_ic_depdv");
 	tf_ic_satdv = gtk_builder_get_object(builder, "tf_ic_satdv");
+
+	ic_system = get_current_system();
+
+	create_combobox_dropdown_text_renderer(cb_ic_depbody);
+	create_combobox_dropdown_text_renderer(cb_ic_arrbody);
+	update_body_dropdown(GTK_COMBO_BOX(cb_ic_depbody), ic_system);
+	update_body_dropdown(GTK_COMBO_BOX(cb_ic_arrbody), ic_system);
 }
 
 void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nodes) {
@@ -104,12 +113,10 @@ void ic_calc_thread() {
 	string = (char*) gtk_combo_box_get_active_id(GTK_COMBO_BOX(cb_ic_transfertype));
 	calc_data.dv_filter.last_transfer_type = (int) strtol(string, NULL, 10);
 
-	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_depbody));
-	calc_data.dep_body_id = (int) strtol(string, NULL, 10);
-	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_arrbody));
-	calc_data.arr_body_id = (int) strtol(string, NULL, 10);
+	calc_data.dep_body_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_depbody));
+	calc_data.arr_body_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody));
 
-	calc_data.system = get_current_system();
+	calc_data.system = ic_system;
 
 	results = search_for_itinerary_to_target(calc_data);
 
