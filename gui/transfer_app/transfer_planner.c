@@ -4,8 +4,10 @@
 #include "orbit_calculator/transfer_tools.h"
 #include "gui/drawing.h"
 #include "gui/gui_manager.h"
+#include "gui/settings.h"
 #include "tools/gmat_interface.h"
 #include "gui/css_loader.h"
+#include "tools/datetime.h"
 
 #include <string.h>
 #include <gtk/gtk.h>
@@ -38,7 +40,7 @@ enum LastTransferType tp_last_transfer_type;
 void tp_update_bodies();
 
 void init_transfer_planner(GtkBuilder *builder) {
-	struct Date date = {1977, 8, 20, 0, 0, 0};
+	struct Date date = {1950, 1, 1, 0, 0, 0};
 	current_date_tp = convert_date_JD(date);
 
 	remove_all_transfers();
@@ -55,12 +57,18 @@ void init_transfer_planner(GtkBuilder *builder) {
 	vp_tp_bodies = gtk_builder_get_object(builder, "vp_tp_bodies");
 	vp_tp_tfbody = gtk_builder_get_object(builder, "vp_tp_tfbody");
 
-	update_date_label();
-	update_transfer_panel();
-
 	tp_system = get_current_system();
 
+	update_date_label();
+	update_transfer_panel();
 	tp_update_bodies();
+}
+
+void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
+	change_label_date_type(lb_tp_date, old_date_type, new_date_type);
+	if(curr_transfer_tp != NULL) change_button_date_type(tb_tp_tfdate, old_date_type, new_date_type);
+	current_date_tp = convert_date_JD(change_date_type(convert_JD_date(current_date_tp, old_date_type), new_date_type));
+	update();
 }
 
 
@@ -183,16 +191,17 @@ void update() {
 
 void update_date_label() {
 	char date_string[10];
-	date_to_string(convert_JD_date(current_date_tp), date_string, 0);
+	printf("%f\n", current_date_tp);
+	date_to_string(convert_JD_date(current_date_tp, get_settings_datetime_type()), date_string, 0);
 	gtk_label_set_text(GTK_LABEL(lb_tp_date), date_string);
 }
 
 void update_transfer_panel() {
 	if(curr_transfer_tp == NULL) {
-		gtk_button_set_label(GTK_BUTTON(tb_tp_tfdate), "0000-00-00");
+		gtk_button_set_label(GTK_BUTTON(tb_tp_tfdate), get_settings_datetime_type() == DATE_ISO ? "0000-00-00" : "0000-000");
 		gtk_button_set_label(GTK_BUTTON(bt_tp_tfbody), "Planet");
 	} else {
-		struct Date date = convert_JD_date(curr_transfer_tp->date);
+		struct Date date = convert_JD_date(curr_transfer_tp->date, get_settings_datetime_type());
 		char date_string[10];
 		date_to_string(date, date_string, 0);
 		gtk_button_set_label(GTK_BUTTON(tb_tp_tfdate), date_string);
@@ -294,11 +303,11 @@ void on_body_toggle(GtkWidget* widget, gpointer data) {
 
 void on_change_date(GtkWidget* widget, gpointer data) {
 	const char *name = gtk_widget_get_name(widget);
-	if		(strcmp(name, "+1Y") == 0) current_date_tp = jd_change_date(current_date_tp, 1, 0, 0);
-	else if	(strcmp(name, "+1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 1, 0);
+	if		(strcmp(name, "+1Y") == 0) current_date_tp = jd_change_date(current_date_tp, 1, 0, 0, get_settings_datetime_type());
+	else if	(strcmp(name, "+1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 1, 0, get_settings_datetime_type());
 	else if	(strcmp(name, "+1D") == 0) current_date_tp++;
-	else if	(strcmp(name, "-1Y") == 0) current_date_tp = jd_change_date(current_date_tp, -1, 0, 0);
-	else if	(strcmp(name, "-1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, -1, 0);
+	else if	(strcmp(name, "-1Y") == 0) current_date_tp = jd_change_date(current_date_tp, -1, 0, 0, get_settings_datetime_type());
+	else if	(strcmp(name, "-1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, -1, 0, get_settings_datetime_type());
 	else if	(strcmp(name, "-1D") == 0) current_date_tp--;
 
 	if(curr_transfer_tp != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate))) {

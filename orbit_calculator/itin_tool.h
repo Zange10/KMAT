@@ -2,7 +2,7 @@
 #define KSP_ITIN_TOOL_H
 
 #include "tools/analytic_geometry.h"
-#include "ephem.h"
+#include "tools/ephem.h"
 #include "celestial_bodies.h"
 #include <stdio.h>
 

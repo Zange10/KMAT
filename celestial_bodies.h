@@ -49,6 +49,7 @@ struct System {
 	struct Body *cb;					// central body of system
 	struct Body **bodies;				// bodies orbiting the central body
 	enum SystemCalcMethod calc_method;	// Propagation using orbital elements or ephemerides
+	double ut0;							// time of t0 for system
 };
 
 #endif

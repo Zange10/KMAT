@@ -1,7 +1,9 @@
 #include "transfer_calculator.h"
 #include "orbit_calculator/transfer_calc.h"
 #include "gui/gui_manager.h"
+#include "gui/settings.h"
 #include "celestial_bodies.h"
+#include "tools/datetime.h"
 #include <string.h>
 #include <sys/time.h>
 
@@ -53,6 +55,13 @@ void init_transfer_calculator(GtkBuilder *builder) {
 	create_combobox_dropdown_text_renderer(cb_tc_body);
 	update_body_dropdown(GTK_COMBO_BOX(cb_tc_body), tc_system);
 }
+
+
+
+void tc_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
+
+}
+
 
 void current_time_to_string(char *string) {
 	time_t current_time;
@@ -132,9 +141,9 @@ void update_dvs_and_depdates() {
 	if(max_satdv_tc <= 0) max_satdv_tc = 100000;
 
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_mindepdate));
-	double min_depdate = convert_date_JD(date_from_string(string));
+	double min_depdate = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_maxdepdate));
-	double max_depdate = convert_date_JD(date_from_string(string));
+	double max_depdate = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
 
 	get_first_tc(tc_step)->min_depdur = min_depdate;
 	get_first_tc(tc_step)->max_depdur = max_depdate;
@@ -169,10 +178,10 @@ void update_preview_tc(int calc) {
 		strcat(temp_string,"\n\n--\n\n");
 		strcat(preview_text, temp_string);
 
-		date_to_string(convert_JD_date(step->min_depdur), temp_string, 0);
+		date_to_string(convert_JD_date(step->min_depdur, get_settings_datetime_type()), temp_string, 0);
 		strcat(preview_text, temp_string);
 		strcat(preview_text, "  |  ");
-		date_to_string(convert_JD_date(step->max_depdur), temp_string, 0);
+		date_to_string(convert_JD_date(step->max_depdur, get_settings_datetime_type()), temp_string, 0);
 		strcat(preview_text, temp_string);
 		sprintf(temp_string, "\n%s\n", step->body->name);
 		strcat(preview_text, temp_string);

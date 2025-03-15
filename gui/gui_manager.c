@@ -2,7 +2,8 @@
 #include "prog_win_manager.h"
 #include <gtk/gtk.h>
 #include <locale.h>
-#include "gui/css_loader.h"
+#include "css_loader.h"
+#include "settings.h"
 #include "transfer_app/transfer_planner.h"
 #include "transfer_app/porkchop_analyzer.h"
 #include "transfer_app/transfer_calculator.h"
@@ -13,7 +14,6 @@
 #include "database/lv_database.h"
 #include "launch_calculator/lv_profile.h"
 #include "gui/database_app/mission_db.h"
-
 
 
 struct LV *all_launcher;
@@ -66,16 +66,18 @@ void activate_app(GtkApplication *app, gpointer user_data) {
 
 	load_css();
 
-	// init transfer planner gui
+	// init settings page
+	init_global_settings(builder);
+	// init transfer planner page
 	init_itinerary_calculator(builder);
 	init_transfer_calculator(builder);
 	init_porkchop_analyzer(builder);
 	init_transfer_planner(builder);
-	// init launch calc gui
+	// init launch calc page
 	init_launch_analyzer(builder);
 	init_capability_analyzer(builder);
 	init_launch_parameter_analyzer(builder);
-	// init db gui
+	// init db page
 	init_mission_db(builder);
 	// init progress window
 	init_prog_window(builder);
@@ -91,6 +93,43 @@ void create_combobox_dropdown_text_renderer(GObject *combo_box) {
 	gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(combo_box), renderer, "text", 0, NULL);
 }
 
+void change_text_field_date_type(GObject *text_field, enum DateType old_date_type, enum DateType new_date_type) {
+	char *old_string, new_string[32];
+	old_string = (char*) gtk_entry_get_text(GTK_ENTRY(text_field));
+	if(!is_string_valid_date_format(old_string, old_date_type)) return;
+	struct Date date = date_from_string(old_string, old_date_type);
+	date = change_date_type(date, new_date_type);
+	date_to_string(date, new_string, 0);
+	gtk_entry_set_text(GTK_ENTRY(text_field), new_string);
+}
+
+void change_label_date_type(GObject *label, enum DateType old_date_type, enum DateType new_date_type) {
+	char *old_string, new_string[32];
+	old_string = (char*) gtk_label_get_text(GTK_LABEL(label));
+	if(!is_string_valid_date_format(old_string, old_date_type)) return;
+	struct Date date = date_from_string(old_string, old_date_type);
+	date = change_date_type(date, new_date_type);
+	date_to_string(date, new_string, 0);
+	gtk_label_set_text(GTK_LABEL(label), new_string);
+}
+
+void change_button_date_type(GObject *button, enum DateType old_date_type, enum DateType new_date_type) {
+	char *old_string, new_string[32];
+	old_string = (char*) gtk_button_get_label(GTK_BUTTON(button));
+	if(!is_string_valid_date_format(old_string, old_date_type)) return;
+	struct Date date = date_from_string(old_string, old_date_type);
+	date = change_date_type(date, new_date_type);
+	date_to_string(date, new_string, 0);
+	gtk_button_set_label(GTK_BUTTON(button), new_string);
+}
+
+// settings stuff -------------------------------------------------------------------------
+void change_gui_date_type(enum DateType old_date_type, enum DateType new_date_type) {
+	ic_change_date_type(old_date_type, new_date_type);
+	tc_change_date_type(old_date_type, new_date_type);
+	pa_change_date_type(old_date_type, new_date_type);
+	tp_change_date_type(old_date_type, new_date_type);
+}
 
 
 // transfer calc gui stuff ----------------------------------------------------------------

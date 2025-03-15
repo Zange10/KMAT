@@ -40,8 +40,8 @@ add_executable(KSP
         orbit_calculator/transfer_tools.c
         orbit_calculator/transfer_tools.h
         launch_calculator/lp_parameters.h
-        ephem.c
-        ephem.h
+        tools/ephem.c
+        tools/ephem.h
         tools/thread_pool.c
         tools/thread_pool.h
         gui/drawing.c
@@ -98,6 +98,10 @@ add_executable(KSP
         gui/gui_manager.h
         gui/prog_win_manager.c
         gui/prog_win_manager.h
+        tools/datetime.c
+        tools/datetime.h
+        gui/settings.c
+        gui/settings.h
 )
 
 target_link_libraries(KSP m;

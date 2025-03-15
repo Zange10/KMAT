@@ -1,6 +1,7 @@
 #include "itinerary_calculator.h"
 #include "orbit_calculator/transfer_calc.h"
 #include "gui/gui_manager.h"
+#include "gui/settings.h"
 #include "gui/prog_win_manager.h"
 
 
@@ -38,6 +39,13 @@ void init_itinerary_calculator(GtkBuilder *builder) {
 	update_body_dropdown(GTK_COMBO_BOX(cb_ic_depbody), ic_system);
 	update_body_dropdown(GTK_COMBO_BOX(cb_ic_arrbody), ic_system);
 }
+
+void ic_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
+	change_text_field_date_type(tf_ic_mindepdate, old_date_type, new_date_type);
+	change_text_field_date_type(tf_ic_maxdepdate, old_date_type, new_date_type);
+	change_text_field_date_type(tf_ic_maxarrdate, old_date_type, new_date_type);
+}
+
 
 void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nodes) {
 	if(departures == NULL || num_deps == 0) return;
@@ -96,11 +104,11 @@ void ic_calc_thread() {
 	struct Transfer_To_Target_Calc_Data calc_data;
 
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_mindepdate));
-	calc_data.jd_min_dep = convert_date_JD(date_from_string(string));
+	calc_data.jd_min_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_maxdepdate));
-	calc_data.jd_max_dep = convert_date_JD(date_from_string(string));
+	calc_data.jd_max_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_maxarrdate));
-	calc_data.jd_max_arr = convert_date_JD(date_from_string(string));
+	calc_data.jd_max_arr = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_maxdur));
 	calc_data.max_duration = (int) strtol(string, NULL, 10);
 

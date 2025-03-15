@@ -4,6 +4,7 @@
 #include "gui/drawing.h"
 #include "gui/gui_manager.h"
 #include "gui/css_loader.h"
+#include "gui/settings.h"
 
 #include <string.h>
 #include <locale.h>
@@ -68,6 +69,14 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 	vp_pa_groups = gtk_builder_get_object(builder, "vp_pa_groups");
 	for(int i = 0; i < 9; i++) body_show_status_pa[i] = 0;
 	pa_system = get_current_system();
+}
+
+void pa_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
+	change_text_field_date_type(tf_pa_min_feedback[0], old_date_type, new_date_type);
+	change_text_field_date_type(tf_pa_max_feedback[0], old_date_type, new_date_type);
+	if(curr_transfer_pa != NULL) change_label_date_type(lb_pa_tfdate, old_date_type, new_date_type);
+	else if(new_date_type == DATE_ISO) gtk_label_set_text(GTK_LABEL(lb_pa_tfdate), "0000-00-00");
+	else gtk_label_set_text(GTK_LABEL(lb_pa_tfdate), "0000-000");
 }
 
 double calc_step_dv_pa(struct ItinStep *step) {
@@ -145,10 +154,12 @@ void update_preview() {
 	gtk_widget_queue_draw(GTK_WIDGET(da_pa_preview));
 
 	if(curr_transfer_pa == NULL) {
-		gtk_label_set_label(GTK_LABEL(lb_pa_tfdate), "0000-00-00");
+		char date0_string[10];
+		date_to_string((struct Date) {.date_type=get_settings_datetime_type()}, date0_string, 0);
+		gtk_label_set_label(GTK_LABEL(lb_pa_tfdate), date0_string);
 		gtk_label_set_label(GTK_LABEL(lb_pa_tfbody), "Planet");
 	} else {
-		struct Date date = convert_JD_date(curr_transfer_pa->date);
+		struct Date date = convert_JD_date(curr_transfer_pa->date, get_settings_datetime_type());
 		char date_string[10];
 		date_to_string(date, date_string, 0);
 		gtk_label_set_label(GTK_LABEL(lb_pa_tfdate), date_string);
@@ -205,7 +216,7 @@ void reset_min_max_feedback(int fb0_pow1, int num_itins) {
 	}
 
 	char string[20];
-	date_to_string(convert_JD_date(min[0]), string, 0);
+	date_to_string(convert_JD_date(min[0], get_settings_datetime_type()), string, 0);
 	gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[0]), string);
 	sprintf(string, "%.0f", min[1]);
 	gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[1]), string);
@@ -215,7 +226,7 @@ void reset_min_max_feedback(int fb0_pow1, int num_itins) {
 		gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[i]), string);
 	}
 
-	date_to_string(convert_JD_date(max[0]), string, 0);
+	date_to_string(convert_JD_date(max[0], get_settings_datetime_type()), string, 0);
 	gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[0]), string);
 	sprintf(string, "%.0f", max[1]);
 	gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[1]), string);
@@ -597,9 +608,9 @@ void on_apply_filter(GtkWidget* widget, gpointer data) {
 	double min[5], max[5];
 	char *string;
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_min_feedback[0]));
-	min[0] = convert_date_JD(date_from_string(string))-0.9;	// rounding imprecision in filter entry field
+	min[0] = convert_date_JD(date_from_string(string, get_settings_datetime_type()))-0.9;	// rounding imprecision in filter entry field
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_max_feedback[0]));
-	max[0] = convert_date_JD(date_from_string(string))+0.9;	// rounding imprecision in filter entry field
+	max[0] = convert_date_JD(date_from_string(string, get_settings_datetime_type()))+0.9;	// rounding imprecision in filter entry field
 	for(int i = 1; i < 5; i++) {
 		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_min_feedback[i]));
 		min[i] = strtod(string, NULL)-0.01;	// rounding imprecision in filter entry field

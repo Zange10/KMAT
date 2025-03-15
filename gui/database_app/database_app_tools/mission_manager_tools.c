@@ -2,7 +2,8 @@
 #include "gui/css_loader.h"
 #include "mission_db_tools.h"
 #include "gui/database_app/mission_db.h"
-#include "ephem.h"
+#include "tools/ephem.h"
+#include "tools/datetime.h"
 
 #include <math.h>
 
@@ -433,9 +434,9 @@ void update_mman_event_box() {
 		int row = i*2+3;
 		struct Date date = {};
 		if(event_list[i].event_type != TIMESINCE_EVENT) {
-			date = convert_JD_date(events[i].epoch);
+			date = convert_JD_date(events[i].epoch, DATE_ISO);
 		} else {
-			date = get_date_difference_from_epochs(event_list[initial_event_id].event->epoch, event_list[i].event->epoch);
+			date = get_date_difference_from_epochs(event_list[initial_event_id].event->epoch, event_list[i].event->epoch, DATE_ISO);
 		}
 
 

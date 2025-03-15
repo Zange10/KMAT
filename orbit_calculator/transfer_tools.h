@@ -3,7 +3,7 @@
 
 #include "orbit.h"
 #include "tools/analytic_geometry.h"
-#include "ephem.h"
+#include "tools/ephem.h"
 
 // 2-dimensional transfer orbit with orbital elements
 struct Transfer2D {

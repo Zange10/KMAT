@@ -3,7 +3,7 @@
 
 #include "celestial_bodies.h"
 #include "tools/analytic_geometry.h"
-#include "ephem.h"
+#include "tools/ephem.h"
 
 struct Orbit {
     struct Body * body; // parent body

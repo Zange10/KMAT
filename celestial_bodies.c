@@ -435,6 +435,7 @@ void init_solar_system() {
 	solar_system->cb = SUN();
 	solar_system->calc_method = ORB_ELEMENTS;
 	solar_system->num_bodies = 9;
+	solar_system->ut0 = 2451545.0;
 
 	solar_system->bodies = (struct Body**)malloc(solar_system->num_bodies*sizeof(struct Body*));
 	solar_system->bodies[0] = MERCURY();
@@ -474,6 +475,7 @@ void init_stock_system() {
 	stock_system->cb = kerbol;
 	stock_system->calc_method = ORB_ELEMENTS;
 	stock_system->num_bodies = 4;
+	solar_system->ut0 = 0.0;
 
 	stock_system->bodies = (struct Body**)malloc(stock_system->num_bodies*sizeof(struct Body*));
 	stock_system->bodies[0] = eve;

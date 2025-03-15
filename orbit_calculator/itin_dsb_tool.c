@@ -3,6 +3,8 @@
 #include "double_swing_by.h"
 #include "transfer_tools.h"
 #include "itin_tool.h"
+#include "tools/datetime.h"
+
 #include <math.h>
 #include <stdlib.h>
 
@@ -340,7 +342,7 @@ void test_dsb() {
 				t[2] = viable_range[i].y;
 				tf_duration[1] = t[1] - t[0];
 				tf_duration[2] = t[2] - t[1];
-				print_date(convert_JD_date(jd_dep), 0);
+				print_date(convert_JD_date(jd_dep, DATE_ISO), 0);
 				printf("  t0: %f; t1: %f; t2: %f; %d / %f\n", t[0]-jd_dep, t[1]-t[0], t[2]-t[1], i, viable_range[0].x);
 
 				dsb_osv[1] = osv_from_ephem(body_ephems[bodies[2]->id], t[1], SUN());
@@ -634,10 +636,10 @@ void test_dsb() {
 		}
 	}
 
-	print_date(convert_JD_date(dep[minidx]), 0); printf("  |  ");
-	print_date(convert_JD_date(dep[minidx]+fb0[minidx]), 0); printf("  |  ");
-	print_date(convert_JD_date(dep[minidx]+fb0[minidx]+fb1[minidx]), 0); printf("  |  ");
-	print_date(convert_JD_date(dep[minidx]+fb0[minidx]+fb1[minidx]+fb2[minidx]), 0); printf("\n");
+	print_date(convert_JD_date(dep[minidx], DATE_ISO), 0); printf("  |  ");
+	print_date(convert_JD_date(dep[minidx]+fb0[minidx], DATE_ISO), 0); printf("  |  ");
+	print_date(convert_JD_date(dep[minidx]+fb0[minidx]+fb1[minidx], DATE_ISO), 0); printf("  |  ");
+	print_date(convert_JD_date(dep[minidx]+fb0[minidx]+fb1[minidx]+fb2[minidx], DATE_ISO), 0); printf("\n");
 
 	printf("%f  |  %f  |  %f\n", fb0[minidx], fb1[minidx], fb2[minidx]);
 	printf("%f\n", min);

@@ -4,7 +4,8 @@
 #include "gui/css_loader.h"
 #include "gui/database_app/database_app_tools/mission_db_tools.h"
 #include "gui/database_app/database_app_tools/mission_manager_tools.h"
-#include "ephem.h"
+#include "tools/ephem.h"
+#include "tools/datetime.h"
 
 
 GObject *mission_vp;
@@ -248,9 +249,9 @@ void update_db_box() {
 				row+=2; added_events++;
 				char date_string[25];
 				if(init_event == NULL || init_event->id == events[j].id)
-					date_to_string(convert_JD_date(events[j].epoch), date_string, 1);
+					date_to_string(convert_JD_date(events[j].epoch, DATE_ISO), date_string, 1);
 				else {
-					struct Date date = get_date_difference_from_epochs(init_event->epoch, events[j].epoch);
+					struct Date date = get_date_difference_from_epochs(init_event->epoch, events[j].epoch, DATE_ISO);
 					if(events[j].epoch < init_event->epoch)
 						sprintf(date_string, "T-% 4dd %02d:%02d:%02d", -date.d, -date.h, -date.min, (int) -date.s);
 					else
