@@ -249,7 +249,10 @@ struct Date get_date_difference_from_epochs(double jd0, double jd1, enum DateTyp
 	if(fmod(epoch_diff*(24*60*60), 1) > 0.9) epoch_diff += 1.0/(24*60*60*10);
 	if(fmod(epoch_diff*(24*60*60), 1) < -0.9) epoch_diff -= 1.0/(24*60*60*10);
 
+	if(date_type == DATE_KERBAL) epoch_diff *= 24.0/6.0;	// Kerbal day is 6 hours instead of 24 hours
 	date.d = (int) epoch_diff;
+	epoch_diff -= date.d;
+	if(date_type == DATE_KERBAL) epoch_diff *= 6.0/24.0;	// hours/mins/secs are not affected by shorter day
 	date.h = (int) (epoch_diff*24) % 24;
 	date.min = (int) (epoch_diff*24*60) % 60;
 	date.s = (int) (epoch_diff*(24*60*60)) % 60;
