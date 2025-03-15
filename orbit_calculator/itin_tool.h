@@ -73,7 +73,7 @@ int get_num_of_itin_layers(struct ItinStep *step);
 void update_itin_body_osvs(struct ItinStep *step, struct System *system);
 
 // calculate from velocity vectors for itinerary steps from date and r vector (departure first)
-void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step);
+void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *system);
 
 // copy the body reference, r and v vectors and date from orig_step to step_copy
 void copy_step_body_vectors_and_date(struct ItinStep *orig_step, struct ItinStep *step_copy);

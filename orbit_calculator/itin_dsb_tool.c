@@ -35,7 +35,7 @@ struct Vector2D * calc_viable_dsb_range(struct Vector2D *viable_range, struct OS
 			struct OSV osv0 = osv_from_ephem(body_ephems[bodies[1]->id], t1, SUN());
 			struct OSV osv1 = osv_from_ephem(body_ephems[bodies[2]->id], t2, SUN());
 			struct Transfer tf_after_dsb = calc_transfer(circfb, bodies[1], bodies[2], osv0.r,osv0.v,
-														 osv1.r, osv1.v, dt * 86400,
+														 osv1.r, osv1.v, dt * 86400, SUN(),
 														 NULL);
 
 			struct ItinStep itin_step = {
@@ -160,7 +160,7 @@ void test_dsb() {
 			struct OSV osv0 = osv_from_ephem(body_ephems[bodies[2]->id], t1, SUN());
 			struct OSV osv1 = osv_from_ephem(body_ephems[bodies[3]->id], t2, SUN());
 			struct Transfer tf_after_dsb = calc_transfer(circfb, bodies[2], bodies[3], osv0.r,osv0.v,
-														 osv1.r, osv1.v, dt * 86400,
+														 osv1.r, osv1.v, dt * 86400, SUN(),
 														 NULL);
 
 			struct ItinStep itin_step = {
@@ -208,7 +208,7 @@ void test_dsb() {
 		double data[3];
 		struct Transfer tf_launch = calc_transfer(circfb, EARTH(), VENUS(), osv_dep1.r, osv_dep1.v,
 												  dsb_arr1.r,
-												  dsb_arr1.v, min_duration[1] * 86400, data);
+												  dsb_arr1.v, min_duration[1] * 86400, SUN(), data);
 
 
 		double v_soi = vector_mag(subtract_vectors(tf_launch.v1, dsb_arr1.v)) + 1000;
@@ -239,7 +239,7 @@ void test_dsb() {
 				struct OSV osv0 = osv_from_ephem(body_ephems[bodies[2]->id], t1, SUN());
 				struct OSV osv1 = osv_from_ephem(body_ephems[bodies[3]->id], t2, SUN());
 				struct Transfer tf_after_dsb = calc_transfer(circfb, bodies[2], bodies[3], osv0.r, osv0.v,
-															 osv1.r, osv1.v, dt * 86400,
+															 osv1.r, osv1.v, dt * 86400, SUN(),
 															 NULL);
 
 				struct ItinStep itin_step = {
@@ -312,7 +312,7 @@ void test_dsb() {
 	};
 
 	struct Transfer tf_launch_base = calc_transfer(circfb, EARTH(), VENUS(), osv_dep_base.r, osv_dep_base.v,
-												   dsb_osv_base[0].r,dsb_osv_base[0].v, min_duration[1] * 86400, NULL);
+												   dsb_osv_base[0].r,dsb_osv_base[0].v, min_duration[1] * 86400, SUN(), NULL);
 
 	struct OSV osv0_sat_base = {tf_launch_base.r1, tf_launch_base.v1};
 
@@ -331,7 +331,7 @@ void test_dsb() {
 			};
 
 			struct Transfer tf_launch = calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v,
-													  dsb_osv[0].r,dsb_osv[0].v, tf_duration[0] * 86400, NULL);
+													  dsb_osv[0].r,dsb_osv[0].v, tf_duration[0] * 86400, SUN(), NULL);
 
 			printf("Viable range: %f\n", viable_range[0].x);
 
@@ -349,7 +349,7 @@ void test_dsb() {
 				double data[3];
 
 				struct Transfer tf_after_dsb = calc_transfer(circfb, bodies[2], bodies[3], dsb_osv[1].r,dsb_osv[1].v,
-															 dsb_osv[2].r, dsb_osv[2].v, tf_duration[2] * 86400,
+															 dsb_osv[2].r, dsb_osv[2].v, tf_duration[2] * 86400, SUN(),
 															 data);
 
 				struct OSV s0 = {tf_launch.r1, tf_launch.v1};

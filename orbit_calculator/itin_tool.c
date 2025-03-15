@@ -75,7 +75,7 @@ void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body 
 					osv_from_ephem(next_body->ephem, t1, SUN());
 
 			struct Transfer new_transfer = calc_transfer(circfb, tf->body, next_body, osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, dt,
-														 NULL);
+														 system->cb, NULL);
 
 			struct Vector v_dep = subtract_vectors(new_transfer.v0, tf->v_body);
 
@@ -167,7 +167,7 @@ void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct B
 			jd_arr = jd_sb2 + dt1;
 
 			struct OSV osv_arr = osv_from_ephem(ephems[1], jd_arr, SUN());
-			struct Transfer transfer_after_dsb = calc_transfer(circfb, body0, body1, osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
+			struct Transfer transfer_after_dsb = calc_transfer(circfb, body0, body1, osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, SUN(), NULL);
 
 			s1.r = transfer_after_dsb.r0;
 			s1.v = transfer_after_dsb.v0;
@@ -481,7 +481,7 @@ void update_itin_body_osvs(struct ItinStep *step, struct System *system) {
 	}
 }
 
-void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step) {
+void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *system) {
 	if(step == NULL) return;
 	struct ItinStep *next;
 	while(step->next != NULL) {
@@ -495,7 +495,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step) {
 				next = next->next[0];
 				double dt = (next->date - step->date) * 86400;
 				struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-														 next->v_body, dt, NULL);
+														 next->v_body, dt, system->cb, NULL);
 				next->v_dep = transfer.v0;
 				next->v_arr = transfer.v1;
 			} else {
@@ -505,7 +505,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step) {
 				struct OSV osv_arr = {next->next[0]->next[0]->r, next->next[0]->next[0]->v_body};
 				struct Transfer transfer_after_dsb = calc_transfer(circfb, sb2->body, arr->body, osv_sb2.r, osv_sb2.v,
 																   osv_arr.r, osv_arr.v,
-																   (arr->date - sb2->date) * 86400, NULL);
+																   (arr->date - sb2->date) * 86400, system->cb, NULL);
 
 				struct OSV s0 = {step->r, step->v_arr};
 				struct OSV p0 = {step->r, step->v_body};
@@ -523,7 +523,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step) {
 					next = next->next[0];
 					dt = (next->date - step->date) * 86400;
 					struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-															 next->v_body, dt, NULL);
+															 next->v_body, dt, system->cb, NULL);
 					next->v_dep = transfer.v0;
 					next->v_arr = transfer.v1;
 				}
@@ -531,7 +531,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step) {
 		} else {
 			double dt = (next->date - step->date) * 86400;
 			struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-													 next->v_body, dt, NULL);
+													 next->v_body, dt, system->cb, NULL);
 			next->v_dep = transfer.v0;
 			next->v_arr = transfer.v1;
 		}

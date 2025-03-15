@@ -28,6 +28,8 @@ GObject *tf_tc_preview;
 GObject *pb_tc_progress;
 struct PlannedStep *tc_step;
 
+struct System *tc_system;
+
 
 double max_totdv_tc, max_depdv_tc, max_satdv_tc;
 enum LastTransferType tc_last_transfer_type;
@@ -237,7 +239,7 @@ void on_add_transfer_tc() {
 		return;
 	}
 
-	new_step->body = get_body_from_id(body_id);
+	new_step->body = tc_system->bodies[body_id];
 
 
 	if(tc_step != NULL) {

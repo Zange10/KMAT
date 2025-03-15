@@ -485,6 +485,8 @@ void init_celestial_bodies() {
 	init_solar_system_ephem();
 	init_solar_system();
 	init_stock_system();
+//	curr_system = solar_system;
+//	curr_system = solar_system_ephem;
 	curr_system = stock_system;
 }
 

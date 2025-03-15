@@ -173,18 +173,19 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 		if(fabs(target_dt-dt) < 1) break;
     }
 
-    struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, 0, SUN()), theta1, theta2};
+    struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, 0, attractor), theta1, theta2};
     return transfer;
 }
 
-struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, double *data) {
+struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, struct Body *attractor, double *data) {
     double dtheta = angle_vec_vec(r1, r2);
     if (cross_product(r1, r2).z < 0) dtheta = 2 * M_PI - dtheta;
 
-    struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
+    struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, attractor);
 	struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
-
-    if(data != NULL) {
+	
+	
+	if(data != NULL) {
 		double dv1, dv2;
 		if(dep_body != NULL) {
 			double v_t1_inf = fabs(vector_mag(subtract_vectors(transfer.v0, v1)));
@@ -290,13 +291,13 @@ struct Transfer calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1,
 }
 
 
-int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body) {
+int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body, struct Body *attractor) {
 	double data[3];
 	struct Transfer transfer1 = calc_transfer(circcirc, body[0], body[1], osv[0].r, osv[0].v, osv[1].r,
-											  osv[1].v, (t[1] - t[0]) * (24 * 60 * 60), data);
+											  osv[1].v, (t[1] - t[0]) * (24 * 60 * 60), attractor, data);
 	double arr_v = data[2];
 	struct Transfer transfer2 = calc_transfer(circcirc, body[1], body[2], osv[1].r, osv[1].v, osv[2].r,
-											  osv[2].v, (t[2] - t[1]) * (24 * 60 * 60), data);
+											  osv[2].v, (t[2] - t[1]) * (24 * 60 * 60), attractor, data);
 	double dep_v = data[1];
 	if (fabs(arr_v - dep_v) > 10) return 0;
 
@@ -458,7 +459,7 @@ struct OSV propagate_orbit_theta(struct Orbit orbit, double dtheta, struct Body 
 	double arg_peri = orbit.arg_peri;
 	double i = orbit.inclination;
 	double mu = attractor->mu;
-
+	
 	double gamma = atan(e*sin(theta)/(1+e*cos(theta)));
 	double r_mag = a*(1-pow(e,2)) / (1+e*cos(theta));
 	double v_mag = sqrt(mu*(2/r_mag - 1/a));

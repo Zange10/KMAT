@@ -8,6 +8,7 @@
 void draw_orbit(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor) {
 	int steps = 100;
 	struct OSV last_osv = {r,v};
+	
 	for(int i = 1; i <= steps; i++) {
 		double theta = 2*M_PI/steps * i;
 		struct OSV osv = propagate_orbit_theta(constr_orbit_from_osv(r,v,attractor),theta,attractor);
@@ -66,13 +67,15 @@ void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct I
 		struct OSV osv2 = {tf->r, tf->v_body};
 		struct OSV osvs[3] = {osv0, osv1, osv2};
 		struct Body *bodies[3] = {prev->prev->body, prev->body, tf->body};
-		if(!is_flyby_viable(t, osvs, bodies)) cairo_set_source_rgb(cr, 1, 0, 0);
+		if(!is_flyby_viable(t, osvs, bodies, attractor)) cairo_set_source_rgb(cr, 1, 0, 0);
 	}
 
 	int steps = 1000;
 	struct Vector r = prev->r;
 	struct Vector v = tf->v_dep;
 	struct OSV last_osv = {r,v};
+	print_vector(scalar_multiply(r,1e-9));
+	print_vector(scalar_multiply(v,1e-3));
 	for(int i = 1; i <= steps; i++) {
 		double time = dt/steps * i;
 		struct OSV osv = propagate_orbit_time(constr_orbit_from_osv(r,v,attractor),time, attractor);
@@ -96,10 +99,9 @@ void draw_stroke(cairo_t *cr, struct Vector2D p1, struct Vector2D p2) {
 	cairo_stroke(cr);
 }
 
-double calc_scale(int area_width, int area_height, int highest_id) {
-	if(highest_id == 0) return 1e-9;
-	struct Body *body = get_body_from_id(highest_id);
-	double apoapsis = body->orbit.apoapsis;
+double calc_scale(int area_width, int area_height, struct Body *farthest_body) {
+	if(farthest_body == NULL) return 1e-9;
+	double apoapsis = farthest_body->orbit.apoapsis;
 	int wh = area_width < area_height ? area_width : area_height;
 	return 1/apoapsis*wh/2.2;	// divided by 2.2 because apoapsis is only one side and buffer
 }

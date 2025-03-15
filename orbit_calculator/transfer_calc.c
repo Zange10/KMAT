@@ -117,7 +117,7 @@ void *calc_spec_itin_from_departure(void *args) {
 			double data[3];
 
 			struct Transfer tf = calc_transfer(circfb, bodies[0], bodies[1], osv_body0.r, osv_body0.v,
-											   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, data);
+											   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, system->cb, data);
 
 
 			while(curr_step->prev != NULL) curr_step = curr_step->prev;
@@ -231,7 +231,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 				double data[3];
 
 				struct Transfer tf = calc_transfer(circfb, dep_body, next_step_body, osv_body0.r, osv_body0.v,
-												   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, data);
+												   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, system->cb, data);
 
 
 				if(data[1] > dv_filter->max_totdv || data[1] > dv_filter->max_depdv) continue;

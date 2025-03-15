@@ -66,9 +66,12 @@ void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	cairo_fill(cr);
 
 	// Scale
-	int highest_id = 0;
-	for(int i = 0; i < 9; i++) if(body_show_status_tp[i]) highest_id = i + 1;
-	double scale = calc_scale(area_width, area_height, highest_id);
+	struct Body *farthest_body = NULL;
+	double max_apoapsis = 0;
+	for(int i = 0; i < tp_system->num_bodies; i++) {
+		if(body_show_status_tp[i] && tp_system->bodies[i]->orbit.apoapsis > max_apoapsis) farthest_body = tp_system->bodies[i];
+	}
+	double scale = calc_scale(area_width, area_height, farthest_body);
 
 	// Sun
 	set_cairo_body_color(cr, 0);
@@ -144,7 +147,7 @@ double calc_periapsis_height_tp() {
 
 void update_itinerary() {
 	update_itin_body_osvs(get_first(curr_transfer_tp), tp_system);
-	calc_itin_v_vectors_from_dates_and_r(get_first(curr_transfer_tp));
+	calc_itin_v_vectors_from_dates_and_r(get_first(curr_transfer_tp), tp_system);
 	update();
 }
 
@@ -289,7 +292,8 @@ void on_transfer_body_select(GtkWidget* widget, gpointer data) {
 	if(id == 0) {
 		curr_transfer_tp->body = NULL;
 	} else {
-		struct Body *body = get_body_from_id(id);
+		struct Body *body = tp_system->bodies[id-1];
+		printf("%d %s\n", id, body->name);
 		curr_transfer_tp->body = body;
 	}
 	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel_tp), "page0");
@@ -298,7 +302,7 @@ void on_transfer_body_select(GtkWidget* widget, gpointer data) {
 
 void on_add_transfer(GtkWidget* widget, gpointer data) {
 	struct ItinStep *new_transfer = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-	new_transfer->body = EARTH();
+	new_transfer->body = tp_system->bodies[2];
 	new_transfer->prev = NULL;
 	new_transfer->next = NULL;
 	new_transfer->num_next_nodes = 0;

@@ -419,10 +419,12 @@ void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	cairo_fill(cr);
 
 	// Scale
-	int highest_id = 0;
-	update_body_show_staus();
-	for(int i = 0; i < 9; i++) if(body_show_status_pa[i]) highest_id = i + 1;
-	double scale = calc_scale(area_width, area_height, highest_id);
+	struct Body *farthest_body = NULL;
+	double max_apoapsis = 0;
+	for(int i = 0; i < pa_system->num_bodies; i++) {
+		if(body_show_status_pa[i] && pa_system->bodies[i]->orbit.apoapsis > max_apoapsis) farthest_body = pa_system->bodies[i];
+	}
+	double scale = calc_scale(area_width, area_height, farthest_body);
 
 	// Sun
 	set_cairo_body_color(cr, 0);

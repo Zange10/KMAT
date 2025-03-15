@@ -8,8 +8,8 @@ struct Orbit constr_orbit(double a, double e, double i, double raan, double arg_
     struct Orbit new_orbit;
     new_orbit.body = central_body;
     new_orbit.a = a;
-    new_orbit.e = e;
-    new_orbit.inclination = i;
+    new_orbit.e = e != 0 ? e : e+1e-12;				// avoid nan when converting to osv and back
+    new_orbit.inclination = i != 0 ? i : i+1e-12;	// avoid nan when converting to osv and back
     new_orbit.raan = raan;
     new_orbit.arg_peri = arg_of_peri;
     new_orbit.theta = theta;
@@ -59,9 +59,6 @@ struct Orbit constr_orbit_w_apsides(double apsis1, double apsis2, double inclina
 }
 
 struct Orbit constr_orbit_from_osv(struct Vector r, struct Vector v, struct Body *attractor) {
-	struct Orbit new_orbit;
-	new_orbit.body = attractor;
-
 	double r_mag = vector_mag(r);
 	double v_mag = vector_mag(v);
 	double v_r = dot_product(v,r) / r_mag;
@@ -76,10 +73,12 @@ struct Orbit constr_orbit_from_osv(struct Vector r, struct Vector v, struct Body
 	struct Vector n_vec = cross_product(k, h);
 	struct Vector n_norm = norm_vector(n_vec);
 	double RAAN, i, arg_peri;
+	
 	if(vector_mag(n_vec) != 0) {
 		RAAN = n_norm.y >= 0 ? acos(n_norm.x) : 2 * M_PI - acos(n_norm.x); // if n_norm.y is negative: raan > 180°
 		i = acos(dot_product(k, norm_vector(h)));
-		arg_peri = e.z >= 0 ? acos(dot_product(n_norm, e) / e_mag) : 2 * M_PI - acos(dot_product(n_norm, e) / e_mag);  // if r.z is positive: w > 180°
+		double dp = dot_product(n_norm, e) / e_mag; if(dp > 1) dp = 1;	// if inside cos greater than 1 -> nan
+		arg_peri = e.z >= 0 ? acos(dp) : 2 * M_PI - acos(dp);  // if r.z is positive: w > 180°
 	} else {
 		RAAN = 0;
 		i = dot_product(k, norm_vector(h)) > 0 ? 0 : M_PI;
@@ -99,15 +98,7 @@ struct Orbit constr_orbit_from_osv(struct Vector r, struct Vector v, struct Body
 		t = (e_mag * sinh(F) - F) / n;
 		if(v_r < 0) t *= -1;
 	}
-
-	new_orbit.a = a;
-	new_orbit.e = e_mag;
-	new_orbit.inclination = i;
-	new_orbit.raan = RAAN;
-	new_orbit.arg_peri = arg_peri;
-	new_orbit.t = t;
-	new_orbit.period = T;
-	new_orbit.theta = theta;
+	struct Orbit new_orbit = constr_orbit(a, e_mag, i, RAAN, arg_peri, theta, attractor);
 
 	return new_orbit;
 }
@@ -185,7 +176,7 @@ double calc_dt_from_dtheta(struct Orbit orbit, double dtheta) {
 		if(theta1 > M_PI) t1 = T-t1;
 
 		dt = t1-t0;
-		//printf("%f° %f° %f %f %f\n", rad2deg(theta0), rad2deg(theta1), t0/86400, t1/86400, dt/86400);
+		
 		while(floor(dtheta/(2*M_PI))   > dt/T) dt += T;
 		while(floor(dtheta/(2*M_PI))+1 < dt/T) dt -= T;
 	}
