@@ -14,7 +14,7 @@ void draw_stroke(cairo_t *cr, struct Vector2D p1, struct Vector2D p2);
 void draw_orbit(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor);
 void draw_body(cairo_t *cr, struct Vector2D center, double scale, struct Vector r);
 double calc_scale(int area_width, int area_height, struct Body *farthest_body);
-void set_cairo_body_color(cairo_t *cr, int id);
+void set_cairo_body_color(cairo_t *cr, struct Body *body);
 void draw_transfer_point(cairo_t *cr, struct Vector2D center, double scale, struct Vector r);
 void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf, struct Body *attractor);
 void draw_porkchop(cairo_t *cr, double width, double height, const double *porkchop, int fb0_pow1);

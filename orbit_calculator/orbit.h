@@ -23,6 +23,7 @@ struct Orbit {
 
 struct Body {
     char name[10];
+	double color[3];		// color used for orbit and body visualization
     int id;                 // ID issued by JPL's Horizon API
     double mu;              // gravitational parameter of body [m³/s²]
     double radius;          // radius of body [m]

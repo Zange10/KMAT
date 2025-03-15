@@ -427,15 +427,14 @@ void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	double scale = calc_scale(area_width, area_height, farthest_body);
 
 	// Sun
-	set_cairo_body_color(cr, 0);
+	set_cairo_body_color(cr, pa_system->cb);
 	draw_body(cr, center, 0, vec(0,0,0));
 	cairo_fill(cr);
 
 	// Planets
-	for(int i = 0; i < 9; i++) {
+	for(int i = 0; i < pa_system->num_bodies; i++) {
 		if(body_show_status_pa[i]) {
-			int id = i+1;
-			set_cairo_body_color(cr, id);
+			set_cairo_body_color(cr, pa_system->bodies[i]);
 			struct OSV osv = pa_system->calc_method == ORB_ELEMENTS ?
 					osv_from_elements(pa_system->bodies[i]->orbit, current_date_pa, pa_system->cb) :
 					osv_from_ephem(pa_system->bodies[i]->ephem, current_date_pa, pa_system->cb);
@@ -449,8 +448,7 @@ void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 		struct ItinStep *temp_transfer = get_first(curr_transfer_pa);
 		while(temp_transfer != NULL) {
 			if(temp_transfer->body != NULL) {
-				int id = temp_transfer->body->id;
-				set_cairo_body_color(cr, id);
+				set_cairo_body_color(cr, temp_transfer->body);
 			} else temp_transfer->v_body.x = 1;	// set to 1 to draw trajectory
 			draw_transfer_point(cr, center, scale, temp_transfer->r);
 			if(temp_transfer->prev != NULL) draw_trajectory(cr, center, scale, temp_transfer, pa_system->cb);

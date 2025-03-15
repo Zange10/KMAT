@@ -49,9 +49,16 @@ struct Body ** all_celest_bodies() {
     return all_celestial_bodies;
 }
 
+void set_body_color(struct Body *body, double red, double green, double blue) {
+	body->color[0] = red;
+	body->color[1] = green;
+	body->color[2] = blue;
+}
+
 void init_SUN() {
     sun = (struct Body*)malloc(sizeof(struct Body));
     strcpy(sun->name, "SUN");
+	set_body_color(sun, 1.0, 1.0, 0.3);
     sun->id = 10;
     sun->mu = 1327124.40042e14;
     sun->radius = 695700e3;
@@ -65,6 +72,7 @@ void init_SUN() {
 void init_MERCURY() {
     mercury = (struct Body*)malloc(sizeof(struct Body));
     strcpy(mercury->name, "MERCURY");
+	set_body_color(mercury, 0.3, 0.3, 0.3);
     mercury->id = 1;
     mercury->mu = 0.22032e14;
     mercury->radius = 2439.7e3;
@@ -90,6 +98,7 @@ void init_MERCURY() {
 void init_VENUS() {
     venus = (struct Body*)malloc(sizeof(struct Body));
     strcpy(venus->name, "VENUS");
+	set_body_color(venus, 0.6, 0.6, 0.2);
     venus->id = 2;
     venus->mu = 3.24859e14;
     venus->radius = 6049e3;
@@ -115,6 +124,7 @@ void init_VENUS() {
 void init_EARTH() {
     earth = (struct Body*)malloc(sizeof(struct Body));
     strcpy(earth->name, "EARTH");
+	set_body_color(earth, 0.2, 0.2, 1.0);
     earth->id = 3;
     earth->mu = 3.986004418e14;
     earth->radius = 6371e3;
@@ -140,6 +150,7 @@ void init_EARTH() {
 void init_MOON() {
     moon = (struct Body*)malloc(sizeof(struct Body));
     strcpy(moon->name, "MOON");
+	set_body_color(moon, 0.3, 0.3, 0.3);
     moon->id = 301;
     moon->mu = 0.049038958e14;
     moon->radius = 1737.1e3;
@@ -161,6 +172,7 @@ void init_MOON() {
 void init_MARS() {
     mars = (struct Body*)malloc(sizeof(struct Body));
     strcpy(mars->name, "MARS");
+	set_body_color(mars, 1.0, 0.2, 0.0);
     mars->id = 4;
     mars->mu = 0.4282831e14;
     mars->radius = 3375.8e3;
@@ -186,6 +198,7 @@ void init_MARS() {
 void init_JUPITER() {
     jupiter = (struct Body*)malloc(sizeof(struct Body));
     strcpy(jupiter->name, "JUPITER");
+	set_body_color(jupiter, 0.6, 0.4, 0.2);
     jupiter->id = 5;
     jupiter->mu = 1266.86534e14;
     jupiter->radius = 69373e3;
@@ -211,6 +224,7 @@ void init_JUPITER() {
 void init_SATURN() {
     saturn = (struct Body*)malloc(sizeof(struct Body));
     strcpy(saturn->name, "SATURN");
+	set_body_color(saturn, 0.8, 0.8, 0.6);
     saturn->id = 6;
     saturn->mu = 379.31187e14;
     saturn->radius = 57216e3;
@@ -236,6 +250,7 @@ void init_SATURN() {
 void init_URANUS() {
     uranus = (struct Body*)malloc(sizeof(struct Body));
     strcpy(uranus->name, "URANUS");
+	set_body_color(uranus, 0.2, 0.6, 1.0);
     uranus->id = 7;
     uranus->mu = 57.940e14;
     uranus->radius = 25362e3;
@@ -261,6 +276,7 @@ void init_URANUS() {
 void init_NEPTUNE() {
     neptune = (struct Body*)malloc(sizeof(struct Body));
     strcpy(neptune->name, "NEPTUNE");
+	set_body_color(neptune, 0.0, 0.0, 1.0);
     neptune->id = 8;
     neptune->mu = 68.351e14;
     neptune->radius = 24622e3;
@@ -286,6 +302,7 @@ void init_NEPTUNE() {
 void init_PLUTO() {
     pluto = (struct Body*)malloc(sizeof(struct Body));
     strcpy(pluto->name, "PLUTO");
+	set_body_color(pluto, 0.7, 0.7, 0.7);
     pluto->id = 9;
     pluto->mu = 0.00870e14;
     pluto->radius = 1188e3;
@@ -314,6 +331,7 @@ void init_PLUTO() {
 void init_KERBOL() {
     kerbol = (struct Body*)malloc(sizeof(struct Body));
     strcpy(kerbol->name, "KERBOL");
+	set_body_color(kerbol, 1.0, 1.0, 0.3);
     kerbol->mu = 11723.328e14;
     kerbol->radius = 261600e3;
     kerbol->rotation_period = 432000;
@@ -326,6 +344,7 @@ void init_KERBOL() {
 void init_EVE() {
 	eve = (struct Body*)malloc(sizeof(struct Body));
 	strcpy(eve->name, "EVE");
+	set_body_color(eve, 0.5, 0.0, 1.0);
 	eve->mu = 8.1717302e12;
 	eve->radius = 700e3;
 	eve->rotation_period = 80500.0;
@@ -346,6 +365,7 @@ void init_EVE() {
 void init_KERBIN() {
     kerbin = (struct Body*)malloc(sizeof(struct Body));
     strcpy(kerbin->name, "KERBIN");
+	set_body_color(kerbin, 0.2, 0.2, 1.0);
     kerbin->mu = 3.5316e12;
     kerbin->radius = 600e3;
     kerbin->rotation_period = 21549.452;
@@ -366,6 +386,7 @@ void init_KERBIN() {
 void init_DUNA() {
 	duna = (struct Body*)malloc(sizeof(struct Body));
 	strcpy(duna->name, "DUNA");
+	set_body_color(duna, 1.0, 0.2, 0.0);
 	duna->mu = 3.0136321e11;
 	duna->radius = 320e3;
 	duna->rotation_period = 65517.859;
@@ -386,6 +407,7 @@ void init_DUNA() {
 void init_JOOL() {
 	jool = (struct Body*)malloc(sizeof(struct Body));
 	strcpy(jool->name, "JOOL");
+	set_body_color(jool, 0.0, 0.4, 0.0);
 	jool->mu = 2.8252800e14;
 	jool->radius = 6000e3;
 	jool->rotation_period = 36000.0;

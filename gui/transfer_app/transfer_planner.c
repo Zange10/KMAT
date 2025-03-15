@@ -85,14 +85,14 @@ void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	double scale = calc_scale(area_width, area_height, farthest_body);
 
 	// Sun
-	set_cairo_body_color(cr, 0);
+	set_cairo_body_color(cr, tp_system->cb);
 	draw_body(cr, center, 0, vec(0,0,0));
 	cairo_fill(cr);
 
 	// Planets
 	for(int i = 0; i < tp_system->num_bodies; i++) {
 		if(body_show_status_tp[i]) {
-			set_cairo_body_color(cr, i+1);
+			set_cairo_body_color(cr, tp_system->bodies[i]);
 			struct OSV osv = tp_system->calc_method == ORB_ELEMENTS ?
 					osv_from_elements(tp_system->bodies[i]->orbit, current_date_tp, tp_system->cb) :
 					osv_from_ephem(tp_system->bodies[i]->ephem, current_date_tp, tp_system->cb);
@@ -106,8 +106,7 @@ void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 		struct ItinStep *temp_transfer = get_first(curr_transfer_tp);
 		while(temp_transfer != NULL) {
 			if(temp_transfer->body != NULL) {
-				int id = temp_transfer->body->id;
-				set_cairo_body_color(cr, id);
+				set_cairo_body_color(cr, temp_transfer->body);
 				draw_transfer_point(cr, center, scale, temp_transfer->r);
 				// skip not working or draw working double swing-by
 			} else if(temp_transfer->body == NULL && temp_transfer->v_body.x == 1)

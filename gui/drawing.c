@@ -105,20 +105,10 @@ double calc_scale(int area_width, int area_height, struct Body *farthest_body) {
 	return 1/apoapsis*wh/2.2;	// divided by 2.2 because apoapsis is only one side and buffer
 }
 
-void set_cairo_body_color(cairo_t *cr, int id) {
-	switch(id) {
-		case 0: cairo_set_source_rgb(cr, 1.0, 1.0, 0.3); break;	// Sun
-		case 1: cairo_set_source_rgb(cr, 0.3, 0.3, 0.3); break;	// Mercury
-		case 2: cairo_set_source_rgb(cr, 0.6, 0.6, 0.2); break;	// Venus
-		case 3: cairo_set_source_rgb(cr, 0.2, 0.2, 1.0); break;	// Earth
-		case 4: cairo_set_source_rgb(cr, 1.0, 0.2, 0.0); break;	// Mars
-		case 5: cairo_set_source_rgb(cr, 0.6, 0.4, 0.2); break;	// Jupiter
-		case 6: cairo_set_source_rgb(cr, 0.8, 0.8, 0.6); break;	// Saturn
-		case 7: cairo_set_source_rgb(cr, 0.2, 0.6, 1.0); break;	// Uranus
-		case 8: cairo_set_source_rgb(cr, 0.0, 0.0, 1.0); break;	// Neptune
-		case 9: cairo_set_source_rgb(cr, 0.7, 0.7, 0.7); break;	// Pluto
-		default:cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); break;
-	}
+void set_cairo_body_color(cairo_t *cr, struct Body *body) {
+	if(body != NULL) {
+		cairo_set_source_rgb(cr, body->color[0], body->color[1], body->color[2]);
+	} else cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
 }
 
 void draw_center_aligned_text(cairo_t *cr, double x, double y, char *text) {
