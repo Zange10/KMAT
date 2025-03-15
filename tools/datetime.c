@@ -6,17 +6,6 @@
 #define J2000_UT0 2451545.0		// 2000-01-01T12:00
 #define J2000_UT1950 2433282.5	// 1950-01-01T00:00
 
-int get_hours_per_day(enum DateType date_type) {
-	switch(date_type) {
-		case DATE_KERBAL: return 6;
-		default: return 24;
-	}
-}
-
-int get_seconds_per_day(enum DateType date_type) {
-	return get_hours_per_day(date_type)*60*60;
-}
-
 void print_date(struct Date date, int line_break) {
 	switch(date.date_type) {
 		case DATE_ISO:
@@ -147,6 +136,8 @@ struct Date convert_JD_date_iso(double JD) {
 struct Date convert_JD_date_kerbal(double JD, enum DateType date_type) {
 	struct Date date = {.y = 1, .d = 1, .date_type = date_type};
 
+	if(date_type == DATE_KERBAL) JD *= 24.0/6.0;	// Kerbal time has only 6 hours --> 4 times more days
+
 	date.y += (int)(JD / (date_type == DATE_KERBAL ? 426 : 365));
 
 	if(JD >= 0)	JD -= (date.y-1) * (date_type == DATE_KERBAL ? 426 : 365);	// negative 1 because starts with 1
@@ -158,20 +149,26 @@ struct Date convert_JD_date_kerbal(double JD, enum DateType date_type) {
 	date.d += (int)JD;
 	JD -= (int)JD;
 
-	date.h = (int) (JD * get_hours_per_day(date_type));
-	JD -= (double)date.h/get_hours_per_day(date_type);
-	date.min = floor(JD * get_hours_per_day(date_type) * 60);
-	JD -= (double)date.min/(get_hours_per_day(date_type) * 60);
-	date.s = JD* get_seconds_per_day(date_type);
+	if(date_type == DATE_KERBAL) JD *= 6.0/24.0;	// reverse above because has no impact on hours/mins/secs
+
+	date.h = (int) (JD * 24);
+	JD -= (double)date.h/24;
+	date.min = floor(JD * 24 * 60);
+	JD -= (double)date.min/(24 * 60);
+	date.s = JD*(24*60*60);
 	if(date.s > 59.999) {
 		date.s = 0;
 		date.min++;
 		if(date.min > 59.999) {
 			date.min = 0;
 			date.h++;
-			if(date.h >= get_hours_per_day(date_type)) {
-				date.h -= get_hours_per_day(date_type);
+			if(date.h >= (date_type == DATE_KERBAL ? 6 : 24)) {
 				date.d++;
+				date.h -= (date_type == DATE_KERBAL ? 6 : 24);
+				if(date.d > (date_type == DATE_KERBAL ? 426 : 365)) {
+					date.y++;
+					date.d -= (date_type == DATE_KERBAL ? 426 : 365);
+				}
 			}
 		}
 	}
@@ -210,9 +207,11 @@ double convert_date_JD_kerbal(struct Date date) {
 	double J = (date.y-1)*(date.date_type == DATE_KERBAL ? 426 : 365);
 	J += date.d-1;
 
-	J += (double)date.h/get_hours_per_day(date.date_type);
-	J += (double)date.min/(get_hours_per_day(date.date_type)*60);
-	J += date.s/get_seconds_per_day(date.date_type);
+	if(date.date_type == DATE_KERBAL) J = J/4;
+
+	J += (double)date.h/24;
+	J += (double)date.min/(24*60);
+	J += date.s/(24*60*60);
 	return J;
 }
 
@@ -247,13 +246,13 @@ struct Date get_date_difference_from_epochs(double jd0, double jd1, enum DateTyp
 	double epoch_diff = jd1 - jd0;
 	struct Date date = {0, 0};
 	// floating-point imprecision when converting to seconds 1 -> 0.999997
-	if(fmod(epoch_diff*get_seconds_per_day(date_type), 1) > 0.9) epoch_diff += 1.0/(get_seconds_per_day(date_type)*10);
-	if(fmod(epoch_diff*get_seconds_per_day(date_type), 1) < -0.9) epoch_diff -= 1.0/(get_seconds_per_day(date_type)*10);
+	if(fmod(epoch_diff*(24*60*60), 1) > 0.9) epoch_diff += 1.0/(24*60*60*10);
+	if(fmod(epoch_diff*(24*60*60), 1) < -0.9) epoch_diff -= 1.0/(24*60*60*10);
 
 	date.d = (int) epoch_diff;
-	date.h = (int) (epoch_diff*get_hours_per_day(date_type)) % get_hours_per_day(date_type);
-	date.min = (int) (epoch_diff*get_hours_per_day(date_type)*60) % 60;
-	date.s = (int) (epoch_diff*get_seconds_per_day(date_type)) % 60;
+	date.h = (int) (epoch_diff*24) % 24;
+	date.min = (int) (epoch_diff*24*60) % 60;
+	date.s = (int) (epoch_diff*(24*60*60)) % 60;
 	return date;
 }
 
