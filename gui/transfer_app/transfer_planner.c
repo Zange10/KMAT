@@ -23,6 +23,8 @@ GObject *da_tp;
 GObject *lb_tp_date;
 GObject *tb_tp_tfdate;
 GObject *bt_tp_tfbody;
+GObject *bt_tp_1m30dp;
+GObject *bt_tp_1m30dm;
 GObject *lb_tp_transfer_dv;
 GObject *lb_tp_total_dv;
 GObject *lb_tp_periapsis;
@@ -48,6 +50,8 @@ void init_transfer_planner(GtkBuilder *builder) {
 
 	tb_tp_tfdate = gtk_builder_get_object(builder, "tb_tp_tfdate");
 	bt_tp_tfbody = gtk_builder_get_object(builder, "bt_tp_change_tf_body");
+	bt_tp_1m30dp = gtk_builder_get_object(builder, "bt_tp_1m30dp");
+	bt_tp_1m30dm = gtk_builder_get_object(builder, "bt_tp_1m30dm");
 	lb_tp_transfer_dv = gtk_builder_get_object(builder, "lb_tp_transfer_dv");
 	lb_tp_total_dv = gtk_builder_get_object(builder, "lb_tp_total_dv");
 	lb_tp_periapsis = gtk_builder_get_object(builder, "lb_tp_periapsis");
@@ -68,6 +72,10 @@ void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_typ
 	change_label_date_type(lb_tp_date, old_date_type, new_date_type);
 	if(curr_transfer_tp != NULL) change_button_date_type(tb_tp_tfdate, old_date_type, new_date_type);
 	current_date_tp = convert_date_JD(change_date_type(convert_JD_date(current_date_tp, old_date_type), new_date_type));
+	gtk_button_set_label(GTK_BUTTON(bt_tp_1m30dp), new_date_type == DATE_ISO ? "+1M" : "+30D");
+	gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30dp), new_date_type == DATE_ISO ? "+1M" : "+30D");
+	gtk_button_set_label(GTK_BUTTON(bt_tp_1m30dm), new_date_type == DATE_ISO ? "-1M" : "-30D");
+	gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30dm), new_date_type == DATE_ISO ? "-1M" : "-30D");
 	update();
 }
 
@@ -191,7 +199,6 @@ void update() {
 
 void update_date_label() {
 	char date_string[10];
-	printf("%f\n", current_date_tp);
 	date_to_string(convert_JD_date(current_date_tp, get_settings_datetime_type()), date_string, 0);
 	gtk_label_set_text(GTK_LABEL(lb_tp_date), date_string);
 }
@@ -266,12 +273,12 @@ void tp_update_tfbody_buttons() {
 	grid_tp_tfbody = gtk_grid_new();
 	gtk_grid_set_column_homogeneous(GTK_GRID(grid_tp_tfbody), 1);
 
-	int num_cols = 3;
+	int num_cols = 1;
 
 	// Create labels and buttons and add them to the grid
 	for (int body_idx = 0; body_idx < tp_system->num_bodies; body_idx++) {
 		int row = body_idx/num_cols;
-		int col = body_idx-row*3;
+		int col = body_idx-row*num_cols;
 		GtkWidget *widget;
 		// Create a show body check button
 		widget = gtk_button_new_with_label(tp_system->bodies[body_idx]->name);
@@ -303,12 +310,16 @@ void on_body_toggle(GtkWidget* widget, gpointer data) {
 
 void on_change_date(GtkWidget* widget, gpointer data) {
 	const char *name = gtk_widget_get_name(widget);
-	if		(strcmp(name, "+1Y") == 0) current_date_tp = jd_change_date(current_date_tp, 1, 0, 0, get_settings_datetime_type());
-	else if	(strcmp(name, "+1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 1, 0, get_settings_datetime_type());
-	else if	(strcmp(name, "+1D") == 0) current_date_tp++;
-	else if	(strcmp(name, "-1Y") == 0) current_date_tp = jd_change_date(current_date_tp, -1, 0, 0, get_settings_datetime_type());
-	else if	(strcmp(name, "-1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, -1, 0, get_settings_datetime_type());
-	else if	(strcmp(name, "-1D") == 0) current_date_tp--;
+	if		(strcmp(name, "+10Y") == 0) current_date_tp = jd_change_date(current_date_tp, 10, 0, 0, get_settings_datetime_type());
+	else if	(strcmp(name,  "+1Y") == 0) current_date_tp = jd_change_date(current_date_tp, 1, 0, 0, get_settings_datetime_type());
+	else if	(strcmp(name,  "+1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 1, 0, get_settings_datetime_type());
+	else if	(strcmp(name,  "+30D") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, 30, get_settings_datetime_type());
+	else if	(strcmp(name,  "+1D") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, 1, get_settings_datetime_type());
+	else if	(strcmp(name, "-10Y") == 0) current_date_tp = jd_change_date(current_date_tp, -10, 0, 0, get_settings_datetime_type());
+	else if	(strcmp(name,  "-1Y") == 0) current_date_tp = jd_change_date(current_date_tp, -1, 0, 0, get_settings_datetime_type());
+	else if	(strcmp(name,  "-1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, -1, 0, get_settings_datetime_type());
+	else if	(strcmp(name, "-30D") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -30, get_settings_datetime_type());
+	else if	(strcmp(name,  "-1D") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -1, get_settings_datetime_type());
 
 	if(curr_transfer_tp != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate))) {
 		if(curr_transfer_tp->prev != NULL && current_date_tp <= curr_transfer_tp->prev->date) {
@@ -321,16 +332,6 @@ void on_change_date(GtkWidget* widget, gpointer data) {
 
 	update_itinerary();
 }
-
-
-void on_year_select(GtkWidget* widget, gpointer data) {
-	const char *name = gtk_widget_get_name(widget);
-	int year = atoi(name);
-	struct Date date = {year, 1,1};
-	current_date_tp = convert_date_JD(date);
-	update_itinerary();
-}
-
 
 
 void on_prev_transfer(GtkWidget* widget, gpointer data) {
@@ -390,7 +391,7 @@ void on_transfer_body_select(GtkWidget* widget, gpointer data) {
 
 void on_add_transfer(GtkWidget* widget, gpointer data) {
 	struct ItinStep *new_transfer = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-	new_transfer->body = tp_system->bodies[2];
+	new_transfer->body = tp_system->bodies[0];
 	new_transfer->prev = NULL;
 	new_transfer->next = NULL;
 	new_transfer->num_next_nodes = 0;

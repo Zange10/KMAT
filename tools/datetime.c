@@ -45,9 +45,9 @@ int is_string_valid_date_format(const char *s, enum DateType date_type) {
 
 void date_to_string(struct Date date, char *s, int clocktime) {
 	if(date.date_type == DATE_ISO)
-		sprintf(s, "%4d-%02d-%02d", date.y, date.m, date.d);
+		sprintf(s, "%d-%02d-%02d", date.y, date.m, date.d);
 	else
-		sprintf(s, "%4d-%03d", date.y, date.d);
+		sprintf(s, "%d-%03d", date.y, date.d);
 	if(clocktime) sprintf(s,"%s %02d:%02d:%02.0f", s, date.h, date.min, date.s);
 }
 
@@ -221,7 +221,7 @@ double convert_date_JD(struct Date date) {
 }
 
 double jd_change_date(double jd, int delta_years, int delta_months, double delta_days, enum DateType date_type) {
-	jd += delta_days;
+	jd += delta_days * (date_type != DATE_KERBAL ? 1.0 : 0.25);	// kerbal days are 4 time shorter (6h instead of 24h)
 	struct Date date = convert_JD_date(jd, date_type);
 
 	// Kerbal and ISO-like Kerbal have no months
