@@ -299,7 +299,6 @@ int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body, struct
 	struct Transfer transfer2 = calc_transfer(circcirc, body[1], body[2], osv[1].r, osv[1].v, osv[2].r,
 											  osv[2].v, (t[2] - t[1]) * (24 * 60 * 60), attractor, data);
 	double dep_v = data[1];
-	printf("%f  %f\n", arr_v, dep_v);
 	if (fabs(arr_v - dep_v) > 10) return 0;
 
 

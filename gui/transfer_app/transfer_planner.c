@@ -27,12 +27,15 @@ GObject *lb_tp_periapsis;
 GObject *transfer_panel_tp;
 GObject *vp_tp_bodies;
 GtkWidget *grid_tp_bodies;
+GObject *vp_tp_tfbody;
+GtkWidget *grid_tp_tfbody;
+
 gboolean *body_show_status_tp;
 double current_date_tp;
 
 enum LastTransferType tp_last_transfer_type;
 
-void update_body_list();
+void tp_update_bodies();
 
 void init_transfer_planner(GtkBuilder *builder) {
 	struct Date date = {1977, 8, 20, 0, 0, 0};
@@ -50,13 +53,14 @@ void init_transfer_planner(GtkBuilder *builder) {
 	lb_tp_date = gtk_builder_get_object(builder, "lb_tp_date");
 	da_tp = gtk_builder_get_object(builder, "da_tp");
 	vp_tp_bodies = gtk_builder_get_object(builder, "vp_tp_bodies");
+	vp_tp_tfbody = gtk_builder_get_object(builder, "vp_tp_tfbody");
 
 	update_date_label();
 	update_transfer_panel();
 
 	tp_system = get_current_system();
 
-	update_body_list();
+	tp_update_bodies();
 }
 
 
@@ -209,13 +213,7 @@ void update_transfer_panel() {
 
 }
 
-void update_body_list() {
-	if(body_show_status_tp != NULL) free(body_show_status_tp);
-	body_show_status_tp = (gboolean*) malloc(tp_system->num_bodies*sizeof(gboolean));
-	for(int i = 0; i < tp_system->num_bodies; i++) body_show_status_tp[i] = 0;
-
-	int num_cols = 1;
-
+void tp_update_show_body_list() {
 	// Remove grid if exists
 	if (grid_tp_bodies != NULL && GTK_WIDGET(vp_tp_bodies) == gtk_widget_get_parent(grid_tp_bodies)) {
 		gtk_container_remove(GTK_CONTAINER(vp_tp_bodies), grid_tp_bodies);
@@ -240,7 +238,6 @@ void update_body_list() {
 		GtkWidget *widget;
 		// Create a show body check button
 		widget = gtk_check_button_new_with_label(tp_system->bodies[body_idx]->name);
-		gtk_widget_set_halign(widget, GTK_ALIGN_CENTER);
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), 0);
 		g_signal_connect(widget, "clicked", G_CALLBACK(on_body_toggle), &(body_show_status_tp[body_idx]));
 		gtk_widget_set_halign(widget, GTK_ALIGN_START);
@@ -250,6 +247,42 @@ void update_body_list() {
 	}
 	gtk_container_add (GTK_CONTAINER (vp_tp_bodies), grid_tp_bodies);
 	gtk_widget_show_all(GTK_WIDGET(vp_tp_bodies));
+}
+
+void tp_update_tfbody_buttons() {
+	// Remove grid if exists
+	if (grid_tp_tfbody != NULL && GTK_WIDGET(vp_tp_tfbody) == gtk_widget_get_parent(grid_tp_tfbody)) {
+		gtk_container_remove(GTK_CONTAINER(vp_tp_tfbody), grid_tp_tfbody);
+	}
+
+	grid_tp_tfbody = gtk_grid_new();
+	gtk_grid_set_column_homogeneous(GTK_GRID(grid_tp_tfbody), 1);
+
+	int num_cols = 3;
+
+	// Create labels and buttons and add them to the grid
+	for (int body_idx = 0; body_idx < tp_system->num_bodies; body_idx++) {
+		int row = body_idx/num_cols;
+		int col = body_idx-row*3;
+		GtkWidget *widget;
+		// Create a show body check button
+		widget = gtk_button_new_with_label(tp_system->bodies[body_idx]->name);
+		g_signal_connect(widget, "clicked", G_CALLBACK(on_transfer_body_select), tp_system->bodies[body_idx]);
+		gtk_widget_set_halign(widget, GTK_ALIGN_FILL);
+
+		// Set the label in the grid at the specified row and column
+		gtk_grid_attach(GTK_GRID(grid_tp_tfbody), widget, col, row, 1, 1);
+	}
+	gtk_container_add (GTK_CONTAINER (vp_tp_tfbody), grid_tp_tfbody);
+	gtk_widget_show_all(GTK_WIDGET(vp_tp_tfbody));
+}
+
+void tp_update_bodies() {
+	if(body_show_status_tp != NULL) free(body_show_status_tp);
+	body_show_status_tp = (gboolean*) malloc(tp_system->num_bodies*sizeof(gboolean));
+	for(int i = 0; i < tp_system->num_bodies; i++) body_show_status_tp[i] = 0;
+	tp_update_show_body_list();
+	tp_update_tfbody_buttons();
 }
 
 
@@ -324,7 +357,12 @@ void on_last_transfer_type_changed_tp(GtkWidget* widget, gpointer data) {
 }
 
 void on_toggle_transfer_date_lock(GtkWidget* widget, gpointer data) {
-	if(curr_transfer_tp->body == NULL) gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
+	if(curr_transfer_tp == NULL) {
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
+		return;
+	}
+	if(curr_transfer_tp->body == NULL)
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
 	if(curr_transfer_tp != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate)))
 		current_date_tp = curr_transfer_tp->date;
 	update_itinerary();
@@ -337,13 +375,7 @@ void on_goto_transfer_date(GtkWidget* widget, gpointer data) {
 }
 
 void on_transfer_body_select(GtkWidget* widget, gpointer data) {
-	int id = (int) gtk_widget_get_name(widget)[0] - 48;	// char to int
-	if(id == 0) {
-		curr_transfer_tp->body = NULL;
-	} else {
-		struct Body *body = tp_system->bodies[id-1];
-		curr_transfer_tp->body = body;
-	}
+	curr_transfer_tp->body = data;
 	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel_tp), "page0");
 	update_itinerary();
 }
