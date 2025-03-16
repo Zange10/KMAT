@@ -16,8 +16,8 @@ add_definitions(${GTK3_CFLAGS_OTHER})
 add_executable(KSP
         celestial_bodies.c
         celestial_bodies.h
-        tools/csv_writer.c
-        tools/csv_writer.h
+        tools/file_io.c
+        tools/file_io.h
         launch_calculator/launch_calculator.c
         launch_calculator/launch_calculator.h
         launch_calculator/lv_profile.c

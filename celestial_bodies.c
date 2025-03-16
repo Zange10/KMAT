@@ -66,6 +66,7 @@ void init_SUN() {
     sun->sl_atmo_p = 0;
     sun->scale_height = 0;
     sun->atmo_alt = 0;
+	sun->orbit.body = NULL;
     // sun's orbit not declared as it should not be used and can't give any meaningful information
 }
 
@@ -338,6 +339,7 @@ void init_KERBOL() {
     kerbol->sl_atmo_p = 0;          // has atmosphere but not really interesting for this calculator
     kerbol->scale_height = 0;
     kerbol->atmo_alt = 0;
+	kerbol->orbit.body = NULL;
     // kerbol's orbit not declared as it should not be used and can't give any meaningful information
 }
 
@@ -349,7 +351,7 @@ void init_EVE() {
 	eve->radius = 700e3;
 	eve->rotation_period = 80500.0;
 	eve->sl_atmo_p = 506625;
-	eve->scale_height = 7000;
+	eve->scale_height = 9000;
 	eve->atmo_alt = 90e3;
 	eve->orbit = constr_orbit(
 			/*  a  */ 9.832684544e9,
@@ -391,7 +393,7 @@ void init_DUNA() {
 	duna->radius = 320e3;
 	duna->rotation_period = 65517.859;
 	duna->sl_atmo_p = 6755;
-	duna->scale_height = 5600;
+	duna->scale_height = 7500;
 	duna->atmo_alt = 50e3;
 	duna->orbit = constr_orbit(
 			/*  a  */ 20.726155264e9,
@@ -412,7 +414,7 @@ void init_JOOL() {
 	jool->radius = 6000e3;
 	jool->rotation_period = 36000.0;
 	jool->sl_atmo_p = 1519880;
-	jool->scale_height = 22000;
+	jool->scale_height = 12000;
 	jool->atmo_alt = 200e3;
 	jool->orbit = constr_orbit(
 			/*  a  */ 68.773560320e9,
@@ -456,6 +458,7 @@ void init_solar_system_ephem() {
 	solar_system_ephem->cb = SUN();
 	solar_system_ephem->calc_method = EPHEMS;
 	solar_system_ephem->num_bodies = 9;
+	solar_system_ephem->ut0 = 2451545.0;
 
 	solar_system_ephem->bodies = (struct Body**)malloc(solar_system_ephem->num_bodies * sizeof(struct Body*));
 	solar_system_ephem->bodies[0] = MERCURY();
@@ -509,9 +512,9 @@ void init_celestial_bodies() {
 	init_solar_system_ephem();
 	init_solar_system();
 	init_stock_system();
-//	curr_system = solar_system;
+	curr_system = solar_system;
 //	curr_system = solar_system_ephem;
-	curr_system = stock_system;
+//	curr_system = stock_system;
 }
 
 
@@ -524,6 +527,13 @@ struct Body * get_body_from_id(int id) {
 		i++;
 	}
 	return NULL;
+}
+
+int get_body_system_id(struct Body *body, struct System *system) {
+	for(int i = 0; i < system->num_bodies; i++) {
+		if(system->bodies[i] == body) return i;
+	}
+	return -1;
 }
 
 
@@ -574,6 +584,10 @@ struct Body * NEPTUNE() {
 
 struct Body * PLUTO() {
     return pluto;
+}
+
+struct System * SOLAR_SYSTEM_EPHEM() {
+	return solar_system_ephem;
 }
 
 

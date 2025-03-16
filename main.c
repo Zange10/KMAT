@@ -13,6 +13,7 @@ void test();
 int main() {
     init_celestial_bodies();
 	init_db();
+//	test();
 	start_gui();
 
 //    int selection;
@@ -47,5 +48,5 @@ int main() {
 
 
 void test() {
-
+//	store_system_in_config_file(get_current_system());
 }

@@ -3,6 +3,7 @@
 #include "gui/gui_manager.h"
 #include "gui/settings.h"
 #include "gui/prog_win_manager.h"
+#include "tools/file_io.h"
 
 
 GObject *cb_ic_depbody;
@@ -76,7 +77,7 @@ void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nod
 		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
 		filepath = gtk_file_chooser_get_filename(chooser);
 
-		store_itineraries_in_bfile(departures, num_nodes, num_deps, filepath, 1);
+		store_itineraries_in_bfile(departures, num_nodes, num_deps, ic_system, filepath, 2);
 		g_free(filepath);
 	}
 

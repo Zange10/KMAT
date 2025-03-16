@@ -5,6 +5,7 @@
 #include "gui/gui_manager.h"
 #include "gui/css_loader.h"
 #include "gui/settings.h"
+#include "tools/file_io.h"
 
 #include <string.h>
 #include <locale.h>
@@ -24,7 +25,7 @@ struct Group *pa_groups;
 
 struct System *pa_system;
 
-gboolean body_show_status_pa[9];
+gboolean *body_show_status_pa;
 GObject *tf_pa_min_feedback[5];
 GObject *tf_pa_max_feedback[5];
 GObject *lb_pa_tfdate;
@@ -36,6 +37,7 @@ GObject *st_pa_step_group_selector;
 GObject *vp_pa_groups;
 GtkWidget *grid_pa_groups;
 
+void update_pa();
 
 
 void init_porkchop_analyzer(GtkBuilder *builder) {
@@ -67,8 +69,8 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 	lb_pa_periapsis = gtk_builder_get_object(builder, "lb_pa_periapsis");
 	st_pa_step_group_selector = gtk_builder_get_object(builder, "st_pa_step_group_selector");
 	vp_pa_groups = gtk_builder_get_object(builder, "vp_pa_groups");
-	for(int i = 0; i < 9; i++) body_show_status_pa[i] = 0;
 	pa_system = get_current_system();
+	body_show_status_pa = (int*) calloc(sizeof(int), pa_system->num_bodies);
 }
 
 void pa_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
@@ -77,6 +79,7 @@ void pa_change_date_type(enum DateType old_date_type, enum DateType new_date_typ
 	if(curr_transfer_pa != NULL) change_label_date_type(lb_pa_tfdate, old_date_type, new_date_type);
 	else if(new_date_type == DATE_ISO) gtk_label_set_text(GTK_LABEL(lb_pa_tfdate), "0000-00-00");
 	else gtk_label_set_text(GTK_LABEL(lb_pa_tfdate), "0000-000");
+	update_pa();
 }
 
 double calc_step_dv_pa(struct ItinStep *step) {
@@ -136,12 +139,12 @@ void free_all_porkchop_analyzer_itins() {
 	pa_groups = NULL;
 }
 
-void update_body_show_staus() {
+void pa_update_body_show_status() {
 	struct ItinStep *step = get_last(curr_transfer_pa);
-	for(int i = 0; i < 9; i++) body_show_status_pa[i] = 0;
+	for(int i = 0; i < pa_system->num_bodies; i++) body_show_status_pa[i] = 0;
 	if(step == NULL) return;
 	while(step != NULL) {
-		if(step->body != NULL) body_show_status_pa[step->body->id-1] = 1;
+		if(step->body != NULL) body_show_status_pa[get_body_system_id(step->body,pa_system)] = 1;
 		step = step->prev;
 	}
 }
@@ -150,7 +153,8 @@ void update_porkchop_drawing_area() {
 	gtk_widget_queue_draw(GTK_WIDGET(da_pa_porkchop));
 }
 
-void update_preview() {
+void pa_update_preview() {
+	pa_update_body_show_status();
 	gtk_widget_queue_draw(GTK_WIDGET(da_pa_preview));
 
 	if(curr_transfer_pa == NULL) {
@@ -525,7 +529,12 @@ void on_load_itineraries(GtkWidget* widget, gpointer data) {
 
 		free_all_porkchop_analyzer_itins();
 		pa_num_deps = get_num_of_deps_of_itinerary_from_bfile(filepath);
-		pa_departures = load_itineraries_from_bfile(filepath);
+		struct ItinsLoadFileResults load_results = load_itineraries_from_bfile(filepath);
+		pa_num_deps = load_results.num_deps;
+		pa_departures = load_results.departures;
+		pa_system = load_results.system;
+		if(body_show_status_pa != NULL) free(body_show_status_pa);
+		body_show_status_pa = (int*) calloc(sizeof(int), pa_system->num_bodies);
 		analyze_departure_itins();
 		g_free(filepath);
 	}
@@ -534,7 +543,7 @@ void on_load_itineraries(GtkWidget* widget, gpointer data) {
 	gtk_widget_destroy(dialog);
 
 	update_porkchop_drawing_area();
-	update_preview();
+	pa_update_preview();
 }
 
 void on_save_best_itinerary(GtkWidget* widget, gpointer data) {
@@ -568,7 +577,7 @@ void on_save_best_itinerary(GtkWidget* widget, gpointer data) {
 		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
 		filepath = gtk_file_chooser_get_filename(chooser);
 
-		store_single_itinerary_in_bfile(first, filepath);
+		store_single_itinerary_in_bfile(first, pa_system, filepath);
 		g_free(filepath);
 	}
 
@@ -593,14 +602,14 @@ void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointer data) {
 	}
 	update_best_itin(pa_num_itins, fb0_pow1);
 	update_porkchop_drawing_area();
-	update_preview();
+	pa_update_preview();
 }
 
 void update_pa() {
 	int fb0_pow1 = pa_last_transfer_type == TF_FLYBY ? 0 : 1;
 	update_best_itin(pa_num_itins, fb0_pow1);
 	update_porkchop_drawing_area();
-	update_preview();
+	pa_update_preview();
 	update_group_overview();
 }
 
@@ -663,14 +672,14 @@ void on_prev_transfer_pa(GtkWidget* widget, gpointer data) {
 	if(curr_transfer_pa == NULL) return;
 	if(curr_transfer_pa->prev != NULL) curr_transfer_pa = curr_transfer_pa->prev;
 	current_date_pa = curr_transfer_pa->date;
-	update_preview();
+	pa_update_preview();
 }
 
 void on_next_transfer_pa(GtkWidget* widget, gpointer data) {
 	if(curr_transfer_pa == NULL) return;
 	if(curr_transfer_pa->next != NULL) curr_transfer_pa = curr_transfer_pa->next[0];
 	current_date_pa = curr_transfer_pa->date;
-	update_preview();
+	pa_update_preview();
 }
 
 void on_switch_steps_groups(GtkWidget* widget, gpointer data) {

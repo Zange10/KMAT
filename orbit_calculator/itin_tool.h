@@ -90,21 +90,6 @@ int is_valid_itinerary(struct ItinStep *step);
 // store itineraries in text file from multiple departures (pre-order storing)
 void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int num_deps);
 
-// store itineraries in binary file from multiple departures (pre-order storing)
-void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, char *filepath, int file_type);
-
-// load itineraries from binary file for multiple departures (from pre-order storing)
-struct ItinStep ** load_itineraries_from_bfile(char *filepath);
-
-// returns the number of departures stored in the binary file
-int get_num_of_deps_of_itinerary_from_bfile(char *filepath);
-
-// stores single itinerary (first branches in tree) (departure first)
-void store_single_itinerary_in_bfile(struct ItinStep *itin, char *filepath);
-
-// loads single itinerary (first branches in tree) (departure first)
-struct ItinStep * load_single_itinerary_from_bfile(char *filepath);
-
 // removes this and all now unneeded steps from itineraries (no next node before arrival)
 void remove_step_from_itinerary(struct ItinStep *step);
 
