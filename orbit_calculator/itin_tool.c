@@ -646,6 +646,132 @@ void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int 
 
 
 
+void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct ItinStep *step) {
+	if(step == NULL) {sprintf(s_labels,""); return;}
+	if(step == NULL) {sprintf(s_values,""); return;}
+	struct DepArrHyperbolaParams dep_hyp_params;
+
+	// is departure step
+	if(step->prev == NULL) {
+		dep_hyp_params = get_dep_hyperbola_params(step->next[0]->v_dep, step->v_body, step->body,
+												  100e3 + step->body->atmo_alt);
+		sprintf(s_labels, "Departure\n"
+						  "T+:\n"
+						  "RadPer:\n"
+						  "Min Incl:\n\n"
+						  "C3Energy:\n"
+						  "RHA (out):\n"
+						  "DHA (out):");
+
+		sprintf(s_values, "\n0 days\n"
+						  "%.0f km\n"
+						  "%.2f°\n\n"
+						  "%.2f km²/s²\n"
+						  "%.2f°\n"
+						  "%.2f°",
+				dep_hyp_params.r_pe / 1000, rad2deg(dep_hyp_params.decl), dep_hyp_params.c3_energy / 1e6,
+				rad2deg(dep_hyp_params.bplane_angle), rad2deg(dep_hyp_params.decl));
+
+	} else if(step->num_next_nodes == 0) {
+		double rp = 100000e3;
+		double dt_in_days = step->date - get_first(step)->date;
+		struct DepArrHyperbolaParams arr_hyp_params = get_dep_hyperbola_params(step->v_arr, step->v_body, step->body, rp - step->body->radius);
+		arr_hyp_params.decl *= -1;
+		arr_hyp_params.bplane_angle = pi_norm(M_PI + arr_hyp_params.bplane_angle);
+		sprintf(s_labels, "Arrival\n"
+						  "T+:\n"
+						  "Min Incl:\n"
+						  "Max Incl:\n\n"
+						  "C3Energy:\n"
+						  "RHA (in):\n"
+						  "DHA (in):");
+
+		sprintf(s_values, "\n%.2f days\n"
+						  "%.2f°\n"
+						  "%.2f°\n\n"
+						  "%.2f km²/s²\n"
+						  "%.2f°\n"
+						  "%.2f°",
+				dt_in_days, rad2deg(arr_hyp_params.decl), rad2deg(M_PI-arr_hyp_params.decl), arr_hyp_params.c3_energy / 1e6,
+				rad2deg(arr_hyp_params.bplane_angle), rad2deg(arr_hyp_params.decl));
+
+	} else {
+		if(step->body != NULL) {
+			struct Vector v_arr = step->v_arr;
+			struct Vector v_dep = step->next[0]->v_dep;
+			struct Vector v_body = step->v_body;
+			double rp = get_flyby_periapsis(v_arr, v_dep, v_body, step->body);
+			double incl = get_flyby_inclination(v_arr, v_dep, v_body);
+
+			struct FlybyHyperbolaParams hyp_params = get_hyperbola_params(step->v_arr, step->next[0]->v_dep,
+																		  step->v_body, step->body,
+																		  rp - step->body->radius);
+			double dt_in_days = step->date - get_first(step)->date;
+
+			sprintf(s_labels, "Hyperbola\n"
+							  "T+:\n"
+							  "RadPer:\n"
+							  "Inclination:\n\n"
+							  "C3Energy:\n"
+							  "RHA (in):\n"
+							  "DHA (in):\n"
+							  "BVAZI (in):\n"
+							  "RHA (out):\n"
+							  "DHA (out):\n"
+							  "BVAZI (out):");
+
+			sprintf(s_values, "\n%.2f days\n"
+							  "%.0f km\n"
+							  "%.2f°\n\n"
+							  "%.2f km²/s²\n"
+							  "%.2f°\n"
+							  "%.2f°\n"
+							  "%.2f°\n"
+							  "%.2f°\n"
+							  "%.2f°\n"
+							  "%.2f°",
+					dt_in_days, hyp_params.dep_hyp.r_pe / 1000, rad2deg(incl),
+					hyp_params.dep_hyp.c3_energy / 1e6,
+					rad2deg(hyp_params.arr_hyp.bplane_angle), rad2deg(hyp_params.arr_hyp.decl),
+					rad2deg(hyp_params.arr_hyp.bvazi),
+					rad2deg(hyp_params.dep_hyp.bplane_angle), rad2deg(hyp_params.dep_hyp.decl),
+					rad2deg(hyp_params.dep_hyp.bvazi));
+		} else {
+			double dt_in_days = step->date - get_first(step)->date;
+			double dist_to_sun = vector_mag(step->r);
+
+			struct Vector orbit_prograde = step->v_arr;
+			struct Vector orbit_normal = cross_product(step->r, step->v_arr);
+			struct Vector orbit_radialin = cross_product(orbit_normal, step->v_arr);
+			struct Vector dv_vec = subtract_vectors(step->next[0]->v_dep, step->v_arr);
+
+			// dv vector in S/C coordinate system (prograde, radial in, normal) (sign it if projected vector more than 90° from target vector / pointing in opposite direction)
+			struct Vector dv_vec_sc = {
+					vector_mag(proj_vec_vec(dv_vec, orbit_prograde)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_prograde), orbit_prograde) < M_PI/2 ? 1 : -1),
+					vector_mag(proj_vec_vec(dv_vec, orbit_radialin)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_radialin), orbit_radialin) < M_PI/2 ? 1 : -1),
+					vector_mag(proj_vec_vec(dv_vec, orbit_normal)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_normal), orbit_normal) < M_PI/2 ? 1 : -1)
+			};
+
+			sprintf(s_labels, "DSM\n"
+							  "T+:\n"
+							  "Distance to the Sun:\n"
+							  "Dv Prograde:\n"
+							  "Dv Radial:\n"
+							  "Dv Normal:\n"
+							  "Total:");
+
+			sprintf(s_values, "\n%.2f days\n"
+							  "%.3f AU\n"
+							  "%.3f m/s\n"
+							  "%.3f m/s\n"
+							  "%.3f m/s\n"
+							  "%.3f m/s",
+					dt_in_days, dist_to_sun / 1.495978707e11, dv_vec_sc.x, dv_vec_sc.y, dv_vec_sc.z, vector_mag(dv_vec_sc));
+		}
+	}
+}
+
+
 void remove_step_from_itinerary(struct ItinStep *step) {
 	struct ItinStep *prev = step->prev;
 

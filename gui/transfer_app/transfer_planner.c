@@ -28,7 +28,8 @@ GObject *bt_tp_1m30dp;
 GObject *bt_tp_1m30dm;
 GObject *lb_tp_transfer_dv;
 GObject *lb_tp_total_dv;
-GObject *lb_tp_periapsis;
+GObject *lb_tp_param_labels;
+GObject *lb_tp_param_values;
 GObject *transfer_panel_tp;
 GObject *vp_tp_bodies;
 GtkWidget *grid_tp_bodies;
@@ -55,7 +56,8 @@ void init_transfer_planner(GtkBuilder *builder) {
 	bt_tp_1m30dm = gtk_builder_get_object(builder, "bt_tp_1m30dm");
 	lb_tp_transfer_dv = gtk_builder_get_object(builder, "lb_tp_transfer_dv");
 	lb_tp_total_dv = gtk_builder_get_object(builder, "lb_tp_total_dv");
-	lb_tp_periapsis = gtk_builder_get_object(builder, "lb_tp_periapsis");
+	lb_tp_param_labels = gtk_builder_get_object(builder, "lb_tp_param_labels");
+	lb_tp_param_values = gtk_builder_get_object(builder, "lb_tp_param_values");
 	transfer_panel_tp = gtk_builder_get_object(builder, "transfer_panel");
 	lb_tp_date = gtk_builder_get_object(builder, "lb_tp_date");
 	da_tp = gtk_builder_get_object(builder, "da_tp");
@@ -220,11 +222,15 @@ void update_transfer_panel() {
 		gtk_label_set_label(GTK_LABEL(lb_tp_transfer_dv), s_dv);
 		sprintf(s_dv, "%6.0f m/s", calc_total_dv());
 		gtk_label_set_label(GTK_LABEL(lb_tp_total_dv), s_dv);
-		double h = calc_periapsis_height_tp();
-		if(curr_transfer_tp->body != NULL && h > -curr_transfer_tp->body->radius*1e-3)
-			sprintf(s_dv, "%.0f km", h);
-		else sprintf(s_dv, "- km");
-		gtk_label_set_label(GTK_LABEL(lb_tp_periapsis), s_dv);
+		if(curr_transfer_tp->prev != NULL || curr_transfer_tp->num_next_nodes > 0) {
+			char s_tfprop_labels[200], s_tfprop_values[100];
+			itinerary_step_parameters_to_string(s_tfprop_labels, s_tfprop_values, curr_transfer_tp);
+			gtk_label_set_label(GTK_LABEL(lb_tp_param_labels), s_tfprop_labels);
+			gtk_label_set_label(GTK_LABEL(lb_tp_param_values), s_tfprop_values);
+		} else {
+			gtk_label_set_label(GTK_LABEL(lb_tp_param_labels), "");
+			gtk_label_set_label(GTK_LABEL(lb_tp_param_values), "");
+		}
 	}
 
 }
