@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "file_io.h"
 
@@ -44,18 +45,22 @@ int amt_of_fields(char *fields) {
 
 
 
+/*********************************************************************
+ *          Celestial System Config Storing and Loading
+ *********************************************************************/
+
 void store_body_in_config_file(FILE *file, struct Body *body, struct System *system) {
 	fprintf(file, "[%s]\n", body->name);
 	fprintf(file, "color = [%.3f, %.3f, %.3f]\n", body->color[0], body->color[1], body->color[2]);
 	fprintf(file, "id = %d\n", body->id);
 	fprintf(file, "gravitational_parameter = %.9g\n", body->mu);
-	fprintf(file, "radius = %f\n", body->radius/1e3);
+	fprintf(file, "radius = %f\n", body->radius/1e3); // Convert from m to km
 	fprintf(file, "rotational_period = %f\n", body->rotation_period);
-	fprintf(file, "sea_level_pressure = %f\n", body->sl_atmo_p/1e3);
+	fprintf(file, "sea_level_pressure = %f\n", body->sl_atmo_p/1e3); // Convert from Pa to kPa
 	fprintf(file, "scale_height = %.0f\n", body->scale_height);
-	fprintf(file, "atmosphere_altitude = %f\n", body->atmo_alt/1e3);
-	if(body->orbit.body != system->cb && system->calc_method != EPHEMS) {
-		fprintf(file, "semi_major_axis = %f\n", body->orbit.a/1e3);
+	fprintf(file, "atmosphere_altitude = %f\n", body->atmo_alt/1e3); // Convert from m to km
+	if(body != system->cb) {
+		fprintf(file, "semi_major_axis = %f\n", body->orbit.a/1e3); // Convert from m to km
 		fprintf(file, "eccentricity = %f\n", body->orbit.e);
 		fprintf(file, "inclination = %f\n", rad2deg(body->orbit.inclination));
 		fprintf(file, "raan = %f\n", rad2deg(body->orbit.raan));
@@ -66,7 +71,7 @@ void store_body_in_config_file(FILE *file, struct Body *body, struct System *sys
 
 void store_system_in_config_file(struct System *system) {
 	char filename[50];
-	sprintf(filename, "./Celestial_Systems/test.cfg");
+	sprintf(filename, "./Celestial_Systems/%s.cfg", system->name);
 
 	FILE *file;
 	file = fopen(filename,"w");
@@ -84,9 +89,159 @@ void store_system_in_config_file(struct System *system) {
 		store_body_in_config_file(file, system->bodies[i], system);
 	}
 
-
 	fclose(file);
 }
+
+int get_key_and_value_from_config(char *key, char *value, char *line) {
+	char *equalSign = strchr(line, '=');  // Find '='
+	if (equalSign) {
+		size_t keyLen = equalSign - line;
+		strncpy(key, line, keyLen);  // Copy key
+		key[keyLen] = '\0';  // Null-terminate
+		if(isspace(key[keyLen-1])) key[keyLen-1] = '\0';	// remove space
+
+		strcpy(value,  equalSign + (isspace(*(equalSign + 1)) ? 2 : 1));  // Copy value and skip space
+
+		// remove line breaks
+		size_t len = strlen(value);
+		if (len > 0 && value[len - 1] == '\n') {
+			value[len - 1] = '\0';  // Replace newline with null terminator
+		}
+		return 1;
+	}
+	return 0;
+}
+
+struct Body * load_body_from_config_file(FILE *file, struct Body *attractor) {
+	struct Body *body = (struct Body*) calloc(1, sizeof(struct Body));
+	body->orbit.body = attractor;
+
+	char line[256];  // Buffer for each line
+	while (fgets(line, sizeof(line), file)) {
+		if(strncmp(line, "[", 1) == 0) {
+			sscanf(line, "[%50[^]]]", body->name);
+		} else if(strcmp(line, "\n") == 0){
+			break;
+		} else {
+			char key[50], value[50];
+			if(get_key_and_value_from_config(key, value, line)) {
+				if (strcmp(key, "color") == 0) {
+					sscanf(value, "[%lf, %lf, %lf]", &body->color[0], &body->color[1], &body->color[2]);
+				} else if (strcmp(key, "id") == 0) {
+					sscanf(value, "%d", &body->id);
+				} else if (strcmp(key, "gravitational_parameter") == 0) {
+					sscanf(value, "%lg", &body->mu);
+				} else if (strcmp(key, "radius") == 0) {
+					sscanf(value, "%lf", &body->radius);
+					body->radius *= 1e3;  // Convert from km to m
+				} else if (strcmp(key, "rotational_period") == 0) {
+					sscanf(value, "%lf", &body->rotation_period);
+				} else if (strcmp(key, "sea_level_pressure") == 0) {
+					sscanf(value, "%lf", &body->sl_atmo_p);
+					body->sl_atmo_p *= 1e3;  // Convert from kPa to Pa
+				} else if (strcmp(key, "scale_height") == 0) {
+					sscanf(value, "%lf", &body->scale_height);
+				} else if (strcmp(key, "atmosphere_altitude") == 0) {
+					sscanf(value, "%lf", &body->atmo_alt);
+					body->atmo_alt *= 1e3;  // Convert from km to m
+				} else if (strcmp(key, "semi_major_axis") == 0) {
+					sscanf(value, "%lf", &body->orbit.a);
+					body->orbit.a *= 1e3;  // Convert from km to m
+				} else if (strcmp(key, "eccentricity") == 0) {
+					sscanf(value, "%lf", &body->orbit.e);
+				} else if (strcmp(key, "inclination") == 0) {
+					sscanf(value, "%lf", &body->orbit.inclination);
+					deg2rad(body->orbit.inclination);
+				} else if (strcmp(key, "raan") == 0) {
+					sscanf(value, "%lf", &body->orbit.raan);
+					deg2rad(body->orbit.raan);
+				} else if (strcmp(key, "argument_of_periapsis") == 0) {
+					sscanf(value, "%lf", &body->orbit.arg_peri);
+					deg2rad(body->orbit.arg_peri);
+				} else if (strcmp(key, "true_anomaly_ut0") == 0) {
+					sscanf(value, "%lf", &body->orbit.theta);
+					deg2rad(body->orbit.theta);
+				}
+			}
+		}
+	}
+	if(attractor != NULL) body->orbit = constr_orbit(
+			body->orbit.a,
+			body->orbit.e,
+			body->orbit.inclination,
+			body->orbit.raan,
+			body->orbit.arg_peri,
+			body->orbit.theta,
+			attractor
+			);
+	return body;
+}
+
+struct System * load_system_from_config_file(char *filename) {
+	struct System *system = (struct System*) calloc(1, sizeof(struct System));
+	system->num_bodies = 0;
+	system->calc_method = ORB_ELEMENTS;
+	char central_body_name[50];
+
+	FILE *file = fopen(filename, "r");
+	if (!file) {
+		perror("Failed to open file");
+		free(system);
+		return NULL;
+	}
+
+	char line[256];  // Buffer for each line
+	while (fgets(line, sizeof(line), file)) {
+		if(strncmp(line, "[", 1) == 0) {
+			sscanf(line, "[%50[^]]]", system->name);
+		} else if(strcmp(line, "\n") == 0){
+			break;
+		} else {
+			char key[50], value[50];
+			if(get_key_and_value_from_config(key, value, line)) {
+				if (strcmp(key, "propagation_method") == 0) {
+					if(strcmp(value, "EPHEMERIDES") == 0) system->calc_method = EPHEMS;
+				} else if (strcmp(key, "ut0") == 0) {
+					sscanf(value, "%lf", &system->ut0);
+				} else if (strcmp(key, "number_of_bodies") == 0) {
+					sscanf(value, "%d", &system->num_bodies);
+				} else if (strcmp(key, "central_body") == 0) {
+					sprintf(central_body_name, "%s", value);
+				}
+			}
+		}
+	}
+
+	printf("%s\n%s\n%f\n%d\n%s\n", system->name, system->calc_method == EPHEMS ? "EPHEMS" : "ELEMENTS", system->ut0, system->num_bodies, central_body_name);
+
+	struct Body *cb = load_body_from_config_file(file, NULL);
+
+	if(cb == NULL) {printf("Couldn't load Central Body!\n"); free(system); return NULL;}
+	if(strcmp(central_body_name, cb->name) != 0) {printf("Central Body not in first position!\n"); free(system); free(cb); return NULL;}
+
+	system->cb = cb;
+	system->bodies = (struct Body**) calloc(system->num_bodies, sizeof(struct Body*));
+	for(int i = 0; i < system->num_bodies; i++) {
+		system->bodies[i] = load_body_from_config_file(file, system->cb);
+		print_orbit_info(system->bodies[i]->orbit);
+		printf("\n%s\n%d\n%f\n%f\n%f\n%s\n\n",
+			   system->bodies[i]->name,
+			   system->bodies[i]->id,
+			   system->bodies[i]->radius,
+			   system->bodies[i]->mu,
+			   system->bodies[i]->orbit.e,
+			   system->bodies[i]->orbit.body->name
+			   );
+	}
+
+	fclose(file);
+
+	return system;
+}
+
+
+
+
 
 
 /*********************************************************************

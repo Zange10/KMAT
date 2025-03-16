@@ -464,7 +464,7 @@ void init_solar_system() {
 
 void init_solar_system_ephem() {
 	solar_system_ephem = (struct System*)malloc(sizeof(struct System));
-	strcpy(solar_system_ephem->name, "Solar System (RSS Ephem)");
+	strcpy(solar_system_ephem->name, "Solar System (Ephemerides)");
 	solar_system_ephem->cb = SUN();
 	solar_system_ephem->calc_method = EPHEMS;
 	solar_system_ephem->num_bodies = 9;
@@ -523,8 +523,8 @@ void init_celestial_bodies() {
 	init_solar_system();
 	init_stock_system();
 //	curr_system = solar_system;
-//	curr_system = solar_system_ephem;
-	curr_system = stock_system;
+	curr_system = solar_system_ephem;
+//	curr_system = stock_system;
 }
 
 

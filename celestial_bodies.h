@@ -16,8 +16,6 @@ struct System {
 	double ut0;							// time of t0 for system
 };
 
-void store_system_in_config_file(struct System *system);
-
 void free_system(struct System *system);
 
 /**
