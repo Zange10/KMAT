@@ -112,6 +112,7 @@ void ic_calc_thread() {
 	calc_data.jd_max_arr = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_maxdur));
 	calc_data.max_duration = (int) strtol(string, NULL, 10);
+	if(get_settings_datetime_type() == DATE_KERBAL) calc_data.max_duration *= 4;	// kerbal day is 4 times shorter (24h/6h)
 
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_totdv));
 	calc_data.dv_filter.max_totdv = strtod(string, NULL);

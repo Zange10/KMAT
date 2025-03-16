@@ -195,7 +195,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 		curr_step->num_next_nodes = 0;
 		for(int i = 0; i <= system->num_bodies; i++) {
 			if(system->bodies[i] == dep_body) continue;
-			int min_duration = 50;//initial_min_transfer_duration[dep_body->id][i];
+			int min_duration = 10;//initial_min_transfer_duration[dep_body->id][i];
 			int max_duration = 500;//initial_max_transfer_duration[dep_body->id][i];
 			int max_min_duration_diff = max_duration - min_duration;
 			if(max_duration == 0) max_min_duration_diff = -1; // gets added afterward to 1 making it 0
@@ -210,7 +210,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 
 		for(int body_id = 0; body_id < system->num_bodies; body_id++) {
 			if(system->bodies[body_id] == dep_body) continue;
-			int min_duration = 50;//initial_min_transfer_duration[dep_body->id][body_id];
+			int min_duration = 10;//initial_min_transfer_duration[dep_body->id][body_id];
 			int max_duration = 500;//initial_max_transfer_duration[dep_body->id][body_id];
 			int max_min_duration_diff = max_duration - min_duration;
 

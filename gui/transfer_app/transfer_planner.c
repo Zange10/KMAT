@@ -8,6 +8,7 @@
 #include "tools/gmat_interface.h"
 #include "gui/css_loader.h"
 #include "tools/datetime.h"
+#include "tools/file_io.h"
 
 #include <string.h>
 #include <gtk/gtk.h>
@@ -198,7 +199,7 @@ void update() {
 }
 
 void update_date_label() {
-	char date_string[10];
+	char date_string[20];
 	date_to_string(convert_JD_date(current_date_tp, get_settings_datetime_type()), date_string, 0);
 	gtk_label_set_text(GTK_LABEL(lb_tp_date), date_string);
 }
@@ -556,7 +557,7 @@ void on_save_itinerary(GtkWidget* widget, gpointer data) {
 		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
 		filepath = gtk_file_chooser_get_filename(chooser);
 
-		store_single_itinerary_in_bfile(first, filepath);
+		store_single_itinerary_in_bfile(first, tp_system, filepath);
 		g_free(filepath);
 	}
 
@@ -592,9 +593,14 @@ void on_load_itinerary(GtkWidget* widget, gpointer data) {
 		filepath = gtk_file_chooser_get_filename(chooser);
 
 		if(curr_transfer_tp != NULL) free_itinerary(get_first(curr_transfer_tp));
-		curr_transfer_tp = load_single_itinerary_from_bfile(filepath);
+
+		free_system(tp_system);
+		struct ItinLoadFileResults load_results = load_single_itinerary_from_bfile(filepath);
+		curr_transfer_tp = load_results.itin;
+		tp_system = load_results.system;
 		current_date_tp = curr_transfer_tp->date;
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
+		tp_update_bodies();
 		update_itinerary();
 		g_free(filepath);
 	} else {

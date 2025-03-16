@@ -116,6 +116,7 @@ union CelestialBodyBin {
 		int id;  // ID given by JPL's Horizon API
 		double mu;
 		double radius;
+		double atmo_alt;
 		double a, e, incl, raan, arg_peri, theta;
 	} t2;
 };
@@ -160,6 +161,7 @@ union CelestialBodyBin convert_celestial_body_bin(struct Body *body, int file_ty
 			bin_body.t2.id = body->id;
 			bin_body.t2.mu = body->mu;
 			bin_body.t2.radius = body->radius;
+			bin_body.t2.atmo_alt = body->atmo_alt;
 			bin_body.t2.a = body->orbit.a;
 			bin_body.t2.e = body->orbit.e;
 			bin_body.t2.incl = body->orbit.inclination;
@@ -184,6 +186,7 @@ struct Body * convert_bin_celestial_body(union CelestialBodyBin bin_body, struct
 			body->id = bin_body.t2.id;
 			body->mu = bin_body.t2.mu;
 			body->radius = bin_body.t2.radius;
+			body->atmo_alt = bin_body.t2.atmo_alt;
 			if(attractor != NULL)
 				body->orbit = constr_orbit(
 						bin_body.t2.a,
@@ -193,6 +196,7 @@ struct Body * convert_bin_celestial_body(union CelestialBodyBin bin_body, struct
 						bin_body.t2.arg_peri,
 						bin_body.t2.theta,
 						attractor);
+			body->ephem = NULL;
 			break;
 	}
 	return body;
@@ -625,11 +629,13 @@ void store_single_itinerary_in_bfile(struct ItinStep *itin, struct System *syste
 
 	fwrite(&num_nodes, sizeof(int), 1, file);
 
+	store_celestial_system_in_bfile(system, file, 2);
+
 	struct ItinStep *ptr = itin;
 
 	// same algorithm as layer counter (part of header)
 	while(ptr != NULL) {
-		int body_id = (ptr->body != NULL) ? ptr->body->id : 0;
+		int body_id = (ptr->body != NULL) ? get_body_system_id(ptr->body,system) : -1;
 		fwrite(&body_id, sizeof(int), 1, file);
 		if(ptr->next != NULL) ptr = ptr->next[0];
 		else break;
@@ -656,7 +662,7 @@ void store_single_itinerary_in_bfile(struct ItinStep *itin, struct System *syste
  *********************************************************************/
 
 
-struct ItinStep * load_single_itinerary_from_bfile(char *filepath) {
+struct ItinLoadFileResults load_single_itinerary_from_bfile(char *filepath) {
 	int num_nodes;
 	struct System *system;
 
@@ -667,6 +673,8 @@ struct ItinStep * load_single_itinerary_from_bfile(char *filepath) {
 
 	fread(&num_nodes, sizeof(int), 1, file);
 
+	system = load_celestial_system_from_bfile(file, 2);
+
 	int *bodies_id = (int*) malloc(num_nodes * sizeof(int));
 	fread(bodies_id, sizeof(int), num_nodes, file);
 
@@ -676,13 +684,8 @@ struct ItinStep * load_single_itinerary_from_bfile(char *filepath) {
 	if(buf != -1) {
 		printf("Problems reading itinerary file (Body list or header wrong)\n");
 		fclose(file);
-		return NULL;
+		return (struct ItinLoadFileResults) {.itin = NULL, .system = NULL};
 	}
-
-
-	struct Body **bodies = (struct Body**) malloc(num_nodes * sizeof(struct Body*));
-	for(int i = 0; i < num_nodes; i++) bodies[i] = (bodies_id[i] > 0) ? get_body_from_id(bodies_id[i]) : NULL;
-	free(bodies_id);
 
 	struct ItinStep *itin;
 	union ItinStepBin bin_step;
@@ -691,7 +694,7 @@ struct ItinStep * load_single_itinerary_from_bfile(char *filepath) {
 	for(int i = 0; i < num_nodes; i++) {
 		itin = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 		fread(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
-		convert_bin_ItinStep(bin_step, itin, bodies[i], system, 0);
+		convert_bin_ItinStep(bin_step, itin, system->bodies[bodies_id[i]], system, 0);
 		itin->prev = last_step;
 		itin->next = NULL;
 		if(last_step != NULL) {
@@ -702,6 +705,6 @@ struct ItinStep * load_single_itinerary_from_bfile(char *filepath) {
 	}
 
 	fclose(file);
-	free(bodies);
-	return itin;
+	free(bodies_id);
+	return (struct ItinLoadFileResults) {.itin = itin, .system = system};
 }

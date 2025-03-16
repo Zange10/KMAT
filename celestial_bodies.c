@@ -32,6 +32,16 @@ struct System * get_current_system() {
 	return curr_system;
 }
 
+void free_system(struct System *system) {
+	if(system == NULL || system == get_current_system()) return;
+	for(int i = 0; i < system->num_bodies; i++) {
+		if(system->bodies[i]->ephem != NULL) free(system->bodies[i]->ephem);
+		free(system->bodies[i]);
+	}
+	free(system->cb);
+	free(system);
+}
+
 struct Body ** all_celest_bodies() {
     all_celestial_bodies[0] = SUN();
     all_celestial_bodies[1] = MERCURY();
@@ -512,9 +522,9 @@ void init_celestial_bodies() {
 	init_solar_system_ephem();
 	init_solar_system();
 	init_stock_system();
-	curr_system = solar_system;
+//	curr_system = solar_system;
 //	curr_system = solar_system_ephem;
-//	curr_system = stock_system;
+	curr_system = stock_system;
 }
 
 

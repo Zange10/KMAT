@@ -18,6 +18,8 @@ struct System {
 
 void store_system_in_config_file(struct System *system);
 
+void free_system(struct System *system);
+
 /**
  * @brief Initializes all celestial bodies
  */

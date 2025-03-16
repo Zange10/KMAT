@@ -137,6 +137,8 @@ void free_all_porkchop_analyzer_itins() {
 	curr_transfer_pa = NULL;
 	free(pa_groups);
 	pa_groups = NULL;
+	free_system(pa_system);
+	pa_system = NULL;
 }
 
 void pa_update_body_show_status() {
@@ -183,6 +185,7 @@ void pa_update_preview() {
 }
 
 void reset_min_max_feedback(int fb0_pow1, int num_itins) {
+	if(num_itins == 0) return;
 	double min[5] = {
 			/* depdate	*/ pa_porkchop[1+0],
 			/* duration	*/ pa_porkchop[1+1],
@@ -313,7 +316,7 @@ void update_group_overview() {
 						for(int k = 0; k < pa_groups[group_idx].num_steps - step_idx - 1; k++) ptr = ptr->prev;
 						if(step_idx != 0) sprintf(widget_text, "%s - ", widget_text);
 						if(ptr->body != NULL)
-							sprintf(widget_text, "%s%d", widget_text, ptr->body->id);
+							sprintf(widget_text, "%s%d", widget_text, get_body_system_id(ptr->body, pa_system)+1);
 						else
 							sprintf(widget_text, "%sDSB", widget_text);
 					}
@@ -394,6 +397,7 @@ void initialize_itinerary_groups() {
 }
 
 void update_best_itin(int num_itins, int fb0_pow1) {
+	if(num_itins == 0) return;
 	double *dvs = (double*) malloc(num_itins*sizeof(double));
 	for(int i = 0; i < num_itins; i++)  {
 		int ind = 1+i*5;
@@ -611,6 +615,7 @@ void update_pa() {
 	update_porkchop_drawing_area();
 	pa_update_preview();
 	update_group_overview();
+	on_reset_filter(NULL, NULL);
 }
 
 void on_apply_filter(GtkWidget* widget, gpointer data) {
