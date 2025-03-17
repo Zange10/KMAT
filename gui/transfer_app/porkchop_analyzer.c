@@ -69,8 +69,7 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 	lb_pa_periapsis = gtk_builder_get_object(builder, "lb_pa_periapsis");
 	st_pa_step_group_selector = gtk_builder_get_object(builder, "st_pa_step_group_selector");
 	vp_pa_groups = gtk_builder_get_object(builder, "vp_pa_groups");
-	pa_system = get_current_system();
-	body_show_status_pa = (int*) calloc(pa_system->num_bodies, sizeof(int));
+	pa_system = NULL;
 }
 
 void pa_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
@@ -436,6 +435,8 @@ void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	cairo_rectangle(cr, 0, 0, area_width, area_height);
 	cairo_set_source_rgb(cr, 0,0,0);
 	cairo_fill(cr);
+
+	if(pa_system == NULL) return;
 
 	// Scale
 	struct Body *farthest_body = NULL;
