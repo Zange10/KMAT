@@ -609,6 +609,7 @@ void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointer data) {
 	update_best_itin(pa_num_itins, fb0_pow1);
 	update_porkchop_drawing_area();
 	pa_update_preview();
+	on_reset_filter(NULL,NULL);
 }
 
 void update_pa() {

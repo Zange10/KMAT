@@ -627,7 +627,7 @@ void on_load_itinerary(GtkWidget* widget, gpointer data) {
 
 		free_system(tp_system);
 		struct ItinLoadFileResults load_results = load_single_itinerary_from_bfile(filepath);
-		curr_transfer_tp = load_results.itin;
+		curr_transfer_tp = get_first(load_results.itin);
 		tp_system = load_results.system;
 		current_date_tp = curr_transfer_tp->date;
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
