@@ -209,7 +209,7 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 		cairo_set_source_rgb(cr, 1, 1, 1);
 		if(x_axis_label_type == COORD_LABEL_NUMBER)
 			sprintf(string, "%g", label);
-		else if(y_axis_label_type == COORD_LABEL_DURATION)
+		else if(x_axis_label_type == COORD_LABEL_DURATION)
 			sprintf(string, "%g", get_settings_datetime_type() == DATE_KERBAL ? label*4 : label);
 		else if(x_axis_label_type == COORD_LABEL_DATE)
 			date_to_string(convert_JD_date(label, get_settings_datetime_type()), string, 0);
@@ -285,7 +285,8 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 
 	// data
 	double color_bias;
-	for(int i = num_itins-1; i >= -1; i--) {
+	int max_num_porkchop_points = 100000;	// limit number to reduce loading time
+	for(int i = num_itins-1; i >= -1; i -= (int)(num_itins/max_num_porkchop_points + 1)) {
 		int index = i >= 0 ? 1+i*5 : 1+min_dv_ind*5;
 
 		dv = porkchop[index+2]+porkchop[index+3]+porkchop[index+4]*fb0_pow1;
