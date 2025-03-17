@@ -21,16 +21,16 @@ int *launcher_ids;
 int num_launcher;
 
 
-void activate_app(GtkApplication *app, gpointer user_data);
+void activate_app(GtkApplication *app, gpointer gui_filepath);
 
-void start_gui() {
+void start_gui(const char* gui_filepath) {
 	// init launcher from db for launch calc gui
-	num_launcher = get_all_launch_vehicles_from_database(&all_launcher, &launcher_ids);
+//	num_launcher = get_all_launch_vehicles_from_database(&all_launcher, &launcher_ids);
 	setlocale(LC_NUMERIC, "C");	// Glade somehow uses commas instead of points for decimals...
 
 	// init app
 	GtkApplication *app = gtk_application_new ("org.gtk.example", G_APPLICATION_DEFAULT_FLAGS);
-	g_signal_connect (app, "activate", G_CALLBACK (activate_app), NULL);
+	g_signal_connect (app, "activate", G_CALLBACK (activate_app), (gpointer) gui_filepath);
 
 	g_application_run (G_APPLICATION (app), 0, NULL);
 	g_object_unref (app);
@@ -44,18 +44,18 @@ void start_gui() {
 	reset_tc();
 	end_transfer_planner();
 	// reset launch gui
-	close_launch_analyzer();
-	close_capability_analyzer();
-	close_launch_parameter_analyzer();
+//	close_launch_analyzer();
+//	close_capability_analyzer();
+//	close_launch_parameter_analyzer();
 	// reset db gui
-	close_mission_db();
+//	close_mission_db();
 }
 
-void activate_app(GtkApplication *app, gpointer user_data) {
+void activate_app(GtkApplication *app, gpointer gui_filepath) {
 	/* Construct a GtkBuilder instance and load our UI description */
 	setlocale(LC_NUMERIC, "C");	// Glade somehow uses commas instead of points for decimals...
 	GtkBuilder *builder = gtk_builder_new ();
-	gtk_builder_add_from_file(builder, "../GUI/GUI.glade", NULL);
+	gtk_builder_add_from_file(builder, gui_filepath, NULL);
 
 	gtk_builder_connect_signals(builder, NULL);
 
@@ -74,11 +74,11 @@ void activate_app(GtkApplication *app, gpointer user_data) {
 	init_porkchop_analyzer(builder);
 	init_transfer_planner(builder);
 	// init launch calc page
-	init_launch_analyzer(builder);
-	init_capability_analyzer(builder);
-	init_launch_parameter_analyzer(builder);
+//	init_launch_analyzer(builder);
+//	init_capability_analyzer(builder);
+//	init_launch_parameter_analyzer(builder);
 	// init db page
-	init_mission_db(builder);
+//	init_mission_db(builder);
 	// init progress window
 	init_prog_window(builder);
 
@@ -133,6 +133,24 @@ void change_gui_date_type(enum DateType old_date_type, enum DateType new_date_ty
 
 
 // transfer calc gui stuff ----------------------------------------------------------------
+void update_system_dropdown(GtkComboBox *cb_sel_system) {
+	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
+	GtkTreeIter iter;
+	// Add items to the list store
+	for(int i = 0; i < get_num_available_systems(); i++) {
+		gtk_list_store_append(store, &iter);
+		char entry[30];
+		sprintf(entry, "%s", get_available_systems()[i]->name);
+		gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
+	}
+
+	gtk_combo_box_set_model(cb_sel_system, GTK_TREE_MODEL(store));
+	gtk_combo_box_set_active(cb_sel_system, 0);
+
+	g_object_unref(store);
+}
+
+
 void update_body_dropdown(GtkComboBox *cb_sel_body, struct System *system) {
 	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
 	GtkTreeIter iter;

@@ -6,6 +6,7 @@
 
 #include "file_io.h"
 
+
 void write_csv(char fields[], double data[]) {
     
     time_t currtime;

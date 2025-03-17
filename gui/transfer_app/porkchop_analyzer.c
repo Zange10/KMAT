@@ -619,6 +619,7 @@ void update_pa() {
 }
 
 void on_apply_filter(GtkWidget* widget, gpointer data) {
+	if(pa_all_porkchop == NULL) return;
 	double min[5], max[5];
 	char *string;
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_min_feedback[0]));

@@ -83,7 +83,7 @@
                 <property name="column-spacing">50</property>
                 <property name="column-homogeneous">True</property>
                 <child>
-                  <!-- n-columns=2 n-rows=6 -->
+                  <!-- n-columns=2 n-rows=7 -->
                   <object class="GtkGrid">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
@@ -91,15 +91,53 @@
                     <property name="column-spacing">20</property>
                     <property name="column-homogeneous">True</property>
                     <child>
+                      <object class="GtkEntry" id="tf_ic_maxdur">
+                        <property name="visible">True</property>
+                        <property name="can-focus">True</property>
+                        <property name="has-frame">False</property>
+                        <property name="text" translatable="yes">10000</property>
+                        <property name="xalign">0.5</property>
+                      </object>
+                      <packing>
+                        <property name="left-attach">1</property>
+                        <property name="top-attach">6</property>
+                      </packing>
+                    </child>
+                    <child>
                       <object class="GtkLabel">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="halign">end</property>
-                        <property name="label" translatable="yes">Departure Body ID:</property>
+                        <property name="label" translatable="yes">Max duration:</property>
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
-                        <property name="top-attach">0</property>
+                        <property name="top-attach">6</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Max arrival date:</property>
+                      </object>
+                      <packing>
+                        <property name="left-attach">0</property>
+                        <property name="top-attach">5</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkEntry" id="tf_ic_maxarrdate">
+                        <property name="visible">True</property>
+                        <property name="can-focus">True</property>
+                        <property name="has-frame">False</property>
+                        <property name="text" translatable="yes">2000-01-01</property>
+                        <property name="xalign">0.5</property>
+                      </object>
+                      <packing>
+                        <property name="left-attach">1</property>
+                        <property name="top-attach">5</property>
                       </packing>
                     </child>
                     <child>
@@ -111,11 +149,24 @@
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
-                        <property name="top-attach">3</property>
+                        <property name="top-attach">4</property>
                       </packing>
                     </child>
                     <child>
                       <object class="GtkEntry" id="tf_ic_maxdepdate">
+                        <property name="visible">True</property>
+                        <property name="can-focus">True</property>
+                        <property name="has-frame">False</property>
+                        <property name="text" translatable="yes">1950-01-01</property>
+                        <property name="xalign">0.5</property>
+                      </object>
+                      <packing>
+                        <property name="left-attach">1</property>
+                        <property name="top-attach">4</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkEntry" id="tf_ic_mindepdate">
                         <property name="visible">True</property>
                         <property name="can-focus">True</property>
                         <property name="has-frame">False</property>
@@ -136,16 +187,14 @@
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
-                        <property name="top-attach">2</property>
+                        <property name="top-attach">3</property>
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkEntry" id="tf_ic_mindepdate">
+                      <object class="GtkComboBox" id="cb_ic_arrbody">
+                        <property name="width-request">150</property>
                         <property name="visible">True</property>
-                        <property name="can-focus">True</property>
-                        <property name="has-frame">False</property>
-                        <property name="text" translatable="yes">1950-01-01</property>
-                        <property name="xalign">0.5</property>
+                        <property name="can-focus">False</property>
                       </object>
                       <packing>
                         <property name="left-attach">1</property>
@@ -161,57 +210,7 @@
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
-                        <property name="top-attach">1</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="halign">end</property>
-                        <property name="label" translatable="yes">Max duration:</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">0</property>
-                        <property name="top-attach">5</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkEntry" id="tf_ic_maxdur">
-                        <property name="visible">True</property>
-                        <property name="can-focus">True</property>
-                        <property name="has-frame">False</property>
-                        <property name="text" translatable="yes">10000</property>
-                        <property name="xalign">0.5</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">1</property>
-                        <property name="top-attach">5</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="halign">end</property>
-                        <property name="label" translatable="yes">Max arrival date:</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">0</property>
-                        <property name="top-attach">4</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkEntry" id="tf_ic_maxarrdate">
-                        <property name="visible">True</property>
-                        <property name="can-focus">True</property>
-                        <property name="has-frame">False</property>
-                        <property name="text" translatable="yes">2000-01-01</property>
-                        <property name="xalign">0.5</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">1</property>
-                        <property name="top-attach">4</property>
+                        <property name="top-attach">2</property>
                       </packing>
                     </child>
                     <child>
@@ -222,18 +221,42 @@
                       </object>
                       <packing>
                         <property name="left-attach">1</property>
+                        <property name="top-attach">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Departure Body ID:</property>
+                      </object>
+                      <packing>
+                        <property name="left-attach">0</property>
+                        <property name="top-attach">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="halign">end</property>
+                        <property name="label" translatable="yes">Celestial System:</property>
+                      </object>
+                      <packing>
+                        <property name="left-attach">0</property>
                         <property name="top-attach">0</property>
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkComboBox" id="cb_ic_arrbody">
-                        <property name="width-request">150</property>
+                      <object class="GtkComboBox" id="cb_ic_system">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
+                        <signal name="changed" handler="on_ic_system_change" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left-attach">1</property>
-                        <property name="top-attach">1</property>
+                        <property name="top-attach">0</property>
                       </packing>
                     </child>
                   </object>
@@ -1871,12 +1894,34 @@
                       </packing>
                     </child>
                     <child>
-                      <!-- n-columns=2 n-rows=1 -->
+                      <!-- n-columns=2 n-rows=2 -->
                       <object class="GtkGrid">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="margin-top">15</property>
+                        <property name="margin-top">10</property>
+                        <property name="row-spacing">5</property>
                         <property name="column-spacing">20</property>
+                        <child>
+                          <object class="GtkScrolledWindow">
+                            <property name="width-request">125</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <child>
+                              <object class="GtkViewport" id="vp_tp_bodies">
+                                <property name="visible">True</property>
+                                <property name="can-focus">False</property>
+                                <property name="margin-start">3</property>
+                                <child>
+                                  <placeholder/>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">1</property>
+                          </packing>
+                        </child>
                         <child>
                           <object class="GtkBox">
                             <property name="visible">True</property>
@@ -1914,7 +1959,6 @@
                             <child>
                               <object class="GtkButton" id="bt_tp_gmatscript">
                                 <property name="label" translatable="yes">GMAT Script</property>
-                                <property name="visible">True</property>
                                 <property name="can-focus">True</property>
                                 <property name="receives-default">True</property>
                                 <signal name="clicked" handler="on_create_gmat_script" swapped="no"/>
@@ -1929,7 +1973,7 @@
                               <object class="GtkLabel" id="lb_tp_last_transfer">
                                 <property name="visible">True</property>
                                 <property name="can-focus">False</property>
-                                <property name="margin-top">24</property>
+                                <property name="margin-top">30</property>
                                 <property name="label" translatable="yes">Last Transfer:</property>
                               </object>
                               <packing>
@@ -2005,28 +2049,20 @@
                           </object>
                           <packing>
                             <property name="left-attach">1</property>
-                            <property name="top-attach">0</property>
+                            <property name="top-attach">1</property>
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkScrolledWindow">
-                            <property name="width-request">125</property>
+                          <object class="GtkComboBox" id="cb_tp_system">
+                            <property name="name">cb_tp_system</property>
                             <property name="visible">True</property>
-                            <property name="can-focus">True</property>
-                            <child>
-                              <object class="GtkViewport" id="vp_tp_bodies">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="margin-start">3</property>
-                                <child>
-                                  <placeholder/>
-                                </child>
-                              </object>
-                            </child>
+                            <property name="can-focus">False</property>
+                            <signal name="changed" handler="on_tp_system_change" swapped="no"/>
                           </object>
                           <packing>
                             <property name="left-attach">0</property>
                             <property name="top-attach">0</property>
+                            <property name="width">2</property>
                           </packing>
                         </child>
                       </object>

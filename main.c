@@ -12,9 +12,9 @@ void test();
 
 int main() {
     init_celestial_bodies();
-	init_db();
-//	test();
-	start_gui();
+	init_available_systems("./Celestial_Systems/");
+//	init_db();
+	start_gui("../GUI/GUI.glade");
 
 //    int selection;
 //    char title[] = "CHOOSE PROGRAM:";
@@ -48,5 +48,5 @@ int main() {
 
 
 void test() {
-//	store_system_in_config_file(get_current_system());
+
 }

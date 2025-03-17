@@ -21,6 +21,7 @@ struct ItinStep *curr_transfer_tp;
 struct System *tp_system;
 
 GObject *da_tp;
+GObject *cb_tp_system;
 GObject *lb_tp_date;
 GObject *tb_tp_tfdate;
 GObject *bt_tp_tfbody;
@@ -50,6 +51,7 @@ void init_transfer_planner(GtkBuilder *builder) {
 	remove_all_transfers();
 	tp_last_transfer_type = TF_FLYBY;
 
+	cb_tp_system = gtk_builder_get_object(builder, "cb_tp_system");
 	tb_tp_tfdate = gtk_builder_get_object(builder, "tb_tp_tfdate");
 	bt_tp_tfbody = gtk_builder_get_object(builder, "bt_tp_change_tf_body");
 	bt_tp_1m30dp = gtk_builder_get_object(builder, "bt_tp_1m30dp");
@@ -64,11 +66,17 @@ void init_transfer_planner(GtkBuilder *builder) {
 	vp_tp_bodies = gtk_builder_get_object(builder, "vp_tp_bodies");
 	vp_tp_tfbody = gtk_builder_get_object(builder, "vp_tp_tfbody");
 
-	tp_system = get_current_system();
+	tp_system = NULL;
+
+	create_combobox_dropdown_text_renderer(cb_tp_system);
+	if(get_num_available_systems() > 0) {
+		update_system_dropdown(GTK_COMBO_BOX(cb_tp_system));
+		tp_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system))];
+		tp_update_bodies();
+	}
 
 	update_date_label();
 	update_transfer_panel();
-	tp_update_bodies();
 }
 
 void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
@@ -79,6 +87,16 @@ void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_typ
 	gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30dp), new_date_type == DATE_ISO ? "+1M" : "+30D");
 	gtk_button_set_label(GTK_BUTTON(bt_tp_1m30dm), new_date_type == DATE_ISO ? "-1M" : "-30D");
 	gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30dm), new_date_type == DATE_ISO ? "-1M" : "-30D");
+	update();
+}
+
+
+void on_tp_system_change() {
+	if(get_num_available_systems() == 0) return;
+
+	tp_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system))];
+	tp_update_bodies();
+	remove_all_transfers();
 	update();
 }
 
@@ -94,6 +112,8 @@ void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	cairo_rectangle(cr, 0, 0, area_width, area_height);
 	cairo_set_source_rgb(cr, 0,0,0);
 	cairo_fill(cr);
+
+	if(tp_system == NULL) return;
 
 	// Scale
 	struct Body *farthest_body = NULL;
@@ -397,6 +417,7 @@ void on_transfer_body_select(GtkWidget* widget, gpointer data) {
 }
 
 void on_add_transfer(GtkWidget* widget, gpointer data) {
+	if(tp_system == NULL) return;
 	struct ItinStep *new_transfer = (struct ItinStep *) malloc(sizeof(struct ItinStep));
 	new_transfer->body = tp_system->bodies[0];
 	new_transfer->prev = NULL;
@@ -443,6 +464,7 @@ void on_add_transfer(GtkWidget* widget, gpointer data) {
 }
 
 void on_remove_transfer(GtkWidget* widget, gpointer data) {
+	if(tp_system == NULL) return;
 	if(curr_transfer_tp == NULL) return;
 	struct ItinStep *rem_transfer = curr_transfer_tp;
 	if(curr_transfer_tp->next != NULL) curr_transfer_tp->next[0]->prev = curr_transfer_tp->prev;
@@ -493,11 +515,13 @@ int find_closest_transfer(struct ItinStep *step) {
 }
 
 void on_find_closest_transfer(GtkWidget* widget, gpointer data) {
+	if(tp_system == NULL) return;
 	int success = find_closest_transfer(curr_transfer_tp);
 	if(success) update_itinerary();
 }
 
 void on_find_itinerary(GtkWidget* widget, gpointer data) {
+	if(tp_system == NULL) return;
 	struct ItinStep *itin_copy = create_itin_copy(get_first(curr_transfer_tp));
 	while(itin_copy->prev != NULL) {
 		if(itin_copy->prev->body == NULL) return;	// double swing-by not implemented
@@ -533,6 +557,7 @@ void on_find_itinerary(GtkWidget* widget, gpointer data) {
 }
 
 void on_save_itinerary(GtkWidget* widget, gpointer data) {
+	if(tp_system == NULL) return;
 	struct ItinStep *first = get_first(curr_transfer_tp);
 	if(first == NULL || !is_valid_itinerary(get_last(curr_transfer_tp))) return;
 

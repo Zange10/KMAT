@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <gtk/gtk.h>
 #include "celestial_bodies.h"
 #include "tools/file_io.h"
 
@@ -25,8 +26,39 @@ struct Body *jool;
 struct Body * all_celestial_bodies[20];
 
 struct System *curr_system;
+struct System **available_systems;
 struct System *solar_system_ephem, *solar_system, *stock_system;
 
+int num_available_systems = 0;
+
+
+void init_available_systems(const char *directory) {
+	available_systems = (struct System**) malloc(10 * sizeof(struct System*));	// A maximum of 10 systems seems reasonable
+
+	GDir *dir = g_dir_open(directory, 0, NULL);
+	if (!dir) {
+		g_printerr("Unable to open directory: %s\n", directory);
+		return;
+	}
+
+	const gchar *filename;
+	while ((filename = g_dir_read_name(dir)) != NULL) {
+		if (g_str_has_suffix(filename, ".cfg")) {
+			char filepath[100];
+			sprintf(filepath, "%s%s", directory, filename);
+			struct System *system = load_system_from_config_file(filepath);
+			if(system != NULL) {
+				available_systems[num_available_systems] = system;
+				num_available_systems++;
+			}
+		}
+	}
+
+	g_dir_close(dir);
+}
+
+int get_num_available_systems() {return num_available_systems;}
+struct System ** get_available_systems() {return available_systems;}
 
 
 struct System * get_current_system() {
