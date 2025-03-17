@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "celestial_bodies.h"
+#include "tools/file_io.h"
 
 struct Body *sun;
 struct Body *mercury;
@@ -523,8 +524,9 @@ void init_celestial_bodies() {
 	init_solar_system();
 	init_stock_system();
 //	curr_system = solar_system;
-	curr_system = solar_system_ephem;
+//	curr_system = solar_system_ephem;
 //	curr_system = stock_system;
+	curr_system = load_system_from_config_file("./Celestial_Systems/Stock System.cfg");
 }
 
 

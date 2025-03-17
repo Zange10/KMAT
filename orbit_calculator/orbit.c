@@ -77,14 +77,15 @@ struct Orbit constr_orbit_from_osv(struct Vector r, struct Vector v, struct Body
 	if(vector_mag(n_vec) != 0) {
 		RAAN = n_norm.y >= 0 ? acos(n_norm.x) : 2 * M_PI - acos(n_norm.x); // if n_norm.y is negative: raan > 180°
 		i = acos(dot_product(k, norm_vector(h)));
-		double dp = dot_product(n_norm, e) / e_mag; if(dp > 1) dp = 1;	// if inside cos greater than 1 -> nan
+		double dp = dot_product(n_norm, e) / e_mag; if(dp > 1) dp = 1; if(dp < -1) dp = -1;	// if inside cos greater than 1 -> nan
 		arg_peri = e.z >= 0 ? acos(dp) : 2 * M_PI - acos(dp);  // if r.z is positive: w > 180°
 	} else {
 		RAAN = 0;
 		i = dot_product(k, norm_vector(h)) > 0 ? 0 : M_PI;
 		arg_peri = cross_product(r,v).z * e.y > 0 ? acos(e.x/e_mag) : 2*M_PI - acos(e.x/e_mag);
 	}
-	double theta = v_r >= 0 ? acos(dot_product(e,r) / (e_mag*r_mag)) : 2*M_PI - acos(dot_product(e,r) / (e_mag*r_mag));
+	double dp = dot_product(e,r) / (e_mag*r_mag); if(dp > 1) dp = 1; if(dp < -1) dp = -1;	// if inside cos greater than 1 -> nan
+	double theta = v_r >= 0 ? acos(dp) : 2*M_PI - acos(dp);
 
 	double n = sqrt(mu / pow(fabs(a),3));
 	double t, T = 0;

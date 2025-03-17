@@ -4,7 +4,6 @@
 #include "tools/datetime.h"
 #include "settings.h"
 #include "math.h"
-#include <stdlib.h>
 
 
 void draw_orbit(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor) {

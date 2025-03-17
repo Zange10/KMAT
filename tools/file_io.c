@@ -151,16 +151,16 @@ struct Body * load_body_from_config_file(FILE *file, struct Body *attractor) {
 					sscanf(value, "%lf", &body->orbit.e);
 				} else if (strcmp(key, "inclination") == 0) {
 					sscanf(value, "%lf", &body->orbit.inclination);
-					deg2rad(body->orbit.inclination);
+					body->orbit.inclination = deg2rad(body->orbit.inclination);
 				} else if (strcmp(key, "raan") == 0) {
 					sscanf(value, "%lf", &body->orbit.raan);
-					deg2rad(body->orbit.raan);
+					body->orbit.raan = deg2rad(body->orbit.raan);
 				} else if (strcmp(key, "argument_of_periapsis") == 0) {
 					sscanf(value, "%lf", &body->orbit.arg_peri);
-					deg2rad(body->orbit.arg_peri);
+					body->orbit.arg_peri = deg2rad(body->orbit.arg_peri);
 				} else if (strcmp(key, "true_anomaly_ut0") == 0) {
 					sscanf(value, "%lf", &body->orbit.theta);
-					deg2rad(body->orbit.theta);
+					body->orbit.theta = deg2rad(body->orbit.theta);
 				}
 			}
 		}
@@ -212,8 +212,6 @@ struct System * load_system_from_config_file(char *filename) {
 		}
 	}
 
-	printf("%s\n%s\n%f\n%d\n%s\n", system->name, system->calc_method == EPHEMS ? "EPHEMS" : "ELEMENTS", system->ut0, system->num_bodies, central_body_name);
-
 	struct Body *cb = load_body_from_config_file(file, NULL);
 
 	if(cb == NULL) {printf("Couldn't load Central Body!\n"); free(system); return NULL;}
@@ -221,18 +219,7 @@ struct System * load_system_from_config_file(char *filename) {
 
 	system->cb = cb;
 	system->bodies = (struct Body**) calloc(system->num_bodies, sizeof(struct Body*));
-	for(int i = 0; i < system->num_bodies; i++) {
-		system->bodies[i] = load_body_from_config_file(file, system->cb);
-		print_orbit_info(system->bodies[i]->orbit);
-		printf("\n%s\n%d\n%f\n%f\n%f\n%s\n\n",
-			   system->bodies[i]->name,
-			   system->bodies[i]->id,
-			   system->bodies[i]->radius,
-			   system->bodies[i]->mu,
-			   system->bodies[i]->orbit.e,
-			   system->bodies[i]->orbit.body->name
-			   );
-	}
+	for(int i = 0; i < system->num_bodies; i++) system->bodies[i] = load_body_from_config_file(file, system->cb);
 
 	fclose(file);
 
