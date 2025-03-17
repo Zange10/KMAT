@@ -141,6 +141,7 @@ void free_all_porkchop_analyzer_itins() {
 }
 
 void pa_update_body_show_status() {
+	if(pa_system == NULL) return;
 	struct ItinStep *step = get_last(curr_transfer_pa);
 	for(int i = 0; i < pa_system->num_bodies; i++) body_show_status_pa[i] = 0;
 	if(step == NULL) return;
@@ -224,7 +225,7 @@ void reset_min_max_feedback(int fb0_pow1, int num_itins) {
 	char string[20];
 	date_to_string(convert_JD_date(min[0], get_settings_datetime_type()), string, 0);
 	gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[0]), string);
-	sprintf(string, "%.0f", min[1]);
+	sprintf(string, "%.0f", get_settings_datetime_type() == DATE_KERBAL ? min[1]*4 : min[1]);
 	gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[1]), string);
 
 	for(int i = 2; i < 5; i++) {
@@ -234,7 +235,7 @@ void reset_min_max_feedback(int fb0_pow1, int num_itins) {
 
 	date_to_string(convert_JD_date(max[0], get_settings_datetime_type()), string, 0);
 	gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[0]), string);
-	sprintf(string, "%.0f", max[1]);
+	sprintf(string, "%.0f", get_settings_datetime_type() == DATE_KERBAL ? max[1]*4 : max[1]);
 	gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[1]), string);
 
 	for(int i = 2; i < 5; i++) {
@@ -632,6 +633,7 @@ void on_apply_filter(GtkWidget* widget, gpointer data) {
 		min[i] = strtod(string, NULL)-0.01;	// rounding imprecision in filter entry field
 		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_max_feedback[i]));
 		max[i] = strtod(string, NULL)+0.01;	// rounding imprecision in filter entry field
+		if(get_settings_datetime_type() == DATE_KERBAL && i == 1) {min[i] /= 4; max[i] /= 4;}
 	}
 
 	int init_num_itins = pa_num_itins;

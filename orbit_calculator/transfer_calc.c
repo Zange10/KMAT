@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include "tools/thread_pool.h"
+#include "orbit_calculator.h"
 
 
 struct Itin_Spec_Thread_Args {
@@ -169,6 +170,8 @@ void *calc_itin_to_target_from_departure(void *args) {
 	struct Body *dep_body = system->bodies[thread_args->dep_body_id];
 	struct Body *arr_body = system->bodies[thread_args->arr_body_id];
 
+	int num_initial_transfers = 500;
+
 	int index = get_incr_thread_counter(0);
 	// increase finished counter to 1 (first finished should reflect a num of finished of 1)
 	if(index == 0) get_incr_thread_counter(1);
@@ -192,15 +195,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 		curr_step->v_body = osv_body0.v;
 		curr_step->v_dep = vec(0, 0, 0);
 		curr_step->v_arr = vec(0, 0, 0);
-		curr_step->num_next_nodes = 0;
-		for(int i = 0; i <= system->num_bodies; i++) {
-			if(system->bodies[i] == dep_body) continue;
-			int min_duration = 10;//initial_min_transfer_duration[dep_body->id][i];
-			int max_duration = 500;//initial_max_transfer_duration[dep_body->id][i];
-			int max_min_duration_diff = max_duration - min_duration;
-			if(max_duration == 0) max_min_duration_diff = -1; // gets added afterward to 1 making it 0
-			curr_step->num_next_nodes += max_min_duration_diff+1;
-		}
+		curr_step->num_next_nodes = num_initial_transfers * (system->num_bodies-1);
 		curr_step->prev = NULL;
 		curr_step->next = (struct ItinStep **) malloc(curr_step->num_next_nodes * sizeof(struct ItinStep *));
 
@@ -210,17 +205,22 @@ void *calc_itin_to_target_from_departure(void *args) {
 
 		for(int body_id = 0; body_id < system->num_bodies; body_id++) {
 			if(system->bodies[body_id] == dep_body) continue;
-			int min_duration = 10;//initial_min_transfer_duration[dep_body->id][body_id];
-			int max_duration = 500;//initial_max_transfer_duration[dep_body->id][body_id];
-			int max_min_duration_diff = max_duration - min_duration;
 
-			if(max_duration == 0) continue;
+			struct OSV arr_body_temp_osv = system->calc_method == ORB_ELEMENTS ?
+										   osv_from_elements(system->bodies[body_id]->orbit, jd_dep, system) :
+										   osv_from_ephem(system->bodies[body_id]->ephem, jd_dep, system->cb);
 
+			double r0 = vector_mag(osv_body0.r), r1 = vector_mag(arr_body_temp_osv.r);
+			double r_ratio =  r1/r0;
+			double hohmann_dur = calc_hohmann_transfer_duration(r0, r1, system->cb)/86400;
+			double min_duration = 0.4 * hohmann_dur;
+			double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+			double max_min_duration_diff = max_duration - min_duration;
 
 			next_step_body = system->bodies[body_id];
 
-			for(int j = 0; j <= max_min_duration_diff; j++) {
-				double jd_arr = jd_dep + min_duration + j;
+			for(int j = 0; j < num_initial_transfers; j++) {
+				double jd_arr = jd_dep + min_duration + max_min_duration_diff * j/(num_initial_transfers-1);
 
 				if(jd_arr > jd_max_arr) break;
 

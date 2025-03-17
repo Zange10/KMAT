@@ -209,6 +209,8 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 		cairo_set_source_rgb(cr, 1, 1, 1);
 		if(x_axis_label_type == COORD_LABEL_NUMBER)
 			sprintf(string, "%g", label);
+		else if(y_axis_label_type == COORD_LABEL_DURATION)
+			sprintf(string, "%g", get_settings_datetime_type() == DATE_KERBAL ? label*4 : label);
 		else if(x_axis_label_type == COORD_LABEL_DATE)
 			date_to_string(convert_JD_date(label, get_settings_datetime_type()), string, 0);
 		draw_center_aligned_text(cr, x, x_label_y, string);
@@ -223,6 +225,8 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 		cairo_set_source_rgb(cr, 1, 1, 1);
 		if(y_axis_label_type == COORD_LABEL_NUMBER)
 			sprintf(string, "%g", label);
+		else if(y_axis_label_type == COORD_LABEL_DURATION)
+			sprintf(string, "%g", get_settings_datetime_type() == DATE_KERBAL ? label*4 : label);
 		else if(y_axis_label_type == COORD_LABEL_DATE)
 			date_to_string(convert_JD_date(label, get_settings_datetime_type()), string, 0);
 		draw_right_aligned_text(cr, y_label_x, y+half_font_size, string);
@@ -277,7 +281,7 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 	m_date = (width-origin.x)/(max_date - min_date);
 	m_dur = -origin.y/(max_dur - min_dur); // negative, because positive is down
 
-	draw_coordinate_system(cr, width, height, COORD_LABEL_DATE, COORD_LABEL_NUMBER, min_date, max_date, min_dur, max_dur, origin, 5, 10);
+	draw_coordinate_system(cr, width, height, COORD_LABEL_DATE, COORD_LABEL_DURATION, min_date, max_date, min_dur, max_dur, origin, 5, 10);
 
 	// data
 	double color_bias;
