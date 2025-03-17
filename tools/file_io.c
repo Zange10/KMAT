@@ -285,6 +285,7 @@ struct System * convert_bin_celestial_system(union CelestialSystemBin bin_system
 		case 2:
 			sprintf(system->name, "%s", bin_system.t2.name);
 			system->num_bodies = bin_system.t2.num_bodies;
+			if(system->num_bodies > 1e3) {free(system); return NULL;}	// avoid overflows
 			system->calc_method = bin_system.t2.calc_method;
 			system->ut0 = bin_system.t2.ut0;
 			system->bodies = (struct Body**) malloc(system->num_bodies * sizeof(struct Body*));
@@ -366,6 +367,7 @@ struct System * load_celestial_system_from_bfile(FILE *file, int file_type) {
 		union CelestialSystemBin system_bin;
 		fread(&system_bin.t2, sizeof(struct CelestialSystemBinT2), 1, file);
 		system = convert_bin_celestial_system(system_bin, file_type);
+		if(system == NULL) return NULL;
 
 		union CelestialBodyBin body_bin;
 		fread(&body_bin.t2, sizeof(struct CelestialBodyBinT2), 1, file);
@@ -615,6 +617,8 @@ void load_step_from_bfile(struct ItinStep *step, FILE *file, struct Body **body,
 	}
 	// ---------------------------------------------------
 
+	if(step->num_next_nodes > 1e6) return;	// avoid overflows
+
 	if(step->num_next_nodes > 0)
 		step->next = (struct ItinStep **) malloc(step->num_next_nodes * sizeof(struct ItinStep *));
 	else step->next = NULL;
@@ -697,8 +701,10 @@ struct ItinsLoadFileResults load_itineraries_from_bfile(char *filepath) {
 	} else if(type == 2) {
 		fread(&bin_header.t2, sizeof(struct ItinStepBinHeaderT1), 1, file);
 		num_deps = bin_header.t2.num_deps;
+		// avoid overflows
+		if(num_deps > 1e10) return (struct ItinsLoadFileResults){NULL, NULL, 0};
 
-		int buf;
+			int buf;
 		fread(&buf, sizeof(int), 1, file);
 
 		system = load_celestial_system_from_bfile(file, type);
