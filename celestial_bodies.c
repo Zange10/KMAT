@@ -3,6 +3,7 @@
 #include <gtk/gtk.h>
 #include "celestial_bodies.h"
 #include "tools/file_io.h"
+#include "tools/ephem.h"
 
 struct Body *sun;
 struct Body *mercury;
@@ -67,6 +68,9 @@ struct System * get_current_system() {
 
 void free_system(struct System *system) {
 	if(system == NULL || system == get_current_system()) return;
+	for(int i = 0; i < num_available_systems; i++) {
+		if(system == get_available_systems()[i]) return;
+	}
 	for(int i = 0; i < system->num_bodies; i++) {
 		if(system->bodies[i]->ephem != NULL) free(system->bodies[i]->ephem);
 		free(system->bodies[i]);
@@ -134,9 +138,8 @@ void init_MERCURY() {
         /*pbody*/ SUN()
     );
 
-	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-	mercury->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
-	get_body_ephem(mercury->ephem, mercury->id);
+	mercury->ephem = NULL;
+	get_body_ephems(mercury, SUN());
 }
 
 void init_VENUS() {
@@ -160,9 +163,8 @@ void init_VENUS() {
         /*pbody*/ SUN()
     );
 
-	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-	venus->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
-	get_body_ephem(venus->ephem, venus->id);
+	venus->ephem = NULL;
+	get_body_ephems(venus, SUN());
 }
 
 void init_EARTH() {
@@ -186,9 +188,8 @@ void init_EARTH() {
         /*pbody*/ SUN()
     );
 
-	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-	earth->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
-	get_body_ephem(earth->ephem, earth->id);
+	earth->ephem = NULL;
+	get_body_ephems(earth, SUN());
 }
 
 void init_MOON() {
@@ -234,9 +235,8 @@ void init_MARS() {
         /*pbody*/ SUN()
     );
 
-	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-	mars->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
-	get_body_ephem(mars->ephem, mars->id);
+	mars->ephem = NULL;
+	get_body_ephems(mars, SUN());
 }
 
 void init_JUPITER() {
@@ -260,9 +260,8 @@ void init_JUPITER() {
         /*pbody*/ SUN()
     );
 
-	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-	jupiter->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
-	get_body_ephem(jupiter->ephem, jupiter->id);
+	jupiter->ephem = NULL;
+	get_body_ephems(jupiter, SUN());
 }
 
 void init_SATURN() {
@@ -286,9 +285,8 @@ void init_SATURN() {
         /*pbody*/ SUN()
     );
 
-	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-	saturn->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
-	get_body_ephem(saturn->ephem, saturn->id);
+	saturn->ephem = NULL;
+	get_body_ephems(saturn, SUN());
 }
 
 void init_URANUS() {
@@ -312,9 +310,8 @@ void init_URANUS() {
         /*pbody*/ SUN()
     );
 
-	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-	uranus->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
-	get_body_ephem(uranus->ephem, uranus->id);
+	uranus->ephem = NULL;
+	get_body_ephems(uranus, SUN());
 }
 
 void init_NEPTUNE() {
@@ -338,9 +335,8 @@ void init_NEPTUNE() {
         /*pbody*/ SUN()
     );
 
-	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-	neptune->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
-	get_body_ephem(neptune->ephem, neptune->id);
+	neptune->ephem = NULL;
+	get_body_ephems(neptune, SUN());
 }
 
 void init_PLUTO() {
@@ -364,9 +360,8 @@ void init_PLUTO() {
         /*pbody*/ SUN()
     );
 
-	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-	pluto->ephem = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
-	get_body_ephem(pluto->ephem, pluto->id);
+	pluto->ephem = NULL;
+	get_body_ephems(pluto, SUN());
 }
 
 

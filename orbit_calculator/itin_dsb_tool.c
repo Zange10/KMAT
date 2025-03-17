@@ -83,7 +83,7 @@ void test_dsb() {
 	body_ephems[9] = NULL;
 	for(int i = 1; i <= num_bodies-2; i++) {
 		body_ephems[i] = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
-		get_body_ephem(body_ephems[i], i);
+//		get_body_ephem(body_ephems[i], i);
 	}
 
 	int min_duration[6], max_duration[6];

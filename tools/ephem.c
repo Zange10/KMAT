@@ -5,6 +5,29 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <gtk/gtk.h>
+
+
+struct Date ephem_min_date = {.y = 1950, .m = 1, .d = 1, .date_type = DATE_ISO};
+struct Date ephem_max_date = {.y = 2100, .m = 1, .d = 1, .date_type = DATE_ISO};
+char *ephem_directory = "./Ephemerides";
+
+
+void get_ephem_data_filepath(int id, char *filepath) {
+	sprintf(filepath, "%s/%d.ephem", ephem_directory, id);
+}
+
+int is_ephem_available(int body_code) {
+	char filepath[50];
+	get_ephem_data_filepath(body_code, filepath);
+	FILE *file = fopen(filepath, "r");  // Try to open file in read mode
+	if (file) {
+		fclose(file);  // Close file if it was opened
+		return 1;      // File exists
+	}
+	return 0;          // File does not exist
+}
+
 
 void print_ephem(struct Ephem ephem) {
     printf("Date: %f  (", ephem.date);
@@ -14,10 +37,25 @@ void print_ephem(struct Ephem ephem) {
            ephem.x, ephem.y, ephem.z, ephem.vx, ephem.vy, ephem.vz);
 }
 
-void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_steps, double jd0, double jd1, int download) {
-    if(download) {
-        struct Date d0 = convert_JD_date(jd0, DATE_ISO);
-        struct Date d1 = convert_JD_date(jd1, DATE_ISO);
+void create_directory_if_not_exists(const char *path) {
+	if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
+		GError *error = NULL;
+		if (g_mkdir_with_parents(path, 0755) == -1) {
+			g_warning("Failed to create directory: %s", error->message);
+			g_error_free(error);
+		}
+	}
+}
+
+void get_body_ephems(struct Body *body, struct Body *central_body) {
+	char filepath[50];
+	get_ephem_data_filepath(body->id, filepath);
+
+    if(!is_ephem_available(body->id)) {
+		create_directory_if_not_exists(ephem_directory);
+
+        struct Date d0 = ephem_min_date;
+        struct Date d1 = ephem_max_date;
         char d0_s[32];
         char d1_s[32];
         date_to_string(d0, d0_s, 1);
@@ -31,15 +69,15 @@ void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_step
                      "OBJ_DATA='NO'&"
                      "MAKE_EPHEM='YES'&"
                      "EPHEM_TYPE='VECTORS'&"
-                     "CENTER='500@10'&"
+                     "CENTER='500@%d'&"
                      "START_TIME='%s'&"
                      "STOP_TIME='%s'&"
-                     "STEP_SIZE='%dd'&"
-                     "VEC_TABLE='2'", body_code, d0_s, d1_s, time_steps);
+                     "STEP_SIZE='1 mo'&"
+                     "VEC_TABLE='2'", body->id, central_body->id, d0_s, d1_s);
 
         // Construct the wget command
         char wget_command[512];
-        snprintf(wget_command, sizeof(wget_command), "wget \"%s\" -O output.json", url);
+        snprintf(wget_command, sizeof(wget_command), "wget \"%s\" -O %s", url, filepath);
 
         // Execute the wget command
         int ret_code = system(wget_command);
@@ -50,109 +88,53 @@ void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_step
             return;
         }
     }
-    // Now you can parse the downloaded JSON file (output.json) in your C program.
 
-    FILE *file;
-    char line[256];  // Assuming lines are no longer than 255 characters
+	FILE *file;
+	char line[256];  // Assuming lines are no longer than 255 characters
 
-    if(download) file = fopen("output.json", "r");
-    else{
-        if(body_code == 3) file = fopen("earth.json", "r");
-        else file = fopen("venus.json", "r");
-    }
+	file = fopen(filepath, "r");
 
-    if (file == NULL) {
-        perror("Unable to open file");
-        return;
-    }
-
-    // Read lines from the file until the end is reached
-    while (fgets(line, sizeof(line), file) != NULL) {
-        line[strcspn(line, "\n")] = '\0';
-        if (strcmp(line, "$$SOE") == 0) {
-            break; // Exit the loop when "$$SOE" is encountered
-        }
-    }
-
-    for(int i = 0; i < size_ephem-1; i++){
-        fgets(line, sizeof(line), file);
-        line[strcspn(line, "\n")] = '\0';
-        if (strcmp(line, "$$EOE") == 0) {
-            size_ephem = i+1;   // see below for signifying end of array
-            break; // Exit the loop when "$$SOE" is encountered
-        }
-        char *endptr;
-        double date = strtod(line, &endptr);
-
-        fgets(line, sizeof(line), file);
-        double x,y,z;
-        sscanf(line, " X =%lf Y =%lf Z =%lf", &x, &y, &z);
-        fgets(line, sizeof(line), file);
-        double vx,vy,vz;
-        sscanf(line, " VX=%lf VY=%lf VZ=%lf", &vx, &vy, &vz);
-
-        ephem[i].date = date;
-        ephem[i].x = x*1e3;
-        ephem[i].y = y*1e3;
-        ephem[i].z = z*1e3;
-        ephem[i].vx = vx*1e3;
-        ephem[i].vy = vy*1e3;
-        ephem[i].vz = vz*1e3;
-    }
-
-    ephem[size_ephem-1].date = -1;  // to know where array ends
-    // Close the file when done
-    fclose(file);
-}
-
-void get_body_ephem(struct Ephem *ephem, int body_code) {
-	for(int a = 0; a < 10; a++) {
-		int year = 1950 + a*10;
-		char file_path[30];
-		sprintf(file_path, "Ephems/%d/%d.ephem", body_code, year);
-		
-		FILE *file;
-		char line[256];  // Assuming lines are no longer than 255 characters
-		
-		file = fopen(file_path, "r");
-		
-		if(file == NULL) {
-			perror("Unable to open file");
-			return;
-		}
-		
-		// Read lines from the file until the end is reached
-		while(fgets(line, sizeof(line), file) != NULL) {
-			line[strcspn(line, "\n")] = '\0';
-			if(strcmp(line, "$$SOE") == 0) {
-				break; // Exit the loop when "$$SOE" is encountered
-			}
-		}
-		
-		for(int i = 0; i < 12*10; i++) {
-			fgets(line, sizeof(line), file);
-			line[strcspn(line, "\n")] = '\0';
-			if(strcmp(line, "$$EOE") == 0) break; // Exit the loop when "$$SOE" is encountered
-			char *endptr;
-			double date = strtod(line, &endptr);
-			
-			fgets(line, sizeof(line), file);
-			double x, y, z;
-			sscanf(line, " X =%lf Y =%lf Z =%lf", &x, &y, &z);
-			fgets(line, sizeof(line), file);
-			double vx, vy, vz;
-			sscanf(line, " VX=%lf VY=%lf VZ=%lf", &vx, &vy, &vz);
-			
-			ephem[a*120 + i].date = date;
-			ephem[a*120 + i].x = x*1e3;
-			ephem[a*120 + i].y = y*1e3;
-			ephem[a*120 + i].z = z*1e3;
-			ephem[a*120 + i].vx = vx*1e3;
-			ephem[a*120 + i].vy = vy*1e3;
-			ephem[a*120 + i].vz = vz*1e3;
-		}
-		fclose(file);
+	if(file == NULL) {
+		perror("Unable to open file");
+		return;
 	}
+
+	// Read lines from the file until the end is reached
+	while(fgets(line, sizeof(line), file) != NULL) {
+		line[strcspn(line, "\n")] = '\0';
+		if(strcmp(line, "$$SOE") == 0) {
+			break; // Exit the loop when "$$SOE" is encountered
+		}
+	}
+
+	int num_ephems = 12*(ephem_max_date.y - ephem_min_date.y);
+
+	if(body->ephem != NULL) free(body->ephem);
+	body->ephem = calloc(num_ephems+1, sizeof(struct Ephem));
+
+	for(int i = 0; i < num_ephems; i++) {
+		fgets(line, sizeof(line), file);
+		line[strcspn(line, "\n")] = '\0';
+		if(strcmp(line, "$$EOE") == 0) break; // Exit the loop when "$$SOE" is encountered
+		char *endptr;
+		double date = strtod(line, &endptr);
+
+		fgets(line, sizeof(line), file);
+		double x, y, z;
+		sscanf(line, " X =%lf Y =%lf Z =%lf", &x, &y, &z);
+		fgets(line, sizeof(line), file);
+		double vx, vy, vz;
+		sscanf(line, " VX=%lf VY=%lf VZ=%lf", &vx, &vy, &vz);
+
+		body->ephem[i].date = date;
+		body->ephem[i].x = x*1e3;
+		body->ephem[i].y = y*1e3;
+		body->ephem[i].z = z*1e3;
+		body->ephem[i].vx = vx*1e3;
+		body->ephem[i].vy = vy*1e3;
+		body->ephem[i].vz = vz*1e3;
+	}
+	fclose(file);
 }
 
 struct Ephem get_closest_ephem(struct Ephem *ephem, double date) {

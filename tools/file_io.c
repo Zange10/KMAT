@@ -175,6 +175,7 @@ struct Body * load_body_from_config_file(FILE *file, struct Body *attractor) {
 			body->orbit.theta,
 			attractor
 			);
+	body->ephem = NULL;
 	return body;
 }
 
@@ -221,6 +222,12 @@ struct System * load_system_from_config_file(char *filename) {
 	system->cb = cb;
 	system->bodies = (struct Body**) calloc(system->num_bodies, sizeof(struct Body*));
 	for(int i = 0; i < system->num_bodies; i++) system->bodies[i] = load_body_from_config_file(file, system->cb);
+
+	if(system->calc_method == EPHEMS) {
+		for(int i = 0; i < system->num_bodies; i++) {
+			get_body_ephems(system->bodies[i], system);
+		}
+	}
 
 	fclose(file);
 
@@ -376,6 +383,12 @@ struct System * load_celestial_system_from_bfile(FILE *file, int file_type) {
 		for(int i = 0; i < system->num_bodies; i++) {
 			fread(&body_bin.t2, sizeof(struct CelestialBodyBinT2), 1, file);
 			system->bodies[i] = convert_bin_celestial_body(body_bin, system->cb, file_type);
+		}
+	}
+
+	if(system->calc_method == EPHEMS) {
+		for(int i = 0; i < system->num_bodies; i++) {
+			get_body_ephems(system->bodies[i], system);
 		}
 	}
 

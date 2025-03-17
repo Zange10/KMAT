@@ -1,6 +1,8 @@
 #ifndef KSP_EPHEM_H
 #define KSP_EPHEM_H
 
+#import "celestial_bodies.h"
+
 /**
  * @brief Represents the ephemeral data consisting of date, position, and velocity components
  */
@@ -26,18 +28,10 @@ void print_ephem(struct Ephem ephem);
 /**
  * @brief Retrieves the ephemeral data of requested body for requested time (from JPL's Horizon API or from file)
  *
- * @param ephem The array where all the ephemeral data is to be stored
- * @param size_ephem The biggest size of the ephemeris array
- * @param body_code The body code of the requested celestial body (from JPL's Horizon Application)
- * @param time_steps The size of the time steps between each ephemeris
- * @param jd0 The earliest requested date (Julian Date)
- * @param jd1 The latest requested date (Julian Date)
- * @param download Is 1 if the data is to be retrieved from JPL's Horizon API and is 0 if the data is to be retrieved from file
+ * @param body The body for which the ephemerides should be stored
+ * @param central_body The central body of the body's system
  */
-void get_ephem(struct Ephem *ephem, int size_ephem, int body_code, int time_steps, double jd0, double jd1, int download);
-
-
-void get_body_ephem(struct Ephem *ephem, int body_code);
+void get_body_ephems(struct Body *body, struct Body *central_body);
 
 
 /**

@@ -658,6 +658,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct 
 		sprintf(s_labels, "Departure\n"
 						  "T+:\n"
 						  "RadPer:\n"
+						  "AltPer:\n"
 						  "Min Incl:\n\n"
 						  "C3Energy:\n"
 						  "RHA (out):\n"
@@ -665,11 +666,12 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct 
 
 		sprintf(s_values, "\n0 days\n"
 						  "%.0f km\n"
+						  "%.0f km\n"
 						  "%.2f°\n\n"
 						  "%.2f km²/s²\n"
 						  "%.2f°\n"
 						  "%.2f°",
-				dep_hyp_params.r_pe / 1000, rad2deg(dep_hyp_params.decl), dep_hyp_params.c3_energy / 1e6,
+				dep_hyp_params.r_pe / 1000, (dep_hyp_params.r_pe-step->body->radius) / 1000, fabs(rad2deg(dep_hyp_params.decl)), dep_hyp_params.c3_energy / 1e6,
 				rad2deg(dep_hyp_params.bplane_angle), rad2deg(dep_hyp_params.decl));
 
 	} else if(step->num_next_nodes == 0) {
@@ -692,7 +694,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct 
 						  "%.2f km²/s²\n"
 						  "%.2f°\n"
 						  "%.2f°",
-				dt_in_days, rad2deg(arr_hyp_params.decl), rad2deg(M_PI-arr_hyp_params.decl), arr_hyp_params.c3_energy / 1e6,
+				dt_in_days, fabs(rad2deg(arr_hyp_params.decl)), 180.0 - fabs(rad2deg(arr_hyp_params.decl)), arr_hyp_params.c3_energy / 1e6,
 				rad2deg(arr_hyp_params.bplane_angle), rad2deg(arr_hyp_params.decl));
 
 	} else {
@@ -711,6 +713,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct 
 			sprintf(s_labels, "Hyperbola\n"
 							  "T+:\n"
 							  "RadPer:\n"
+							  "AltPer:\n"
 							  "Inclination:\n\n"
 							  "C3Energy:\n"
 							  "RHA (in):\n"
@@ -722,6 +725,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct 
 
 			sprintf(s_values, "\n%.2f days\n"
 							  "%.0f km\n"
+							  "%.0f km\n"
 							  "%.2f°\n\n"
 							  "%.2f km²/s²\n"
 							  "%.2f°\n"
@@ -730,7 +734,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct 
 							  "%.2f°\n"
 							  "%.2f°\n"
 							  "%.2f°",
-					dt_in_days, hyp_params.dep_hyp.r_pe / 1000, rad2deg(incl),
+					dt_in_days, hyp_params.dep_hyp.r_pe / 1000, (hyp_params.dep_hyp.r_pe-step->body->radius) / 1000, rad2deg(incl),
 					hyp_params.dep_hyp.c3_energy / 1e6,
 					rad2deg(hyp_params.arr_hyp.bplane_angle), rad2deg(hyp_params.arr_hyp.decl),
 					rad2deg(hyp_params.arr_hyp.bvazi),
