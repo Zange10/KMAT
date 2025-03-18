@@ -3,15 +3,17 @@ project(KSP C)
 
 set(CMAKE_C_STANDARD 11)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    message(STATUS "Configuring for Windows (MinGW-w64)")
+    set(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)
+    set(CMAKE_CXX_COMPILER x86_64-w64-mingw32-g++)
+
+    # Ensure MinGW headers are used
+    include_directories(/usr/x86_64-w64-mingw32/include)
+    link_directories(/usr/x86_64-w64-mingw32/lib)
+endif()
+
 include_directories(.)
-
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
-
-include_directories(${GTK3_INCLUDE_DIRS})
-link_directories(${GTK3_LIBRARY_DIRS})
-add_definitions(${GTK3_CFLAGS_OTHER})
-
 
 add_executable(KSP
         celestial_bodies.c
@@ -49,8 +51,8 @@ add_executable(KSP
         tools/thread_pool.h
         orbit_calculator/double_swing_by.c
         orbit_calculator/double_swing_by.h
-        database/database.c
-        database/database.h
+#        database/database.c
+#        database/database.h
         orbit_calculator/double_swing_by.h
         tools/data_tool.c
         tools/data_tool.h
@@ -68,26 +70,26 @@ add_executable(KSP
         launch_calculator/launch_sim.h
         launch_calculator/launch_state.c
         launch_calculator/launch_state.h
-        gui/launch_app/launch_analyzer.c
-        gui/launch_app/launch_analyzer.h
-        database/lv_database.c
-        database/lv_database.h
-        gui/launch_app/capability_analyzer.c
-        gui/launch_app/capability_analyzer.h
-        launch_calculator/capability_calculator.c
-        launch_calculator/capability_calculator.h
-        gui/launch_app/launch_parameter_analyzer.c
-        gui/launch_app/launch_parameter_analyzer.h
-        gui/database_app/mission_db.c
-        gui/database_app/mission_db.h
-        database/mission_database.c
-        database/mission_database.h
+#        gui/launch_app/launch_analyzer.c
+#        gui/launch_app/launch_analyzer.h
+#        database/lv_database.c
+#        database/lv_database.h
+#        gui/launch_app/capability_analyzer.c
+#        gui/launch_app/capability_analyzer.h
+#        launch_calculator/capability_calculator.c
+#        launch_calculator/capability_calculator.h
+#        gui/launch_app/launch_parameter_analyzer.c
+#        gui/launch_app/launch_parameter_analyzer.h
+#        gui/database_app/mission_db.c
+#        gui/database_app/mission_db.h
+#        database/mission_database.c
+#        database/mission_database.h
         gui/css_loader.c
         gui/css_loader.h
-        gui/database_app/database_app_tools/mission_db_tools.c
-        gui/database_app/database_app_tools/mission_db_tools.h
-        gui/database_app/database_app_tools/mission_manager_tools.c
-        gui/database_app/database_app_tools/mission_manager_tools.h
+#        gui/database_app/database_app_tools/mission_db_tools.c
+#        gui/database_app/database_app_tools/mission_db_tools.h
+#        gui/database_app/database_app_tools/mission_manager_tools.c
+#        gui/database_app/database_app_tools/mission_manager_tools.h
         tools/gmat_interface.c
         tools/gmat_interface.h
         orbit_calculator/itin_dsb_tool.c
@@ -104,8 +106,83 @@ add_executable(KSP
         gui/settings.h
 )
 
-target_link_libraries(KSP m;
-        ${GTK3_LIBRARIES};
-        sqlite3)
+# Platform-specific setup
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    message(STATUS "Configuring for Windows (MinGW-w64)")
 
-target_link_options(KSP PRIVATE -rdynamic)
+    # Set MinGW compiler
+    set(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)
+    set(CMAKE_CXX_COMPILER x86_64-w64-mingw32-g++)
+
+    # MinGW GTK3 include and lib paths (adjust these paths)
+#    set(MINGW_GTK3_INCLUDE_DIR "../gtk/include")
+#    set(MINGW_GTK3_LIB_DIR "../gtk/lib")
+
+    # Include GTK3 headers
+#    include_directories(${MINGW_GTK3_INCLUDE_DIR})
+#    link_directories(${MINGW_GTK3_LIB_DIR})
+#    include_directories("${MINGW_GTK3_INCLUDE_DIR}/gtk-3.0")
+#    link_directories("${MINGW_GTK3_LIB_DIR}/gtk-3.0")
+#
+#    # Include Cairo headers
+#    include_directories("${MINGW_GTK3_INCLUDE_DIR}/cairo")
+#    link_directories("${MINGW_GTK3_LIB_DIR}/cairo")
+#
+#    # Include GLib headers
+#    include_directories("${MINGW_GTK3_INCLUDE_DIR}/glib-2.0")
+#    link_directories("${MINGW_GTK3_LIB_DIR}/glib-2.0")
+#    include_directories("${MINGW_GTK3_LIB_DIR}/glib-2.0/include/")
+#
+#    # Include Pango headers
+#    include_directories("${MINGW_GTK3_INCLUDE_DIR}/pango-1.0/pango")
+#    link_directories("${MINGW_GTK3_LIB_DIR}/pango")
+#
+#    include_directories(${MINGW_GTK3_INCLUDE_DIR})
+#    link_directories(${MINGW_GTK3_LIB_DIR})
+
+    # GTK3 installation directory (modify if needed)
+    set(GTK3_ROOT "../gtk")  # Change to actual GTK3 install path
+
+    # Explicit GTK3 include directories
+    include_directories(
+            ${GTK3_ROOT}/include
+            ${GTK3_ROOT}/include/gtk-3.0
+            ${GTK3_ROOT}/include/glib-2.0
+            ${GTK3_ROOT}/lib/glib-2.0/include
+            ${GTK3_ROOT}/include/pango-1.0
+            ${GTK3_ROOT}/include/cairo
+            ${GTK3_ROOT}/include/gdk-pixbuf-2.0
+            ${GTK3_ROOT}/include/atk-1.0
+    )
+
+    # Explicit GTK3 library directories
+    link_directories(
+            ${GTK3_ROOT}/lib
+            ${GTK3_ROOT}/lib/gtk-3.0
+            ${GTK3_ROOT}/lib/glib-2.0
+    )
+
+    # Link required GTK3 libraries
+    target_link_libraries(KSP
+            m
+#            sqlite3
+            gtk-3
+            gobject-2.0
+            glib-2.0
+            pango-1.0
+            cairo
+            gdk_pixbuf-2.0
+            atk-1.0
+    )
+else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    message(STATUS "Configuring for Linux (GCC)")
+
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GTK3 REQUIRED gtk+-3.0)
+
+    include_directories(${GTK3_INCLUDE_DIRS})
+    link_directories(${GTK3_LIBRARY_DIRS})
+    add_definitions(${GTK3_CFLAGS_OTHER})
+    target_link_libraries(KSP m ${GTK3_LIBRARIES} sqlite3)
+    target_link_options(KSP PRIVATE -rdynamic)
+endif()
