@@ -1,14 +1,22 @@
 #ifndef KSP_THREAD_POOL_H
 #define KSP_THREAD_POOL_H
 
+#ifdef _WIN32
+#include <windows.h>
+typedef HANDLE thread_t;  // Use Windows HANDLE for threads
+typedef CRITICAL_SECTION thread_mutex_t;  // Use Windows CRITICAL_SECTION for mutexes
+#else
 #include <pthread.h>
+typedef pthread_t thread_t;  // Use pthread_t for Linux
+typedef pthread_mutex_t thread_mutex_t;  // Use pthread_mutex_t for Linux
+#endif
 
 
 /**
  * @brief Represents a thread pool containing multiple threads and the number of threads in the pool
  */
 struct Thread_Pool {
-	pthread_t *threads; /**< Array of threads in the pool */
+	thread_t *threads; /**< Array of threads in the pool */
 	size_t size;        /**< Size of the thread pool */
 };
 
