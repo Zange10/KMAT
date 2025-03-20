@@ -26,12 +26,11 @@ void activate_app(GtkApplication *app, gpointer gui_filepath);
 void start_gui(const char* gui_filepath) {
 	// init launcher from db for launch calc gui
 //	num_launcher = get_all_launch_vehicles_from_database(&all_launcher, &launcher_ids);
-	setlocale(LC_NUMERIC, "C");	// Glade somehow uses commas instead of points for decimals...
+//	setlocale(LC_NUMERIC, "C");	// Glade somehow uses commas instead of points for decimals...
 
 	// init app
 	GtkApplication *app = gtk_application_new ("org.gtk.example", G_APPLICATION_FLAGS_NONE);
 	g_signal_connect (app, "activate", G_CALLBACK (activate_app), (gpointer) gui_filepath);
-
 	g_application_run (G_APPLICATION (app), 0, NULL);
 	g_object_unref (app);
 

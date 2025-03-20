@@ -48,6 +48,7 @@ void create_directory_if_not_exists(const char *path) {
 }
 
 void get_body_ephems(struct Body *body, struct Body *central_body) {
+//	return;
 	char filepath[50];
 	get_ephem_data_filepath(body->id, filepath);
 

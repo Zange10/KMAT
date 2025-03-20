@@ -41,7 +41,7 @@ int main() {
 //            break;
 //        }
 //    } while(selection != 0);
-	close_db();
+//	close_db();
     return 0;
 }
 

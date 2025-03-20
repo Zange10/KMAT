@@ -141,7 +141,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 #    link_directories(${MINGW_GTK3_LIB_DIR})
 
     # GTK3 installation directory (modify if needed)
-    set(GTK3_ROOT "../gtk")  # Change to actual GTK3 install path
+    set(GTK3_ROOT "/usr/x86_64-w64-mingw32/gtk")  # Change to actual GTK3 install path
 
     # Explicit GTK3 include directories
     include_directories(
@@ -153,6 +153,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             ${GTK3_ROOT}/include/cairo
             ${GTK3_ROOT}/include/gdk-pixbuf-2.0
             ${GTK3_ROOT}/include/atk-1.0
+            ${GTK3_ROOT}/include/harfbuzz
     )
 
     # Explicit GTK3 library directories
@@ -161,11 +162,16 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             ${GTK3_ROOT}/lib/gtk-3.0
             ${GTK3_ROOT}/lib/glib-2.0
     )
+#    find_library(GTK3_LIBRARY gtk-3 PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
+#    find_library(GOBJECT_LIBRARY gobject-2.0 PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
+#    find_library(GLIB_LIBRARY glib-2.0 PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
+#    find_library(PANGO_LIBRARY pango-1.0 PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
+#    find_library(CAIRO_LIBRARY cairo PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
+#    find_library(GDK_PIXBUF_LIBRARY gdk_pixbuf-2.0 PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
+#    find_library(ATK_LIBRARY atk-1.0 PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
 
-    # Link required GTK3 libraries
     target_link_libraries(KSP
             m
-#            sqlite3
             gtk-3
             gobject-2.0
             glib-2.0
@@ -173,6 +179,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             cairo
             gdk_pixbuf-2.0
             atk-1.0
+            gio-2.0
     )
 else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(STATUS "Configuring for Linux (GCC)")
@@ -184,5 +191,6 @@ else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     link_directories(${GTK3_LIBRARY_DIRS})
     add_definitions(${GTK3_CFLAGS_OTHER})
     target_link_libraries(KSP m ${GTK3_LIBRARIES} sqlite3)
+
     target_link_options(KSP PRIVATE -rdynamic)
 endif()

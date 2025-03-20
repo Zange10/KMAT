@@ -244,7 +244,7 @@ void reset_min_max_feedback(int fb0_pow1, int num_itins) {
 	}
 }
 
-void on_change_itin_group_visibility(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_change_itin_group_visibility(GtkWidget* widget, gpointer data) {
 	struct Group *group = (struct Group *) data;  // Cast data back to group struct
 	int visibility = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 	group->show_group = visibility;
@@ -411,7 +411,7 @@ void update_best_itin(int num_itins, int fb0_pow1) {
 	current_date_pa = get_last(curr_transfer_pa)->date;
 }
 
-void on_porkchop_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
+G_MODULE_EXPORT void on_porkchop_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	GtkAllocation allocation;
 	gtk_widget_get_allocation(widget, &allocation);
 	int area_width = allocation.width;
@@ -425,7 +425,7 @@ void on_porkchop_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	if(pa_porkchop != NULL) draw_porkchop(cr, area_width, area_height, pa_porkchop, pa_last_transfer_type == TF_FLYBY ? 0 : 1);
 }
 
-void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
+G_MODULE_EXPORT void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	GtkAllocation allocation;
 	gtk_widget_get_allocation(widget, &allocation);
 	int area_width = allocation.width;
@@ -506,7 +506,7 @@ void analyze_departure_itins() {
 	reset_min_max_feedback(fb0_pow1, pa_num_itins);
 }
 
-void on_load_itineraries(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_load_itineraries(GtkWidget* widget, gpointer data) {
 	GtkWidget *dialog;
 	GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
 	gint res;
@@ -552,7 +552,7 @@ void on_load_itineraries(GtkWidget* widget, gpointer data) {
 	pa_update_preview();
 }
 
-void on_save_best_itinerary(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_save_best_itinerary(GtkWidget* widget, gpointer data) {
 	struct ItinStep *first = get_first(curr_transfer_pa);
 	if(first == NULL) return;
 
@@ -591,7 +591,7 @@ void on_save_best_itinerary(GtkWidget* widget, gpointer data) {
 	gtk_widget_destroy(dialog);
 }
 
-void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointer data) {
 	if(!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) return;
 	const char *name = gtk_widget_get_name(widget);
 	if		(strcmp(name, "fb") == 0) pa_last_transfer_type = TF_FLYBY;
@@ -621,7 +621,7 @@ void update_pa() {
 	on_reset_filter(NULL, NULL);
 }
 
-void on_apply_filter(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_apply_filter(GtkWidget* widget, gpointer data) {
 	if(pa_all_porkchop == NULL) return;
 	double min[5], max[5];
 	char *string;
@@ -658,12 +658,12 @@ void on_apply_filter(GtkWidget* widget, gpointer data) {
 	update_pa();
 }
 
-void on_reset_filter(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_reset_filter(GtkWidget* widget, gpointer data) {
 	int fb0_pow1 = pa_last_transfer_type == TF_FLYBY ? 0 : 1;
 	reset_min_max_feedback(fb0_pow1, pa_num_itins);
 }
 
-void on_reset_porkchop(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_reset_porkchop(GtkWidget* widget, gpointer data) {
 	if(pa_all_porkchop == NULL) return;
 	for(int i = 0; i < pa_num_groups; i++) {
 		pa_groups[i].show_group = 1;
@@ -678,21 +678,21 @@ void on_reset_porkchop(GtkWidget* widget, gpointer data) {
 	on_reset_filter(NULL, NULL);
 }
 
-void on_prev_transfer_pa(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_prev_transfer_pa(GtkWidget* widget, gpointer data) {
 	if(curr_transfer_pa == NULL) return;
 	if(curr_transfer_pa->prev != NULL) curr_transfer_pa = curr_transfer_pa->prev;
 	current_date_pa = curr_transfer_pa->date;
 	pa_update_preview();
 }
 
-void on_next_transfer_pa(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_next_transfer_pa(GtkWidget* widget, gpointer data) {
 	if(curr_transfer_pa == NULL) return;
 	if(curr_transfer_pa->next != NULL) curr_transfer_pa = curr_transfer_pa->next[0];
 	current_date_pa = curr_transfer_pa->date;
 	pa_update_preview();
 }
 
-void on_switch_steps_groups(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_switch_steps_groups(GtkWidget* widget, gpointer data) {
 	if(strcmp(gtk_stack_get_visible_child_name(GTK_STACK(st_pa_step_group_selector)), "page0") == 0)
 		gtk_stack_set_visible_child_name(GTK_STACK(st_pa_step_group_selector), "page1");
 	else

@@ -91,7 +91,7 @@ void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_typ
 }
 
 
-void on_tp_system_change() {
+G_MODULE_EXPORT void on_tp_system_change() {
 	if(get_num_available_systems() == 0) return;
 
 	tp_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system))];
@@ -101,7 +101,7 @@ void on_tp_system_change() {
 }
 
 
-void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
+G_MODULE_EXPORT void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	GtkAllocation allocation;
 	gtk_widget_get_allocation(widget, &allocation);
 	int area_width = allocation.width;
@@ -328,14 +328,14 @@ void tp_update_bodies() {
 }
 
 
-void on_body_toggle(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_body_toggle(GtkWidget* widget, gpointer data) {
 	gboolean *show_body = (gboolean *) data;  // Cast data back to group struct
 	*show_body = !*show_body;
 	gtk_widget_queue_draw(GTK_WIDGET(da_tp));
 }
 
 
-void on_change_date(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_change_date(GtkWidget* widget, gpointer data) {
 	const char *name = gtk_widget_get_name(widget);
 	if		(strcmp(name, "+10Y") == 0) current_date_tp = jd_change_date(current_date_tp, 10, 0, 0, get_settings_datetime_type());
 	else if	(strcmp(name,  "+1Y") == 0) current_date_tp = jd_change_date(current_date_tp, 1, 0, 0, get_settings_datetime_type());
@@ -361,7 +361,7 @@ void on_change_date(GtkWidget* widget, gpointer data) {
 }
 
 
-void on_prev_transfer(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_prev_transfer(GtkWidget* widget, gpointer data) {
 	if(curr_transfer_tp == NULL) return;
 	if(curr_transfer_tp->prev != NULL) curr_transfer_tp = curr_transfer_tp->prev;
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
@@ -369,7 +369,7 @@ void on_prev_transfer(GtkWidget* widget, gpointer data) {
 	update();
 }
 
-void on_next_transfer(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_next_transfer(GtkWidget* widget, gpointer data) {
 	if(curr_transfer_tp == NULL) return;
 	if(curr_transfer_tp->next != NULL) curr_transfer_tp = curr_transfer_tp->next[0];
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
@@ -377,13 +377,13 @@ void on_next_transfer(GtkWidget* widget, gpointer data) {
 	update();
 }
 
-void on_transfer_body_change(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_transfer_body_change(GtkWidget* widget, gpointer data) {
 	if(curr_transfer_tp == NULL) return;
 	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel_tp), "page1");
 	update_itinerary();
 }
 
-void on_last_transfer_type_changed_tp(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_last_transfer_type_changed_tp(GtkWidget* widget, gpointer data) {
 	if(!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget))) return;
 	const char *name = gtk_widget_get_name(widget);
 	if		(strcmp(name, "fb") == 0) tp_last_transfer_type = TF_FLYBY;
@@ -392,7 +392,7 @@ void on_last_transfer_type_changed_tp(GtkWidget* widget, gpointer data) {
 	update_transfer_panel();
 }
 
-void on_toggle_transfer_date_lock(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_toggle_transfer_date_lock(GtkWidget* widget, gpointer data) {
 	if(curr_transfer_tp == NULL) {
 		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
 		return;
@@ -404,19 +404,19 @@ void on_toggle_transfer_date_lock(GtkWidget* widget, gpointer data) {
 	update_itinerary();
 }
 
-void on_goto_transfer_date(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_goto_transfer_date(GtkWidget* widget, gpointer data) {
 	if(curr_transfer_tp == NULL) return;
 	current_date_tp = curr_transfer_tp->date;
 	update_itinerary();
 }
 
-void on_transfer_body_select(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_transfer_body_select(GtkWidget* widget, gpointer data) {
 	curr_transfer_tp->body = data;
 	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel_tp), "page0");
 	update_itinerary();
 }
 
-void on_add_transfer(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_add_transfer(GtkWidget* widget, gpointer data) {
 	if(tp_system == NULL) return;
 	struct ItinStep *new_transfer = (struct ItinStep *) malloc(sizeof(struct ItinStep));
 	new_transfer->body = tp_system->bodies[0];
@@ -463,7 +463,7 @@ void on_add_transfer(GtkWidget* widget, gpointer data) {
 	update_itinerary();
 }
 
-void on_remove_transfer(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_remove_transfer(GtkWidget* widget, gpointer data) {
 	if(tp_system == NULL) return;
 	if(curr_transfer_tp == NULL) return;
 	struct ItinStep *rem_transfer = curr_transfer_tp;
@@ -514,13 +514,13 @@ int find_closest_transfer(struct ItinStep *step) {
 	}
 }
 
-void on_find_closest_transfer(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_find_closest_transfer(GtkWidget* widget, gpointer data) {
 	if(tp_system == NULL) return;
 	int success = find_closest_transfer(curr_transfer_tp);
 	if(success) update_itinerary();
 }
 
-void on_find_itinerary(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_find_itinerary(GtkWidget* widget, gpointer data) {
 	if(tp_system == NULL) return;
 	struct ItinStep *itin_copy = create_itin_copy(get_first(curr_transfer_tp));
 	while(itin_copy->prev != NULL) {
@@ -556,7 +556,7 @@ void on_find_itinerary(GtkWidget* widget, gpointer data) {
 	free_itinerary(itin_copy);
 }
 
-void on_save_itinerary(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_save_itinerary(GtkWidget* widget, gpointer data) {
 	if(tp_system == NULL) return;
 	struct ItinStep *first = get_first(curr_transfer_tp);
 	if(first == NULL || !is_valid_itinerary(get_last(curr_transfer_tp))) return;
@@ -596,7 +596,7 @@ void on_save_itinerary(GtkWidget* widget, gpointer data) {
 	gtk_widget_destroy(dialog);
 }
 
-void on_load_itinerary(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 	GtkWidget *dialog;
 	GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
 	gint res;
@@ -736,7 +736,7 @@ void on_load_itinerary(GtkWidget* widget, gpointer data) {
 }
 
 
-void on_create_gmat_script() {
+G_MODULE_EXPORT void on_create_gmat_script() {
 	if(curr_transfer_tp != NULL) write_gmat_script(curr_transfer_tp, "transfer.script");
 }
 

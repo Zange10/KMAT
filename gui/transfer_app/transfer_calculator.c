@@ -53,7 +53,7 @@ void init_transfer_calculator(GtkBuilder *builder) {
 	tc_system = get_current_system();
 
 	create_combobox_dropdown_text_renderer(cb_tc_body);
-	update_body_dropdown(GTK_COMBO_BOX(cb_tc_body), tc_system);
+	if(get_num_available_systems() > 0 && tc_system != NULL) update_body_dropdown(GTK_COMBO_BOX(cb_tc_body), tc_system);
 }
 
 
@@ -239,7 +239,7 @@ void save_itineraries_tc(struct ItinStep **departures, int num_deps, int num_nod
 	gtk_widget_destroy(dialog);
 }
 
-void on_add_transfer_tc() {
+G_MODULE_EXPORT void on_add_transfer_tc() {
 	struct PlannedStep *new_step = (struct PlannedStep*) malloc(sizeof(struct PlannedStep));
 	new_step->prev = NULL;
 	new_step->next = NULL;
@@ -262,7 +262,7 @@ void on_add_transfer_tc() {
 	update_preview_tc(0);
 }
 
-void on_remove_transfer_tc() {
+G_MODULE_EXPORT void on_remove_transfer_tc() {
 	struct PlannedStep *step = get_last_tc(tc_step);
 	if(step->prev == NULL) {
 		tc_step = NULL;
@@ -276,11 +276,11 @@ void on_remove_transfer_tc() {
 	update_preview_tc(0);
 }
 
-void on_update_tc() {
+G_MODULE_EXPORT void on_update_tc() {
 	update_preview_tc(0);
 }
 
-void on_calc_tc() {
+G_MODULE_EXPORT void on_calc_tc() {
 	struct PlannedStep *step = get_first_tc(tc_step);
 	if(step == NULL || step->next == NULL) return;
 
