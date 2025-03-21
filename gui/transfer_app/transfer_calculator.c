@@ -4,6 +4,7 @@
 #include "gui/settings.h"
 #include "celestial_bodies.h"
 #include "tools/datetime.h"
+#include "tools/file_io.h"
 #include <string.h>
 #include <sys/time.h>
 
@@ -216,7 +217,8 @@ void save_itineraries_tc(struct ItinStep **departures, int num_deps, int num_nod
 										 NULL);
 
 	// Set initial folder
-	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), "./Itineraries");
+	create_directory_if_not_exists(get_itins_directory());
+	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), get_itins_directory());
 
 	// Create a filter for files with the extension .itin
 	GtkFileFilter *filter = gtk_file_filter_new();
@@ -231,7 +233,7 @@ void save_itineraries_tc(struct ItinStep **departures, int num_deps, int num_nod
 		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
 		filepath = gtk_file_chooser_get_filename(chooser);
 
-		store_itineraries_in_bfile(departures, num_nodes, num_deps, filepath, 0);
+//		store_itineraries_in_bfile(departures, num_nodes, num_deps, filepath, 0);
 		g_free(filepath);
 	}
 

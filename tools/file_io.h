@@ -7,6 +7,8 @@
 #include "orbit_calculator/transfer_calc.h"
 
 
+void create_directory_if_not_exists(const char *path);
+
 /**
  * @brief Writes a .csv-file with fields and their data
  *

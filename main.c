@@ -12,7 +12,7 @@ void test();
 
 int main() {
     init_celestial_bodies();
-	init_available_systems("./Celestial_Systems/");
+	init_available_systems("../Celestial_Systems/");
 //	init_db();
 	start_gui("../GUI/GUI.glade");
 

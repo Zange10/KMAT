@@ -3,8 +3,22 @@
 #include <time.h>
 #include <string.h>
 #include <ctype.h>
+#include <gtk/gtk.h>
 
 #include "file_io.h"
+
+
+
+
+void create_directory_if_not_exists(const char *path) {
+	if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
+		GError *error = NULL;
+		if (g_mkdir_with_parents(path, 0755) == -1) {
+			g_warning("Failed to create directory: %s", error->message);
+			g_error_free(error);
+		}
+	}
+}
 
 
 void write_csv(char fields[], double data[]) {

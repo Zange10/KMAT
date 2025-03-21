@@ -17,6 +17,7 @@ void change_text_field_date_type(GObject *text_field, enum DateType old_date_typ
 void change_label_date_type(GObject *label, enum DateType old_date_type, enum DateType new_date_type);
 void change_button_date_type(GObject *button, enum DateType old_date_type, enum DateType new_date_type);
 
+char * get_itins_directory();
 void change_gui_date_type(enum DateType old_date_type, enum DateType new_date_type);
 
 void update_launcher_dropdown(GtkComboBox *cb_sel_launcher);

@@ -69,7 +69,8 @@ void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nod
 										 NULL);
 
 	// Set initial folder
-	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), "./Itineraries");
+	create_directory_if_not_exists(get_itins_directory());
+	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), get_itins_directory());
 
 	// Create a filter for files with the extension .itin
 	GtkFileFilter *filter = gtk_file_filter_new();
