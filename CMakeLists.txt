@@ -51,8 +51,8 @@ add_executable(KSP
         tools/thread_pool.h
         orbit_calculator/double_swing_by.c
         orbit_calculator/double_swing_by.h
-#        database/database.c
-#        database/database.h
+        database/database.c
+        database/database.h
         orbit_calculator/double_swing_by.h
         tools/data_tool.c
         tools/data_tool.h
@@ -70,26 +70,26 @@ add_executable(KSP
         launch_calculator/launch_sim.h
         launch_calculator/launch_state.c
         launch_calculator/launch_state.h
-#        gui/launch_app/launch_analyzer.c
-#        gui/launch_app/launch_analyzer.h
-#        database/lv_database.c
-#        database/lv_database.h
-#        gui/launch_app/capability_analyzer.c
-#        gui/launch_app/capability_analyzer.h
-#        launch_calculator/capability_calculator.c
-#        launch_calculator/capability_calculator.h
-#        gui/launch_app/launch_parameter_analyzer.c
-#        gui/launch_app/launch_parameter_analyzer.h
-#        gui/database_app/mission_db.c
-#        gui/database_app/mission_db.h
-#        database/mission_database.c
-#        database/mission_database.h
+        gui/launch_app/launch_analyzer.c
+        gui/launch_app/launch_analyzer.h
+        database/lv_database.c
+        database/lv_database.h
+        gui/launch_app/capability_analyzer.c
+        gui/launch_app/capability_analyzer.h
+        launch_calculator/capability_calculator.c
+        launch_calculator/capability_calculator.h
+        gui/launch_app/launch_parameter_analyzer.c
+        gui/launch_app/launch_parameter_analyzer.h
+        gui/database_app/mission_db.c
+        gui/database_app/mission_db.h
+        database/mission_database.c
+        database/mission_database.h
         gui/css_loader.c
         gui/css_loader.h
-#        gui/database_app/database_app_tools/mission_db_tools.c
-#        gui/database_app/database_app_tools/mission_db_tools.h
-#        gui/database_app/database_app_tools/mission_manager_tools.c
-#        gui/database_app/database_app_tools/mission_manager_tools.h
+        gui/database_app/database_app_tools/mission_db_tools.c
+        gui/database_app/database_app_tools/mission_db_tools.h
+        gui/database_app/database_app_tools/mission_manager_tools.c
+        gui/database_app/database_app_tools/mission_manager_tools.h
         tools/gmat_interface.c
         tools/gmat_interface.h
         orbit_calculator/itin_dsb_tool.c
@@ -181,6 +181,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             atk-1.0
             gio-2.0
             urlmon
+            sqlite3
     )
 else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(STATUS "Configuring for Linux (GCC)")

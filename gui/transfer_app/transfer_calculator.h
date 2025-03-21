@@ -14,9 +14,9 @@ void reset_tc();
 
 
 // Handler --------------------------------------------------
-void on_add_transfer_tc();
-void on_remove_transfer_tc();
-void on_update_tc();
-void on_calc_tc();
+G_MODULE_EXPORT void on_add_transfer_tc();
+G_MODULE_EXPORT void on_remove_transfer_tc();
+G_MODULE_EXPORT void on_update_tc();
+G_MODULE_EXPORT void on_calc_tc();
 
 #endif //KSP_TRANSFER_CALCULATOR_H

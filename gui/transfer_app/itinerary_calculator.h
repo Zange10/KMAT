@@ -12,7 +12,7 @@ void reset_ic();
 
 // Handler ----------------------
 
-void on_calc_ic();
-void on_ic_system_change();
+G_MODULE_EXPORT void on_calc_ic();
+G_MODULE_EXPORT void on_ic_system_change();
 
 #endif //KSP_ITINERARY_CALCULATOR_H

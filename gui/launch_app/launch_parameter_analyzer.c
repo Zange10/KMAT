@@ -44,7 +44,7 @@ void init_launch_parameter_analyzer(GtkBuilder *builder) {
 	gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(cb_lp_sel_launcher), renderer, "text", 0, NULL);
 }
 
-void on_launch_parameter_analyze_disp_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
+G_MODULE_EXPORT void on_launch_parameter_analyze_disp_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	GtkAllocation allocation;
 	gtk_widget_get_allocation(widget, &allocation);
 	int area_width = allocation.width;
@@ -80,7 +80,7 @@ void on_launch_parameter_analyze_disp_draw(GtkWidget *widget, cairo_t *cr, gpoin
 	draw_plot(cr, area_width, area_height, x, y, pdp.num_points);
 }
 
-void on_lp_analyze() {
+G_MODULE_EXPORT void on_lp_analyze() {
 	int launcher_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_lp_sel_launcher));
 	struct LV *all_launcher = get_all_launcher();
 	int *launcher_ids = get_launcher_ids();

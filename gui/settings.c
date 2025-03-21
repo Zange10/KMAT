@@ -15,7 +15,7 @@ void init_global_settings(GtkBuilder *builder) {
 	cb_settings_datetime_type = gtk_builder_get_object(builder, "cb_settings_datetime_type");
 }
 
-void on_change_datetime_type() {
+G_MODULE_EXPORT void on_change_datetime_type() {
 	enum DateType old_type = global_settings.date_type;
 	global_settings.date_type = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_settings_datetime_type));
 	change_gui_date_type(old_type, global_settings.date_type);
