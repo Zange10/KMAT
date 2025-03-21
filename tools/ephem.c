@@ -7,6 +7,13 @@
 #include <math.h>
 #include <gtk/gtk.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <urlmon.h>
+#pragma comment(lib, "urlmon.lib")  // Link against urlmon.dll
+#endif
+
+
 
 struct Date ephem_min_date = {.y = 1950, .m = 1, .d = 1, .date_type = DATE_ISO};
 struct Date ephem_max_date = {.y = 2100, .m = 1, .d = 1, .date_type = DATE_ISO};
@@ -47,8 +54,23 @@ void create_directory_if_not_exists(const char *path) {
 	}
 }
 
+void download_file(const char *url, const char *filepath) {
+#ifdef _WIN32
+	HRESULT hr = URLDownloadToFile(NULL, url, filepath, 0, NULL);
+    if (hr != S_OK) {
+        fprintf(stderr, "Error downloading file: %lx\n", hr);
+    }
+#else
+	char wget_command[512];
+	snprintf(wget_command, sizeof(wget_command), "wget \"%s\" -O %s", url, filepath);
+	int ret_code = system(wget_command);
+	if (ret_code != 0) {
+		fprintf(stderr, "Error executing wget: %d\n", ret_code);
+	}
+#endif
+}
+
 void get_body_ephems(struct Body *body, struct Body *central_body) {
-//	return;
 	char filepath[50];
 	get_ephem_data_filepath(body->id, filepath);
 
@@ -76,18 +98,7 @@ void get_body_ephems(struct Body *body, struct Body *central_body) {
                      "STEP_SIZE='1 mo'&"
                      "VEC_TABLE='2'", body->id, central_body->id, d0_s, d1_s);
 
-        // Construct the wget command
-        char wget_command[512];
-        snprintf(wget_command, sizeof(wget_command), "wget \"%s\" -O %s", url, filepath);
-
-        // Execute the wget command
-        int ret_code = system(wget_command);
-
-        // Check for errors
-        if (ret_code != 0) {
-            fprintf(stderr, "Error executing wget: %d\n", ret_code);
-            return;
-        }
+		download_file(url, filepath);
     }
 
 	FILE *file;

@@ -180,6 +180,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             gdk_pixbuf-2.0
             atk-1.0
             gio-2.0
+            urlmon
     )
 else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(STATUS "Configuring for Linux (GCC)")
