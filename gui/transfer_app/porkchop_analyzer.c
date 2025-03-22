@@ -136,7 +136,7 @@ void free_all_porkchop_analyzer_itins() {
 	curr_transfer_pa = NULL;
 	free(pa_groups);
 	pa_groups = NULL;
-	free_system(pa_system);
+	if(!is_available_system(pa_system)) free_system(pa_system);
 	pa_system = NULL;
 }
 

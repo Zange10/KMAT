@@ -128,8 +128,7 @@ int get_key_and_value_from_config(char *key, char *value, char *line) {
 }
 
 struct Body * load_body_from_config_file(FILE *file, struct Body *attractor) {
-	struct Body *body = (struct Body*) calloc(1, sizeof(struct Body));
-	body->orbit.body = attractor;
+	struct Body *body = new_body();
 
 	char line[256];  // Buffer for each line
 	while (fgets(line, sizeof(line), file)) {
@@ -189,12 +188,11 @@ struct Body * load_body_from_config_file(FILE *file, struct Body *attractor) {
 			body->orbit.theta,
 			attractor
 			);
-	body->ephem = NULL;
 	return body;
 }
 
 struct System * load_system_from_config_file(char *filename) {
-	struct System *system = (struct System*) calloc(1, sizeof(struct System));
+	struct System *system = new_system();
 	system->num_bodies = 0;
 	system->calc_method = ORB_ELEMENTS;
 	char central_body_name[50];
@@ -301,7 +299,7 @@ union CelestialSystemBin convert_celestial_system_bin(struct System *system, int
 }
 
 struct System * convert_bin_celestial_system(union CelestialSystemBin bin_system, int file_type) {
-	struct System *system = (struct System*) malloc(sizeof(struct System));
+	struct System *system = new_system();
 	switch(file_type) {
 		case 2:
 			sprintf(system->name, "%s", bin_system.t2.name);
@@ -341,7 +339,7 @@ union CelestialBodyBin convert_celestial_body_bin(struct Body *body, int file_ty
 }
 
 struct Body * convert_bin_celestial_body(union CelestialBodyBin bin_body, struct Body *attractor, int file_type) {
-	struct Body *body = (struct Body*) malloc(sizeof(struct Body));
+	struct Body *body = new_body();
 	switch(file_type) {
 		case 2:
 			sprintf(body->name, "%s", bin_body.t2.name);
@@ -361,7 +359,6 @@ struct Body * convert_bin_celestial_body(union CelestialBodyBin bin_body, struct
 						bin_body.t2.arg_peri,
 						bin_body.t2.theta,
 						attractor);
-			body->ephem = NULL;
 			break;
 	}
 	return body;

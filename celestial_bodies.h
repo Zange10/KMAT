@@ -16,9 +16,17 @@ struct System {
 	double ut0;							// time of t0 for system
 };
 
+struct Body * new_body();
+
+struct System * new_system();
+
 void init_available_systems(const char *directory);
 
 int get_num_available_systems();
+
+int is_available_system(struct System *system);
+
+void free_all_celestial_systems();
 
 struct System ** get_available_systems();
 

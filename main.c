@@ -42,6 +42,7 @@ int main() {
 //        }
 //    } while(selection != 0);
 //	close_db();
+	free_all_celestial_systems();
     return 0;
 }
 

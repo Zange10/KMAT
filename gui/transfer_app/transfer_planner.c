@@ -627,7 +627,7 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 
 		if(curr_transfer_tp != NULL) free_itinerary(get_first(curr_transfer_tp));
 
-		free_system(tp_system);
+		if(!is_available_system(tp_system)) free_system(tp_system);
 		struct ItinLoadFileResults load_results = load_single_itinerary_from_bfile(filepath);
 		curr_transfer_tp = get_first(load_results.itin);
 		tp_system = load_results.system;

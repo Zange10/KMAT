@@ -17,7 +17,6 @@ struct Body *neptune;
 struct Body *pluto;
 
 struct Body *kerbol;
-struct Body *moho;
 struct Body *eve;
 struct Body *kerbin;
 struct Body *duna;
@@ -30,6 +29,45 @@ struct System **available_systems;
 struct System *solar_system_ephem, *solar_system, *stock_system;
 
 int num_available_systems = 0;
+
+
+
+struct Body * new_body() {
+	struct Body *new_body = (struct Body*) malloc(sizeof(struct Body));
+	sprintf(new_body->name, "BODY");
+	new_body->color[0] = 0.5;
+	new_body->color[1] = 0.5;
+	new_body->color[2] = 0.5;
+	new_body->id = 0;
+	new_body->mu = 0;
+	new_body->radius = 0;
+	new_body->rotation_period = 86400;
+	new_body->sl_atmo_p = 0;
+	new_body->scale_height = 1000;
+	new_body->atmo_alt = 0;
+	new_body->ephem = NULL;
+
+	new_body->orbit.a = 150e9;
+	new_body->orbit.e = 0;
+	new_body->orbit.inclination = 0;
+	new_body->orbit.raan = 0;
+	new_body->orbit.arg_peri = 0;
+	new_body->orbit.theta = 0;
+	new_body->orbit.body = NULL;
+
+	return new_body;
+}
+
+struct System * new_system() {
+	struct System *system = (struct System*) malloc(sizeof(struct System));
+	sprintf(system->name,"CELESTIAL SYSTEM");
+	system->num_bodies = 0;
+	system->cb = NULL;
+	system->bodies = NULL;
+	system->calc_method = EPHEMS;
+	system->ut0 = 0;
+	return system;
+}
 
 
 void init_available_systems(const char *directory) {
@@ -66,11 +104,23 @@ struct System * get_current_system() {
 	return curr_system;
 }
 
+int is_available_system(struct System *system) {
+	if(system == NULL) return 0;
+	if(system == get_current_system()) return 1;
+	for(int i = 0; i < num_available_systems; i++) {
+		if(system == get_available_systems()[i]) return 1;
+	}
+	return 0;
+}
+
+void free_all_celestial_systems() {
+	for(int i = 0; i < num_available_systems; i++) {
+		free_system(get_available_systems()[i]);
+	}
+}
+
 void free_system(struct System *system) {
 	if(system == NULL || system == get_current_system()) return;
-	for(int i = 0; i < num_available_systems; i++) {
-		if(system == get_available_systems()[i]) return;
-	}
 	for(int i = 0; i < system->num_bodies; i++) {
 		if(system->bodies[i]->ephem != NULL) free(system->bodies[i]->ephem);
 		free(system->bodies[i]);
@@ -550,10 +600,7 @@ void init_celestial_bodies() {
 	init_solar_system_ephem();
 	init_solar_system();
 	init_stock_system();
-//	curr_system = solar_system;
-//	curr_system = solar_system_ephem;
-//	curr_system = stock_system;
-//	curr_system = load_system_from_config_file("./Celestial_Systems/Stock System.cfg");
+	curr_system = solar_system;
 }
 
 
