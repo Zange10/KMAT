@@ -57,42 +57,10 @@ void ic_change_date_type(enum DateType old_date_type, enum DateType new_date_typ
 
 void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nodes) {
 	if(departures == NULL || num_deps == 0) return;
-
-	GtkWidget *dialog;
-	GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_SAVE;
-	gint res;
-
-	// Create the file chooser dialog
-	dialog = gtk_file_chooser_dialog_new("Save File", NULL, action,
-										 "_Cancel", GTK_RESPONSE_CANCEL,
-										 "_Save", GTK_RESPONSE_ACCEPT,
-										 NULL);
-
-	// Set initial folder
-	create_directory_if_not_exists(get_itins_directory());
-	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), get_itins_directory());
-
-	// Create a filter for files with the extension .itin
-	GtkFileFilter *filter = gtk_file_filter_new();
-	gtk_file_filter_add_pattern(filter, "*.itins");
-	gtk_file_filter_set_name(filter, ".itins");
-	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
-
-	// Run the dialog
-	res = gtk_dialog_run(GTK_DIALOG(dialog));
-	if (res == GTK_RESPONSE_ACCEPT) {
-		char *filepath;
-		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
-		filepath = gtk_file_chooser_get_filename(chooser);
-
-		store_itineraries_in_bfile(departures, num_nodes, num_deps, ic_system, filepath, 2);
-		g_free(filepath);
-	}
-
-	// Destroy the dialog
-	gtk_widget_destroy(dialog);
+	char filepath[255];
+	if(!get_path_from_file_chooser(filepath,  ".itins", GTK_FILE_CHOOSER_ACTION_SAVE)) return;
+	store_itineraries_in_bfile(departures, num_nodes, num_deps, ic_system, filepath, 2);
 }
-
 
 
 

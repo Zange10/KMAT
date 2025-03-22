@@ -507,47 +507,18 @@ void analyze_departure_itins() {
 }
 
 G_MODULE_EXPORT void on_load_itineraries(GtkWidget* widget, gpointer data) {
-	GtkWidget *dialog;
-	GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
-	gint res;
+	char filepath[255];
+	if(!get_path_from_file_chooser(filepath, ".itins", GTK_FILE_CHOOSER_ACTION_OPEN)) return;
 
-	// Create the file chooser dialog
-	dialog = gtk_file_chooser_dialog_new("Open File", NULL, action,
-										 "_Cancel", GTK_RESPONSE_CANCEL,
-										 "_Open", GTK_RESPONSE_ACCEPT,
-										 NULL);
-
-	// Set initial folder
-	create_directory_if_not_exists(get_itins_directory());
-	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), get_itins_directory());
-
-	// Create a filter for files with the extension .itin
-	GtkFileFilter *filter = gtk_file_filter_new();
-	gtk_file_filter_add_pattern(filter, "*.itins");
-	gtk_file_filter_set_name(filter, ".itins");
-	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
-
-	// Run the dialog
-	res = gtk_dialog_run(GTK_DIALOG(dialog));
-	if (res == GTK_RESPONSE_ACCEPT) {
-		char *filepath;
-		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
-		filepath = gtk_file_chooser_get_filename(chooser);
-
-		free_all_porkchop_analyzer_itins();
-		pa_num_deps = get_num_of_deps_of_itinerary_from_bfile(filepath);
-		struct ItinsLoadFileResults load_results = load_itineraries_from_bfile(filepath);
-		pa_num_deps = load_results.num_deps;
-		pa_departures = load_results.departures;
-		pa_system = load_results.system;
-		if(body_show_status_pa != NULL) free(body_show_status_pa);
-		body_show_status_pa = (int*) calloc(pa_system->num_bodies, sizeof(int));
-		analyze_departure_itins();
-		g_free(filepath);
-	}
-
-	// Destroy the dialog
-	gtk_widget_destroy(dialog);
+	free_all_porkchop_analyzer_itins();
+	pa_num_deps = get_num_of_deps_of_itinerary_from_bfile(filepath);
+	struct ItinsLoadFileResults load_results = load_itineraries_from_bfile(filepath);
+	pa_num_deps = load_results.num_deps;
+	pa_departures = load_results.departures;
+	pa_system = load_results.system;
+	if(body_show_status_pa != NULL) free(body_show_status_pa);
+	body_show_status_pa = (int*) calloc(pa_system->num_bodies, sizeof(int));
+	analyze_departure_itins();
 
 	update_porkchop_drawing_area();
 	pa_update_preview();
@@ -557,40 +528,9 @@ G_MODULE_EXPORT void on_save_best_itinerary(GtkWidget* widget, gpointer data) {
 	struct ItinStep *first = get_first(curr_transfer_pa);
 	if(first == NULL) return;
 
-
-	GtkWidget *dialog;
-	GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_SAVE;
-	gint res;
-
-	// Create the file chooser dialog
-	dialog = gtk_file_chooser_dialog_new("Save File", NULL, action,
-										 "_Cancel", GTK_RESPONSE_CANCEL,
-										 "_Save", GTK_RESPONSE_ACCEPT,
-										 NULL);
-
-	// Set initial folder
-	create_directory_if_not_exists(get_itins_directory());
-	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), get_itins_directory());
-
-	// Create a filter for files with the extension .itin
-	GtkFileFilter *filter = gtk_file_filter_new();
-	gtk_file_filter_add_pattern(filter, "*.itin");
-	gtk_file_filter_set_name(filter, ".itin");
-	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
-
-	// Run the dialog
-	res = gtk_dialog_run(GTK_DIALOG(dialog));
-	if (res == GTK_RESPONSE_ACCEPT) {
-		char *filepath;
-		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
-		filepath = gtk_file_chooser_get_filename(chooser);
-
-		store_single_itinerary_in_bfile(first, pa_system, filepath);
-		g_free(filepath);
-	}
-
-	// Destroy the dialog
-	gtk_widget_destroy(dialog);
+	char filepath[255];
+	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_SAVE)) return;
+	store_single_itinerary_in_bfile(first, pa_system, filepath);
 }
 
 G_MODULE_EXPORT void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointer data) {

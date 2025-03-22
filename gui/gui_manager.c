@@ -14,7 +14,11 @@
 #include "database/lv_database.h"
 #include "launch_calculator/lv_profile.h"
 #include "gui/database_app/mission_db.h"
-
+#include "tools/file_io.h"
+#ifdef _WIN32
+#include <windows.h>
+#include <commdlg.h>
+#endif
 
 struct LV *all_launcher;
 int *launcher_ids;
@@ -86,6 +90,88 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 	g_object_unref(builder);
 }
 
+
+int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAction action) {
+	create_directory_if_not_exists(get_itins_directory());
+	#ifdef _WIN32
+		OPENFILENAME ofn;
+		char szFile[MAX_PATH] = {0};
+		char filter[100];
+
+		ZeroMemory(&ofn, sizeof(ofn));
+		ofn.lStructSize = sizeof(ofn);
+		ofn.hwndOwner = NULL;  // If using a window, set the handle here
+
+		// Set file filter dynamically based on the extension
+	snprintf(filter, sizeof(filter), "%s Files%c*%s%cAll Files (*.*)%c*.*%c",
+			 extension, '\0', extension, '\0', '\0', '\0');
+		ofn.lpstrFilter = filter;
+		ofn.lpstrFile = szFile;
+		ofn.nMaxFile = MAX_PATH;
+		ofn.lpstrInitialDir = get_itins_directory();
+		ofn.lpstrDefExt = extension;
+
+		if (action == GTK_FILE_CHOOSER_ACTION_SAVE) {
+			ofn.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
+			if (GetSaveFileNameA(&ofn)) {
+				strcpy(filepath, szFile);
+			} else {
+				filepath[0] = '\0';
+			}
+		} else {  // Open file dialog
+			ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST;
+			if (GetOpenFileNameA(&ofn)) {
+				strcpy(filepath, szFile);
+			} else {
+				filepath[0] = '\0';
+			}
+		}
+	#else
+		GtkWidget *dialog;
+		gint res;
+
+		if(action == GTK_FILE_CHOOSER_ACTION_SAVE) {
+			dialog = gtk_file_chooser_dialog_new("Save File", NULL, action,
+												 "_Cancel", GTK_RESPONSE_CANCEL,
+												 "_Save", GTK_RESPONSE_ACCEPT,
+												 NULL);
+		} else {
+			dialog = gtk_file_chooser_dialog_new("Open File", NULL, action,
+												 "_Cancel", GTK_RESPONSE_CANCEL,
+												 "_Open", GTK_RESPONSE_ACCEPT,
+												 NULL);
+		}
+
+		// Set initial folder
+		gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), get_itins_directory());
+
+		// Create a filter for files with the extension .itin
+		GtkFileFilter *filter = gtk_file_filter_new();
+
+		char extension_filter[20];
+		sprintf(extension_filter, "*%s", extension);
+		gtk_file_filter_add_pattern(filter, extension_filter);
+		gtk_file_filter_set_name(filter, extension);
+		gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
+
+		// Run the dialog
+		res = gtk_dialog_run(GTK_DIALOG(dialog));
+		if (res == GTK_RESPONSE_ACCEPT) {
+			char *filepath_temp;
+			GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
+			filepath_temp = gtk_file_chooser_get_filename(chooser);
+
+			sprintf(filepath, "%s", filepath_temp);
+			g_free(filepath_temp);
+		}
+		// Destroy the dialog
+		gtk_widget_destroy(dialog);
+	#endif
+
+	// check if file or path was selected
+	if(filepath[0] == '\0') return 0;
+	else return 1;
+}
 
 void create_combobox_dropdown_text_renderer(GObject *combo_box) {
 	GtkCellRenderer *renderer = gtk_cell_renderer_text_new();

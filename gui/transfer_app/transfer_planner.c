@@ -561,86 +561,25 @@ G_MODULE_EXPORT void on_save_itinerary(GtkWidget* widget, gpointer data) {
 	struct ItinStep *first = get_first(curr_transfer_tp);
 	if(first == NULL || !is_valid_itinerary(get_last(curr_transfer_tp))) return;
 
-
-	GtkWidget *dialog;
-	GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_SAVE;
-	gint res;
-
-	// Create the file chooser dialog
-	dialog = gtk_file_chooser_dialog_new("Save File", NULL, action,
-										 "_Cancel", GTK_RESPONSE_CANCEL,
-										 "_Save", GTK_RESPONSE_ACCEPT,
-										 NULL);
-
-	// Set initial folder
-	create_directory_if_not_exists(get_itins_directory());
-	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), get_itins_directory());
-
-	// Create a filter for files with the extension .itin
-	GtkFileFilter *filter = gtk_file_filter_new();
-	gtk_file_filter_add_pattern(filter, "*.itin");
-	gtk_file_filter_set_name(filter, ".itin");
-	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
-
-	// Run the dialog
-	res = gtk_dialog_run(GTK_DIALOG(dialog));
-	if (res == GTK_RESPONSE_ACCEPT) {
-		char *filepath;
-		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
-		filepath = gtk_file_chooser_get_filename(chooser);
-
-		store_single_itinerary_in_bfile(first, tp_system, filepath);
-		g_free(filepath);
-	}
-
-	// Destroy the dialog
-	gtk_widget_destroy(dialog);
+	char filepath[255];
+	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_SAVE)) return;
+	store_single_itinerary_in_bfile(first, tp_system, filepath);
 }
 
 G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
-	GtkWidget *dialog;
-	GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
-	gint res;
+	char filepath[255];
+	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_OPEN)) return;
 
-	// Create the file chooser dialog
-	dialog = gtk_file_chooser_dialog_new("Open File", NULL, action,
-										 "_Cancel", GTK_RESPONSE_CANCEL,
-										 "_Open", GTK_RESPONSE_ACCEPT,
-										 NULL);
+	if(curr_transfer_tp != NULL) free_itinerary(get_first(curr_transfer_tp));
 
-	// Set initial folder
-	create_directory_if_not_exists(get_itins_directory());
-	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), get_itins_directory());
-
-	// Create a filter for files with the extension .itin
-	GtkFileFilter *filter = gtk_file_filter_new();
-	gtk_file_filter_add_pattern(filter, "*.itin");
-	gtk_file_filter_set_name(filter, ".itin");
-	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
-
-	// Run the dialog
-	res = gtk_dialog_run(GTK_DIALOG(dialog));
-	if (res == GTK_RESPONSE_ACCEPT) {
-		char *filepath;
-		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
-		filepath = gtk_file_chooser_get_filename(chooser);
-
-		if(curr_transfer_tp != NULL) free_itinerary(get_first(curr_transfer_tp));
-
-		if(!is_available_system(tp_system)) free_system(tp_system);
-		struct ItinLoadFileResults load_results = load_single_itinerary_from_bfile(filepath);
-		curr_transfer_tp = get_first(load_results.itin);
-		tp_system = load_results.system;
-		current_date_tp = curr_transfer_tp->date;
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
-		tp_update_bodies();
-		update_itinerary();
-		g_free(filepath);
-	} else {
-		// Destroy the dialog
-		gtk_widget_destroy(dialog);
-		return;
-	}
+	if(!is_available_system(tp_system)) free_system(tp_system);
+	struct ItinLoadFileResults load_results = load_single_itinerary_from_bfile(filepath);
+	curr_transfer_tp = get_first(load_results.itin);
+	tp_system = load_results.system;
+	current_date_tp = curr_transfer_tp->date;
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
+	tp_update_bodies();
+	update_itinerary();
 
 	struct ItinStep *step2pr = get_first(curr_transfer_tp);
 	struct DepArrHyperbolaParams dep_hyp_params = get_dep_hyperbola_params(step2pr->next[0]->v_dep, step2pr->v_body,
@@ -732,9 +671,6 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 		   "TA: 0.0°\n",
 		   step2pr->body->name, dt_in_days, step2pr->date, arr_hyp_params.r_pe/1000, arr_hyp_params.c3_energy/1e6,
 		   rad2deg(arr_hyp_params.bplane_angle), rad2deg(arr_hyp_params.decl));
-
-	// Destroy the dialog
-	gtk_widget_destroy(dialog);
 }
 
 
