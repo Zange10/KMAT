@@ -23,13 +23,8 @@ int num_show_mission_objectives, num_show_mission_events, num_init_mission_event
 
 
 
-
-void on_showhide_mission_objectives(GtkWidget *button, gpointer data);
-void on_showhide_mission_events(GtkWidget *button, gpointer data);
-void on_edit_mission(GtkWidget *button, gpointer data);
 int is_mission_id_on_objective_show_list(int mission_id);
 int is_mission_id_on_event_show_list(int mission_id);
-void on_update_mission_init_event(GtkWidget *button, gpointer data);
 
 
 void init_mission_db(GtkBuilder *builder) {
@@ -330,11 +325,11 @@ int is_mission_id_on_event_show_list(int mission_id) {
 
 
 
-void on_show_missions(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_show_missions(GtkWidget* widget, gpointer data) {
 	update_db_box();
 }
 
-void on_reset_mission_filter(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_reset_mission_filter(GtkWidget* widget, gpointer data) {
 	gtk_entry_set_text(GTK_ENTRY(tf_mdbfilt_name), "");
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(cb_mdbfilt_ended), 1);
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(cb_mdbfilt_inprog), 1);
@@ -349,13 +344,13 @@ void on_reset_mission_filter(GtkWidget* widget, gpointer data) {
 	update_db_box();
 }
 
-void on_new_mission() {
+G_MODULE_EXPORT void on_new_mission() {
 	struct Mission_DB empty_mission = {.id = -1};
 	switch_to_mission_manager(empty_mission);
 	switch_to_mission_manager_page();
 }
 
-void on_showhide_mission_objectives(GtkWidget *button, gpointer data) {
+G_MODULE_EXPORT void on_showhide_mission_objectives(GtkWidget *button, gpointer data) {
 	int mission_id = *((int *) data);  // Cast data back to int
 	if(is_mission_id_on_objective_show_list(mission_id)) remove_mission_id_from_objective_show_list(mission_id);
 	else {
@@ -365,7 +360,7 @@ void on_showhide_mission_objectives(GtkWidget *button, gpointer data) {
 	update_db_box();
 }
 
-void on_showhide_mission_events(GtkWidget *button, gpointer data) {
+G_MODULE_EXPORT void on_showhide_mission_events(GtkWidget *button, gpointer data) {
 	int mission_id = *((int *) data);  // Cast data back to int
 	if(is_mission_id_on_event_show_list(mission_id)) remove_mission_id_from_event_show_list(mission_id);
 	else {
@@ -375,7 +370,7 @@ void on_showhide_mission_events(GtkWidget *button, gpointer data) {
 	update_db_box();
 }
 
-void on_edit_mission(GtkWidget *button, gpointer data) {
+G_MODULE_EXPORT void on_edit_mission(GtkWidget *button, gpointer data) {
 	int mission_id = *((int *) data);  // Cast data back to int
 
 	struct Mission_DB mission = get_mission_from_id(missions, num_missions, mission_id);
@@ -384,7 +379,7 @@ void on_edit_mission(GtkWidget *button, gpointer data) {
 }
 
 
-void on_update_mission_init_event(GtkWidget *button, gpointer data) {
+G_MODULE_EXPORT void on_update_mission_init_event(GtkWidget *button, gpointer data) {
 	char *name = (char*) gtk_widget_get_name(button);
 	int event_id, mission_id;
 

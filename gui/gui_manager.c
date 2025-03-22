@@ -20,18 +20,18 @@ struct LV *all_launcher;
 int *launcher_ids;
 int num_launcher;
 
+char itins_dir[] = "../Itineraries";
 
 void activate_app(GtkApplication *app, gpointer gui_filepath);
 
 void start_gui(const char* gui_filepath) {
 	// init launcher from db for launch calc gui
-//	num_launcher = get_all_launch_vehicles_from_database(&all_launcher, &launcher_ids);
+	num_launcher = get_all_launch_vehicles_from_database(&all_launcher, &launcher_ids);
 	setlocale(LC_NUMERIC, "C");	// Glade somehow uses commas instead of points for decimals...
 
 	// init app
-	GtkApplication *app = gtk_application_new ("org.gtk.example", G_APPLICATION_DEFAULT_FLAGS);
+	GtkApplication *app = gtk_application_new ("org.gtk.example", G_APPLICATION_FLAGS_NONE);
 	g_signal_connect (app, "activate", G_CALLBACK (activate_app), (gpointer) gui_filepath);
-
 	g_application_run (G_APPLICATION (app), 0, NULL);
 	g_object_unref (app);
 
@@ -44,11 +44,11 @@ void start_gui(const char* gui_filepath) {
 	reset_tc();
 	end_transfer_planner();
 	// reset launch gui
-//	close_launch_analyzer();
-//	close_capability_analyzer();
-//	close_launch_parameter_analyzer();
+	close_launch_analyzer();
+	close_capability_analyzer();
+	close_launch_parameter_analyzer();
 	// reset db gui
-//	close_mission_db();
+	close_mission_db();
 }
 
 void activate_app(GtkApplication *app, gpointer gui_filepath) {
@@ -133,6 +133,10 @@ void change_gui_date_type(enum DateType old_date_type, enum DateType new_date_ty
 
 
 // transfer calc gui stuff ----------------------------------------------------------------
+char * get_itins_directory() {
+	return itins_dir;
+}
+
 void update_system_dropdown(GtkComboBox *cb_sel_system) {
 	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
 	GtkTreeIter iter;

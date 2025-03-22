@@ -3,7 +3,6 @@
 #include <gtk/gtk.h>
 #include "celestial_bodies.h"
 #include "tools/file_io.h"
-#include "tools/ephem.h"
 
 struct Body *sun;
 struct Body *mercury;
@@ -36,6 +35,7 @@ int num_available_systems = 0;
 void init_available_systems(const char *directory) {
 	available_systems = (struct System**) malloc(10 * sizeof(struct System*));	// A maximum of 10 systems seems reasonable
 
+	create_directory_if_not_exists(directory);
 	GDir *dir = g_dir_open(directory, 0, NULL);
 	if (!dir) {
 		g_printerr("Unable to open directory: %s\n", directory);
@@ -139,7 +139,7 @@ void init_MERCURY() {
     );
 
 	mercury->ephem = NULL;
-	get_body_ephems(mercury, SUN());
+//	get_body_ephems(mercury, SUN());
 }
 
 void init_VENUS() {
@@ -164,7 +164,7 @@ void init_VENUS() {
     );
 
 	venus->ephem = NULL;
-	get_body_ephems(venus, SUN());
+//	get_body_ephems(venus, SUN());
 }
 
 void init_EARTH() {
@@ -189,7 +189,7 @@ void init_EARTH() {
     );
 
 	earth->ephem = NULL;
-	get_body_ephems(earth, SUN());
+//	get_body_ephems(earth, SUN());
 }
 
 void init_MOON() {
@@ -236,7 +236,7 @@ void init_MARS() {
     );
 
 	mars->ephem = NULL;
-	get_body_ephems(mars, SUN());
+//	get_body_ephems(mars, SUN());
 }
 
 void init_JUPITER() {
@@ -261,7 +261,7 @@ void init_JUPITER() {
     );
 
 	jupiter->ephem = NULL;
-	get_body_ephems(jupiter, SUN());
+//	get_body_ephems(jupiter, SUN());
 }
 
 void init_SATURN() {
@@ -286,7 +286,7 @@ void init_SATURN() {
     );
 
 	saturn->ephem = NULL;
-	get_body_ephems(saturn, SUN());
+//	get_body_ephems(saturn, SUN());
 }
 
 void init_URANUS() {
@@ -311,7 +311,7 @@ void init_URANUS() {
     );
 
 	uranus->ephem = NULL;
-	get_body_ephems(uranus, SUN());
+//	get_body_ephems(uranus, SUN());
 }
 
 void init_NEPTUNE() {
@@ -336,7 +336,7 @@ void init_NEPTUNE() {
     );
 
 	neptune->ephem = NULL;
-	get_body_ephems(neptune, SUN());
+//	get_body_ephems(neptune, SUN());
 }
 
 void init_PLUTO() {
@@ -361,7 +361,7 @@ void init_PLUTO() {
     );
 
 	pluto->ephem = NULL;
-	get_body_ephems(pluto, SUN());
+//	get_body_ephems(pluto, SUN());
 }
 
 
@@ -553,7 +553,7 @@ void init_celestial_bodies() {
 //	curr_system = solar_system;
 //	curr_system = solar_system_ephem;
 //	curr_system = stock_system;
-	curr_system = load_system_from_config_file("./Celestial_Systems/Stock System.cfg");
+//	curr_system = load_system_from_config_file("./Celestial_Systems/Stock System.cfg");
 }
 
 

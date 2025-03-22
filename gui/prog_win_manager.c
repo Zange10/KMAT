@@ -43,7 +43,7 @@ void end_tc_ic_progress_window() {
 	gtk_widget_set_visible(GTK_WIDGET(tf_ic_prog_window), 0);
 }
 
-void end_progress_calculation() {
+G_MODULE_EXPORT void end_progress_calculation() {
 	struct Transfer_Calc_Status calc_status = get_current_transfer_calc_status();
 	for(int i = 0; i <= calc_status.jd_diff; i++) {
 		get_incr_thread_counter(0);

@@ -3,8 +3,22 @@
 #include <time.h>
 #include <string.h>
 #include <ctype.h>
+#include <gtk/gtk.h>
 
 #include "file_io.h"
+
+
+
+
+void create_directory_if_not_exists(const char *path) {
+	if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
+		GError *error = NULL;
+		if (g_mkdir_with_parents(path, 0755) == -1) {
+			g_warning("Failed to create directory: %s", error->message);
+			g_error_free(error);
+		}
+	}
+}
 
 
 void write_csv(char fields[], double data[]) {
@@ -225,7 +239,7 @@ struct System * load_system_from_config_file(char *filename) {
 
 	if(system->calc_method == EPHEMS) {
 		for(int i = 0; i < system->num_bodies; i++) {
-			get_body_ephems(system->bodies[i], system);
+			get_body_ephems(system->bodies[i], system->cb);
 		}
 	}
 
@@ -388,7 +402,7 @@ struct System * load_celestial_system_from_bfile(FILE *file, int file_type) {
 
 	if(system->calc_method == EPHEMS) {
 		for(int i = 0; i < system->num_bodies; i++) {
-			get_body_ephems(system->bodies[i], system);
+			get_body_ephems(system->bodies[i], system->cb);
 		}
 	}
 

@@ -69,7 +69,8 @@ void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nod
 										 NULL);
 
 	// Set initial folder
-	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), "./Itineraries");
+	create_directory_if_not_exists(get_itins_directory());
+	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), get_itins_directory());
 
 	// Create a filter for files with the extension .itin
 	GtkFileFilter *filter = gtk_file_filter_new();
@@ -140,14 +141,14 @@ void ic_calc_thread() {
 	g_idle_add((GSourceFunc)end_calc_thread, NULL);
 }
 
-void on_calc_ic() {
+G_MODULE_EXPORT G_MODULE_EXPORT void on_calc_ic() {
 	if(ic_system == NULL) return;
 	gtk_widget_set_sensitive(GTK_WIDGET(tf_ic_window), 0);
 	g_thread_new("calc_thread", (GThreadFunc) ic_calc_thread, NULL);
 	init_tc_ic_progress_window();
 }
 
-void on_ic_system_change() {
+G_MODULE_EXPORT void on_ic_system_change() {
 	if(get_num_available_systems() > 0) {
 		ic_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))];
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_depbody), ic_system);

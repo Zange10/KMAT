@@ -4,6 +4,7 @@
 #include "gui/settings.h"
 #include "celestial_bodies.h"
 #include "tools/datetime.h"
+#include "tools/file_io.h"
 #include <string.h>
 #include <sys/time.h>
 
@@ -53,7 +54,7 @@ void init_transfer_calculator(GtkBuilder *builder) {
 	tc_system = get_current_system();
 
 	create_combobox_dropdown_text_renderer(cb_tc_body);
-	update_body_dropdown(GTK_COMBO_BOX(cb_tc_body), tc_system);
+	if(get_num_available_systems() > 0 && tc_system != NULL) update_body_dropdown(GTK_COMBO_BOX(cb_tc_body), tc_system);
 }
 
 
@@ -216,7 +217,8 @@ void save_itineraries_tc(struct ItinStep **departures, int num_deps, int num_nod
 										 NULL);
 
 	// Set initial folder
-	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), "./Itineraries");
+	create_directory_if_not_exists(get_itins_directory());
+	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), get_itins_directory());
 
 	// Create a filter for files with the extension .itin
 	GtkFileFilter *filter = gtk_file_filter_new();
@@ -231,7 +233,7 @@ void save_itineraries_tc(struct ItinStep **departures, int num_deps, int num_nod
 		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
 		filepath = gtk_file_chooser_get_filename(chooser);
 
-		store_itineraries_in_bfile(departures, num_nodes, num_deps, filepath, 0);
+//		store_itineraries_in_bfile(departures, num_nodes, num_deps, filepath, 0);
 		g_free(filepath);
 	}
 
@@ -239,7 +241,7 @@ void save_itineraries_tc(struct ItinStep **departures, int num_deps, int num_nod
 	gtk_widget_destroy(dialog);
 }
 
-void on_add_transfer_tc() {
+G_MODULE_EXPORT void on_add_transfer_tc() {
 	struct PlannedStep *new_step = (struct PlannedStep*) malloc(sizeof(struct PlannedStep));
 	new_step->prev = NULL;
 	new_step->next = NULL;
@@ -262,7 +264,7 @@ void on_add_transfer_tc() {
 	update_preview_tc(0);
 }
 
-void on_remove_transfer_tc() {
+G_MODULE_EXPORT void on_remove_transfer_tc() {
 	struct PlannedStep *step = get_last_tc(tc_step);
 	if(step->prev == NULL) {
 		tc_step = NULL;
@@ -276,11 +278,11 @@ void on_remove_transfer_tc() {
 	update_preview_tc(0);
 }
 
-void on_update_tc() {
+G_MODULE_EXPORT void on_update_tc() {
 	update_preview_tc(0);
 }
 
-void on_calc_tc() {
+G_MODULE_EXPORT void on_calc_tc() {
 	struct PlannedStep *step = get_first_tc(tc_step);
 	if(step == NULL || step->next == NULL) return;
 

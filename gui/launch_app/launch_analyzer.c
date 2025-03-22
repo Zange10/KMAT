@@ -44,13 +44,6 @@ struct LaunchState *launch_state;
 
 int disp1x, disp1y, disp2x, disp2y, curr_sel_disp;
 
-void on_launch_analyzer_disp_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
-void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
-void on_la_disp_sel(GtkWidget* widget, gpointer data);
-void on_change_la_display_xvariable(GtkWidget* widget, gpointer data);
-void on_change_la_display_yvariable(GtkWidget* widget, gpointer data);
-void on_run_launch_simulation(GtkWidget* widget, gpointer data);
-void on_change_launcher(GtkWidget* widget, gpointer data);
 void update_la_display_radios();
 
 struct LaunchDataPoints {
@@ -180,7 +173,7 @@ void update_launch_data_points(struct LaunchState *state, struct Body *body) {
 	}
 }
 
-void on_launch_analyzer_disp_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
+G_MODULE_EXPORT void on_launch_analyzer_disp_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	GtkAllocation allocation;
 	gtk_widget_get_allocation(widget, &allocation);
 	int area_width = allocation.width;
@@ -224,7 +217,7 @@ void on_launch_analyzer_disp_draw(GtkWidget *widget, cairo_t *cr, gpointer data)
 	if(launch_state != NULL) draw_plot(cr, area_width, area_height, x, y, ldp.num_points);
 }
 
-void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
+G_MODULE_EXPORT void on_launch_analyzer_disp2_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	GtkAllocation allocation;
 	gtk_widget_get_allocation(widget, &allocation);
 	int area_width = allocation.width;
@@ -272,12 +265,12 @@ void update_launch_result_values(double dur, double alt, double ap, double pe, d
 	gtk_label_set_label(GTK_LABEL(lb_la_res_dwnrng), value_string);
 }
 
-void on_la_change_launcher(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_la_change_launcher(GtkWidget* widget, gpointer data) {
 	update_profile_dropdown(GTK_COMBO_BOX(cb_la_sel_launcher), GTK_COMBO_BOX(cb_la_sel_profile));
 }
 
 
-void on_run_launch_simulation(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_run_launch_simulation(GtkWidget* widget, gpointer data) {
 	int launcher_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_la_sel_launcher));
 	int profile_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_la_sel_profile));
 	struct LV *all_launcher = get_all_launcher();
@@ -343,12 +336,12 @@ void update_la_display_radios() {
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(rb_la_dispy[dispy]), TRUE);
 }
 
-void on_la_disp_sel(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_la_disp_sel(GtkWidget* widget, gpointer data) {
 	curr_sel_disp = (int) strtol(gtk_widget_get_name(widget), NULL, 10);	// char to int
 	update_la_display_radios();
 }
 
-void on_change_la_display_xvariable(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_change_la_display_xvariable(GtkWidget* widget, gpointer data) {
 	int id = (int) strtol(gtk_widget_get_name(widget), NULL, 10);	// char to int
 	if(curr_sel_disp == 1) {
 		disp1x = id;
@@ -359,7 +352,7 @@ void on_change_la_display_xvariable(GtkWidget* widget, gpointer data) {
 	}
 }
 
-void on_change_la_display_yvariable(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_change_la_display_yvariable(GtkWidget* widget, gpointer data) {
 	int id = (int) strtol(gtk_widget_get_name(widget), NULL, 10);	// char to int
 	if(curr_sel_disp == 1) {
 		disp1y = id;
