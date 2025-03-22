@@ -114,32 +114,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     set(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)
     set(CMAKE_CXX_COMPILER x86_64-w64-mingw32-g++)
 
-    # MinGW GTK3 include and lib paths (adjust these paths)
-#    set(MINGW_GTK3_INCLUDE_DIR "../gtk/include")
-#    set(MINGW_GTK3_LIB_DIR "../gtk/lib")
-
-    # Include GTK3 headers
-#    include_directories(${MINGW_GTK3_INCLUDE_DIR})
-#    link_directories(${MINGW_GTK3_LIB_DIR})
-#    include_directories("${MINGW_GTK3_INCLUDE_DIR}/gtk-3.0")
-#    link_directories("${MINGW_GTK3_LIB_DIR}/gtk-3.0")
-#
-#    # Include Cairo headers
-#    include_directories("${MINGW_GTK3_INCLUDE_DIR}/cairo")
-#    link_directories("${MINGW_GTK3_LIB_DIR}/cairo")
-#
-#    # Include GLib headers
-#    include_directories("${MINGW_GTK3_INCLUDE_DIR}/glib-2.0")
-#    link_directories("${MINGW_GTK3_LIB_DIR}/glib-2.0")
-#    include_directories("${MINGW_GTK3_LIB_DIR}/glib-2.0/include/")
-#
-#    # Include Pango headers
-#    include_directories("${MINGW_GTK3_INCLUDE_DIR}/pango-1.0/pango")
-#    link_directories("${MINGW_GTK3_LIB_DIR}/pango")
-#
-#    include_directories(${MINGW_GTK3_INCLUDE_DIR})
-#    link_directories(${MINGW_GTK3_LIB_DIR})
-
     # GTK3 installation directory (modify if needed)
     set(GTK3_ROOT "/usr/x86_64-w64-mingw32/gtk")  # Change to actual GTK3 install path
 
@@ -162,13 +136,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             ${GTK3_ROOT}/lib/gtk-3.0
             ${GTK3_ROOT}/lib/glib-2.0
     )
-#    find_library(GTK3_LIBRARY gtk-3 PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
-#    find_library(GOBJECT_LIBRARY gobject-2.0 PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
-#    find_library(GLIB_LIBRARY glib-2.0 PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
-#    find_library(PANGO_LIBRARY pango-1.0 PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
-#    find_library(CAIRO_LIBRARY cairo PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
-#    find_library(GDK_PIXBUF_LIBRARY gdk_pixbuf-2.0 PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
-#    find_library(ATK_LIBRARY atk-1.0 PATHS ${GTK3_ROOT}/lib NO_DEFAULT_PATH)
 
     target_link_libraries(KSP
             m

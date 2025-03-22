@@ -239,7 +239,7 @@ struct System * load_system_from_config_file(char *filename) {
 
 	if(system->calc_method == EPHEMS) {
 		for(int i = 0; i < system->num_bodies; i++) {
-			get_body_ephems(system->bodies[i], system);
+			get_body_ephems(system->bodies[i], system->cb);
 		}
 	}
 
@@ -402,7 +402,7 @@ struct System * load_celestial_system_from_bfile(FILE *file, int file_type) {
 
 	if(system->calc_method == EPHEMS) {
 		for(int i = 0; i < system->num_bodies; i++) {
-			get_body_ephems(system->bodies[i], system);
+			get_body_ephems(system->bodies[i], system->cb);
 		}
 	}
 
