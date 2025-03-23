@@ -55,6 +55,8 @@ double calc_orbit_apoapsis(struct Orbit orbit);
 
 double calc_orbit_periapsis(struct Orbit orbit);
 
+double calc_true_anomaly_from_mean_anomaly(struct Orbit orbit, double mean_anomaly);
+
 // Prints parameters specific to the orbit
 void print_orbit_info(struct Orbit orbit);
 // Prints apsides (no line-break): "Apoapsis - Periapsis"

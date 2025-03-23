@@ -197,6 +197,19 @@ double calc_orbit_periapsis(struct Orbit orbit) {
 	return orbit.a*(1-orbit.e) - orbit.body->radius;
 }
 
+double calc_true_anomaly_from_mean_anomaly(struct Orbit orbit, double mean_anomaly) {
+	// Solve Kepler's equation
+	double ecc_anomaly = mean_anomaly; // Initial guess
+	double delta;
+	do {
+		delta = (ecc_anomaly - orbit.e * sin(ecc_anomaly) - mean_anomaly) / (1 - orbit.e * cos(ecc_anomaly));
+		ecc_anomaly -= delta;
+	} while (fabs(delta) > 1e-6);
+
+	// True anomaly from eccentric anomaly and eccentricity
+	return 2 * atan(sqrt((1 + orbit.e) / (1 - orbit.e)) * tan(ecc_anomaly / 2));
+}
+
 // Printing info #######################################################
 
 void print_orbit_info(struct Orbit orbit) {

@@ -129,6 +129,8 @@ int get_key_and_value_from_config(char *key, char *value, char *line) {
 
 struct Body * load_body_from_config_file(FILE *file, struct Body *attractor) {
 	struct Body *body = new_body();
+	double mean_anomaly = 0;
+	int has_mean_anomaly = 0;
 
 	char line[256];  // Buffer for each line
 	while (fgets(line, sizeof(line), file)) {
@@ -175,6 +177,9 @@ struct Body * load_body_from_config_file(FILE *file, struct Body *attractor) {
 				} else if (strcmp(key, "true_anomaly_ut0") == 0) {
 					sscanf(value, "%lf", &body->orbit.theta);
 					body->orbit.theta = deg2rad(body->orbit.theta);
+				} else if (strcmp(key, "mean_anomaly_ut0") == 0) {
+					sscanf(value, "%lf", &mean_anomaly);
+					has_mean_anomaly = 1;
 				}
 			}
 		}
@@ -185,7 +190,7 @@ struct Body * load_body_from_config_file(FILE *file, struct Body *attractor) {
 			body->orbit.inclination,
 			body->orbit.raan,
 			body->orbit.arg_peri,
-			body->orbit.theta,
+			has_mean_anomaly ? calc_true_anomaly_from_mean_anomaly(body->orbit, mean_anomaly) : body->orbit.theta,
 			attractor
 			);
 	return body;
