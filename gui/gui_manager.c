@@ -18,6 +18,16 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <commdlg.h>
+
+void resolve_win_relative_path(const char *relative_path, char *absolute_path) {
+	char full_path[MAX_PATH];
+	if (_fullpath(full_path, relative_path, MAX_PATH)) {
+		strcpy(absolute_path, full_path);
+	} else {
+		printf("Error resolving relative path.\n");
+		absolute_path[0] = '\0'; // In case of error
+	}
+}
 #endif
 
 struct LV *all_launcher;
@@ -88,16 +98,6 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 
 	/* We do not need the builder anymore */
 	g_object_unref(builder);
-}
-
-void resolve_win_relative_path(const char *relative_path, char *absolute_path) {
-	char full_path[MAX_PATH];
-	if (_fullpath(full_path, relative_path, MAX_PATH)) {
-		strcpy(absolute_path, full_path);
-	} else {
-		printf("Error resolving relative path.\n");
-		absolute_path[0] = '\0'; // In case of error
-	}
 }
 
 int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAction action) {
