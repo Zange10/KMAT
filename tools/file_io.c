@@ -6,6 +6,7 @@
 #include <gtk/gtk.h>
 
 #include "file_io.h"
+#include "orbit_calculator/transfer_tools.h"
 
 
 
@@ -243,6 +244,9 @@ struct System * load_system_from_config_file(char *filename) {
 	if(system->calc_method == EPHEMS) {
 		for(int i = 0; i < system->num_bodies; i++) {
 			get_body_ephems(system->bodies[i], system->cb);
+			// Needed for orbit visualization scale
+			struct OSV osv = osv_from_ephem(system->bodies[i]->ephem, system->ut0, system->cb);
+			system->bodies[i]->orbit = constr_orbit_from_osv(osv.r, osv.v, system->cb);
 		}
 	}
 
