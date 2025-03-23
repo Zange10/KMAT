@@ -18,8 +18,18 @@ The interplanetary transfer planner was validated against the mission trajectori
 (The method of doing two consecutive swing-bys at the same planet as used by Cassini-Huygens is still in development, because efficient in-flight manoeuvres are orders of magnitude more costly to determine.)
 
 ## Usage
-Download the latest release for your operating system. The tool might not be self-explanatory so take a look into the Wiki for guidance.
-Launch the program from
+### Installation
+* **Windows:**\
+Download the .zip-file from the latest release and extract it (to a location of your choice). Now you can run the application using the `KSP-Tools.exe` inside the `bin/` folder. On initial startup you might need to tell windows that this application is save to run.
+
+* **Linux:**\
+Download the .tar.gz-file from the latest release and extract it (to a location of your choice). To be able to run, the packages for [GTK3](https://www.gtk.org/docs/installations/linux/) and [SQLite3](https://www.sqlite.org/index.html) need to be installed. You can run the application using the `KSP-Tools` executable inside the `bin/` directory.
+
+### Solar System using Ephemeris Data
+If you would like to use the solar system's ephemeris data (this might be recommended if you use Principia), download `solar_system_ephem.cfg` and move it to the `Celestial_Systems` folder. On initial startup, the ephemeris data will be retrieved from [JPL's Horizon API](https://ssd.jpl.nasa.gov/horizons/app.html#/) and stored in the `Ephemerides` folder (created automatically).
+
+## About this tool
+First and foremost, this tool is a fun learning experience for me and it has been on and off for the past couple of years. I started developing this tool to make my life easier in KSP-RP1. Initially it started out as a rocket launch simulation program for analysis of launchers regarding their capabilities and optimal launch profiles and also included a small calculator for simple dv-transfer estimates (e.g. Hohmann).
 
 If the tool is used for a "relevant" project (e.g. content creation or uni project), don't hesitate to reach out to me for a quick heads-up, so I know the tool is being used for something actually useful.
 
