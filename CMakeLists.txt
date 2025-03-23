@@ -150,6 +150,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             urlmon
             sqlite3
     )
+
+    set_target_properties(KSP-Tools PROPERTIES WIN32_EXECUTABLE TRUE)
+
 else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(STATUS "Configuring for Linux (GCC)")
 

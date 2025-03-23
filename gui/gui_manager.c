@@ -90,11 +90,21 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 	g_object_unref(builder);
 }
 
+void resolve_win_relative_path(const char *relative_path, char *absolute_path) {
+	char full_path[MAX_PATH];
+	if (_fullpath(full_path, relative_path, MAX_PATH)) {
+		strcpy(absolute_path, full_path);
+	} else {
+		printf("Error resolving relative path.\n");
+		absolute_path[0] = '\0'; // In case of error
+	}
+}
 
 int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAction action) {
 	create_directory_if_not_exists(get_itins_directory());
 	#ifdef _WIN32
 		OPENFILENAME ofn;
+		char initialDir[MAX_PATH] = {0};
 		char szFile[MAX_PATH] = {0};
 		char filter[100];
 
@@ -102,13 +112,17 @@ int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAc
 		ofn.lStructSize = sizeof(ofn);
 		ofn.hwndOwner = NULL;  // If using a window, set the handle here
 
+
+		// Convert relative directory path to an absolute path
+		resolve_win_relative_path(get_itins_directory(), initialDir);
+
 		// Set file filter dynamically based on the extension
-	snprintf(filter, sizeof(filter), "%s Files%c*%s%cAll Files (*.*)%c*.*%c",
-			 extension, '\0', extension, '\0', '\0', '\0');
+		snprintf(filter, sizeof(filter), "%s Files%c*%s%cAll Files (*.*)%c*.*%c",
+				 extension, '\0', extension, '\0', '\0', '\0');
 		ofn.lpstrFilter = filter;
 		ofn.lpstrFile = szFile;
 		ofn.nMaxFile = MAX_PATH;
-		ofn.lpstrInitialDir = get_itins_directory();
+		ofn.lpstrInitialDir = initialDir;
 		ofn.lpstrDefExt = extension;
 
 		if (action == GTK_FILE_CHOOSER_ACTION_SAVE) {
