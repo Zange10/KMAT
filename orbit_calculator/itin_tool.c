@@ -287,7 +287,7 @@ double get_itinerary_duration(struct ItinStep *itin) {
 void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_cap1) {
 	double vinf = vector_mag(subtract_vectors(itin->v_arr, itin->v_body));
 
-	porkchop[4] = circ0_cap1 == 0 ? dv_circ(itin->body, itin->body->atmo_alt+100e3, vinf) : dv_capture(itin->body, itin->body->atmo_alt+100e3, vinf);
+	porkchop[4] = circ0_cap1 == 0 ? dv_circ(itin->body, itin->body->atmo_alt+50e3, vinf) : dv_capture(itin->body, itin->body->atmo_alt+50e3, vinf);
 	porkchop[1] = get_itinerary_duration(itin);
 
 	porkchop[3] = 0;
@@ -300,7 +300,7 @@ void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_ca
 	}
 
 	vinf = vector_mag(subtract_vectors(itin->v_dep, itin->prev->v_body));
-	porkchop[2] = dv_circ(itin->prev->body, itin->prev->body->atmo_alt+100e3, vinf);
+	porkchop[2] = dv_circ(itin->prev->body, itin->prev->body->atmo_alt+50e3, vinf);
 	porkchop[0] = itin->prev->date;
 }
 

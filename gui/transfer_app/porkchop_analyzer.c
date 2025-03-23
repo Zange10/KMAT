@@ -88,12 +88,12 @@ double calc_step_dv_pa(struct ItinStep *step) {
 		return vector_mag(subtract_vectors(step->v_arr, step->next[0]->v_dep));
 	} else if(step->prev == NULL) {
 		double vinf = vector_mag(subtract_vectors(step->next[0]->v_dep, step->v_body));
-		return dv_circ(step->body, step->body->atmo_alt+100e3, vinf);
+		return dv_circ(step->body, step->body->atmo_alt+50e3, vinf);
 	} else if(step->next == NULL) {
 		if(pa_last_transfer_type == TF_FLYBY) return 0;
 		double vinf = vector_mag(subtract_vectors(step->v_arr, step->v_body));
-		if(pa_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + 100e3, vinf);
-		else if(pa_last_transfer_type == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + 100e3, vinf);
+		if(pa_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + 50e3, vinf);
+		else if(pa_last_transfer_type == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + 50e3, vinf);
 	}
 	return 0;
 }

@@ -189,13 +189,13 @@ struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, stru
 		double dv1, dv2;
 		if(dep_body != NULL) {
 			double v_t1_inf = fabs(vector_mag(subtract_vectors(transfer.v0, v1)));
-			dv1 = tt % 2 == 0 ? dv_capture(dep_body, dep_body->atmo_alt + 100e3, v_t1_inf) : dv_circ(dep_body,dep_body->atmo_alt + 100e3,v_t1_inf);
+			dv1 = tt % 2 == 0 ? dv_capture(dep_body, dep_body->atmo_alt + 50e3, v_t1_inf) : dv_circ(dep_body,dep_body->atmo_alt + 50e3,v_t1_inf);
 		} else dv1 = vector_mag(v1);
 
 		if(arr_body != NULL) {
 			double v_t2_inf = fabs(vector_mag(subtract_vectors(transfer.v1, v2)));
-			if(tt < 2) dv2 = dv_capture(arr_body, arr_body->atmo_alt + 100e3, v_t2_inf);
-			else if(tt < 4) dv2 = dv_circ(arr_body, arr_body->atmo_alt + 100e3, v_t2_inf);
+			if(tt < 2) dv2 = dv_capture(arr_body, arr_body->atmo_alt + 50e3, v_t2_inf);
+			else if(tt < 4) dv2 = dv_circ(arr_body, arr_body->atmo_alt + 50e3, v_t2_inf);
 			else dv2 = 0;
 		} else {
 			dv2 = vector_mag(v2);

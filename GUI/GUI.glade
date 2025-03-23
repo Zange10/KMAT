@@ -62,7 +62,7 @@
     <property name="width-request">1000</property>
     <property name="height-request">800</property>
     <property name="can-focus">False</property>
-    <property name="title" translatable="yes">Trajectory Planner</property>
+    <property name="title" translatable="yes">KSP Tools</property>
     <child>
       <object class="GtkNotebook">
         <property name="visible">True</property>
@@ -108,7 +108,7 @@
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="halign">end</property>
-                        <property name="label" translatable="yes">Max duration:</property>
+                        <property name="label" translatable="yes">Max Duration:</property>
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
@@ -120,7 +120,7 @@
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="halign">end</property>
-                        <property name="label" translatable="yes">Max arrival date:</property>
+                        <property name="label" translatable="yes">Max Arrival Date:</property>
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
@@ -145,7 +145,7 @@
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="halign">end</property>
-                        <property name="label" translatable="yes">Max departure date:</property>
+                        <property name="label" translatable="yes">Max Departure Date:</property>
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
@@ -183,7 +183,7 @@
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="halign">end</property>
-                        <property name="label" translatable="yes">Min departure date:</property>
+                        <property name="label" translatable="yes">Min Departure Date:</property>
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
@@ -206,7 +206,7 @@
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="halign">end</property>
-                        <property name="label" translatable="yes">Target Body ID:</property>
+                        <property name="label" translatable="yes">Target Body:</property>
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
@@ -229,7 +229,7 @@
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="halign">end</property>
-                        <property name="label" translatable="yes">Departure Body ID:</property>
+                        <property name="label" translatable="yes">Departure Body:</property>
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
@@ -278,7 +278,7 @@
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="halign">end</property>
-                        <property name="label" translatable="yes">Max total dv:</property>
+                        <property name="label" translatable="yes">Max Total dv:</property>
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
@@ -290,7 +290,7 @@
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="halign">end</property>
-                        <property name="label" translatable="yes">Max departure dv:</property>
+                        <property name="label" translatable="yes">Max Departure dv:</property>
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
@@ -918,7 +918,7 @@
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
                             <property name="halign">end</property>
-                            <property name="label" translatable="yes">Departure date:</property>
+                            <property name="label" translatable="yes">Departure Date:</property>
                             <property name="single-line-mode">True</property>
                           </object>
                           <packing>
@@ -1723,7 +1723,7 @@
                               <object class="GtkLabel">
                                 <property name="visible">True</property>
                                 <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">Total dV:</property>
+                                <property name="label" translatable="yes">Total dv:</property>
                               </object>
                               <packing>
                                 <property name="left-attach">0</property>
@@ -1747,7 +1747,7 @@
                               <object class="GtkLabel">
                                 <property name="visible">True</property>
                                 <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">Transfer dV:</property>
+                                <property name="label" translatable="yes">Transfer dv:</property>
                               </object>
                               <packing>
                                 <property name="left-attach">0</property>
@@ -1769,7 +1769,7 @@
                             </child>
                             <child>
                               <object class="GtkButton" id="bt_tp_closest_transfer">
-                                <property name="label" translatable="yes">Find transfer</property>
+                                <property name="label" translatable="yes">Find Transfer</property>
                                 <property name="visible">True</property>
                                 <property name="can-focus">True</property>
                                 <property name="receives-default">True</property>
@@ -1783,7 +1783,7 @@
                             </child>
                             <child>
                               <object class="GtkButton" id="bt_tp_viable_itin">
-                                <property name="label" translatable="yes">Find itinerary</property>
+                                <property name="label" translatable="yes">Find Itinerary</property>
                                 <property name="visible">True</property>
                                 <property name="can-focus">True</property>
                                 <property name="receives-default">True</property>

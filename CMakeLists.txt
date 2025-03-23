@@ -15,7 +15,7 @@ endif()
 
 include_directories(.)
 
-add_executable(KSP
+add_executable(KSP-Tools
         celestial_bodies.c
         celestial_bodies.h
         tools/file_io.c
@@ -137,7 +137,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             ${GTK3_ROOT}/lib/glib-2.0
     )
 
-    target_link_libraries(KSP
+    target_link_libraries(KSP-Tools
             m
             gtk-3
             gobject-2.0
@@ -159,7 +159,7 @@ else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     include_directories(${GTK3_INCLUDE_DIRS})
     link_directories(${GTK3_LIBRARY_DIRS})
     add_definitions(${GTK3_CFLAGS_OTHER})
-    target_link_libraries(KSP m ${GTK3_LIBRARIES} sqlite3)
+    target_link_libraries(KSP-Tools m ${GTK3_LIBRARIES} sqlite3)
 
-    target_link_options(KSP PRIVATE -rdynamic)
+    target_link_options(KSP-Tools PRIVATE -rdynamic)
 endif()
