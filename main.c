@@ -2,8 +2,9 @@
 #include "launch_calculator/launch_calculator.h"
 #include "orbit_calculator/orbit_calculator.h"
 #include "tools/tool_funcs.h"
+#include "tools/file_io.h"
 #include "gui/gui_manager.h"
-//#include "database/database.h"
+#include "database/database.h"
 
 
 // ------------------------------------------------------------
@@ -13,6 +14,8 @@ void test();
 int main() {
     init_celestial_bodies();
 	init_available_systems("../Celestial_Systems/");
+
+	update_all_itins_bins_in_directory("./Itineraries/");
 //	init_db();
 	start_gui("../GUI/GUI.glade");
 

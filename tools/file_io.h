@@ -29,6 +29,7 @@ struct ItinsLoadFileResults {
 	struct ItinStep **departures;
 	struct System *system;
 	int num_deps;
+	int file_type;
 };
 
 struct ItinLoadFileResults {
@@ -54,5 +55,11 @@ void store_single_itinerary_in_bfile(struct ItinStep *itin, struct System *syste
 
 // loads single itinerary (first branches in tree) (departure first)
 struct ItinLoadFileResults load_single_itinerary_from_bfile(char *filepath);
+
+
+void update_itins_bin(char *filepath);
+
+void update_all_itins_bins_in_directory(char *directory);
+
 
 #endif

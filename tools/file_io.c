@@ -494,13 +494,13 @@ union ItinStepBin convert_ItinStep_bin(struct ItinStep *step, struct System *sys
 
 void store_step_in_bfile(struct ItinStep *step, struct System *system, FILE *file, int file_type) {
 	if(file_type == 0) {
-		union ItinStepBin bin_step = convert_ItinStep_bin(step, system, 0);
+		union ItinStepBin bin_step = convert_ItinStep_bin(step, system, file_type);
 		fwrite(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
 	} else if(file_type == 1) {
-		union ItinStepBin bin_step = convert_ItinStep_bin(step, system, 1);
-		fwrite(&bin_step.t2, sizeof(struct ItinStepBinT1), 1, file);
+		union ItinStepBin bin_step = convert_ItinStep_bin(step, system, file_type);
+		fwrite(&bin_step.t1, sizeof(struct ItinStepBinT1), 1, file);
 	} else if(file_type == 2) {
-		union ItinStepBin bin_step = convert_ItinStep_bin(step, system, 1);
+		union ItinStepBin bin_step = convert_ItinStep_bin(step, system, file_type);
 		fwrite(&bin_step.t2, sizeof(struct ItinStepBinT1), 1, file);
 	}
 	for(int i = 0; i < step->num_next_nodes; i++) {
@@ -674,12 +674,11 @@ struct ItinsLoadFileResults load_itineraries_from_bfile(char *filepath) {
 
 	int type;
 	fread(&type, sizeof(int), 1, file);
-
 	// TYPE 0 --------------------------------------------
-	if(type == 0 || type > 3) {
+	if(type <= 0 || type > 3) {
 		system = SOLAR_SYSTEM_EPHEM();
 
-		if(type > 3) {fclose(file); file = fopen(filepath,"rb");}	// no type specified in header
+		if(type > 3 || type < 0) {fclose(file); file = fopen(filepath,"rb"); type = 0;}	// no type specified in header
 		fread(&bin_header.t0, sizeof(struct ItinStepBinHeaderT0), 1, file);
 		num_deps = bin_header.t0.num_deps;
 
@@ -692,7 +691,7 @@ struct ItinsLoadFileResults load_itineraries_from_bfile(char *filepath) {
 		if(buf != -1) {
 			printf("Problems reading itinerary file (Body list or header wrong)\n");
 			fclose(file);
-			return (struct ItinsLoadFileResults){NULL, NULL, 0};
+			return (struct ItinsLoadFileResults){NULL, NULL, 0, 0};
 		}
 
 		departures = (struct ItinStep **) malloc(bin_header.t0.num_deps * sizeof(struct ItinStep *));
@@ -721,7 +720,7 @@ struct ItinsLoadFileResults load_itineraries_from_bfile(char *filepath) {
 		if(buf != -1) {
 			printf("Problems reading itinerary file (Body list or header wrong)\n");
 			fclose(file);
-			return (struct ItinsLoadFileResults){NULL, NULL, 0};
+			return (struct ItinsLoadFileResults){NULL, NULL, 0, 1};
 		}
 
 		departures = (struct ItinStep **) malloc(bin_header.t1.num_deps * sizeof(struct ItinStep *));
@@ -745,7 +744,7 @@ struct ItinsLoadFileResults load_itineraries_from_bfile(char *filepath) {
 		if(buf != -1) {
 			printf("Problems reading itinerary file (Body list or header wrong)\n");
 			fclose(file);
-			return (struct ItinsLoadFileResults){NULL, NULL, 0};
+			return (struct ItinsLoadFileResults){NULL, NULL, 0, 2};
 		}
 
 		departures = (struct ItinStep **) malloc(bin_header.t2.num_deps * sizeof(struct ItinStep *));
@@ -759,7 +758,7 @@ struct ItinsLoadFileResults load_itineraries_from_bfile(char *filepath) {
 	// ---------------------------------------------------
 
 	fclose(file);
-	return (struct ItinsLoadFileResults){departures, system, num_deps};
+	return (struct ItinsLoadFileResults){departures, system, num_deps, type};
 }
 
 int get_num_of_deps_of_itinerary_from_bfile(char *filepath) {
@@ -786,6 +785,7 @@ int get_num_of_deps_of_itinerary_from_bfile(char *filepath) {
 	fclose(file);
 	return num_deps;
 }
+
 
 
 /*********************************************************************
@@ -889,4 +889,62 @@ struct ItinLoadFileResults load_single_itinerary_from_bfile(char *filepath) {
 	fclose(file);
 	free(bodies_id);
 	return (struct ItinLoadFileResults) {.itin = itin, .system = system};
+}
+
+
+/*********************************************************************
+ *                 Update Stored Itinerary Binaries
+ *********************************************************************/
+void update_itinerary_bodies(struct ItinStep *step, struct System *system) {
+	if(step->body != NULL) step->body = system->bodies[step->body->id-1];
+	if(step->num_next_nodes > 0) {
+		for(int i = 0; i < step->num_next_nodes; i++) update_itinerary_bodies(step->next[i], system);
+	}
+};
+
+void update_itins_bin(char *filepath) {
+	struct System *system;
+	for(int i = 0; i < get_num_available_systems(); i++) {
+		if(strcmp(get_available_systems()[i]->name, "Solar System (Ephemerides)") == 0) system = get_available_systems()[i];
+	}
+	struct ItinsLoadFileResults load_results = load_itineraries_from_bfile(filepath);
+
+	if(load_results.file_type < 2) {
+		load_results.system = system;
+		for(int i = 0; i < load_results.num_deps; i++) update_itinerary_bodies(load_results.departures[i], system);
+
+		int num_itins = 0, num_nodes = 0;
+		for(int i = 0; i < load_results.num_deps; i++) num_itins += get_number_of_itineraries(load_results.departures[i]);
+		for(int i = 0; i < load_results.num_deps; i++) num_nodes += get_total_number_of_stored_steps(load_results.departures[i]);
+		printf("Filetype: %d, Number of Departures: %d; Number of Itineraries: %d; Number of Nodes: %d; System Name: %s\n", load_results.file_type, load_results.num_deps, num_itins, num_nodes, load_results.system->name);
+
+		char new_filepath[200];
+		sprintf(new_filepath, "%s", filepath);
+		store_itineraries_in_bfile(load_results.departures, num_nodes, load_results.num_deps, system, new_filepath, 2);
+	}
+
+	for(int i = 0; i < load_results.num_deps; i++) {
+		free_itinerary(load_results.departures[i]);
+	}
+}
+
+void update_all_itins_bins_in_directory(char *directory) {
+	GDir *dir = g_dir_open(directory, 0, NULL);
+	if (!dir) {
+		g_printerr("Unable to open directory: %s\n", directory);
+		return;
+	}
+
+	const gchar *filename;
+	while ((filename = g_dir_read_name(dir)) != NULL) {
+		if (g_str_has_suffix(filename, ".itins")) {
+			char filepath[100];
+			sprintf(filepath, "%s%s", directory, filename);
+			printf("Updating: %s\n", filepath);
+			update_itins_bin(filepath);
+			printf("----------\n");
+		}
+	}
+
+	g_dir_close(dir);
 }
