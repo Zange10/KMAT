@@ -1,5 +1,4 @@
 #include "launch_sim.h"
-#include "tools/analytic_geometry.h"
 #include "celestial_bodies.h"
 #include "launch_state.h"
 #include "launch_circularization.h"

@@ -4,7 +4,6 @@
 #include "gui/css_loader.h"
 #include "gui/database_app/database_app_tools/mission_db_tools.h"
 #include "gui/database_app/database_app_tools/mission_manager_tools.h"
-#include "tools/ephem.h"
 #include "tools/datetime.h"
 
 

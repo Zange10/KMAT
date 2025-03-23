@@ -2,8 +2,6 @@
 #include "orbit_calculator/transfer_calc.h"
 #include "gui/gui_manager.h"
 #include "gui/settings.h"
-#include "celestial_bodies.h"
-#include "tools/datetime.h"
 #include "tools/file_io.h"
 #include <string.h>
 #include <sys/time.h>

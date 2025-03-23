@@ -1,6 +1,5 @@
 #include "database.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 sqlite3 *db;

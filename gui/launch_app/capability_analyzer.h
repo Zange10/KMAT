@@ -1,5 +1,5 @@
 #ifndef KSP_CAPABILITY_CALCULATOR_H
-#define KSP_CAPABILITY_ANALYZER_H
+#define KSP_CAPABILITY_CALCULATOR_H
 
 #include <gtk/gtk.h>
 

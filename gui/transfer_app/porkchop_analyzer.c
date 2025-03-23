@@ -1,6 +1,5 @@
 #include "porkchop_analyzer.h"
 #include "porkchop_analyzer_tools.h"
-#include "celestial_bodies.h"
 #include "gui/drawing.h"
 #include "gui/gui_manager.h"
 #include "gui/css_loader.h"

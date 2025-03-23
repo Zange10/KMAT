@@ -19,8 +19,9 @@ The interplanetary transfer planner was validated against the mission trajectori
 
 ## Usage
 Download the latest release for your operating system. The tool might not be self-explanatory so take a look into the Wiki for guidance.
+Launch the program from
 
-If the tool is used for a "relevant" project (e.g. content creation or uni project), don't hesitate to reach out to me for a quick heads-up so I know the tool is being used for something actually useful.
+If the tool is used for a "relevant" project (e.g. content creation or uni project), don't hesitate to reach out to me for a quick heads-up, so I know the tool is being used for something actually useful.
 
 ## Documentation
 [Wiki](https://github.com/Zange10/ksp-ro-tools/wiki)

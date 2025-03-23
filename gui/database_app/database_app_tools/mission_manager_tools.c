@@ -2,11 +2,7 @@
 #include "gui/css_loader.h"
 #include "mission_db_tools.h"
 #include "gui/database_app/mission_db.h"
-#include "tools/ephem.h"
 #include "tools/datetime.h"
-
-#include <math.h>
-
 
 GtkWidget *grid_mman_objectives;
 GtkWidget *grid_mman_events;

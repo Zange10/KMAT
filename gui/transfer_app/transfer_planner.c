@@ -1,13 +1,10 @@
 #include "transfer_planner.h"
-#include "tools/analytic_geometry.h"
-#include "celestial_bodies.h"
 #include "orbit_calculator/transfer_tools.h"
 #include "gui/drawing.h"
 #include "gui/gui_manager.h"
 #include "gui/settings.h"
 #include "tools/gmat_interface.h"
 #include "gui/css_loader.h"
-#include "tools/datetime.h"
 #include "tools/file_io.h"
 
 #include <string.h>
