@@ -64,6 +64,7 @@ void init_transfer_planner(GtkBuilder *builder) {
 	vp_tp_tfbody = gtk_builder_get_object(builder, "vp_tp_tfbody");
 
 	tp_system = NULL;
+	curr_transfer_tp = NULL;
 
 	create_combobox_dropdown_text_renderer(cb_tp_system);
 	if(get_num_available_systems() > 0) {
@@ -92,8 +93,8 @@ G_MODULE_EXPORT void on_tp_system_change() {
 	if(get_num_available_systems() == 0) return;
 
 	tp_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system))];
-	tp_update_bodies();
 	remove_all_transfers();
+	tp_update_bodies();
 	update();
 }
 
@@ -277,7 +278,7 @@ void tp_update_show_body_list() {
 		GtkWidget *widget;
 		// Create a show body check button
 		widget = gtk_check_button_new_with_label(tp_system->bodies[body_idx]->name);
-		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), 0);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), body_show_status_tp[body_idx]);
 		g_signal_connect(widget, "clicked", G_CALLBACK(on_body_toggle), &(body_show_status_tp[body_idx]));
 		gtk_widget_set_halign(widget, GTK_ALIGN_START);
 
@@ -316,10 +317,21 @@ void tp_update_tfbody_buttons() {
 	gtk_widget_show_all(GTK_WIDGET(vp_tp_tfbody));
 }
 
+void show_bodies_of_itinerary(struct ItinStep *step) {
+	while(step != NULL) {
+		if(step->body != NULL) {
+			body_show_status_tp[get_body_system_id(step->body, tp_system)] = 1;
+		}
+		if(step->num_next_nodes > 0) step = step->next[0];
+		else step = NULL;
+	}
+}
+
 void tp_update_bodies() {
 	if(body_show_status_tp != NULL) free(body_show_status_tp);
 	body_show_status_tp = (gboolean*) malloc(tp_system->num_bodies*sizeof(gboolean));
 	for(int i = 0; i < tp_system->num_bodies; i++) body_show_status_tp[i] = 0;
+	if(curr_transfer_tp != NULL) show_bodies_of_itinerary(get_first(curr_transfer_tp));
 	tp_update_show_body_list();
 	tp_update_tfbody_buttons();
 }

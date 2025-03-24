@@ -285,10 +285,9 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 
 	// data
 	double color_bias;
-	int max_num_porkchop_points = 100000;	// limit number to reduce loading time
-	for(int i = num_itins-1; i >= -1; i -= (int)(num_itins/max_num_porkchop_points + 1)) {
+	int i = num_itins-1;
+	while(i >= -1) {
 		int index = i >= 0 ? 1+i*5 : 1+min_dv_ind*5;
-
 		dv = porkchop[index+2]+porkchop[index+3]+porkchop[index+4]*fb0_pow1;
 		date = porkchop[index+0];
 		dur = porkchop[index+1];
@@ -302,6 +301,16 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 
 		struct Vector2D data_point = vec2D(origin.x + m_date*(date - min_date), origin.y + m_dur * (dur - min_dur));
 		draw_data_point(cr, data_point.x, data_point.y, i >= 0 ? 2 : 5);
+
+		if(num_itins > 100000) {
+			if(i > 1e6) i -= 50;
+			else if(i > 1e5) i -= 10;
+			else if(i > 1e4) i -= 5;
+			else if(i > 1e2) i -= 2;
+			else i--;
+		} else {
+			i--;
+		}
 	}
 }
 
