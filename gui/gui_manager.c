@@ -78,7 +78,10 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 	gtk_window_set_application(GTK_WINDOW (window), app);
 	gtk_widget_set_visible(GTK_WIDGET (window), TRUE);
 
-	load_css();
+	#ifdef _WIN32
+		set_window_style_css("../GUI/theme/breeze-dark-win.css");
+	#endif
+	load_css("../GUI/theme/style.css");
 
 	// init settings page
 	init_global_settings(builder);

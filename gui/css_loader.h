@@ -3,7 +3,8 @@
 
 #include <gtk/gtk.h>
 
-void load_css();
+void set_window_style_css(char *filepath);
+void load_css(char *filepath);
 void set_css_class_for_widget(GtkWidget *widget, char *class);
 
 

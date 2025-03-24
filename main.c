@@ -4,13 +4,32 @@
 #include "tools/tool_funcs.h"
 #include "gui/gui_manager.h"
 //#include "database/database.h"
+#ifdef _WIN32
+#include <windows.h>  // for SetPriorityClass(), SetThreadPriority()
+#endif
 
 
 // ------------------------------------------------------------
 
 void test();
 
+void set_low_priority() {
+	// Low thread priority
+	#ifdef _WIN32
+		if (!SetPriorityClass(GetCurrentProcess(), BELOW_NORMAL_PRIORITY_CLASS)) {
+			printf("Failed to set priority on Windows\n");
+		}
+	#else
+		int current_nice = nice(10);  // Increase the nice value (lower priority)
+		if (current_nice == -1) {
+			perror("Failed to set nice value");
+		}
+	#endif
+}
+
 int main() {
+	set_low_priority();
+
     init_celestial_bodies();
 	init_available_systems("../Celestial_Systems/");
 //	init_db();

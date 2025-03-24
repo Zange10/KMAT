@@ -654,7 +654,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct 
 	// is departure step
 	if(step->prev == NULL) {
 		dep_hyp_params = get_dep_hyperbola_params(step->next[0]->v_dep, step->v_body, step->body,
-												  100e3 + step->body->atmo_alt);
+												  50e3 + step->body->atmo_alt);
 		sprintf(s_labels, "Departure\n"
 						  "T+:\n"
 						  "RadPer:\n"

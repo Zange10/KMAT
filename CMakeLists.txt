@@ -140,6 +140,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_link_libraries(KSP-Tools
             m
             gtk-3
+            gdk-3
             gobject-2.0
             glib-2.0
             pango-1.0
