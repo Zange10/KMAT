@@ -28,10 +28,12 @@ Download the .tar.gz-file from the [latest release](https://github.com/Zange10/k
 ### Solar System using Ephemeris Data
 If you would like to use the solar system's ephemeris data (this might be recommended if you use Principia), download `solar_system_ephem.cfg` and move it to the `Celestial_Systems` folder. On initial startup, the ephemeris data will be retrieved from [JPL's Horizon API](https://ssd.jpl.nasa.gov/horizons/app.html#/) and stored in the `Ephemerides` folder (created automatically).
 
-## About this tool
-First and foremost, this tool is a fun learning experience for me and it has been on and off for the past couple of years. I started developing this tool to make my life easier in KSP-RP1. Initially it started out as a rocket launch simulation program for analysis of launchers regarding their capabilities and optimal launch profiles and also included a small calculator for simple dv-transfer estimates (e.g. Hohmann).
+--
 
 If the tool is used for a "relevant" project (e.g. content creation or uni project), don't hesitate to reach out to me for a quick heads-up, so I know the tool is being used for something actually useful.
+
+## About this tool
+First and foremost, this tool is a fun learning experience for me and it has been on and off for the past couple of years. I started developing this tool to make my life easier in KSP-RP1. Initially it started out as a rocket launch simulation program for analysis of launchers regarding their capabilities and optimal launch profiles and also included a small calculator for simple dv-transfer estimates (e.g. Hohmann).
 
 ## Documentation
 [Wiki](https://github.com/Zange10/ksp-ro-tools/wiki)
