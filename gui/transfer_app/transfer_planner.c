@@ -117,7 +117,7 @@ G_MODULE_EXPORT void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gp
 	struct Body *farthest_body = NULL;
 	double max_apoapsis = 0;
 	for(int i = 0; i < tp_system->num_bodies; i++) {
-		if(body_show_status_tp[i] && tp_system->bodies[i]->orbit.apoapsis > max_apoapsis) farthest_body = tp_system->bodies[i];
+		if(body_show_status_tp[i] && tp_system->bodies[i]->orbit.apoapsis > max_apoapsis) {farthest_body = tp_system->bodies[i]; max_apoapsis = tp_system->bodies[i]->orbit.apoapsis;}
 	}
 	double scale = calc_scale(area_width, area_height, farthest_body);
 

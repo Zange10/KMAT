@@ -131,7 +131,9 @@ int get_key_and_value_from_config(char *key, char *value, char *line) {
 struct Body * load_body_from_config_file(FILE *file, struct Body *attractor) {
 	struct Body *body = new_body();
 	double mean_anomaly = 0;
+	double g_asl = 0;
 	int has_mean_anomaly = 0;
+	int has_g_asl = 0;
 
 	char line[256];  // Buffer for each line
 	while (fgets(line, sizeof(line), file)) {
@@ -148,6 +150,8 @@ struct Body * load_body_from_config_file(FILE *file, struct Body *attractor) {
 					sscanf(value, "%d", &body->id);
 				} else if (strcmp(key, "gravitational_parameter") == 0) {
 					sscanf(value, "%lg", &body->mu);
+				} else if (strcmp(key, "g_asl") == 0) {
+					sscanf(value, "%lg", &g_asl); has_g_asl = 1;
 				} else if (strcmp(key, "radius") == 0) {
 					sscanf(value, "%lf", &body->radius);
 					body->radius *= 1e3;  // Convert from km to m
@@ -185,6 +189,8 @@ struct Body * load_body_from_config_file(FILE *file, struct Body *attractor) {
 			}
 		}
 	}
+	if(has_g_asl) body->mu = 9.81*g_asl * body->radius*body->radius;
+
 	if(attractor != NULL) body->orbit = constr_orbit(
 			body->orbit.a,
 			body->orbit.e,

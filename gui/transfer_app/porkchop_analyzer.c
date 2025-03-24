@@ -442,7 +442,7 @@ G_MODULE_EXPORT void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer da
 	struct Body *farthest_body = NULL;
 	double max_apoapsis = 0;
 	for(int i = 0; i < pa_system->num_bodies; i++) {
-		if(body_show_status_pa[i] && pa_system->bodies[i]->orbit.apoapsis > max_apoapsis) farthest_body = pa_system->bodies[i];
+		if(body_show_status_pa[i] && pa_system->bodies[i]->orbit.apoapsis > max_apoapsis) {farthest_body = pa_system->bodies[i]; max_apoapsis = pa_system->bodies[i]->orbit.apoapsis;}
 	}
 	double scale = calc_scale(area_width, area_height, farthest_body);
 
