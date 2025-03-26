@@ -8,7 +8,11 @@
 #include "file_io.h"
 #include "orbit_calculator/transfer_tools.h"
 
+const int current_bin_file_type = 2;
 
+int get_current_bin_file_type() {
+	return current_bin_file_type;
+}
 
 
 void create_directory_if_not_exists(const char *path) {
@@ -300,81 +304,69 @@ union CelestialBodyBin {
 
 union CelestialSystemBin convert_celestial_system_bin(struct System *system, int file_type) {
 	union CelestialSystemBin bin_system;
-	switch(file_type) {
-		case 2:
-			sprintf(bin_system.t2.name, "%s", system->name);
-			bin_system.t2.num_bodies = system->num_bodies;
-			bin_system.t2.calc_method = system->calc_method;
-			bin_system.t2.ut0 = system->ut0;
-			break;
-		default:
-			bin_system.is_valid.ptr = NULL;
-	}
+	if(file_type == 2) {
+		sprintf(bin_system.t2.name, "%s", system->name);
+		bin_system.t2.num_bodies = system->num_bodies;
+		bin_system.t2.calc_method = system->calc_method;
+		bin_system.t2.ut0 = system->ut0;
+	} else bin_system.is_valid.ptr = NULL;
 	return bin_system;
 }
 
 struct System * convert_bin_celestial_system(union CelestialSystemBin bin_system, int file_type) {
 	struct System *system = new_system();
-	switch(file_type) {
-		case 2:
-			sprintf(system->name, "%s", bin_system.t2.name);
-			system->num_bodies = bin_system.t2.num_bodies;
-			if(system->num_bodies > 1e3) {free(system); return NULL;}	// avoid overflows
-			system->calc_method = bin_system.t2.calc_method;
-			system->ut0 = bin_system.t2.ut0;
-			system->bodies = (struct Body**) malloc(system->num_bodies * sizeof(struct Body*));
-			break;
+	if(file_type == 2) {
+		sprintf(system->name, "%s", bin_system.t2.name);
+		system->num_bodies = bin_system.t2.num_bodies;
+		if(system->num_bodies > 1e3) {free(system); return NULL;}	// avoid overflows
+		system->calc_method = bin_system.t2.calc_method;
+		system->ut0 = bin_system.t2.ut0;
+		system->bodies = (struct Body**) malloc(system->num_bodies * sizeof(struct Body*));
 	}
 	return system;
 }
 
 union CelestialBodyBin convert_celestial_body_bin(struct Body *body, int file_type) {
 	union CelestialBodyBin bin_body;
-	switch(file_type) {
-		case 2:
-			sprintf(bin_body.t2.name, "%s", body->name);
-			bin_body.t2.color[0] = body->color[0];
-			bin_body.t2.color[1] = body->color[1];
-			bin_body.t2.color[2] = body->color[2];
-			bin_body.t2.id = body->id;
-			bin_body.t2.mu = body->mu;
-			bin_body.t2.radius = body->radius;
-			bin_body.t2.atmo_alt = body->atmo_alt;
-			bin_body.t2.a = body->orbit.a;
-			bin_body.t2.e = body->orbit.e;
-			bin_body.t2.incl = body->orbit.inclination;
-			bin_body.t2.raan = body->orbit.raan;
-			bin_body.t2.arg_peri = body->orbit.arg_peri;
-			bin_body.t2.theta = body->orbit.theta;
-			break;
-		default:
-			bin_body.is_valid.ptr = NULL;
-	}
+	if(file_type == 2) {
+		sprintf(bin_body.t2.name, "%s", body->name);
+		bin_body.t2.color[0] = body->color[0];
+		bin_body.t2.color[1] = body->color[1];
+		bin_body.t2.color[2] = body->color[2];
+		bin_body.t2.id = body->id;
+		bin_body.t2.mu = body->mu;
+		bin_body.t2.radius = body->radius;
+		bin_body.t2.atmo_alt = body->atmo_alt;
+		bin_body.t2.a = body->orbit.a;
+		bin_body.t2.e = body->orbit.e;
+		bin_body.t2.incl = body->orbit.inclination;
+		bin_body.t2.raan = body->orbit.raan;
+		bin_body.t2.arg_peri = body->orbit.arg_peri;
+		bin_body.t2.theta = body->orbit.theta;
+	} else bin_body.is_valid.ptr = NULL;
 	return bin_body;
 }
 
 struct Body * convert_bin_celestial_body(union CelestialBodyBin bin_body, struct Body *attractor, int file_type) {
 	struct Body *body = new_body();
-	switch(file_type) {
-		case 2:
-			sprintf(body->name, "%s", bin_body.t2.name);
-			body->color[0] = bin_body.t2.color[0];
-			body->color[1] = bin_body.t2.color[1];
-			body->color[2] = bin_body.t2.color[2];
-			body->id = bin_body.t2.id;
-			body->mu = bin_body.t2.mu;
-			body->radius = bin_body.t2.radius;
-			body->atmo_alt = bin_body.t2.atmo_alt;
-			if(attractor != NULL)
-				body->orbit = constr_orbit(
-						bin_body.t2.a,
-						bin_body.t2.e,
-						bin_body.t2.incl,
-						bin_body.t2.raan,
-						bin_body.t2.arg_peri,
-						bin_body.t2.theta,
-						attractor);
-			break;
+	if(file_type == 2) {
+		sprintf(body->name, "%s", bin_body.t2.name);
+		body->color[0] = bin_body.t2.color[0];
+		body->color[1] = bin_body.t2.color[1];
+		body->color[2] = bin_body.t2.color[2];
+		body->id = bin_body.t2.id;
+		body->mu = bin_body.t2.mu;
+		body->radius = bin_body.t2.radius;
+		body->atmo_alt = bin_body.t2.atmo_alt;
+		if(attractor != NULL)
+			body->orbit = constr_orbit(
+					bin_body.t2.a,
+					bin_body.t2.e,
+					bin_body.t2.incl,
+					bin_body.t2.raan,
+					bin_body.t2.arg_peri,
+					bin_body.t2.theta,
+					attractor);
 	}
 	return body;
 }
@@ -432,13 +424,9 @@ union ItinStepBinHeader {
 		int *ptr;
 	} is_valid;
 
-	struct ItinStepBinHeaderT0 {
-		int num_nodes, num_deps, num_layers;
-	} t0;
-
-	struct ItinStepBinHeaderT1 {
+	struct ItinStepBinHeaderT2 {
 		int num_nodes, num_deps;
-	} t1, t2;
+	} t2;
 };
 
 union ItinStepBin {
@@ -453,61 +441,44 @@ union ItinStepBin {
 		int num_next_nodes;
 	} t0;
 
-	struct ItinStepBinT1 {
+	struct ItinStepBinT2 {
 		double date;
 		struct Vector r;
 		struct Vector v_dep, v_arr, v_body;
 		int body_id;
 		int num_next_nodes;
-	} t1, t2;
+	} t2;
 };
 
 union ItinStepBin convert_ItinStep_bin(struct ItinStep *step, struct System *system, int file_type) {
 	union ItinStepBin bin_step;
-	switch(file_type) {
-		case 0:
-			bin_step.t0.r = step->r;
-			bin_step.t0.v_dep = step->v_dep;
-			bin_step.t0.v_arr = step->v_arr;
-			bin_step.t0.v_body = step->v_body;
-			bin_step.t0.date = step->date;
-			bin_step.t0.num_next_nodes = step->num_next_nodes;
-			break;
-		case 1:
-			bin_step.t1.r = step->r;
-			bin_step.t1.v_dep = step->v_dep;
-			bin_step.t1.v_arr = step->v_arr;
-			bin_step.t1.v_body = step->v_body;
-			bin_step.t1.date = step->date;
-			bin_step.t1.body_id = step->body->id;
-			bin_step.t1.num_next_nodes = step->num_next_nodes;
-		case 2:
-			bin_step.t2.r = step->r;
-			bin_step.t2.v_dep = step->v_dep;
-			bin_step.t2.v_arr = step->v_arr;
-			bin_step.t2.v_body = step->v_body;
-			bin_step.t2.date = step->date;
-			bin_step.t2.body_id = get_body_system_id(step->body, system);
-			bin_step.t2.num_next_nodes = step->num_next_nodes;
-			break;
-		default:
-			bin_step.is_valid.ptr = NULL;
-			break;
-	}
+	if(file_type == 0) {
+		bin_step.t0.r = step->r;
+		bin_step.t0.v_dep = step->v_dep;
+		bin_step.t0.v_arr = step->v_arr;
+		bin_step.t0.v_body = step->v_body;
+		bin_step.t0.date = step->date;
+		bin_step.t0.num_next_nodes = step->num_next_nodes;
+	} else if(file_type == 2) {
+		bin_step.t2.r = step->r;
+		bin_step.t2.v_dep = step->v_dep;
+		bin_step.t2.v_arr = step->v_arr;
+		bin_step.t2.v_body = step->v_body;
+		bin_step.t2.date = step->date;
+		bin_step.t2.body_id = get_body_system_id(step->body, system);
+		bin_step.t2.num_next_nodes = step->num_next_nodes;
+	} else bin_step.is_valid.ptr = NULL;
 
 	return bin_step;
 }
 
 void store_step_in_bfile(struct ItinStep *step, struct System *system, FILE *file, int file_type) {
 	if(file_type == 0) {
-		union ItinStepBin bin_step = convert_ItinStep_bin(step, system, 0);
+		union ItinStepBin bin_step = convert_ItinStep_bin(step, system, file_type);
 		fwrite(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
-	} else if(file_type == 1) {
-		union ItinStepBin bin_step = convert_ItinStep_bin(step, system, 1);
-		fwrite(&bin_step.t2, sizeof(struct ItinStepBinT1), 1, file);
 	} else if(file_type == 2) {
-		union ItinStepBin bin_step = convert_ItinStep_bin(step, system, 1);
-		fwrite(&bin_step.t2, sizeof(struct ItinStepBinT1), 1, file);
+		union ItinStepBin bin_step = convert_ItinStep_bin(step, system, file_type);
+		fwrite(&bin_step.t2, sizeof(struct ItinStepBinT2), 1, file);
 	}
 	for(int i = 0; i < step->num_next_nodes; i++) {
 		store_step_in_bfile(step->next[i], system, file, file_type);
@@ -526,76 +497,26 @@ void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int
 	FILE *file = fopen(filepath, "wb");
 	fwrite(&file_type, sizeof(int), 1, file);
 
-	switch (file_type) {
-		// TYPE 0 --------------------------------------------
-		case 0:
-			bin_header.t0.num_nodes = num_nodes;
-			bin_header.t0.num_deps = num_deps;
-			bin_header.t0.num_layers = get_num_of_itin_layers(departures[0]);
-
-			printf("Filesize: ~%.3f MB\n", (double) num_nodes*sizeof(struct ItinStepBinT0)/1e6);
-
-			printf("Number of stored nodes: %d\n", bin_header.t0.num_nodes);
-			printf("Number of Departures: %d, Number of Steps: %d\n", num_deps, bin_header.t0.num_layers);
-
-			fwrite(&bin_header.t0, sizeof(struct ItinStepBinHeaderT0), 1, file);
-
-			struct ItinStep *ptr = departures[0];
-
-			// same algorithm as layer counter (part of header)
-			while(ptr != NULL) {
-				int body_id = (ptr->body != NULL) ? ptr->body->id : 0;
-				fwrite(&body_id, sizeof(int), 1, file);
-				if(ptr->next != NULL) ptr = ptr->next[0];
-				else break;
-			}
-
-			fwrite(&end_of_bodies_designator, sizeof(int), 1, file);
-
-			for(int i = 0; i < num_deps; i++) {
-				store_step_in_bfile(departures[i], system, file, file_type);
-			}
-			break;
-		// TYPE 1 --------------------------------------------
-		case 1:
-			bin_header.t1.num_nodes = num_nodes;
-			bin_header.t1.num_deps = num_deps;
-
-			printf("Filesize: ~%.3f MB\n", (double) num_nodes*sizeof(struct ItinStepBinT1)/1e6);
-
-			printf("Number of stored nodes: %d\n", bin_header.t1.num_nodes);
-			printf("Number of Departures: %d\n", num_deps);
-
-			fwrite(&bin_header.t1, sizeof(struct ItinStepBinHeaderT1), 1, file);
-
-			fwrite(&end_of_bodies_designator, sizeof(int), 1, file);
-
-			for(int i = 0; i < num_deps; i++) {
-				store_step_in_bfile(departures[i], system, file, file_type);
-			}
-			break;
-		// TYPE 2 --------------------------------------------
-		case 2:
-			bin_header.t2.num_nodes = num_nodes;
-			bin_header.t2.num_deps = num_deps;
-
-			printf("Filesize: ~%.3f MB\n", (double) num_nodes*sizeof(struct ItinStepBinT1)/1e6);
-
-			printf("Number of stored nodes: %d\n", bin_header.t2.num_nodes);
-			printf("Number of Departures: %d\n", num_deps);
-
-			fwrite(&bin_header.t2, sizeof(struct ItinStepBinHeaderT1), 1, file);
-
-			fwrite(&end_of_bodies_designator, sizeof(int), 1, file);
-
-			store_celestial_system_in_bfile(system, file, file_type);
-
-			for(int i = 0; i < num_deps; i++) {
-				store_step_in_bfile(departures[i], system, file, file_type);
-			}
-
-		default:
-			bin_header.is_valid.ptr = NULL;
+	if(file_type == 2) {
+		bin_header.t2.num_nodes = num_nodes;
+		bin_header.t2.num_deps = num_deps;
+		
+		printf("Filesize: ~%.3f MB\n", (double) num_nodes*sizeof(struct ItinStepBinT2)/1e6);
+		
+		printf("Number of stored nodes: %d\n", bin_header.t2.num_nodes);
+		printf("Number of Departures: %d\n", num_deps);
+		
+		fwrite(&bin_header.t2, sizeof(struct ItinStepBinHeaderT2), 1, file);
+		
+		fwrite(&end_of_bodies_designator, sizeof(int), 1, file);
+		
+		store_celestial_system_in_bfile(system, file, file_type);
+		
+		for(int i = 0; i < num_deps; i++) {
+			store_step_in_bfile(departures[i], system, file, file_type);
+		}
+	} else {
+		bin_header.is_valid.ptr = NULL;
 	}
 	// ---------------------------------------------------
 
@@ -608,53 +529,35 @@ void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int
  *********************************************************************/
 
 void convert_bin_ItinStep(union ItinStepBin bin_step, struct ItinStep *step, struct Body *body, struct System *system, int file_type) {
-	switch(file_type) {
-		case 0:
-			step->body = body;
-			step->r = bin_step.t0.r;
-			step->v_arr = bin_step.t0.v_arr;
-			step->v_body = bin_step.t0.v_body;
-			step->v_dep = bin_step.t0.v_dep;
-			step->date = bin_step.t0.date;
-			step->num_next_nodes = bin_step.t0.num_next_nodes;
-			break;
-		case 1:
-			step->body = get_body_from_id(bin_step.t1.body_id);
-			step->r = bin_step.t1.r;
-			step->v_arr = bin_step.t1.v_arr;
-			step->v_body = bin_step.t1.v_body;
-			step->v_dep = bin_step.t1.v_dep;
-			step->date = bin_step.t1.date;
-			step->num_next_nodes = bin_step.t1.num_next_nodes;
-			break;
-		case 2:
-			step->body = system->bodies[bin_step.t2.body_id];
-			step->r = bin_step.t2.r;
-			step->v_arr = bin_step.t2.v_arr;
-			step->v_body = bin_step.t2.v_body;
-			step->v_dep = bin_step.t2.v_dep;
-			step->date = bin_step.t2.date;
-			step->num_next_nodes = bin_step.t2.num_next_nodes;
-		default:
-			return;
+	if(file_type == 0) {
+		step->body = body;
+		step->r = bin_step.t0.r;
+		step->v_arr = bin_step.t0.v_arr;
+		step->v_body = bin_step.t0.v_body;
+		step->v_dep = bin_step.t0.v_dep;
+		step->date = bin_step.t0.date;
+		step->num_next_nodes = bin_step.t0.num_next_nodes;
+	} else if(file_type == 2) {
+		step->body = system->bodies[bin_step.t2.body_id];
+		step->r = bin_step.t2.r;
+		step->v_arr = bin_step.t2.v_arr;
+		step->v_body = bin_step.t2.v_body;
+		step->v_dep = bin_step.t2.v_dep;
+		step->date = bin_step.t2.date;
+		step->num_next_nodes = bin_step.t2.num_next_nodes;
 	}
 }
 
 void load_step_from_bfile(struct ItinStep *step, FILE *file, struct Body **body, struct System *system, int file_type) {
 	union ItinStepBin bin_step;
-	// TYPE 0 --------------------------------------------
+	
 	if(file_type == 0) {
 		fread(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
-		convert_bin_ItinStep(bin_step, step, body[0], system, 0);
-		// TYPE 1 --------------------------------------------
-	} else if(file_type == 1) {
-		fread(&bin_step.t1, sizeof(struct ItinStepBinT1), 1, file);
-		convert_bin_ItinStep(bin_step, step, NULL, system, 1);
+		convert_bin_ItinStep(bin_step, step, body[0], system, file_type);
 	} else if(file_type == 2) {
-		fread(&bin_step.t2, sizeof(struct ItinStepBinT1), 1, file);
-		convert_bin_ItinStep(bin_step, step, NULL, system, 2);
-	}
-	// ---------------------------------------------------
+		fread(&bin_step.t2, sizeof(struct ItinStepBinT2), 1, file);
+		convert_bin_ItinStep(bin_step, step, NULL, system, file_type);
+	} else return;
 
 	if(step->num_next_nodes > 1e6) return;	// avoid overflows
 
@@ -680,65 +583,10 @@ struct ItinsLoadFileResults load_itineraries_from_bfile(char *filepath) {
 
 	int type;
 	fread(&type, sizeof(int), 1, file);
-
-	// TYPE 0 --------------------------------------------
-	if(type == 0 || type > 3) {
-		system = SOLAR_SYSTEM_EPHEM();
-
-		if(type > 3) {fclose(file); file = fopen(filepath,"rb");}	// no type specified in header
-		fread(&bin_header.t0, sizeof(struct ItinStepBinHeaderT0), 1, file);
-		num_deps = bin_header.t0.num_deps;
-
-		int *bodies_id = (int *) malloc(bin_header.t0.num_layers * sizeof(int));
-		fread(bodies_id, sizeof(int), bin_header.t0.num_layers, file);
-
-		int buf;
-		fread(&buf, sizeof(int), 1, file);
-
-		if(buf != -1) {
-			printf("Problems reading itinerary file (Body list or header wrong)\n");
-			fclose(file);
-			return (struct ItinsLoadFileResults){NULL, NULL, 0};
-		}
-
-		departures = (struct ItinStep **) malloc(bin_header.t0.num_deps * sizeof(struct ItinStep *));
-
-		struct Body **bodies = (struct Body **) malloc(bin_header.t0.num_layers * sizeof(struct Body *));
-		for(int i = 0; i < bin_header.t0.num_layers; i++)
-			bodies[i] = (bodies_id[i] > 0) ? get_body_from_id(bodies_id[i]) : NULL;
-		free(bodies_id);
-
-		for(int i = 0; i < bin_header.t0.num_deps; i++) {
-			departures[i] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-			departures[i]->prev = NULL;
-			load_step_from_bfile(departures[i], file, bodies, system, type);
-		}
-		free(bodies);
-		// TYPE 1 --------------------------------------------
-	} else if(type == 1) {
-		system = SOLAR_SYSTEM_EPHEM();
-
-		fread(&bin_header.t1, sizeof(struct ItinStepBinHeaderT1), 1, file);
-		num_deps = bin_header.t1.num_deps;
-
-		int buf;
-		fread(&buf, sizeof(int), 1, file);
-
-		if(buf != -1) {
-			printf("Problems reading itinerary file (Body list or header wrong)\n");
-			fclose(file);
-			return (struct ItinsLoadFileResults){NULL, NULL, 0};
-		}
-
-		departures = (struct ItinStep **) malloc(bin_header.t1.num_deps * sizeof(struct ItinStep *));
-
-		for(int i = 0; i < bin_header.t1.num_deps; i++) {
-			departures[i] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-			departures[i]->prev = NULL;
-			load_step_from_bfile(departures[i], file, NULL, system, type);
-		}
-	} else if(type == 2) {
-		fread(&bin_header.t2, sizeof(struct ItinStepBinHeaderT1), 1, file);
+	
+	// currently only type 2 available
+	if(type == 2) {
+		fread(&bin_header.t2, sizeof(struct ItinStepBinHeaderT2), 1, file);
 		num_deps = bin_header.t2.num_deps;
 		// avoid overflows
 		if(num_deps > 1e10) return (struct ItinsLoadFileResults){NULL, NULL, 0};
@@ -761,36 +609,13 @@ struct ItinsLoadFileResults load_itineraries_from_bfile(char *filepath) {
 			departures[i]->prev = NULL;
 			load_step_from_bfile(departures[i], file, NULL, system, type);
 		}
+	} else {
+		return (struct ItinsLoadFileResults){NULL, NULL, 0};
 	}
 	// ---------------------------------------------------
 
 	fclose(file);
 	return (struct ItinsLoadFileResults){departures, system, num_deps};
-}
-
-int get_num_of_deps_of_itinerary_from_bfile(char *filepath) {
-	FILE *file;
-	file = fopen(filepath,"rb");
-	union ItinStepBinHeader bin_header;
-	int num_deps = 0;
-
-	int type;
-	fread(&type, sizeof(int), 1, file);
-
-	// TYPE 0 --------------------------------------------
-	if(type == 0 || type > 3) {
-		if(type > 3) {fclose(file); file = fopen(filepath,"rb");}	// no type specified in header
-		fread(&bin_header.t0, sizeof(struct ItinStepBinHeaderT0), 1, file);
-		num_deps = bin_header.t0.num_deps;
-		// TYPE 1 --------------------------------------------
-	} else if(type == 1) {
-		fread(&bin_header.t1, sizeof(struct ItinStepBinHeaderT1), 1, file);
-		num_deps = bin_header.t1.num_deps;
-	}
-	// ---------------------------------------------------
-
-	fclose(file);
-	return num_deps;
 }
 
 

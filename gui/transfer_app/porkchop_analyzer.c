@@ -510,7 +510,6 @@ G_MODULE_EXPORT void on_load_itineraries(GtkWidget* widget, gpointer data) {
 	if(!get_path_from_file_chooser(filepath, ".itins", GTK_FILE_CHOOSER_ACTION_OPEN)) return;
 
 	free_all_porkchop_analyzer_itins();
-	pa_num_deps = get_num_of_deps_of_itinerary_from_bfile(filepath);
 	struct ItinsLoadFileResults load_results = load_itineraries_from_bfile(filepath);
 	pa_num_deps = load_results.num_deps;
 	pa_departures = load_results.departures;

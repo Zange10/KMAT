@@ -7,6 +7,9 @@
 #include "orbit_calculator/transfer_calc.h"
 
 
+int get_current_bin_file_type();
+
+
 void create_directory_if_not_exists(const char *path);
 
 /**
@@ -45,9 +48,6 @@ void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int
 
 // load itineraries from binary file for multiple departures (from pre-order storing)
 struct ItinsLoadFileResults load_itineraries_from_bfile(char *filepath);
-
-// returns the number of departures stored in the binary file
-int get_num_of_deps_of_itinerary_from_bfile(char *filepath);
 
 // stores single itinerary (first branches in tree) (departure first)
 void store_single_itinerary_in_bfile(struct ItinStep *itin, struct System *system, char *filepath);
