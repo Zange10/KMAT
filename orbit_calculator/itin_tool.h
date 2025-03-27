@@ -52,7 +52,7 @@ double get_itinerary_duration(struct ItinStep *itin);
 void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_cap1);
 
 // from current step and given information, initiate calculation of next steps
-int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step);
+int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step);
 
 // from current step and given information, initiate calculation of next steps
 int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct System *system, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);

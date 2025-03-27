@@ -10,8 +10,8 @@ struct Transfer_Calc_Data {
 	int num_steps;
 	double jd_min_dep;
 	double jd_max_dep;
-	int *min_duration;
-	int *max_duration;
+	double jd_max_arr;
+	int max_duration;
 	struct System *system;
 	struct Dv_Filter dv_filter;
 };

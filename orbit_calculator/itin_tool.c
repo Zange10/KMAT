@@ -9,6 +9,8 @@
 #include <string.h>
 
 
+const int MIN_TRANSFER_DURATION = 10;	// days
+
 
 void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body *next_body, double min_dt, double max_dt) {
 	struct OSV osv_dep = {tf->r, tf->v_body};
@@ -304,11 +306,14 @@ void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_ca
 	porkchop[0] = itin->prev->date;
 }
 
-int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step) {
-	if(bodies[step] != bodies[step-1]) find_viable_flybys(curr_step, system, bodies[step], min_duration[step-1]*86400, max_duration[step-1]*86400);
+int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step) {
+	double max_duration = jd_max_arr-curr_step->date;
+	double min_duration = MIN_TRANSFER_DURATION;
+	if(bodies[step] != bodies[step-1]) find_viable_flybys(curr_step, system, bodies[step], min_duration*86400, max_duration*86400);
 	else {
-		find_viable_dsb_flybys(curr_step, &bodies[step+1]->ephem, bodies[step+1],
-							   min_duration[step-1]*86400, max_duration[step-1]*86400, min_duration[step]*86400, max_duration[step]*86400);
+		printf("DSB not yet reimplemented!\n");
+//		find_viable_dsb_flybys(curr_step, &bodies[step+1]->ephem, bodies[step+1],
+//							   min_duration[step-1]*86400, max_duration[step-1]*86400, min_duration[step]*86400, max_duration[step]*86400);
 	}
 
 	for(int i = 0; i < curr_step->num_next_nodes; i++) {
@@ -342,8 +347,8 @@ int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, 
 
 	if(step < num_steps-1) {
 		for(int i = 0; i < init_num_nodes; i++) {
-			if(bodies[step] != bodies[step-1]) result = calc_next_spec_itin_step(curr_step->next[i - step_del], system, bodies, min_duration, max_duration, dv_filter, num_steps, step + 1);
-			else result = calc_next_spec_itin_step(curr_step->next[i - step_del]->next[0]->next[0], system, bodies, min_duration, max_duration, dv_filter, num_steps, step + 2);
+			if(bodies[step] != bodies[step-1]) result = calc_next_spec_itin_step(curr_step->next[i - step_del], system, bodies, jd_max_arr, dv_filter, num_steps, step + 1);
+			else result = calc_next_spec_itin_step(curr_step->next[i - step_del]->next[0]->next[0], system, bodies, jd_max_arr, dv_filter, num_steps, step + 2);
 			num_valid += result;
 			if(!result) step_del++;
 		}
@@ -361,7 +366,7 @@ int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct System *sys
 		else
 			jd_max = jd_max_arr;
 		double max_duration = jd_max-curr_step->date;
-		double min_duration = 10;	// [days]
+		double min_duration = MIN_TRANSFER_DURATION;
 		if(max_duration > min_duration)
 			find_viable_flybys(curr_step, system, system->bodies[body_id], min_duration*86400, max_duration*86400);
 	}
