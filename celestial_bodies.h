@@ -42,11 +42,6 @@ void init_celestial_bodies();
  */
 struct Body ** all_celest_bodies();
 
-/**
- * @brief Finds the celestial body with the given id (if not found, retuns NULL-pointer)
- */
-struct Body * get_body_from_id(int id);
-
 
 /**
  * @brief Returns id of body in system
@@ -54,25 +49,7 @@ struct Body * get_body_from_id(int id);
 int get_body_system_id(struct Body *body, struct System *system);
 
 
-/**
- * @brief Returns the current system with central and orbiting bodies
- */
-struct System * get_current_system();
-
 struct Body * SUN();
-struct Body * MERCURY();
-struct Body * VENUS();
 struct Body * EARTH();
-struct Body * MOON();
-struct Body * MARS();
-struct Body * JUPITER();
-struct Body * SATURN();
-struct Body * URANUS();
-struct Body * NEPTUNE();
-struct Body * PLUTO();
-struct System * SOLAR_SYSTEM_EPHEM();
-
-struct Body * KERBOL();
-struct Body * KERBIN();
 
 #endif

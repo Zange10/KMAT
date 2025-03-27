@@ -7,15 +7,16 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 
 
 
-struct Vector2D * calc_viable_dsb_range(struct Vector2D *viable_range, struct OSV osv0_sat, struct Body **bodies, int num_bodies, struct Ephem **body_ephems, double t0, double max_dt3) {
+struct Vector2D * calc_viable_dsb_range(struct Vector2D *viable_range, struct OSV osv0_sat, struct Body **bodies, int num_bodies, double t0, double max_dt3) {
 	viable_range[0].x = 0;
 
-	struct OSV osv0_bod = osv_from_ephem(body_ephems[bodies[0]->id], t0, SUN());
+	struct OSV osv0_bod = osv_from_ephem(bodies[0]->ephem, t0, SUN());
 
 	double v_inf = vector_mag(subtract_vectors(osv0_sat.v,osv0_bod.v))+1000;
 	double v_p = vector_mag(osv0_bod.v);
@@ -34,8 +35,8 @@ struct Vector2D * calc_viable_dsb_range(struct Vector2D *viable_range, struct OS
 		for(double t1 = t0+P_min; t1 <= t0+P_max; t1+=1.0) {
 			if(t1 + 10 >= t2) continue;
 			double dt = (t2-t1);
-			struct OSV osv0 = osv_from_ephem(body_ephems[bodies[1]->id], t1, SUN());
-			struct OSV osv1 = osv_from_ephem(body_ephems[bodies[2]->id], t2, SUN());
+			struct OSV osv0 = osv_from_ephem(bodies[1]->ephem, t1, SUN());
+			struct OSV osv1 = osv_from_ephem(bodies[2]->ephem, t2, SUN());
 			struct Transfer tf_after_dsb = calc_transfer(circfb, bodies[1], bodies[2], osv0.r,osv0.v,
 														 osv1.r, osv1.v, dt * 86400, SUN(),
 														 NULL);
@@ -76,49 +77,46 @@ struct Vector2D * calc_viable_dsb_range(struct Vector2D *viable_range, struct OS
 void test_dsb() {
 	struct Body *bodies[6];
 
-	int num_bodies = 8+2;	// planets + arrival body + departure body (arr and dep body ephems = NULL if planet)
-	int num_body_ephems = 12*100;	// 12 months for 100 years (1950-2050)
-	struct Ephem **body_ephems = (struct Ephem**) malloc(num_bodies*sizeof(struct Ephem*));
-	body_ephems[0] = NULL;
-	body_ephems[9] = NULL;
-	for(int i = 1; i <= num_bodies-2; i++) {
-		body_ephems[i] = (struct Ephem*) malloc(num_body_ephems*sizeof(struct Ephem));
-//		get_body_ephem(body_ephems[i], i);
-	}
-
 	int min_duration[6], max_duration[6];
 	int counter = 0;
 	double jd_min_dep, jd_max_dep;
+	
+	struct System *system = NULL;
+	for(int i = 0; i < get_num_available_systems(); i++) {
+		if(strcmp(get_available_systems()[i]->name, "Solar System (Ephemerides)") == 0) {
+			system = get_available_systems()[i];
+		}
+	}
 
 
-	bodies[counter] = EARTH();
+	bodies[counter] = system->bodies[2];	// Earth
 	struct Date min_date = {1997, 10, 06};	// Cassini: 1997-10-06
 	struct Date max_date = {1997, 10, 10};
 	jd_min_dep = convert_date_JD(min_date);
 	jd_max_dep = convert_date_JD(max_date);
 	counter++;
 
-	bodies[counter] = VENUS();
+	bodies[counter] = system->bodies[1];	// Venus
 	min_duration[counter] = 190;	// Cassini 197
 	max_duration[counter] = 210;
 	counter++;
-
-	bodies[counter] = VENUS();
+	
+	bodies[counter] = system->bodies[1];	// Venus
 	min_duration[counter] = 10;	// Cassini 425
 	max_duration[counter] = 1000;
 	counter++;
-
-	bodies[counter] = EARTH();
+	
+	bodies[counter] = system->bodies[2];	// Earth
 	min_duration[counter] = 40;	// Cassini 65
 	max_duration[counter] = 90;
 	counter++;
-
-	bodies[counter] = JUPITER();
+	
+	bodies[counter] = system->bodies[4];	// Jupiter
 	min_duration[counter] = 200;	// Cassini 559
 	max_duration[counter] = 2000;
 	counter++;
-
-	bodies[counter] = SATURN();
+	
+	bodies[counter] = system->bodies[5];	// Saturn
 	min_duration[counter] = 800;	// Cassini 1273
 	max_duration[counter] = 2000;
 
@@ -159,8 +157,8 @@ void test_dsb() {
 		double t1 = t0 + 427;
 		for(double t2 = t1+20; t2 < t1+700; t2 += 0.1) {
 			double dt = (t2-t1);
-			struct OSV osv0 = osv_from_ephem(body_ephems[bodies[2]->id], t1, SUN());
-			struct OSV osv1 = osv_from_ephem(body_ephems[bodies[3]->id], t2, SUN());
+			struct OSV osv0 = osv_from_ephem(bodies[2]->ephem, t1, SUN());
+			struct OSV osv1 = osv_from_ephem(bodies[3]->ephem, t2, SUN());
 			struct Transfer tf_after_dsb = calc_transfer(circfb, bodies[2], bodies[3], osv0.r,osv0.v,
 														 osv1.r, osv1.v, dt * 86400, SUN(),
 														 NULL);
@@ -204,11 +202,11 @@ void test_dsb() {
 	}
 
 	if(0) {
-		struct OSV osv_dep1 = osv_from_ephem(body_ephems[bodies[0]->id], jd_min_dep, SUN());
-		struct OSV dsb_arr1 = osv_from_ephem(body_ephems[bodies[1]->id], jd_min_dep + min_duration[1], SUN());
+		struct OSV osv_dep1 = osv_from_ephem(bodies[0]->ephem, jd_min_dep, SUN());
+		struct OSV dsb_arr1 = osv_from_ephem(bodies[1]->ephem, jd_min_dep + min_duration[1], SUN());
 
 		double data[3];
-		struct Transfer tf_launch = calc_transfer(circfb, EARTH(), VENUS(), osv_dep1.r, osv_dep1.v,
+		struct Transfer tf_launch = calc_transfer(circfb, bodies[0], bodies[1], osv_dep1.r, osv_dep1.v,
 												  dsb_arr1.r,
 												  dsb_arr1.v, min_duration[1] * 86400, SUN(), data);
 
@@ -238,8 +236,8 @@ void test_dsb() {
 
 				if(t1 + 10 >= t2) continue;
 				double dt = (t2 - t1);
-				struct OSV osv0 = osv_from_ephem(body_ephems[bodies[2]->id], t1, SUN());
-				struct OSV osv1 = osv_from_ephem(body_ephems[bodies[3]->id], t2, SUN());
+				struct OSV osv0 = osv_from_ephem(bodies[2]->ephem, t1, SUN());
+				struct OSV osv1 = osv_from_ephem(bodies[3]->ephem, t2, SUN());
 				struct Transfer tf_after_dsb = calc_transfer(circfb, bodies[2], bodies[3], osv0.r, osv0.v,
 															 osv1.r, osv1.v, dt * 86400, SUN(),
 															 NULL);
@@ -260,9 +258,9 @@ void test_dsb() {
 //								   max_duration[4] * 86400);
 
 
-				insert_new_data_point2(all_points, t1 - jd_min_dep - min_duration[1],
-									   t2 - jd_min_dep - min_duration[1]);
-				insert_new_data_point2(all_data, get_best_alt(), get_best_diff_vinf());
+//				insert_new_data_point2(all_points, t1 - jd_min_dep - min_duration[1],
+//									   t2 - jd_min_dep - min_duration[1]);
+//				insert_new_data_point2(all_data, get_best_alt(), get_best_diff_vinf());
 
 //				print_vector(scalar_multiply(itin_step.v_body,1e-3));
 //				print_vector(scalar_multiply(itin_step.v_arr,1e-3));
@@ -308,18 +306,18 @@ void test_dsb() {
 //
 //	for(tf_duration[2] = min_duration[3]; tf_duration[2] <= max_duration[3]; tf_duration[2] += 40.0) {
 
-	struct OSV osv_dep_base = osv_from_ephem(body_ephems[bodies[0]->id], jd_min_dep, SUN());
+	struct OSV osv_dep_base = osv_from_ephem(bodies[0]->ephem, jd_min_dep, SUN());
 	struct OSV dsb_osv_base[3] = {
-			osv_from_ephem(body_ephems[bodies[1]->id], jd_min_dep+min_duration[1], SUN())
+			osv_from_ephem(bodies[1]->ephem, jd_min_dep+min_duration[1], SUN())
 	};
 
-	struct Transfer tf_launch_base = calc_transfer(circfb, EARTH(), VENUS(), osv_dep_base.r, osv_dep_base.v,
+	struct Transfer tf_launch_base = calc_transfer(circfb, bodies[0], bodies[1], osv_dep_base.r, osv_dep_base.v,
 												   dsb_osv_base[0].r,dsb_osv_base[0].v, min_duration[1] * 86400, SUN(), NULL);
 
 	struct OSV osv0_sat_base = {tf_launch_base.r1, tf_launch_base.v1};
 
 	struct Vector2D viable_range[3000];
-	calc_viable_dsb_range(viable_range, osv0_sat_base, &(bodies[1]), 5, body_ephems, jd_min_dep+min_duration[1], max_duration[3]);
+	calc_viable_dsb_range(viable_range, osv0_sat_base, &(bodies[1]), 5, jd_min_dep+min_duration[1], max_duration[3]);
 
 
 	for(double jd_dep = jd_min_dep; jd_dep <= jd_max_dep; jd_dep+=1.0) {
@@ -327,12 +325,12 @@ void test_dsb() {
 
 			t[0] = jd_dep + tf_duration[0];
 
-			struct OSV osv_dep = osv_from_ephem(body_ephems[bodies[0]->id], jd_dep, SUN());
+			struct OSV osv_dep = osv_from_ephem(bodies[0]->ephem, jd_dep, SUN());
 			struct OSV dsb_osv[3] = {
-					osv_from_ephem(body_ephems[bodies[1]->id], t[0], SUN())
+					osv_from_ephem(bodies[1]->ephem, t[0], SUN())
 			};
 
-			struct Transfer tf_launch = calc_transfer(circfb, EARTH(), VENUS(), osv_dep.r, osv_dep.v,
+			struct Transfer tf_launch = calc_transfer(circfb, bodies[0], bodies[1], osv_dep.r, osv_dep.v,
 													  dsb_osv[0].r,dsb_osv[0].v, tf_duration[0] * 86400, SUN(), NULL);
 
 			printf("Viable range: %f\n", viable_range[0].x);
@@ -345,8 +343,8 @@ void test_dsb() {
 				print_date(convert_JD_date(jd_dep, DATE_ISO), 0);
 				printf("  t0: %f; t1: %f; t2: %f; %d / %f\n", t[0]-jd_dep, t[1]-t[0], t[2]-t[1], i, viable_range[0].x);
 
-				dsb_osv[1] = osv_from_ephem(body_ephems[bodies[2]->id], t[1], SUN());
-				dsb_osv[2] = osv_from_ephem(body_ephems[bodies[3]->id], t[2], SUN());
+				dsb_osv[1] = osv_from_ephem(bodies[2]->ephem, t[1], SUN());
+				dsb_osv[2] = osv_from_ephem(bodies[3]->ephem, t[2], SUN());
 
 				double data[3];
 
@@ -387,11 +385,11 @@ void test_dsb() {
 //								   max_duration[4] * 86400);
 
 
-				insert_new_data_point2(error1alt, tf_duration[1], get_best_alt());
-				insert_new_data_point2(error1ddv, tf_duration[1], get_best_diff_vinf());
+//				insert_new_data_point2(error1alt, tf_duration[1], get_best_alt());
+//				insert_new_data_point2(error1ddv, tf_duration[1], get_best_diff_vinf());
 
-				all_alt[num_all - 1] = get_best_alt();
-				all_ddv[num_all - 1] = get_best_diff_vinf();
+//				all_alt[num_all - 1] = get_best_alt();
+//				all_ddv[num_all - 1] = get_best_diff_vinf();
 
 				if(itin_step.num_next_nodes > 0) {
 					id_v[inum_viable] = dsb.dv;
@@ -400,8 +398,8 @@ void test_dsb() {
 					ifb1[inum_viable] = tf_duration[1];
 					ifb2[inum_viable] = tf_duration[2];
 					ifb2[inum_viable] = tf_duration[2];
-					ialt[inum_viable] = get_best_alt();
-					iddv[inum_viable] = get_best_diff_vinf();
+//					ialt[inum_viable] = get_best_alt();
+//					iddv[inum_viable] = get_best_diff_vinf();
 					inum_viable++;
 				}
 				printf("num next nodes: %d\n", itin_step.num_next_nodes);
@@ -410,8 +408,8 @@ void test_dsb() {
 //					find_viable_flybys(itin_step.next[j], /*body_ephems[bodies[5]->id],*/ bodies[5],
 //									   min_duration[5] * 86400,
 //									   max_duration[5] * 86400);
-					insert_new_data_point2(error2alt, tf_duration[1], get_best_alt());
-					insert_new_data_point2(error2ddv, tf_duration[1], get_best_diff_vinf());
+//					insert_new_data_point2(error2alt, tf_duration[1], get_best_alt());
+//					insert_new_data_point2(error2ddv, tf_duration[1], get_best_diff_vinf());
 					if(itin_step.next[j]->num_next_nodes > 0) {
 						insert_new_data_point2(viable_dv, tf_duration[1], dsb.dv);
 //								printf("SAT num next nodes: %d\n", itin_step.next[j]->num_next_nodes);
@@ -643,7 +641,4 @@ void test_dsb() {
 
 	printf("%f  |  %f  |  %f\n", fb0[minidx], fb1[minidx], fb2[minidx]);
 	printf("%f\n", min);
-
-	for(int i = 0; i < num_bodies; i++) free(body_ephems[i]);
-	free(body_ephems);
 }

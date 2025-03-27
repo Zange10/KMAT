@@ -49,7 +49,7 @@ void init_transfer_calculator(GtkBuilder *builder) {
 	tf_tc_satdv = gtk_builder_get_object(builder, "tf_tc_satdv");
 	tf_tc_preview = gtk_builder_get_object(builder, "tf_tc_preview");
 
-	tc_system = get_current_system();
+	tc_system = NULL;
 
 	create_combobox_dropdown_text_renderer(cb_tc_body);
 	if(get_num_available_systems() > 0 && tc_system != NULL) update_body_dropdown(GTK_COMBO_BOX(cb_tc_body), tc_system);
@@ -300,7 +300,7 @@ G_MODULE_EXPORT void on_calc_tc() {
 	calc_data.min_duration = (int*) malloc((num_steps-1) * sizeof(int));
 	calc_data.max_duration = (int*) malloc((num_steps-1) * sizeof(int));
 
-	calc_data.system = get_current_system();
+	calc_data.system = tc_system;
 
 	for(int i = 0; i < num_steps; i++) {
 		calc_data.bodies[i] = step->body;
