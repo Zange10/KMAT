@@ -10,7 +10,6 @@
 #include <locale.h>
 #include <math.h>
 
-
 int pa_num_deps, pa_num_itins;
 struct ItinStep **pa_departures;
 enum LastTransferType pa_last_transfer_type;

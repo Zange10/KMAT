@@ -1,7 +1,6 @@
 #include <stdio.h>
 
 #include "drawing.h"
-#include "tools/datetime.h"
 #include "settings.h"
 #include "math.h"
 
@@ -134,11 +133,6 @@ void draw_right_aligned_text(cairo_t *cr, double x, double y, char *text) {
 	cairo_show_text(cr, text);
 }
 
-void draw_data_point(cairo_t *cr, double x, double y, double radius) {
-	cairo_arc(cr, x, y, radius,0,M_PI*2);
-	cairo_fill(cr);
-}
-
 void draw_coordinate_system(cairo_t *cr, double width, double height, enum CoordAxisLabelType x_axis_label_type, enum CoordAxisLabelType y_axis_label_type,
 		double min_x, double max_x, double min_y, double max_y, struct Vector2D origin, int num_x_labels, int num_y_labels) {
 	// Set text color
@@ -235,6 +229,16 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 	}
 }
 
+void draw_data_point(cairo_t *cr, double x, double y, double radius) {
+	if(radius > 3) {
+		cairo_arc(cr, x, y, radius,0,M_PI*2);
+		cairo_fill(cr);
+	} else {
+		cairo_rectangle(cr, x-radius, y-radius, radius, radius);
+		cairo_fill(cr);
+	}
+}
+
 void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnalyzerPoint *porkchop, int num_itins, enum LastTransferType last_transfer_type) {
 	double dv, date, dur;
 
@@ -301,10 +305,14 @@ void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnal
 			num_draw_itins++;
 		}
 	}
+
+	// Create an off-screen surface to draw porkchop all at onece
+	cairo_surface_t* buffer_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, (int) width, (int) height);
+	cairo_t* buffer_cr = cairo_create(buffer_surface);
+
 	// draw points
 	double color_bias;
 	int i = num_draw_itins-1;
-	int num_actually_drawn = 0;
 	while(i >= 0) {
 		pp = porkchop[draw_idx[i]].data;
 
@@ -321,24 +329,23 @@ void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnal
 		double r = i == 0 ? 1 : color_bias;
 		double g = i == 0 ? 0 : 1-color_bias;
 		double b = i == 0 ? 0 : 4*pow(color_bias-0.5,2);
-		cairo_set_source_rgb(cr, r,g,b);
+		cairo_set_source_rgb(buffer_cr, r,g,b);
 
 		struct Vector2D data_point = vec2D(origin.x + m_date*(date - min_date), origin.y + m_dur * (dur - min_dur));
-		draw_data_point(cr, data_point.x, data_point.y, i > 0 ? 2 : 5);
+		int radius = i > 0 ? 2 : 5;
+		if(num_draw_itins < 10000) radius += 2;
+		draw_data_point(buffer_cr, data_point.x, data_point.y, radius);
 
-		if(num_draw_itins > 100000) {
-			if(i > 1e6) i -= 50;
-			else if(i > 1e5) i -= 10;
-			else if(i > 1e4) i -= 5;
-			else if(i > 1e2) i -= 2;
-			else i--;
-		} else {
-			i--;
-		}
-		num_actually_drawn++;
+		i--;
 	}
 
-	printf("%d points drawn; %d points viable to draw; %d total number of points\n", num_actually_drawn, num_draw_itins, num_itins);
+	// Copy the buffer to the main canvas and buffer cleanup
+	cairo_set_source_surface(cr, buffer_surface, 0, 0);
+	cairo_paint(cr);
+	cairo_destroy(buffer_cr);
+	cairo_surface_destroy(buffer_surface);
+
+	printf("%d points drawn; %d total number of points\n", num_draw_itins, num_itins);
 
 	free(draw_idx);
 }
