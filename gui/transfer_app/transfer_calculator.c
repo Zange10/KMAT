@@ -2,105 +2,54 @@
 #include "orbit_calculator/transfer_calc.h"
 #include "gui/gui_manager.h"
 #include "gui/settings.h"
+#include "gui/prog_win_manager.h"
 #include "tools/file_io.h"
 #include <string.h>
-#include <sys/time.h>
 
-
-struct PlannedStep {
-	struct Body *body;
-	double min_depdur;
-	double max_depdur;
-	struct PlannedStep *prev;
-	struct PlannedStep *next;
-};
-
-
-GObject *cb_tc_body;
+GObject *tf_tc_window;
+GObject *cb_tc_system;
 GObject *tf_tc_mindepdate;
 GObject *tf_tc_maxdepdate;
-GObject *tf_tc_mindur;
+GObject *tf_tc_maxarrdate;
 GObject *tf_tc_maxdur;
 GObject *cb_tc_transfertype;
 GObject *tf_tc_totdv;
 GObject *tf_tc_depdv;
 GObject *tf_tc_satdv;
-GObject *tf_tc_preview;
+GObject *vp_tc_preview;
+GtkWidget *grid_tc_preview;
 
 struct PlannedStep *tc_step;
 
 struct System *tc_system;
 
-
-double max_totdv_tc, max_depdv_tc, max_satdv_tc;
-enum LastTransferType tc_last_transfer_type;
-
+void update_tc_preview();
 
 void init_transfer_calculator(GtkBuilder *builder) {
-	tc_step = NULL;
-	cb_tc_body = gtk_builder_get_object(builder, "cb_tc_body");
+	tf_tc_window = gtk_builder_get_object(builder, "window");
+	cb_tc_system = gtk_builder_get_object(builder, "cb_tc_system");
 	tf_tc_mindepdate = gtk_builder_get_object(builder, "tf_tc_mindepdate");
 	tf_tc_maxdepdate = gtk_builder_get_object(builder, "tf_tc_maxdepdate");
-	tf_tc_mindur = gtk_builder_get_object(builder, "tf_tc_mindur");
+	tf_tc_maxarrdate = gtk_builder_get_object(builder, "tf_tc_maxarrdate");
 	tf_tc_maxdur = gtk_builder_get_object(builder, "tf_tc_maxdur");
 	cb_tc_transfertype = gtk_builder_get_object(builder, "cb_tc_transfertype");
 	tf_tc_totdv = gtk_builder_get_object(builder, "tf_tc_totdv");
 	tf_tc_depdv = gtk_builder_get_object(builder, "tf_tc_depdv");
 	tf_tc_satdv = gtk_builder_get_object(builder, "tf_tc_satdv");
-	tf_tc_preview = gtk_builder_get_object(builder, "tf_tc_preview");
+	vp_tc_preview = gtk_builder_get_object(builder, "vp_tc_preview");
 
+	tc_step = NULL;
+	create_combobox_dropdown_text_renderer(cb_tc_system);
+	update_system_dropdown(GTK_COMBO_BOX(cb_tc_system));
 	tc_system = NULL;
-
-	create_combobox_dropdown_text_renderer(cb_tc_body);
-	if(get_num_available_systems() > 0 && tc_system != NULL) update_body_dropdown(GTK_COMBO_BOX(cb_tc_body), tc_system);
+	if(get_num_available_systems() > 0) tc_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tc_system))];
+	update_tc_preview();
 }
-
-
 
 void tc_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
-
-}
-
-
-void current_time_to_string(char *string) {
-	time_t current_time;
-	struct tm *timeinfo;
-
-	sprintf(string, "");
-
-	/* Obtain current time */
-	current_time = time(NULL);
-
-	if (current_time == ((time_t)-1)) {
-		fprintf(stderr, "Failure to obtain the current time.\n");
-		return;
-	}
-
-	/* Convert to local time */
-	timeinfo = localtime(&current_time);
-
-	if (timeinfo == NULL) {
-		fprintf(stderr, "Failure to convert the current time.\n");
-		return;
-	}
-
-
-	struct timeval current_time2;
-	gettimeofday(&current_time2, NULL);
-	double millis = (double) (current_time2.tv_usec)/1000000.0;
-
-	/* Extract minutes and seconds */
-	struct Date current_date = {
-			timeinfo->tm_year + 1900,
-			timeinfo->tm_mon + 1,
-			timeinfo->tm_mday,
-			timeinfo->tm_hour,
-			timeinfo->tm_min,
-			timeinfo->tm_sec + millis
-	};
-
-	/* Print the current time */
-	date_to_string(current_date, string, 1);
+	change_text_field_date_type(tf_tc_mindepdate, old_date_type, new_date_type);
+	change_text_field_date_type(tf_tc_maxdepdate, old_date_type, new_date_type);
+	change_text_field_date_type(tf_tc_maxarrdate, old_date_type, new_date_type);
 }
 
 struct PlannedStep * get_first_tc(struct PlannedStep *step) {
@@ -115,143 +64,23 @@ struct PlannedStep * get_last_tc(struct PlannedStep *step) {
 	return step;
 }
 
-int get_num_steps_tc(struct PlannedStep *step) {
-	if(step == NULL) return 0;
-	int counter = 0;
-	step = get_first_tc(tc_step);
-	while(step != NULL) {
-		counter++;
-		step = step->next;
-	}
-	return counter;
+int get_num_tc_steps(struct PlannedStep *step) {
+	step = get_first_tc(step);
+	int num = 0;
+	while(step != NULL) {num++; step = step->next;}
+	return num;
 }
 
-void update_dvs_and_depdates() {
-	char *string;
-	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_totdv));
-	max_totdv_tc = strtod(string, NULL);
-	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_depdv));
-	max_depdv_tc = strtod(string, NULL);
-	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_satdv));
-	max_satdv_tc = strtod(string, NULL);
+void on_add_transfer_tc() {
+	if(tc_system == NULL) return;
 
-	if(max_totdv_tc <= 0) max_totdv_tc = 100000;
-	if(max_depdv_tc <= 0) max_depdv_tc = 100000;
-	if(max_satdv_tc <= 0) max_satdv_tc = 100000;
-
-	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_mindepdate));
-	double min_depdate = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
-	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_maxdepdate));
-	double max_depdate = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
-
-	get_first_tc(tc_step)->min_depdur = min_depdate;
-	get_first_tc(tc_step)->max_depdur = max_depdate;
-
-	string = (char*) gtk_combo_box_get_active_id(GTK_COMBO_BOX(cb_tc_transfertype));
-	int tt = (int) strtol(string, NULL, 10);
-	if(tt == 1) tc_last_transfer_type = TF_CAPTURE;
-	else if(tt == 2) tc_last_transfer_type = TF_CIRC;
-	else tc_last_transfer_type = TF_FLYBY;
-}
-
-void update_preview_tc(int calc) {
-	struct PlannedStep *step = get_first_tc(tc_step);
-	char preview_text[1000] = "";
-	char temp_string[100];
-	if(step == NULL) {
-		sprintf(preview_text, "");
-		return;
-	} else {
-		update_dvs_and_depdates();
-
-		sprintf(temp_string,"Max Total dv: \t\t\t%.2f m/s\n"
-							 "Max Departure dv: \t%.2f m/s\n"
-							 "Max Satellite dv: \t\t%.2f m/s\n\n",
-							 max_totdv_tc, max_depdv_tc, max_satdv_tc);
-		strcat(preview_text, temp_string);
-
-		sprintf(temp_string, "Last Transfer: \t\t\t");
-		if(tc_last_transfer_type == TF_FLYBY) strcat(temp_string,"FLY-BY");
-		else if(tc_last_transfer_type == TF_CAPTURE) strcat(temp_string,"CAPTURE");
-		else if(tc_last_transfer_type == TF_CIRC) strcat(temp_string,"CIRCULARIZE");
-		strcat(temp_string,"\n\n--\n\n");
-		strcat(preview_text, temp_string);
-
-		date_to_string(convert_JD_date(step->min_depdur, get_settings_datetime_type()), temp_string, 0);
-		strcat(preview_text, temp_string);
-		strcat(preview_text, "  |  ");
-		date_to_string(convert_JD_date(step->max_depdur, get_settings_datetime_type()), temp_string, 0);
-		strcat(preview_text, temp_string);
-		sprintf(temp_string, "\n%s\n", step->body->name);
-		strcat(preview_text, temp_string);
-
-		while(step->next != NULL) {
-			step = step->next;
-			sprintf(temp_string, "%d  |  %d\n%s\n", (int) step->min_depdur, (int) step->max_depdur, step->body->name);
-			strcat(preview_text, temp_string);
-		}
-	}
-	if(calc) {
-		current_time_to_string(temp_string);
-		strcat(preview_text, "\n\nCalculation started at:\t");
-		strcat(preview_text, temp_string);
-	}
-	GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(tf_tc_preview));
-	gtk_text_buffer_set_text(buffer, preview_text, -1);
-	gtk_widget_queue_draw(GTK_WIDGET(tf_tc_preview));
-}
-
-void save_itineraries_tc(struct ItinStep **departures, int num_deps, int num_nodes) {
-	if(departures == NULL || num_deps == 0) return;
-
-	GtkWidget *dialog;
-	GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_SAVE;
-	gint res;
-
-	// Create the file chooser dialog
-	dialog = gtk_file_chooser_dialog_new("Save File", NULL, action,
-										 "_Cancel", GTK_RESPONSE_CANCEL,
-										 "_Save", GTK_RESPONSE_ACCEPT,
-										 NULL);
-
-	// Set initial folder
-	create_directory_if_not_exists(get_itins_directory());
-	gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(dialog), get_itins_directory());
-
-	// Create a filter for files with the extension .itin
-	GtkFileFilter *filter = gtk_file_filter_new();
-	gtk_file_filter_add_pattern(filter, "*.itins");
-	gtk_file_filter_set_name(filter, ".itins");
-	gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
-
-	// Run the dialog
-	res = gtk_dialog_run(GTK_DIALOG(dialog));
-	if (res == GTK_RESPONSE_ACCEPT) {
-		char *filepath;
-		GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
-		filepath = gtk_file_chooser_get_filename(chooser);
-
-//		store_itineraries_in_bfile(departures, num_nodes, num_deps, filepath, 0);
-		g_free(filepath);
-	}
-
-	// Destroy the dialog
-	gtk_widget_destroy(dialog);
-}
-
-G_MODULE_EXPORT void on_add_transfer_tc() {
 	struct PlannedStep *new_step = (struct PlannedStep*) malloc(sizeof(struct PlannedStep));
 	new_step->prev = NULL;
 	new_step->next = NULL;
 
-	new_step->body = tc_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tc_body))];
+	new_step->body = tc_system->bodies[0];
 
 	if(tc_step != NULL) {
-		char *string;
-		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_mindur));
-		new_step->min_depdur = strtod(string, NULL);
-		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_maxdur));
-		new_step->max_depdur = strtod(string, NULL);
 		struct PlannedStep *last = get_last_tc(tc_step);
 		last->next = new_step;
 		new_step->prev = last;
@@ -259,68 +88,138 @@ G_MODULE_EXPORT void on_add_transfer_tc() {
 
 	tc_step = new_step;
 
-	update_preview_tc(0);
+	update_tc_preview();
 }
 
-G_MODULE_EXPORT void on_remove_transfer_tc() {
-	struct PlannedStep *step = get_last_tc(tc_step);
-	if(step->prev == NULL) {
-		tc_step = NULL;
-		free(step);
-	} else {
-		step = step->prev;
-		free(step->next);
-		tc_step = step;
-		step->next = NULL;
+void on_remove_transfer_tc(GtkWidget *widget, struct PlannedStep *step) {
+	if(step->prev != NULL) step->prev->next = step->next;
+	if(step->next != NULL) step->next->prev = step->prev;
+
+	tc_step = step->prev != NULL ? step->prev : step->next;
+
+	free(step);
+	update_tc_preview();
+}
+
+void on_update_step_body_tc(GtkWidget *widget, struct PlannedStep *step) {
+	step->body = tc_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(widget))];
+}
+
+void update_tc_preview() {
+	// Remove grid if exists
+	if (grid_tc_preview != NULL && GTK_WIDGET(vp_tc_preview) == gtk_widget_get_parent(grid_tc_preview)) {
+		gtk_container_remove(GTK_CONTAINER(vp_tc_preview), grid_tc_preview);
 	}
-	update_preview_tc(0);
-}
 
-G_MODULE_EXPORT void on_update_tc() {
-	update_preview_tc(0);
-}
+	grid_tc_preview = gtk_grid_new();
 
-G_MODULE_EXPORT void on_calc_tc() {
+	GtkWidget *widget;
 	struct PlannedStep *step = get_first_tc(tc_step);
-	if(step == NULL || step->next == NULL) return;
+	int row = 0;
 
-	update_dvs_and_depdates();
+	while(step != NULL) {
+		// Body drop-down
+		widget = gtk_combo_box_new();
+		create_combobox_dropdown_text_renderer(G_OBJECT(widget));
+		update_body_dropdown(GTK_COMBO_BOX(widget), tc_system);
+		gtk_combo_box_set_active(GTK_COMBO_BOX(widget), get_body_system_id(step->body, tc_system));
+		g_signal_connect(widget, "changed", G_CALLBACK(on_update_step_body_tc), step);
+		gtk_widget_set_halign(widget, GTK_ALIGN_FILL);
+		gtk_widget_set_hexpand(widget, TRUE);
+		gtk_grid_attach(GTK_GRID(grid_tc_preview), widget, 0, row, 1, 1);
 
-	int num_steps = get_num_steps_tc(tc_step);
+		// Remove step button
+		widget = gtk_button_new_with_label("-");
+		gtk_widget_set_size_request(widget, 50, -1);
+		g_signal_connect(widget, "clicked", G_CALLBACK(on_remove_transfer_tc), step);
+		gtk_grid_attach(GTK_GRID(grid_tc_preview), widget, 1, row, 1, 1);
+		step = step->next;
+		row++;
+	}
+
+	// Add next step button
+	widget = gtk_button_new_with_label("+");
+	g_signal_connect(widget, "clicked", G_CALLBACK(on_add_transfer_tc), NULL);
+	gtk_widget_set_halign(widget, GTK_ALIGN_FILL);
+	gtk_widget_set_hexpand(widget, TRUE);
+	gtk_grid_attach(GTK_GRID(grid_tc_preview), widget, 0, row, 2, 1);
+
+	gtk_container_add (GTK_CONTAINER (vp_tc_preview), grid_tc_preview);
+	gtk_widget_show_all(GTK_WIDGET(vp_tc_preview));
+}
+
+void save_itineraries_tc(struct ItinStep **departures, int num_deps, int num_nodes) {
+	if(departures == NULL || num_deps == 0) return;
+	char filepath[255];
+	if(!get_path_from_file_chooser(filepath,  ".itins", GTK_FILE_CHOOSER_ACTION_SAVE)) return;
+	store_itineraries_in_bfile(departures, num_nodes, num_deps, tc_system, filepath, get_current_bin_file_type());
+}
+
+struct Transfer_Calc_Results tc_results;
+
+gboolean end_tc_calc_thread() {
+	end_tc_ic_progress_window();
+	gtk_widget_set_sensitive(GTK_WIDGET(tf_tc_window), 1);
+
+	save_itineraries_tc(tc_results.departures, tc_results.num_deps, tc_results.num_nodes);
+	for(int i = 0; i < tc_results.num_deps; i++) free_itinerary(tc_results.departures[i]);
+	free(tc_results.departures);
+	return G_SOURCE_REMOVE;
+}
+
+void tc_calc_thread() {
+	char *string;
 	struct Transfer_Calc_Data calc_data;
-	calc_data.num_steps = num_steps;
-	calc_data.jd_min_dep = step->min_depdur;
-	calc_data.jd_max_dep = step->max_depdur;
-	calc_data.dv_filter.max_totdv = max_totdv_tc;
-	calc_data.dv_filter.max_depdv = max_depdv_tc;
-	calc_data.dv_filter.max_satdv = max_satdv_tc;
-	calc_data.dv_filter.last_transfer_type = (int) tc_last_transfer_type;
 
-	calc_data.bodies = (struct Body**) malloc(num_steps * sizeof(struct Body*));
-	calc_data.min_duration = (int*) malloc((num_steps-1) * sizeof(int));
-	calc_data.max_duration = (int*) malloc((num_steps-1) * sizeof(int));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_mindepdate));
+	calc_data.jd_min_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_maxdepdate));
+	calc_data.jd_max_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_maxarrdate));
+	calc_data.jd_max_arr = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_maxdur));
+	calc_data.max_duration = (int) strtol(string, NULL, 10);
+	if(get_settings_datetime_type() == DATE_KERBAL) calc_data.max_duration /= 4;	// kerbal day is 4 times shorter (24h/6h)
 
-	calc_data.system = tc_system;
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_totdv));
+	calc_data.dv_filter.max_totdv = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_depdv));
+	calc_data.dv_filter.max_depdv = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_tc_satdv));
+	calc_data.dv_filter.max_satdv = strtod(string, NULL);
+	string = (char*) gtk_combo_box_get_active_id(GTK_COMBO_BOX(cb_tc_transfertype));
+	calc_data.dv_filter.last_transfer_type = (int) strtol(string, NULL, 10);
 
-	for(int i = 0; i < num_steps; i++) {
+	struct PlannedStep *step = get_first_tc(tc_step);
+	calc_data.num_steps = get_num_tc_steps(step);
+	printf("%d\n", get_num_tc_steps(step));
+	calc_data.bodies = malloc(calc_data.num_steps * sizeof(struct Body*));
+	for(int i = 0; i < calc_data.num_steps; i++) {
 		calc_data.bodies[i] = step->body;
-		if(i != 0) {
-			calc_data.min_duration[i-1] = (int) step->min_depdur;
-			calc_data.max_duration[i-1] = (int) step->max_depdur;
-		}
 		step = step->next;
 	}
 
-	update_preview_tc(1);
+	calc_data.system = tc_system;
 
-	struct Transfer_Calc_Results results = search_for_spec_itinerary(calc_data);
+	tc_results = search_for_spec_itinerary(calc_data);
 
-	save_itineraries_tc(results.departures, results.num_deps, results.num_nodes);
-	for(int i = 0; i < results.num_deps; i++) free_itinerary(results.departures[i]);
-	free(results.departures);
+	// GUI stuff needs to happen in main thread
 	free(calc_data.bodies);
-	free(calc_data.min_duration);
-	free(calc_data.max_duration);
+	g_idle_add((GSourceFunc)end_tc_calc_thread, NULL);
+}
+
+
+G_MODULE_EXPORT void on_calc_tc() {
+	if(tc_system == NULL || tc_step == NULL) return;
+	gtk_widget_set_sensitive(GTK_WIDGET(tf_tc_window), 0);
+	g_thread_new("calc_thread", (GThreadFunc) tc_calc_thread, NULL);
+	init_tc_ic_progress_window();
+}
+
+G_MODULE_EXPORT void on_tc_system_change() {
+	if(get_num_available_systems() > 0) tc_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tc_system))];
+	reset_tc();
+	update_tc_preview();
 }
 
 void reset_tc() {

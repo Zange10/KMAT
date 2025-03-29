@@ -6,6 +6,7 @@
 #include "tools/file_io.h"
 
 
+GObject *tf_ic_window;
 GObject *cb_ic_system;
 GObject *cb_ic_depbody;
 GObject *cb_ic_arrbody;
@@ -17,7 +18,6 @@ GObject *cb_ic_transfertype;
 GObject *tf_ic_totdv;
 GObject *tf_ic_depdv;
 GObject *tf_ic_satdv;
-GObject *tf_ic_window;
 
 struct System *ic_system;
 
@@ -64,15 +64,15 @@ void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nod
 
 
 
-struct Transfer_Calc_Results results;
+struct Transfer_Calc_Results ic_results;
 
-gboolean end_calc_thread() {
+gboolean end_ic_calc_thread() {
 	end_tc_ic_progress_window();
 	gtk_widget_set_sensitive(GTK_WIDGET(tf_ic_window), 1);
 
-	save_itineraries_ic(results.departures, results.num_deps, results.num_nodes);
-	for(int i = 0; i < results.num_deps; i++) free_itinerary(results.departures[i]);
-	free(results.departures);
+	save_itineraries_ic(ic_results.departures, ic_results.num_deps, ic_results.num_nodes);
+	for(int i = 0; i < ic_results.num_deps; i++) free_itinerary(ic_results.departures[i]);
+	free(ic_results.departures);
 	return G_SOURCE_REMOVE;
 }
 
@@ -104,12 +104,13 @@ void ic_calc_thread() {
 
 	calc_data.system = ic_system;
 
-	results = search_for_itinerary_to_target(calc_data);
+	ic_results = search_for_itinerary_to_target(calc_data);
 
-	g_idle_add((GSourceFunc)end_calc_thread, NULL);
+	// GUI stuff needs to happen in main thread
+	g_idle_add((GSourceFunc)end_ic_calc_thread, NULL);
 }
 
-G_MODULE_EXPORT G_MODULE_EXPORT void on_calc_ic() {
+G_MODULE_EXPORT void on_calc_ic() {
 	if(ic_system == NULL) return;
 	gtk_widget_set_sensitive(GTK_WIDGET(tf_ic_window), 0);
 	g_thread_new("calc_thread", (GThreadFunc) ic_calc_thread, NULL);

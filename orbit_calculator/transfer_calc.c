@@ -326,8 +326,6 @@ struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Calc_Data
 	double elapsed_time;
 	gettimeofday(&start, NULL);  // Record the ending time
 
-	struct Body **bodies = calc_data.bodies;
-
 	int num_deps = (int) (calc_data.jd_max_dep-calc_data.jd_min_dep+1);
 
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
