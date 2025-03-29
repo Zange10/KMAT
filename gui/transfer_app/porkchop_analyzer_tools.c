@@ -26,7 +26,7 @@ int partition(double arr[], int low, int high, struct PorkchopAnalyzerPoint *por
 	double pivot = arr[pivot_index];
 	int i = (low - 1);
 
-	// Move pivot to end for array
+	// Move pivot to end of array
 	swap(arr, pivot_index, high, porkchop);
 
 	for (int j = low; j <= high - 1; j++) {
