@@ -242,19 +242,10 @@ void reset_min_max_feedback(int take_hidden_group_into_account) {
 	}
 }
 
-struct PorkchopGroup * find_itin_group(struct ItinStep *arrival);
-
 G_MODULE_EXPORT void on_change_itin_group_visibility(GtkWidget* widget, gpointer data) {
 	struct PorkchopGroup *group = (struct PorkchopGroup *) data;  // Cast data back to group struct
 	int visibility = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
 	group->show_group = visibility;
-	int cnt = 0;
-	for(int i = 0; i < pa_num_itins; i++) {
-		if(find_itin_group(pa_porkchop_points[i].data.arrival) == group) {
-			cnt++;
-		}
-	}
-
 	update_pa();
 }
 
@@ -587,14 +578,14 @@ void apply_filter() {
 	double min[5], max[5];
 	char *string;
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_min_feedback[0]));
-	min[0] = convert_date_JD(date_from_string(string, get_settings_datetime_type()))-0.9;	// rounding imprecision in filter entry field
+	min[0] = convert_date_JD(date_from_string(string, get_settings_datetime_type()))-1;	// rounding imprecision in filter entry field
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_max_feedback[0]));
-	max[0] = convert_date_JD(date_from_string(string, get_settings_datetime_type()))+0.9;	// rounding imprecision in filter entry field
+	max[0] = convert_date_JD(date_from_string(string, get_settings_datetime_type()))+1;	// rounding imprecision in filter entry field
 	for(int i = 1; i < 5; i++) {
 		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_min_feedback[i]));
-		min[i] = strtod(string, NULL)-0.01;	// rounding imprecision in filter entry field
+		min[i] = strtod(string, NULL)-1;	// rounding imprecision in filter entry field
 		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_max_feedback[i]));
-		max[i] = strtod(string, NULL)+0.01;	// rounding imprecision in filter entry field
+		max[i] = strtod(string, NULL)+1;	// rounding imprecision in filter entry field
 		if(get_settings_datetime_type() == DATE_KERBAL && i == 1) {min[i] /= 4; max[i] /= 4;}
 	}
 

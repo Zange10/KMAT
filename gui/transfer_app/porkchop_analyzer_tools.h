@@ -22,13 +22,5 @@ struct PorkchopAnalyzerPoint {
 
 
 void sort_porkchop(struct PorkchopAnalyzerPoint *pp, int num_itins, enum LastTransferType last_transfer_type);
-void reset_porkchop_and_arrivals(const double *all_porkchop, double *porkchop, struct ItinStep **all_arrivals, struct ItinStep **arrivals);
-int filter_porkchop_arrivals_depdate(double *porkchop, struct ItinStep **arrivals, double min_date, double max_date);
-int filter_porkchop_arrivals_dur(double *porkchop, struct ItinStep **arrivals, double min_date, double max_date);
-int filter_porkchop_arrivals_totdv(double *porkchop, struct ItinStep **arrivals, double min_date, double max_date, int fb0_pow1);
-int filter_porkchop_arrivals_depdv(double *porkchop, struct ItinStep **arrivals, double min_date, double max_date);
-int filter_porkchop_arrivals_satdv(double *porkchop, struct ItinStep **arrivals, double min_date, double max_date, int fb0_pow1);
-int get_itinerary_group_index(struct ItinStep *arrival_step, struct PorkchopGroup *groups, int num_groups);
-int filter_porkchop_arrivals_groups(double *porkchop, struct ItinStep **arrivals, struct PorkchopGroup *groups, int num_groups);
 
 #endif //KSP_PORKCHOP_ANALYZER_TOOLS_H
