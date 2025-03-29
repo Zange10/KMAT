@@ -1239,12 +1239,12 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_pa_reset_filter">
-                            <property name="label" translatable="yes">Update Filter</property>
+                          <object class="GtkButton" id="bt_pa_update">
+                            <property name="label" translatable="yes">Update</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="receives-default">True</property>
-                            <signal name="clicked" handler="on_reset_filter" swapped="no"/>
+                            <signal name="clicked" handler="on_pa_update" swapped="no"/>
                           </object>
                           <packing>
                             <property name="expand">True</property>

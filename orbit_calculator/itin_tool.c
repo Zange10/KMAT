@@ -286,24 +286,27 @@ double get_itinerary_duration(struct ItinStep *itin) {
 	return jd1-jd0;
 }
 
-void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_cap1) {
+struct PorkchopPoint create_porkchop_point(struct ItinStep *itin) {
+	struct PorkchopPoint pp;
+	pp.arrival = itin;
+	pp.dur = get_itinerary_duration(itin);
+
 	double vinf = vector_mag(subtract_vectors(itin->v_arr, itin->v_body));
+	pp.dv_arr_cap = dv_capture(itin->body, itin->body->atmo_alt + 50e3, vinf);
+	pp.dv_arr_circ = dv_circ(itin->body, itin->body->atmo_alt + 50e3, vinf);
 
-	porkchop[4] = circ0_cap1 == 0 ? dv_circ(itin->body, itin->body->atmo_alt+50e3, vinf) : dv_capture(itin->body, itin->body->atmo_alt+50e3, vinf);
-	porkchop[1] = get_itinerary_duration(itin);
-
-	porkchop[3] = 0;
-
+	pp.dv_dsm = 0;
 	while(itin->prev->prev != NULL) {
 		if(itin->body == NULL) {
-			porkchop[3] += vector_mag(subtract_vectors(itin->next[0]->v_dep, itin->v_arr));
+			pp.dv_dsm += vector_mag(subtract_vectors(itin->next[0]->v_dep, itin->v_arr));
 		}
 		itin = itin->prev;
 	}
 
+	pp.dep_date = itin->prev->date;
 	vinf = vector_mag(subtract_vectors(itin->v_dep, itin->prev->v_body));
-	porkchop[2] = dv_circ(itin->prev->body, itin->prev->body->atmo_alt+50e3, vinf);
-	porkchop[0] = itin->prev->date;
+	pp.dv_dep = dv_circ(itin->prev->body, itin->prev->body->atmo_alt + 50e3, vinf);
+	return pp;
 }
 
 int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step) {
@@ -318,12 +321,12 @@ int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, 
 
 	for(int i = 0; i < curr_step->num_next_nodes; i++) {
 		struct ItinStep *next = bodies[step] != bodies[step-1] ? curr_step->next[i] : curr_step->next[i]->next[0]->next[0];
-		double porkchop[5];
-		create_porkchop_point(next, porkchop, dv_filter->last_transfer_type == 1);
 		if(step == num_steps-1) {
-			int fb0_pow1 = dv_filter->last_transfer_type != 0;
-			if(porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_satdv ||
-					porkchop[2] + porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_totdv) {
+			struct PorkchopPoint porkchop_point = create_porkchop_point(next);
+			double dv_sat = porkchop_point.dv_dsm;
+			if(dv_filter->last_transfer_type == 1) dv_sat += porkchop_point.dv_arr_cap;
+			if(dv_filter->last_transfer_type == 2) dv_sat += porkchop_point.dv_arr_circ;
+			if(dv_sat > dv_filter->max_satdv || porkchop_point.dv_dep + dv_sat > dv_filter->max_totdv) {
 				if(curr_step->num_next_nodes <= 1) {
 					remove_step_from_itinerary(next);
 					return 0;
@@ -445,11 +448,11 @@ int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_b
 int remove_end_nodes_that_do_not_satisfy_dv_requirements(struct ItinStep *curr_step, int num_of_end_nodes, struct Dv_Filter *dv_filter) {
 	for(int i = curr_step->num_next_nodes-num_of_end_nodes; i < curr_step->num_next_nodes; i++) {
 		struct ItinStep *next = curr_step->next[i];
-		double porkchop[5];
-		create_porkchop_point(next, porkchop, dv_filter->last_transfer_type == 1);
-		int fb0_pow1 = dv_filter->last_transfer_type != 0;
-		if(porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_satdv ||
-		   porkchop[2] + porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_totdv) {
+		struct PorkchopPoint porkchop_point = create_porkchop_point(next);
+		double dv_sat = porkchop_point.dv_dsm;
+		if(dv_filter->last_transfer_type == 1) dv_sat += porkchop_point.dv_arr_cap;
+		if(dv_filter->last_transfer_type == 2) dv_sat += porkchop_point.dv_arr_circ;
+		if(dv_sat > dv_filter->max_satdv || porkchop_point.dv_dep + dv_sat > dv_filter->max_totdv) {
 			if(curr_step->num_next_nodes <= 1) {
 				remove_step_from_itinerary(next);
 				curr_step->num_next_nodes = 0;

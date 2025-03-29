@@ -21,6 +21,15 @@ struct Dv_Filter {
 	int last_transfer_type;
 };
 
+struct PorkchopPoint {
+		struct ItinStep *arrival;
+		double dep_date, dur;
+		double dv_dep, dv_dsm, dv_arr_cap, dv_arr_circ;
+};
+
+
+enum LastTransferType {TF_FLYBY, TF_CAPTURE, TF_CIRC};
+
 // find viable flybys to next body with a given arrival trajectory
 void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body *next_body, double min_dt, double max_dt);
 
@@ -49,7 +58,7 @@ void store_itineraries_in_array(struct ItinStep *itin, struct ItinStep **array, 
 double get_itinerary_duration(struct ItinStep *itin);
 
 // add itinerary departure date, duration, departure dv, deep-space maneuvre dv and arrival dv in porkchop array
-void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_cap1);
+struct PorkchopPoint create_porkchop_point(struct ItinStep *itin);
 
 // from current step and given information, initiate calculation of next steps
 int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step);
