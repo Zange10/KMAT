@@ -192,7 +192,6 @@ void sc_calc_thread() {
 
 	struct PlannedScStep *step = get_first_sc(sc_step);
 	calc_data.num_steps = get_num_sc_steps(step);
-	printf("%d\n", get_num_sc_steps(step));
 	calc_data.bodies = malloc(calc_data.num_steps * sizeof(struct Body*));
 	for(int i = 0; i < calc_data.num_steps; i++) {
 		calc_data.bodies[i] = step->body;
@@ -210,7 +209,7 @@ void sc_calc_thread() {
 
 
 G_MODULE_EXPORT void on_calc_sc() {
-	if(sc_system == NULL || sc_step == NULL) return;
+	if(sc_system == NULL || get_num_sc_steps(sc_step) < 2) return;
 	gtk_widget_set_sensitive(GTK_WIDGET(tf_sc_window), 0);
 	g_thread_new("calc_thread", (GThreadFunc) sc_calc_thread, NULL);
 	init_sc_ic_progress_window();

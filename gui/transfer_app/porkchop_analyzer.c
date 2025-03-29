@@ -354,7 +354,8 @@ int compare_by_count(const void *a, const void *b) {
 }
 
 void initialize_itinerary_groups() {
-	pa_groups = malloc(200 * sizeof(struct Group));
+	int max_num_groups = 8;
+	pa_groups = malloc(max_num_groups * sizeof(struct Group));
 	pa_num_groups = 0;
 	for(int i = 0; i < pa_num_itins; i++) {
 		struct ItinStep *ptr, *group_ptr;
@@ -379,6 +380,15 @@ void initialize_itinerary_groups() {
 			}
 		}
 		if(!is_part_of_group) {
+			if(pa_num_groups >= max_num_groups) {
+				max_num_groups *= 2;
+				struct Group *temp = realloc(pa_groups, max_num_groups * sizeof(struct Group));
+				if(temp != NULL) pa_groups = temp;
+				else {
+					printf("Problem reallocating Porkchop Groups!!!\n");
+					pa_num_groups--;
+				}
+			}
 			pa_groups[pa_num_groups].sample_arrival_node = pa_arrivals[i];
 			pa_groups[pa_num_groups].count = 1;
 			pa_groups[pa_num_groups].num_steps = 1;
