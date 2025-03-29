@@ -304,6 +304,7 @@ void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnal
 	// draw points
 	double color_bias;
 	int i = num_draw_itins-1;
+	int num_actually_drawn = 0;
 	while(i >= 0) {
 		pp = porkchop[draw_idx[i]].data;
 
@@ -334,7 +335,10 @@ void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnal
 		} else {
 			i--;
 		}
+		num_actually_drawn++;
 	}
+
+	printf("%d points drawn; %d points viable to draw; %d total number of points\n", num_actually_drawn, num_draw_itins, num_itins);
 
 	free(draw_idx);
 }

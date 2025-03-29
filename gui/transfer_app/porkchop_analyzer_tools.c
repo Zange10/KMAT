@@ -22,7 +22,7 @@ void swap(double arr[], int a_ind, int b_ind, struct PorkchopAnalyzerPoint *pork
 }
 
 int partition(double arr[], int low, int high, struct PorkchopAnalyzerPoint *porkchop) {
-	double pivot = arr[high];
+	double pivot = arr[(low+high)/2];	// choosing pivot in middle reduces time for already sorted list dramatically
 	int i = (low - 1);
 
 	for (int j = low; j <= high - 1; j++) {

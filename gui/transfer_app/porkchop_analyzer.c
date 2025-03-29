@@ -562,6 +562,7 @@ G_MODULE_EXPORT void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointe
 
 	if(pa_porkchop_points == NULL) return;
 
+	sort_porkchop(pa_porkchop_points, pa_num_itins, pa_last_transfer_type);
 	update_best_itin();
 	update_porkchop_drawing_area();
 	pa_update_preview();
@@ -625,8 +626,6 @@ void apply_filter() {
 
 		if(pa_porkchop_points[i].inside_filter && pa_porkchop_points[i].group->show_group) rem_num_itins++;
 	}
-
-	printf("Filtered %d Itineraries (%d left)\n", init_num_itins-rem_num_itins, rem_num_itins);
 }
 
 G_MODULE_EXPORT void on_apply_filter(GtkWidget* widget, gpointer data) {
