@@ -67,7 +67,7 @@ void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nod
 struct Transfer_Calc_Results ic_results;
 
 gboolean end_ic_calc_thread() {
-	end_tc_ic_progress_window();
+	end_sc_ic_progress_window();
 	gtk_widget_set_sensitive(GTK_WIDGET(tf_ic_window), 1);
 
 	save_itineraries_ic(ic_results.departures, ic_results.num_deps, ic_results.num_nodes);
@@ -114,7 +114,7 @@ G_MODULE_EXPORT void on_calc_ic() {
 	if(ic_system == NULL) return;
 	gtk_widget_set_sensitive(GTK_WIDGET(tf_ic_window), 0);
 	g_thread_new("calc_thread", (GThreadFunc) ic_calc_thread, NULL);
-	init_tc_ic_progress_window();
+	init_sc_ic_progress_window();
 }
 
 G_MODULE_EXPORT void on_ic_system_change() {

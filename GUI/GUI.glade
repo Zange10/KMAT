@@ -434,7 +434,7 @@
                     <property name="hexpand">True</property>
                     <property name="vexpand">True</property>
                     <child>
-                      <object class="GtkViewport" id="vp_tc_preview">
+                      <object class="GtkViewport" id="vp_sc_preview">
                         <property name="width-request">500</property>
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
@@ -518,7 +518,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkEntry" id="tf_tc_totdv">
+                          <object class="GtkEntry" id="tf_sc_totdv">
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="has-frame">False</property>
@@ -531,7 +531,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkEntry" id="tf_tc_depdv">
+                          <object class="GtkEntry" id="tf_sc_depdv">
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="has-frame">False</property>
@@ -544,7 +544,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkEntry" id="tf_tc_satdv">
+                          <object class="GtkEntry" id="tf_sc_satdv">
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="has-frame">False</property>
@@ -582,7 +582,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkComboBoxText" id="cb_tc_transfertype">
+                          <object class="GtkComboBoxText" id="cb_sc_transfertype">
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
                             <property name="active">0</property>
@@ -604,12 +604,12 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton" id="bt_tc_calc">
+                      <object class="GtkButton" id="bt_sc_calc">
                         <property name="label" translatable="yes">Calculate</property>
                         <property name="visible">True</property>
                         <property name="can-focus">True</property>
                         <property name="receives-default">True</property>
-                        <signal name="clicked" handler="on_calc_tc" swapped="no"/>
+                        <signal name="clicked" handler="on_calc_sc" swapped="no"/>
                       </object>
                       <packing>
                         <property name="left-attach">0</property>
@@ -637,7 +637,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkEntry" id="tf_tc_mindepdate">
+                          <object class="GtkEntry" id="tf_sc_mindepdate">
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="has-frame">False</property>
@@ -662,7 +662,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkEntry" id="tf_tc_maxdepdate">
+                          <object class="GtkEntry" id="tf_sc_maxdepdate">
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="has-frame">False</property>
@@ -699,7 +699,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkEntry" id="tf_tc_maxarrdate">
+                          <object class="GtkEntry" id="tf_sc_maxarrdate">
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="has-frame">False</property>
@@ -712,7 +712,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkEntry" id="tf_tc_maxdur">
+                          <object class="GtkEntry" id="tf_sc_maxdur">
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="has-frame">False</property>
@@ -725,11 +725,11 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkComboBox" id="cb_tc_system">
+                          <object class="GtkComboBox" id="cb_sc_system">
                             <property name="width-request">150</property>
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
-                            <signal name="changed" handler="on_tc_system_change" swapped="no"/>
+                            <signal name="changed" handler="on_sc_system_change" swapped="no"/>
                           </object>
                           <packing>
                             <property name="left-attach">1</property>
@@ -777,10 +777,10 @@
               </packing>
             </child>
             <child type="tab">
-              <object class="GtkLabel" id="page_transfer_calc">
+              <object class="GtkLabel" id="page_sequence_calc">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
-                <property name="label" translatable="yes">Transfer Calculator</property>
+                <property name="label" translatable="yes">Sequence Calculator</property>
               </object>
               <packing>
                 <property name="position">1</property>

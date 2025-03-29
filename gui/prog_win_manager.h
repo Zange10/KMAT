@@ -4,8 +4,8 @@
 #include <gtk/gtk.h>
 
 void init_prog_window(GtkBuilder *builder);
-void init_tc_ic_progress_window();
-void end_tc_ic_progress_window();
+void init_sc_ic_progress_window();
+void end_sc_ic_progress_window();
 
 
 // Handler ----------------------------
