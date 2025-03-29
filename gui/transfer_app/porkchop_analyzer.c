@@ -427,6 +427,7 @@ void initialize_itinerary_groups() {
 }
 
 void update_best_itin() {
+	if(pa_porkchop_points == NULL) return;
 	int best_show_ind = 0;
 	while(!pa_porkchop_points[best_show_ind].inside_filter || !pa_porkchop_points[best_show_ind].group->show_group) best_show_ind++;
 	if(curr_transfer_pa != NULL) free_itinerary(get_first(curr_transfer_pa));
@@ -559,6 +560,8 @@ G_MODULE_EXPORT void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointe
 	else if	(strcmp(name, "capture") == 0) pa_last_transfer_type = TF_CAPTURE;
 	else if	(strcmp(name, "circ") == 0) pa_last_transfer_type = TF_CIRC;
 
+	if(pa_porkchop_points == NULL) return;
+
 	update_best_itin();
 	update_porkchop_drawing_area();
 	pa_update_preview();
@@ -627,6 +630,7 @@ void apply_filter() {
 }
 
 G_MODULE_EXPORT void on_apply_filter(GtkWidget* widget, gpointer data) {
+	if(pa_porkchop_points == NULL) return;
 	apply_filter();
 	reset_min_max_feedback(0);
 	apply_filter();

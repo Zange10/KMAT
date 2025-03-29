@@ -173,10 +173,10 @@ void create_gmat_header(FILE *filePointer, int num_steps, struct ItinStep *step2
 	}
 	fprintf(filePointer, "\n");
 	step2pr = get_first(step2pr);
-	date_to_string(convert_JD_date(step2pr->date), timeString, 1);
+	date_to_string(convert_JD_date(step2pr->date, 0), timeString, 1);
 	fprintf(filePointer, "%% Departure: \t%s\n", timeString);
 	step2pr = get_last(step2pr);
-	date_to_string(convert_JD_date(step2pr->date), timeString, 1);
+	date_to_string(convert_JD_date(step2pr->date, 0), timeString, 1);
 	fprintf(filePointer, "%% Arrival: \t\t%s (Estimated)\n", timeString);
 	fprintf(filePointer, "%% ------------------------------------------------\n");
 }

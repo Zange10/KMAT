@@ -3,6 +3,7 @@
 
 #include "tools/analytic_geometry.h"
 #include "tools/ephem.h"
+#include "tools/datetime.h"
 #include "celestial_bodies.h"
 #include <stdio.h>
 
@@ -99,7 +100,7 @@ int is_valid_itinerary(struct ItinStep *step);
 // store itineraries in text file from multiple departures (pre-order storing)
 void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int num_deps);
 
-void itinerary_step_parameters_to_string(char *s_label, char *s_values, struct ItinStep *step);
+void itinerary_step_parameters_to_string(char *s_label, char *s_values, enum DateType date, struct ItinStep *step);
 
 // removes this and all now unneeded steps from itineraries (no next node before arrival)
 void remove_step_from_itinerary(struct ItinStep *step);

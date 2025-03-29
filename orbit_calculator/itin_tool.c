@@ -3,7 +3,6 @@
 #include "transfer_tools.h"
 #include "tools/data_tool.h"
 #include "double_swing_by.h"
-#include "tools/datetime.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -654,9 +653,8 @@ void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int 
 
 
 
-void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct ItinStep *step) {
-	if(step == NULL) {sprintf(s_labels,""); return;}
-	if(step == NULL) {sprintf(s_values,""); return;}
+void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum DateType date_type, struct ItinStep *step) {
+	if(step == NULL) {sprintf(s_labels,""); sprintf(s_values,""); return;}
 	struct DepArrHyperbolaParams dep_hyp_params;
 
 	// is departure step
@@ -685,6 +683,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct 
 	} else if(step->num_next_nodes == 0) {
 		double rp = 100000e3;
 		double dt_in_days = step->date - get_first(step)->date;
+		if(date_type == DATE_KERBAL) dt_in_days *= 4;
 		struct DepArrHyperbolaParams arr_hyp_params = get_dep_hyperbola_params(step->v_arr, step->v_body, step->body, rp - step->body->radius);
 		arr_hyp_params.decl *= -1;
 		arr_hyp_params.bplane_angle = pi_norm(M_PI + arr_hyp_params.bplane_angle);
@@ -717,6 +716,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct 
 																		  step->v_body, step->body,
 																		  rp - step->body->radius);
 			double dt_in_days = step->date - get_first(step)->date;
+			if(date_type == DATE_KERBAL) dt_in_days *= 4;
 
 			sprintf(s_labels, "Hyperbola\n"
 							  "T+:\n"
@@ -750,6 +750,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct 
 					rad2deg(hyp_params.dep_hyp.bvazi));
 		} else {
 			double dt_in_days = step->date - get_first(step)->date;
+			if(date_type == DATE_KERBAL) dt_in_days *= 4;
 			double dist_to_sun = vector_mag(step->r);
 
 			struct Vector orbit_prograde = step->v_arr;

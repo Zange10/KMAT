@@ -242,7 +242,7 @@ void update_transfer_panel() {
 		gtk_label_set_label(GTK_LABEL(lb_tp_total_dv), s_dv);
 		if(curr_transfer_tp->prev != NULL || curr_transfer_tp->num_next_nodes > 0) {
 			char s_tfprop_labels[200], s_tfprop_values[100];
-			itinerary_step_parameters_to_string(s_tfprop_labels, s_tfprop_values, curr_transfer_tp);
+			itinerary_step_parameters_to_string(s_tfprop_labels, s_tfprop_values, get_settings_datetime_type(), curr_transfer_tp);
 			gtk_label_set_label(GTK_LABEL(lb_tp_param_labels), s_tfprop_labels);
 			gtk_label_set_label(GTK_LABEL(lb_tp_param_values), s_tfprop_values);
 		} else {
