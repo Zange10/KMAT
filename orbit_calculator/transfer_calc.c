@@ -12,9 +12,9 @@ struct Itin_Spec_Thread_Args {
 	struct ItinStep **departures;
 	double jd_min_dep;
 	double jd_max_dep;
+	double jd_max_arr;
 	struct Body **bodies;
-	int *min_duration;
-	int *max_duration;
+	int max_duration;
 	int num_steps;
 	struct System *system;
 	struct Dv_Filter *dv_filter;
@@ -26,9 +26,7 @@ struct Itin_To_Target_Thread {
 	double jd_max_dep;
 	double jd_max_arr;
 	int max_duration;
-	int dep_body_id;
-	int arr_body_id;
-	struct System *system;
+	struct ItinSequenceInfo *seq_info;
 	struct Dv_Filter *dv_filter;
 };
 
@@ -38,45 +36,14 @@ struct Thread_Progress_and_Prop_Info {
 	double jd_max_dep;
 } thread_progress_and_prop_info;
 
-
-
-
-//int initial_min_transfer_duration[11][11] = {
-//		{},
-//		{},
-//		{},
-//		{0, 50, 70, 0, 100, 500},
-//		{},
-//		{0, 0, 400, 400, 400},
-//		{},
-//		{},
-//		{},
-//		{},
-//		{}
-//};
-//
-//int initial_max_transfer_duration[11][11] = {
-//		{},
-//		{},
-//		{},
-//		{0, 200, 300, 0, 500, 2000},
-//		{},
-//		{0, 0, 2000, 2000, 2000},
-//		{},
-//		{},
-//		{},
-//		{},
-//		{}
-//};
-
+const int NUM_INITIAL_TRANSFERS = 500;
 
 
 
 void *calc_spec_itin_from_departure(void *args) {
 	struct Itin_Spec_Thread_Args *thread_args = (struct Itin_Spec_Thread_Args *)args;
 
-	int *min_duration = thread_args->min_duration;
-	int *max_duration = thread_args->max_duration;
+	int max_duration = thread_args->max_duration;
 	struct Body **bodies = thread_args->bodies;
 	struct System *system = thread_args->system;
 	int num_steps = thread_args->num_steps;
@@ -102,15 +69,29 @@ void *calc_spec_itin_from_departure(void *args) {
 		curr_step->v_body = osv_body0.v;
 		curr_step->v_dep = vec(0, 0, 0);
 		curr_step->v_arr = vec(0, 0, 0);
-		curr_step->num_next_nodes = max_duration[0] - min_duration[0] + 1;
+		curr_step->num_next_nodes = NUM_INITIAL_TRANSFERS;
 		curr_step->prev = NULL;
-		curr_step->next = (struct ItinStep **) malloc(
-				(max_duration[0] - min_duration[0] + 1) * sizeof(struct ItinStep *));
-
+		curr_step->next = (struct ItinStep **) malloc(curr_step->num_next_nodes * sizeof(struct ItinStep *));
+		
+		
+		double jd_max_arr = jd_dep + max_duration < thread_args->jd_max_arr ? jd_dep + max_duration : thread_args->jd_max_arr;
+		
 		int fb1_del = 0;
-
-		for(int j = 0; j <= max_duration[0] - min_duration[0]; j++) {
-			double jd_arr = jd_dep + min_duration[0] + j;
+		
+		struct OSV arr_body_temp_osv = system->calc_method == ORB_ELEMENTS ?
+									   osv_from_elements(bodies[1]->orbit, jd_dep, system) :
+									   osv_from_ephem(bodies[1]->ephem, jd_dep, system->cb);
+		
+		double r0 = vector_mag(osv_body0.r), r1 = vector_mag(arr_body_temp_osv.r);
+		double r_ratio =  r1/r0;
+		double hohmann_dur = calc_hohmann_transfer_duration(r0, r1, system->cb)/86400;
+		double min_init_duration = 0.4 * hohmann_dur;
+		double max_init_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_init_duration/hohmann_dur > 3) max_init_duration = hohmann_dur*3;
+		double max_min_duration_diff = max_init_duration - min_init_duration;
+		
+		for(int j = 0; j < NUM_INITIAL_TRANSFERS; j++) {
+			double jd_arr = jd_dep + min_init_duration + max_min_duration_diff * j/(NUM_INITIAL_TRANSFERS-1);
+			
 			struct OSV osv_body1 = system->calc_method == ORB_ELEMENTS ?
 					osv_from_elements(bodies[1]->orbit, jd_arr, system) :
 				    osv_from_ephem(bodies[1]->ephem, jd_arr, system->cb);
@@ -143,14 +124,13 @@ void *calc_spec_itin_from_departure(void *args) {
 			curr_step->num_next_nodes = 0;
 
 			if(num_steps > 2) {
-				if(!calc_next_spec_itin_step(curr_step, system, bodies, min_duration, max_duration,
-											 thread_args->dv_filter, num_steps, 2)) {
-					fb1_del++;
-				}
+				if(!calc_next_spec_itin_step(curr_step, system, bodies, jd_max_arr,
+											 thread_args->dv_filter, num_steps, 2)) fb1_del++;
 			}
 		}
 		double progress = get_incr_thread_counter(1);
 		show_progress("Transfer Calculation progress: ", progress, jd_diff);
+		incr_thread_counter_by_amount(2, get_number_of_itineraries(get_first(curr_step)));
 		index = get_incr_thread_counter(0);
 		jd_dep = thread_args->jd_min_dep + index;
 	}
@@ -166,11 +146,9 @@ void *calc_itin_to_target_from_departure(void *args) {
 	double jd_max_dep = thread_args->jd_max_dep;
 	double jd_max_arr = thread_args->jd_max_arr;
 	int max_total_duration = thread_args->max_duration;
-	struct System *system = thread_args->system;
-	struct Body *dep_body = system->bodies[thread_args->dep_body_id];
-	struct Body *arr_body = system->bodies[thread_args->arr_body_id];
-
-	int num_initial_transfers = 500;
+	struct System *system = thread_args->seq_info->system;
+	struct Body *dep_body = thread_args->seq_info->dep_body;
+	struct Body *arr_body = thread_args->seq_info->arr_body;
 
 	int index = get_incr_thread_counter(0);
 	// increase finished counter to 1 (first finished should reflect a num of finished of 1)
@@ -195,7 +173,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 		curr_step->v_body = osv_body0.v;
 		curr_step->v_dep = vec(0, 0, 0);
 		curr_step->v_arr = vec(0, 0, 0);
-		curr_step->num_next_nodes = num_initial_transfers * (system->num_bodies-1);
+		curr_step->num_next_nodes = NUM_INITIAL_TRANSFERS * (system->num_bodies-1);
 		curr_step->prev = NULL;
 		curr_step->next = (struct ItinStep **) malloc(curr_step->num_next_nodes * sizeof(struct ItinStep *));
 
@@ -203,12 +181,13 @@ void *calc_itin_to_target_from_departure(void *args) {
 
 		struct Body *next_step_body;
 
-		for(int body_id = 0; body_id < system->num_bodies; body_id++) {
-			if(system->bodies[body_id] == dep_body) continue;
+		for(int i = 0; i < thread_args->seq_info->num_flyby_bodies; i++) {
+			next_step_body = thread_args->seq_info->flyby_bodies[i];
+			if(next_step_body == dep_body) continue;
 
 			struct OSV arr_body_temp_osv = system->calc_method == ORB_ELEMENTS ?
-										   osv_from_elements(system->bodies[body_id]->orbit, jd_dep, system) :
-										   osv_from_ephem(system->bodies[body_id]->ephem, jd_dep, system->cb);
+										   osv_from_elements(next_step_body->orbit, jd_dep, system) :
+										   osv_from_ephem(next_step_body->ephem, jd_dep, system->cb);
 
 			double r0 = vector_mag(osv_body0.r), r1 = vector_mag(arr_body_temp_osv.r);
 			double r_ratio =  r1/r0;
@@ -217,16 +196,14 @@ void *calc_itin_to_target_from_departure(void *args) {
 			double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
 			double max_min_duration_diff = max_duration - min_duration;
 
-			next_step_body = system->bodies[body_id];
-
-			for(int j = 0; j < num_initial_transfers; j++) {
-				double jd_arr = jd_dep + min_duration + max_min_duration_diff * j/(num_initial_transfers-1);
+			for(int j = 0; j < NUM_INITIAL_TRANSFERS; j++) {
+				double jd_arr = jd_dep + min_duration + max_min_duration_diff * j/(NUM_INITIAL_TRANSFERS-1);
 
 				if(jd_arr > jd_max_arr) break;
 
 				osv_body1 = system->calc_method == ORB_ELEMENTS ?
-						osv_from_elements(system->bodies[body_id]->orbit, jd_arr, system) :
-						osv_from_ephem(system->bodies[body_id]->ephem, jd_arr, system->cb);
+						osv_from_elements(next_step_body->orbit, jd_arr, system) :
+						osv_from_ephem(next_step_body->ephem, jd_arr, system->cb);
 
 				double data[3];
 
@@ -243,7 +220,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 
 				curr_step = curr_step->next[next_step_id];
 
-				curr_step->body = system->bodies[body_id];
+				curr_step->body = next_step_body;
 				curr_step->date = jd_arr;
 				curr_step->r = osv_body1.r;
 				curr_step->v_dep = tf.v0;
@@ -263,11 +240,12 @@ void *calc_itin_to_target_from_departure(void *args) {
 		// remove end nodes that do not satisfy dv requirements
 		num_of_end_nodes = remove_end_nodes_that_do_not_satisfy_dv_requirements(curr_step, num_of_end_nodes, dv_filter);
 		if(curr_step->num_next_nodes > 0) {
-			continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, system, arr_body, jd_max_arr, max_total_duration, dv_filter);
+			continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, thread_args->seq_info, jd_max_arr, max_total_duration, dv_filter);
 		}
 
 		double progress = get_incr_thread_counter(1);
 		show_progress("Transfer Calculation progress", progress, jd_diff);
+		incr_thread_counter_by_amount(2, get_number_of_itineraries(get_first(curr_step)));
 		index = get_incr_thread_counter(0);
 		jd_dep = jd_min_dep + index;
 	}
@@ -294,9 +272,7 @@ struct Transfer_Calc_Results search_for_itinerary_to_target(struct Transfer_To_T
 			calc_data.jd_max_dep,
 			calc_data.jd_max_arr,
 			calc_data.max_duration,
-			calc_data.dep_body_id,
-			calc_data.arr_body_id,
-			calc_data.system,
+			calc_data.seq_info,
 			&calc_data.dv_filter
 	};
 
@@ -340,42 +316,34 @@ struct Transfer_Calc_Results search_for_itinerary_to_target(struct Transfer_To_T
 	return results;
 }
 
-struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Calc_Data calc_data) {
+struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Spec_Calc_Data calc_data) {
 	struct Transfer_Calc_Results results = {NULL, 0, 0};
 
 	struct timeval start, end;
 	double elapsed_time;
 	gettimeofday(&start, NULL);  // Record the ending time
 
-	struct Body **bodies = calc_data.bodies;
-	int num_steps = calc_data.num_steps;
-
-	double jd_min_dep = calc_data.jd_min_dep;
-	double jd_max_dep = calc_data.jd_max_dep;
-	int num_deps = (int) (jd_max_dep-jd_min_dep+1);
-
-	int *min_duration = calc_data.min_duration;
-	int *max_duration = calc_data.max_duration;
+	int num_deps = (int) (calc_data.jd_max_dep-calc_data.jd_min_dep+1);
 
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 
 	struct Itin_Spec_Thread_Args thread_args = {
 			departures,
-			jd_min_dep,
-			jd_max_dep,
-			bodies,
-			min_duration,
-			max_duration,
-			num_steps,
+			calc_data.jd_min_dep,
+			calc_data.jd_max_dep,
+			calc_data.jd_max_arr,
+			calc_data.bodies,
+			calc_data.max_duration,
+			calc_data.num_steps,
 			calc_data.system,
 			&calc_data.dv_filter
 	};
 
 	thread_progress_and_prop_info = (struct Thread_Progress_and_Prop_Info) {
 		departures,
-		jd_min_dep,
-		jd_max_dep
+		calc_data.jd_min_dep,
+		calc_data.jd_max_dep
 	};
 
 	show_progress("Transfer Calculation progress: ", 0, 1);
@@ -418,6 +386,7 @@ struct Transfer_Calc_Status get_current_transfer_calc_status() {
 	int num_deps = get_thread_counter(1);
 
 	return (struct Transfer_Calc_Status) {
+		.num_itins = get_thread_counter(2),
 		.num_deps = num_deps,
 		.jd_diff = jd_diff,
 		.progress = (double)num_deps/jd_diff

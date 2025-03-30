@@ -7,8 +7,6 @@
 
 void start_gui(const char* gui_filepath);
 
-enum LastTransferType {TF_FLYBY, TF_CAPTURE, TF_CIRC};
-
 void create_combobox_dropdown_text_renderer(GObject *combo_box);
 
 int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAction action);

@@ -1,12 +1,12 @@
 #include "gui_manager.h"
-#include "prog_win_manager.h"
+#include "info_win_manager.h"
 #include <gtk/gtk.h>
 #include <locale.h>
 #include "css_loader.h"
 #include "settings.h"
 #include "transfer_app/transfer_planner.h"
 #include "transfer_app/porkchop_analyzer.h"
-#include "transfer_app/transfer_calculator.h"
+#include "transfer_app/sequence_calculator.h"
 #include "transfer_app/itinerary_calculator.h"
 #include "launch_app/launch_analyzer.h"
 #include "launch_app/capability_analyzer.h"
@@ -55,7 +55,7 @@ void start_gui(const char* gui_filepath) {
 	remove_all_transfers();
 	free_all_porkchop_analyzer_itins();
 	reset_ic();
-	reset_tc();
+	reset_sc();
 	end_transfer_planner();
 	// reset launch gui
 	close_launch_analyzer();
@@ -87,7 +87,7 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 	init_global_settings(builder);
 	// init transfer planner page
 	init_itinerary_calculator(builder);
-	init_transfer_calculator(builder);
+	init_sequence_calculator(builder);
 	init_porkchop_analyzer(builder);
 	init_transfer_planner(builder);
 	// init launch calc page
@@ -97,7 +97,7 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 	// init db page
 //	init_mission_db(builder);
 	// init progress window
-	init_prog_window(builder);
+	init_info_windows(builder);
 
 	/* We do not need the builder anymore */
 	g_object_unref(builder);
@@ -229,7 +229,7 @@ void change_button_date_type(GObject *button, enum DateType old_date_type, enum 
 // settings stuff -------------------------------------------------------------------------
 void change_gui_date_type(enum DateType old_date_type, enum DateType new_date_type) {
 	ic_change_date_type(old_date_type, new_date_type);
-	tc_change_date_type(old_date_type, new_date_type);
+	sc_change_date_type(old_date_type, new_date_type);
 	pa_change_date_type(old_date_type, new_date_type);
 	tp_change_date_type(old_date_type, new_date_type);
 }

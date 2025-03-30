@@ -3,6 +3,7 @@
 
 #include "tools/analytic_geometry.h"
 #include "tools/ephem.h"
+#include "tools/datetime.h"
 #include "celestial_bodies.h"
 #include <stdio.h>
 
@@ -16,10 +17,25 @@ struct ItinStep {
 	struct ItinStep **next;
 };
 
+struct ItinSequenceInfo {
+	struct System *system;
+	struct Body *dep_body, *arr_body, **flyby_bodies;
+	int num_flyby_bodies;
+};
+
 struct Dv_Filter {
 	double max_totdv, max_depdv, max_satdv;
 	int last_transfer_type;
 };
+
+struct PorkchopPoint {
+		struct ItinStep *arrival;
+		double dep_date, dur;
+		double dv_dep, dv_dsm, dv_arr_cap, dv_arr_circ;
+};
+
+
+enum LastTransferType {TF_FLYBY, TF_CAPTURE, TF_CIRC};
 
 // find viable flybys to next body with a given arrival trajectory
 void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body *next_body, double min_dt, double max_dt);
@@ -49,16 +65,16 @@ void store_itineraries_in_array(struct ItinStep *itin, struct ItinStep **array, 
 double get_itinerary_duration(struct ItinStep *itin);
 
 // add itinerary departure date, duration, departure dv, deep-space maneuvre dv and arrival dv in porkchop array
-void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_cap1);
+struct PorkchopPoint create_porkchop_point(struct ItinStep *itin);
 
 // from current step and given information, initiate calculation of next steps
-int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step);
+int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step);
 
 // from current step and given information, initiate calculation of next steps
-int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct System *system, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
+int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct ItinSequenceInfo *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
 
 // initiate calc of next itinerary steps and return 0 if no steps are remaining in this itinerary (1 otherwise)
-int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct System *system, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
+int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct ItinSequenceInfo *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
 
 // find end nodes (next step at arrival body) and copy to the end of the next steps array of curr_step
 int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_body);
@@ -90,7 +106,7 @@ int is_valid_itinerary(struct ItinStep *step);
 // store itineraries in text file from multiple departures (pre-order storing)
 void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int num_deps);
 
-void itinerary_step_parameters_to_string(char *s_label, char *s_values, struct ItinStep *step);
+void itinerary_step_parameters_to_string(char *s_label, char *s_values, enum DateType date, struct ItinStep *step);
 
 // removes this and all now unneeded steps from itineraries (no next node before arrival)
 void remove_step_from_itinerary(struct ItinStep *step);

@@ -3,11 +3,12 @@
 #include "transfer_tools.h"
 #include "tools/data_tool.h"
 #include "double_swing_by.h"
-#include "tools/datetime.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
+
+const int MIN_TRANSFER_DURATION = 10;	// days
 
 
 void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body *next_body, double min_dt, double max_dt) {
@@ -247,7 +248,7 @@ void print_itinerary(struct ItinStep *itin) {
 }
 
 int get_number_of_itineraries(struct ItinStep *itin) {
-	if(itin == NULL) return 0;
+	if(itin == NULL || (itin->prev == NULL && itin->num_next_nodes == 0)) return 0;
 	if(itin->num_next_nodes == 0) return 1;
 	int counter = 0;
 	for(int i = 0; i < itin->num_next_nodes; i++) {
@@ -284,48 +285,56 @@ double get_itinerary_duration(struct ItinStep *itin) {
 	return jd1-jd0;
 }
 
-void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_cap1) {
+struct PorkchopPoint create_porkchop_point(struct ItinStep *itin) {
+	struct PorkchopPoint pp;
+	pp.arrival = itin;
+	pp.dur = get_itinerary_duration(itin);
+
 	double vinf = vector_mag(subtract_vectors(itin->v_arr, itin->v_body));
+	pp.dv_arr_cap = dv_capture(itin->body, itin->body->atmo_alt + 50e3, vinf);
+	pp.dv_arr_circ = dv_circ(itin->body, itin->body->atmo_alt + 50e3, vinf);
 
-	porkchop[4] = circ0_cap1 == 0 ? dv_circ(itin->body, itin->body->atmo_alt+50e3, vinf) : dv_capture(itin->body, itin->body->atmo_alt+50e3, vinf);
-	porkchop[1] = get_itinerary_duration(itin);
-
-	porkchop[3] = 0;
-
+	pp.dv_dsm = 0;
 	while(itin->prev->prev != NULL) {
 		if(itin->body == NULL) {
-			porkchop[3] += vector_mag(subtract_vectors(itin->next[0]->v_dep, itin->v_arr));
+			pp.dv_dsm += vector_mag(subtract_vectors(itin->next[0]->v_dep, itin->v_arr));
 		}
 		itin = itin->prev;
 	}
 
+	pp.dep_date = itin->prev->date;
 	vinf = vector_mag(subtract_vectors(itin->v_dep, itin->prev->v_body));
-	porkchop[2] = dv_circ(itin->prev->body, itin->prev->body->atmo_alt+50e3, vinf);
-	porkchop[0] = itin->prev->date;
+	pp.dv_dep = dv_circ(itin->prev->body, itin->prev->body->atmo_alt + 50e3, vinf);
+	return pp;
 }
 
-int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step) {
-	if(bodies[step] != bodies[step-1]) find_viable_flybys(curr_step, system, bodies[step], min_duration[step-1]*86400, max_duration[step-1]*86400);
-	else {
-		find_viable_dsb_flybys(curr_step, &bodies[step+1]->ephem, bodies[step+1],
-							   min_duration[step-1]*86400, max_duration[step-1]*86400, min_duration[step]*86400, max_duration[step]*86400);
-	}
+int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step) {
+	double max_duration = jd_max_arr-curr_step->date;
+	double min_duration = MIN_TRANSFER_DURATION;
+	if(max_duration > min_duration) {
+		if(bodies[step] != bodies[step - 1]) find_viable_flybys(curr_step, system, bodies[step], min_duration * 86400, max_duration * 86400);
+		else {
+			printf("DSB not yet reimplemented!\n");
+			//		find_viable_dsb_flybys(curr_step, &bodies[step+1]->ephem, bodies[step+1],
+			//							   min_duration[step-1]*86400, max_duration[step-1]*86400, min_duration[step]*86400, max_duration[step]*86400);
+		}
 
-	for(int i = 0; i < curr_step->num_next_nodes; i++) {
-		struct ItinStep *next = bodies[step] != bodies[step-1] ? curr_step->next[i] : curr_step->next[i]->next[0]->next[0];
-		double porkchop[5];
-		create_porkchop_point(next, porkchop, dv_filter->last_transfer_type == 1);
-		if(step == num_steps-1) {
-			int fb0_pow1 = dv_filter->last_transfer_type != 0;
-			if(porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_satdv ||
-					porkchop[2] + porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_totdv) {
-				if(curr_step->num_next_nodes <= 1) {
-					remove_step_from_itinerary(next);
-					return 0;
-				} else {
-					remove_step_from_itinerary(next);
+		for(int i = 0; i < curr_step->num_next_nodes; i++) {
+			struct ItinStep *next = bodies[step] != bodies[step - 1] ? curr_step->next[i] : curr_step->next[i]->next[0]->next[0];
+			if(step == num_steps - 1) {
+				struct PorkchopPoint porkchop_point = create_porkchop_point(next);
+				double dv_sat = porkchop_point.dv_dsm;
+				if(dv_filter->last_transfer_type == 1) dv_sat += porkchop_point.dv_arr_cap;
+				if(dv_filter->last_transfer_type == 2) dv_sat += porkchop_point.dv_arr_circ;
+				if(dv_sat > dv_filter->max_satdv || porkchop_point.dv_dep + dv_sat > dv_filter->max_totdv) {
+					if(curr_step->num_next_nodes <= 1) {
+						remove_step_from_itinerary(next);
+						return 0;
+					} else {
+						remove_step_from_itinerary(next);
+					}
+					i--;
 				}
-				i--;
 			}
 		}
 	}
@@ -342,8 +351,8 @@ int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, 
 
 	if(step < num_steps-1) {
 		for(int i = 0; i < init_num_nodes; i++) {
-			if(bodies[step] != bodies[step-1]) result = calc_next_spec_itin_step(curr_step->next[i - step_del], system, bodies, min_duration, max_duration, dv_filter, num_steps, step + 1);
-			else result = calc_next_spec_itin_step(curr_step->next[i - step_del]->next[0]->next[0], system, bodies, min_duration, max_duration, dv_filter, num_steps, step + 2);
+			if(bodies[step] != bodies[step-1]) result = calc_next_spec_itin_step(curr_step->next[i - step_del], system, bodies, jd_max_arr, dv_filter, num_steps, step + 1);
+			else result = calc_next_spec_itin_step(curr_step->next[i - step_del]->next[0]->next[0], system, bodies, jd_max_arr, dv_filter, num_steps, step + 2);
 			num_valid += result;
 			if(!result) step_del++;
 		}
@@ -352,18 +361,18 @@ int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, 
 	return num_valid > 0;
 }
 
-int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct System *system, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
-	for(int body_id = 0; body_id < system->num_bodies; body_id++) {
-		if(system->bodies[body_id] == curr_step->body) continue;
+int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct ItinSequenceInfo *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
+	for(int i = 0; i < seq_info->num_flyby_bodies; i++) {
+		if(seq_info->flyby_bodies[i] == curr_step->body) continue;
 		double jd_max;
 		if(get_first(curr_step)->date + max_total_duration < jd_max_arr)
 			jd_max = get_first(curr_step)->date + max_total_duration;
 		else
 			jd_max = jd_max_arr;
 		double max_duration = jd_max-curr_step->date;
-		double min_duration = 10;	// [days]
+		double min_duration = MIN_TRANSFER_DURATION;
 		if(max_duration > min_duration)
-			find_viable_flybys(curr_step, system, system->bodies[body_id], min_duration*86400, max_duration*86400);
+			find_viable_flybys(curr_step, seq_info->system, seq_info->flyby_bodies[i], min_duration*86400, max_duration*86400);
 	}
 
 
@@ -372,17 +381,17 @@ int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct System *sys
 		return 0;
 	}
 
-	int num_of_end_nodes = find_copy_and_store_end_nodes(curr_step, arr_body);
+	int num_of_end_nodes = find_copy_and_store_end_nodes(curr_step, seq_info->arr_body);
 
 	// remove end nodes that do not satisfy dv requirements
 	num_of_end_nodes = remove_end_nodes_that_do_not_satisfy_dv_requirements(curr_step, num_of_end_nodes, dv_filter);
 	if(curr_step->num_next_nodes <= 0) return 0;
 
 	// returns 1 if has valid steps (0 otherwise)
-	return continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, system, arr_body, jd_max_arr, max_total_duration, dv_filter);
+	return continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, seq_info, jd_max_arr, max_total_duration, dv_filter);
 }
 
-int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct System *system, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
+int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct ItinSequenceInfo *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
 	int num_valid = num_of_end_nodes;
 	int init_num_nodes = curr_step->num_next_nodes;
 	int step_del = 0;
@@ -390,7 +399,7 @@ int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step,
 
 	for(int i = 0; i < init_num_nodes-num_of_end_nodes; i++) {
 		int idx = i - step_del;
-		has_valid_init = calc_next_itin_to_target_step(curr_step->next[idx], system, arr_body, jd_max_arr, max_total_duration, dv_filter);
+		has_valid_init = calc_next_itin_to_target_step(curr_step->next[idx], seq_info, jd_max_arr, max_total_duration, dv_filter);
 		num_valid += has_valid_init;
 		if(!has_valid_init) step_del++;
 	}
@@ -440,11 +449,11 @@ int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_b
 int remove_end_nodes_that_do_not_satisfy_dv_requirements(struct ItinStep *curr_step, int num_of_end_nodes, struct Dv_Filter *dv_filter) {
 	for(int i = curr_step->num_next_nodes-num_of_end_nodes; i < curr_step->num_next_nodes; i++) {
 		struct ItinStep *next = curr_step->next[i];
-		double porkchop[5];
-		create_porkchop_point(next, porkchop, dv_filter->last_transfer_type == 1);
-		int fb0_pow1 = dv_filter->last_transfer_type != 0;
-		if(porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_satdv ||
-		   porkchop[2] + porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_totdv) {
+		struct PorkchopPoint porkchop_point = create_porkchop_point(next);
+		double dv_sat = porkchop_point.dv_dsm;
+		if(dv_filter->last_transfer_type == 1) dv_sat += porkchop_point.dv_arr_cap;
+		if(dv_filter->last_transfer_type == 2) dv_sat += porkchop_point.dv_arr_circ;
+		if(dv_sat > dv_filter->max_satdv || porkchop_point.dv_dep + dv_sat > dv_filter->max_totdv) {
 			if(curr_step->num_next_nodes <= 1) {
 				remove_step_from_itinerary(next);
 				curr_step->num_next_nodes = 0;
@@ -646,9 +655,8 @@ void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int 
 
 
 
-void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct ItinStep *step) {
-	if(step == NULL) {sprintf(s_labels,""); return;}
-	if(step == NULL) {sprintf(s_values,""); return;}
+void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum DateType date_type, struct ItinStep *step) {
+	if(step == NULL) {sprintf(s_labels,""); sprintf(s_values,""); return;}
 	struct DepArrHyperbolaParams dep_hyp_params;
 
 	// is departure step
@@ -677,6 +685,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct 
 	} else if(step->num_next_nodes == 0) {
 		double rp = 100000e3;
 		double dt_in_days = step->date - get_first(step)->date;
+		if(date_type == DATE_KERBAL) dt_in_days *= 4;
 		struct DepArrHyperbolaParams arr_hyp_params = get_dep_hyperbola_params(step->v_arr, step->v_body, step->body, rp - step->body->radius);
 		arr_hyp_params.decl *= -1;
 		arr_hyp_params.bplane_angle = pi_norm(M_PI + arr_hyp_params.bplane_angle);
@@ -709,6 +718,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct 
 																		  step->v_body, step->body,
 																		  rp - step->body->radius);
 			double dt_in_days = step->date - get_first(step)->date;
+			if(date_type == DATE_KERBAL) dt_in_days *= 4;
 
 			sprintf(s_labels, "Hyperbola\n"
 							  "T+:\n"
@@ -742,6 +752,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, struct 
 					rad2deg(hyp_params.dep_hyp.bvazi));
 		} else {
 			double dt_in_days = step->date - get_first(step)->date;
+			if(date_type == DATE_KERBAL) dt_in_days *= 4;
 			double dist_to_sun = vector_mag(step->r);
 
 			struct Vector orbit_prograde = step->v_arr;

@@ -1,5 +1,6 @@
 #include "transfer_tools.h"
 #include "tools/data_tool.h"
+#include "orbit_calculator/orbit_calculator.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -93,20 +94,21 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
         theta2 = pi_norm(theta1 + dtheta);
         e = (r1 - r0) / (r0 * cos(theta1) - r1 * cos(theta2));
         if(e < 0){  // not possible
-			printf("%.10f°, %f°, %f, %f, %f, %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
-			printf("%f°, %f°, %f\n", rad2deg(min_theta1), rad2deg(max_theta1), e);
+			printf("\n\n!!!!! PANIC e < 0 !!!!!!!!\n");
+			printf("theta1: %.10f°; theta2: %f°; target dt: %fd\nr0: %fe6m; r1: %fe6m; dtheta: %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
+			printf("min theta1: %f°; max theta1: %f°\ne: %f; a: %f\n", rad2deg(min_theta1), rad2deg(max_theta1), e, a);
 			printf("theta1 = [");
 			for(int j = 1; j <= data[0].x; j++) {
 				if(j!=1) printf(", ");
-				printf("%.1f°", rad2deg(data[j].x));
+				printf("%.10f", rad2deg(data[j].x));
 			}
 			printf("]\ndt = [");
 			for(int j = 1; j <= data[0].x; j++) {
 				if(j!=1) printf(", ");
-				printf("%.2f", data[j].y/86400);
+				printf("%.4f", data[j].y/86400);
 			}
 			printf("]\n");
-			printf("\n\n!!!!! PANIC e < 0 !!!!!!!!\n");
+			printf("-------------\n\n");
 			exit(1);
         } else if(e==1) e += 1e-10;	// no calculations for parabola -> make it a hyperbola
 
@@ -150,8 +152,9 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
         }
 
         if(isnan(dt)){  // at this theta1 orbit not solvable
-			printf("%.10f°, %f°, %f, %f, %f, %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
-			printf("%f°, %f°, %f, %f, %f, %f, %f, %f\n", rad2deg(min_theta1), rad2deg(max_theta1), t1/86400, t2/86400, T/86400, T/2/86400, e, a);
+			printf("---!!!!   NAN   !!!!---\n");
+			printf("theta1: %.10f°; theta2: %f°; target dt: %fd\nr0: %fe6m; r1: %fe6m; dtheta: %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
+			printf("min theta1: %f°; max theta1: %f°\nt1: %fd; t2: %fd; T: %fd; T/2: %fd\ne: %f; a: %f\n", rad2deg(min_theta1), rad2deg(max_theta1), t1/86400, t2/86400, T/86400, T/2/86400, e, a);
 			printf("theta1 = [");
 			for(int j = 1; j <= data[0].x; j++) {
 				if(j!=1) printf(", ");
@@ -163,7 +166,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 				printf("%.4f", data[j].y/86400);
 			}
 			printf("]\n");
-			printf("---!!!!   NAN   !!!!---\n");
+			printf("-------------\n\n");
             break;
         }
 		
@@ -288,6 +291,30 @@ struct Transfer calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1,
     struct Transfer transfer = {r1, v_t1, r2, v_t2};
 
     return transfer;
+}
+
+
+double calc_hohmann_transfer_duration(double r0, double r1, struct Body *attractor) {
+	double sma_pow_3 = pow(((r0 + r1) / 2),3);
+	return M_PI * sqrt(sma_pow_3 / attractor->mu);
+}
+
+void calc_hohmann_transfer_dv(double r0, double r1, struct Body *attractor, double *dv_dep, double *dv_arr) {
+	*dv_dep = calc_maneuver_dV(r0, r0, r1, attractor);
+	*dv_arr = calc_maneuver_dV(r1, r0, r1, attractor);
+}
+
+void calc_interplanetary_hohmann_transfer(struct Body *dep_body, struct Body *arr_body, struct Body *attractor, double *dur, double *dv_dep, double *dv_arr_cap, double *dv_arr_circ) {
+	double r0 = dep_body->orbit.a;
+	double r1 = arr_body->orbit.a;
+
+	*dur = calc_hohmann_transfer_duration(r0, r1, attractor);
+	calc_hohmann_transfer_dv(r0, r1, attractor, dv_dep, dv_arr_cap);
+	*dv_arr_circ = *dv_arr_cap;
+
+	*dv_dep = dv_circ(dep_body, dep_body->atmo_alt + 50e3, *dv_dep);
+	*dv_arr_circ = dv_circ(arr_body, dep_body->atmo_alt + 50e3, *dv_arr_circ);
+	*dv_arr_cap = dv_capture(arr_body, dep_body->atmo_alt + 50e3, *dv_arr_cap);
 }
 
 

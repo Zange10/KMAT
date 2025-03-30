@@ -1,7 +1,6 @@
 #include <stdio.h>
 
 #include "drawing.h"
-#include "tools/datetime.h"
 #include "settings.h"
 #include "math.h"
 
@@ -134,11 +133,6 @@ void draw_right_aligned_text(cairo_t *cr, double x, double y, char *text) {
 	cairo_show_text(cr, text);
 }
 
-void draw_data_point(cairo_t *cr, double x, double y, double radius) {
-	cairo_arc(cr, x, y, radius,0,M_PI*2);
-	cairo_fill(cr);
-}
-
 void draw_coordinate_system(cairo_t *cr, double width, double height, enum CoordAxisLabelType x_axis_label_type, enum CoordAxisLabelType y_axis_label_type,
 		double min_x, double max_x, double min_y, double max_y, struct Vector2D origin, int num_x_labels, int num_y_labels) {
 	// Set text color
@@ -235,29 +229,48 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 	}
 }
 
-void draw_porkchop(cairo_t *cr, double width, double height, const double *porkchop, int fb0_pow1) {
+void draw_data_point(cairo_t *cr, double x, double y, double radius) {
+	if(radius > 3) {
+		cairo_arc(cr, x, y, radius,0,M_PI*2);
+		cairo_fill(cr);
+	} else {
+		cairo_rectangle(cr, x-radius, y-radius, radius, radius);
+		cairo_fill(cr);
+	}
+}
+
+void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnalyzerPoint *porkchop, int num_itins, enum LastTransferType last_transfer_type) {
 	double dv, date, dur;
-	int num_itins = (int) (porkchop[0]/5);
-	int min_dv_ind = 0;
 
 	struct Vector2D origin = {45, height-40};
 
-	double min_dur = porkchop[1 + 1], max_dur = porkchop[1 + 1];
-	double min_date = porkchop[0+1], max_date = porkchop[0+1];
-	double min_dv = porkchop[2+1]+porkchop[3+1]+porkchop[4+1]*fb0_pow1;
-	double max_dv = porkchop[2+1]+porkchop[3+1]+porkchop[4+1]*fb0_pow1;
+	int first_show_ind = 0;
+	while(!porkchop[first_show_ind].inside_filter) first_show_ind++;
+
+	struct PorkchopPoint pp = porkchop[first_show_ind].data;
+	double dv_sat = pp.dv_dsm;
+	if(last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
+	if(last_transfer_type == TF_CIRC)		dv_sat += pp.dv_arr_circ;
+
+	double min_date = pp.dep_date, max_date = pp.dep_date;
+	double min_dur = pp.dur, max_dur = pp.dur;
+	double min_dv = pp.dv_dep + dv_sat;
+	double max_dv = pp.dv_dep + dv_sat;
 
 	// find min and max
 	for(int i = 1; i < num_itins; i++) {
-		int index = 1+i*5;
-		dv = porkchop[index+2]+porkchop[index+3]+porkchop[index+4]*fb0_pow1;
-		date = porkchop[index+0];
-		dur = porkchop[index+1];
+		if(!porkchop[i].inside_filter) continue;
+		pp = porkchop[i].data;
 
-		if(dv < min_dv) {
-			min_dv = dv;
-			min_dv_ind = i;
-		}
+		dv_sat = pp.dv_dsm;
+		if(last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
+		if(last_transfer_type == TF_CIRC)		dv_sat += pp.dv_arr_circ;
+
+		dv = pp.dv_dep + dv_sat;
+		date = pp.dep_date;
+		dur = pp.dur;
+
+		if(dv < min_dv) min_dv = dv;
 		else if(dv > max_dv) max_dv = dv;
 		if(date < min_date) min_date = date;
 		else if(date > max_date) max_date = date;
@@ -283,35 +296,58 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 
 	draw_coordinate_system(cr, width, height, COORD_LABEL_DATE, COORD_LABEL_DURATION, min_date, max_date, min_dur, max_dur, origin, 5, 10);
 
-	// data
+	// find points to draw
+	int *draw_idx = calloc(sizeof(int), num_itins);
+	int num_draw_itins = 0;
+	for(int i = 0; i < num_itins; i++) {
+		if(porkchop[i].inside_filter && porkchop[i].group->show_group) {
+			draw_idx[num_draw_itins] = i;
+			num_draw_itins++;
+		}
+	}
+
+	// Create an off-screen surface to draw porkchop all at onece
+	cairo_surface_t* buffer_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, (int) width, (int) height);
+	cairo_t* buffer_cr = cairo_create(buffer_surface);
+
+	// draw points
 	double color_bias;
-	int i = num_itins-1;
-	while(i >= -1) {
-		int index = i >= 0 ? 1+i*5 : 1+min_dv_ind*5;
-		dv = porkchop[index+2]+porkchop[index+3]+porkchop[index+4]*fb0_pow1;
-		date = porkchop[index+0];
-		dur = porkchop[index+1];
+	int i = num_draw_itins-1;
+	while(i >= 0) {
+		pp = porkchop[draw_idx[i]].data;
+
+		dv_sat = pp.dv_dsm;
+		if(last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
+		if(last_transfer_type == TF_CIRC)		dv_sat += pp.dv_arr_circ;
+
+		dv = pp.dv_dep + dv_sat;
+		date = pp.dep_date;
+		dur = pp.dur;
 
 		// color coding
 		color_bias = (dv - min_dv) / (max_dv - min_dv);
-		double r = i < 0 ? 1 : color_bias;
-		double g = i < 0 ? 0 : 1-color_bias;
-		double b = i < 0 ? 0 : 4*pow(color_bias-0.5,2);
-		cairo_set_source_rgb(cr, r,g,b);
+		double r = i == 0 ? 1 : color_bias;
+		double g = i == 0 ? 0 : 1-color_bias;
+		double b = i == 0 ? 0 : 4*pow(color_bias-0.5,2);
+		cairo_set_source_rgb(buffer_cr, r,g,b);
 
 		struct Vector2D data_point = vec2D(origin.x + m_date*(date - min_date), origin.y + m_dur * (dur - min_dur));
-		draw_data_point(cr, data_point.x, data_point.y, i >= 0 ? 2 : 5);
+		int radius = i > 0 ? 2 : 5;
+		if(num_draw_itins < 10000) radius += 2;
+		draw_data_point(buffer_cr, data_point.x, data_point.y, radius);
 
-		if(num_itins > 100000) {
-			if(i > 1e6) i -= 50;
-			else if(i > 1e5) i -= 10;
-			else if(i > 1e4) i -= 5;
-			else if(i > 1e2) i -= 2;
-			else i--;
-		} else {
-			i--;
-		}
+		i--;
 	}
+
+	// Copy the buffer to the main canvas and buffer cleanup
+	cairo_set_source_surface(cr, buffer_surface, 0, 0);
+	cairo_paint(cr);
+	cairo_destroy(buffer_cr);
+	cairo_surface_destroy(buffer_surface);
+
+	printf("%d points drawn; %d total number of points\n", num_draw_itins, num_itins);
+
+	free(draw_idx);
 }
 
 void draw_plot(cairo_t *cr, double width, double height, double *x, double *y, int num_points) {

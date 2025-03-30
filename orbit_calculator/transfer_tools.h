@@ -60,6 +60,17 @@ struct Transfer calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1,
 // calculate transfer between two different points in a given amount of time
 struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, struct Body *attractor, double *data);
 
+
+
+// calc hohmann transfer duration
+double calc_hohmann_transfer_duration(double r0, double r1, struct Body *attractor);
+
+// calc dv for hohmann transfer
+void calc_hohmann_transfer_dv(double r0, double r1, struct Body *attractor, double *dv_dep, double *dv_arr);
+
+// calc duration and dv for hohmann transfer between two bodies assuming circular orbits at semi-major axis
+void calc_interplanetary_hohmann_transfer(struct Body *dep_body, struct Body *arr_body, struct Body *attractor, double *dur, double *dv_dep, double *dv_arr_cap, double *dv_arr_circ);
+
 // calculate the delta-v between circular orbit at given Periapsis and speed at given Periapsis for given excess speed
 double dv_circ(struct Body *body, double rp, double vinf);
 

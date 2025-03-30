@@ -53,7 +53,15 @@ int get_incr_thread_counter(int counter_index);
  *
  * @param thread_pool The thread pool structure to be joined.
  */
-void join_thread_pool(struct Thread_Pool thread_pool);
+
+
+/**
+ * @brief Increases specified thread counter by given amount
+ *
+ * @param counter_index The index of the specified thread counter
+ * @param amount The amount the counter should be increased by
+ */
+void incr_thread_counter_by_amount(int counter_index, int amount);
 
 
 

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-thread_t threads64[64];
+thread_t threads32[32];
 
 #define NUM_COUNTER 4
 
@@ -10,8 +10,8 @@ int counter[NUM_COUNTER];
 thread_mutex_t counter_lock[NUM_COUNTER];
 
 struct Thread_Pool use_thread_pool64(void *thread_method(void*), void *thread_args) {
-	size_t size = 64;
-	struct Thread_Pool thread_pool = {threads64, size};
+	size_t size = 32;
+	struct Thread_Pool thread_pool = {threads32, size};
 
 	// Initialize counters
 	for (int i = 0; i < NUM_COUNTER; i++) {
@@ -72,6 +72,20 @@ int get_incr_thread_counter(int counter_index) {
 		pthread_mutex_unlock(&counter_lock[counter_index]); // Linux unlock
 	#endif
 	return counter_value;
+}
+
+void incr_thread_counter_by_amount(int counter_index, int amount) {
+	#ifdef _WIN32
+		EnterCriticalSection(&counter_lock[counter_index]); // Windows lock
+	#else
+		pthread_mutex_lock(&counter_lock[counter_index]); // Linux lock
+	#endif
+	counter[counter_index] += amount;
+	#ifdef _WIN32
+		LeaveCriticalSection(&counter_lock[counter_index]); // Windows unlock
+	#else
+		pthread_mutex_unlock(&counter_lock[counter_index]); // Linux unlock
+	#endif
 }
 
 void join_thread_pool(struct Thread_Pool thread_pool) {

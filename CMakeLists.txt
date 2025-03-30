@@ -64,8 +64,8 @@ add_executable(KSP-Tools
         gui/transfer_app/porkchop_analyzer.h
         gui/transfer_app/porkchop_analyzer_tools.c
         gui/transfer_app/porkchop_analyzer_tools.h
-        gui/transfer_app/transfer_calculator.c
-        gui/transfer_app/transfer_calculator.h
+        gui/transfer_app/sequence_calculator.c
+        gui/transfer_app/sequence_calculator.h
         launch_calculator/launch_sim.c
         launch_calculator/launch_sim.h
         launch_calculator/launch_state.c
@@ -98,8 +98,8 @@ add_executable(KSP-Tools
         gui/transfer_app/itinerary_calculator.h
         gui/gui_manager.c
         gui/gui_manager.h
-        gui/prog_win_manager.c
-        gui/prog_win_manager.h
+        gui/info_win_manager.c
+        gui/info_win_manager.h
         tools/datetime.c
         tools/datetime.h
         gui/settings.c
