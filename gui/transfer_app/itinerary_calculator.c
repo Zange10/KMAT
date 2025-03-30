@@ -2,7 +2,7 @@
 #include "orbit_calculator/transfer_calc.h"
 #include "gui/gui_manager.h"
 #include "gui/settings.h"
-#include "gui/prog_win_manager.h"
+#include "gui/info_win_manager.h"
 #include "tools/file_io.h"
 
 
@@ -73,6 +73,7 @@ gboolean end_ic_calc_thread() {
 	save_itineraries_ic(ic_results.departures, ic_results.num_deps, ic_results.num_nodes);
 	for(int i = 0; i < ic_results.num_deps; i++) free_itinerary(ic_results.departures[i]);
 	free(ic_results.departures);
+	if(ic_results.num_deps == 0) show_msg_window("No itineraries found!");
 	return G_SOURCE_REMOVE;
 }
 

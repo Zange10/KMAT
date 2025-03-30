@@ -2,7 +2,7 @@
 #include "orbit_calculator/transfer_calc.h"
 #include "gui/gui_manager.h"
 #include "gui/settings.h"
-#include "gui/prog_win_manager.h"
+#include "gui/info_win_manager.h"
 #include "tools/file_io.h"
 #include <string.h>
 
@@ -164,6 +164,7 @@ gboolean end_sc_calc_thread() {
 	save_itineraries_sc(sc_results.departures, sc_results.num_deps, sc_results.num_nodes);
 	for(int i = 0; i < sc_results.num_deps; i++) free_itinerary(sc_results.departures[i]);
 	free(sc_results.departures);
+	if(sc_results.num_deps == 0) show_msg_window("No itineraries found!");
 	return G_SOURCE_REMOVE;
 }
 

@@ -132,6 +132,7 @@ void *calc_spec_itin_from_departure(void *args) {
 		}
 		double progress = get_incr_thread_counter(1);
 		show_progress("Transfer Calculation progress: ", progress, jd_diff);
+		incr_thread_counter_by_amount(2, get_number_of_itineraries(get_first(curr_step)));
 		index = get_incr_thread_counter(0);
 		jd_dep = thread_args->jd_min_dep + index;
 	}
@@ -247,6 +248,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 
 		double progress = get_incr_thread_counter(1);
 		show_progress("Transfer Calculation progress", progress, jd_diff);
+		incr_thread_counter_by_amount(2, get_number_of_itineraries(get_first(curr_step)));
 		index = get_incr_thread_counter(0);
 		jd_dep = jd_min_dep + index;
 	}
@@ -389,6 +391,7 @@ struct Transfer_Calc_Status get_current_transfer_calc_status() {
 	int num_deps = get_thread_counter(1);
 
 	return (struct Transfer_Calc_Status) {
+		.num_itins = get_thread_counter(2),
 		.num_deps = num_deps,
 		.jd_diff = jd_diff,
 		.progress = (double)num_deps/jd_diff

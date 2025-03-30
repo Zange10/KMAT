@@ -98,8 +98,8 @@ add_executable(KSP-Tools
         gui/transfer_app/itinerary_calculator.h
         gui/gui_manager.c
         gui/gui_manager.h
-        gui/prog_win_manager.c
-        gui/prog_win_manager.h
+        gui/info_win_manager.c
+        gui/info_win_manager.h
         tools/datetime.c
         tools/datetime.h
         gui/settings.c

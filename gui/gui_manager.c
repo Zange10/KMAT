@@ -1,5 +1,5 @@
 #include "gui_manager.h"
-#include "prog_win_manager.h"
+#include "info_win_manager.h"
 #include <gtk/gtk.h>
 #include <locale.h>
 #include "css_loader.h"
@@ -97,7 +97,7 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 	// init db page
 //	init_mission_db(builder);
 	// init progress window
-	init_prog_window(builder);
+	init_info_windows(builder);
 
 	/* We do not need the builder anymore */
 	g_object_unref(builder);

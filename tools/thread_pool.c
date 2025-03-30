@@ -74,6 +74,20 @@ int get_incr_thread_counter(int counter_index) {
 	return counter_value;
 }
 
+void incr_thread_counter_by_amount(int counter_index, int amount) {
+	#ifdef _WIN32
+		EnterCriticalSection(&counter_lock[counter_index]); // Windows lock
+	#else
+		pthread_mutex_lock(&counter_lock[counter_index]); // Linux lock
+	#endif
+	counter[counter_index] += amount;
+	#ifdef _WIN32
+		LeaveCriticalSection(&counter_lock[counter_index]); // Windows unlock
+	#else
+		pthread_mutex_unlock(&counter_lock[counter_index]); // Linux unlock
+	#endif
+}
+
 void join_thread_pool(struct Thread_Pool thread_pool) {
     for(int i = 0; i < thread_pool.size; i++) {
 		#ifdef _WIN32
