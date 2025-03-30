@@ -1,5 +1,6 @@
 #include "sequence_calculator.h"
 #include "orbit_calculator/transfer_calc.h"
+#include "orbit_calculator/transfer_tools.h"
 #include "gui/gui_manager.h"
 #include "gui/settings.h"
 #include "gui/info_win_manager.h"
@@ -211,6 +212,15 @@ void sc_calc_thread() {
 
 G_MODULE_EXPORT void on_calc_sc() {
 	if(sc_system == NULL || get_num_sc_steps(sc_step) < 2) return;
+	struct PlannedScStep *step = get_first_sc(sc_step)->next;
+	while(step != NULL) {
+		if(step->body == step->prev->body) {
+			show_msg_window("Two consecutive fly-bys at same body not yet implemented!");
+			return;
+		}
+		step = step->next;
+	}
+
 	gtk_widget_set_sensitive(GTK_WIDGET(tf_sc_window), 0);
 	g_thread_new("calc_thread", (GThreadFunc) sc_calc_thread, NULL);
 	init_sc_ic_progress_window();
@@ -220,6 +230,28 @@ G_MODULE_EXPORT void on_sc_system_change() {
 	if(get_num_available_systems() > 0) sc_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_sc_system))];
 	reset_sc();
 	update_sc_preview();
+}
+
+G_MODULE_EXPORT void on_get_sc_ref_values() {
+	if(sc_system == NULL || get_num_sc_steps(sc_step) < 2) return;
+	double dv_dep, dv_arr_cap, dv_arr_circ, dur;
+	struct Body *dep_body = get_first_sc(sc_step)->body;
+	struct Body *arr_body = get_last_sc(sc_step)->body;
+
+	if(dep_body == arr_body) return;
+
+	calc_interplanetary_hohmann_transfer(dep_body, arr_body, sc_system->cb, &dur, &dv_dep, &dv_arr_cap, &dv_arr_circ);
+
+	dur /= get_settings_datetime_type() != DATE_KERBAL ? (24*60*60) : (6*60*60);
+
+	char msg[256];
+	sprintf(msg, "Hohmann Transfer from %s to %s \n(from %.3E km to %.3E km circular orbit):\n\n"
+				 "Departure dv: %.0f m/s\n"
+				 "Arrival Capture dv: %.0f m/s\n"
+				 "Arrival Circularization: %.0f m/s\n"
+				 "Duration: %.0f days",
+			dep_body->name, arr_body->name, dep_body->orbit.a/1e3, arr_body->orbit.a/1e3, dv_dep, dv_arr_cap, dv_arr_circ, dur);
+	show_msg_window(msg);
 }
 
 void reset_sc() {

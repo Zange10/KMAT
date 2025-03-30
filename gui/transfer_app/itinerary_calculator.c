@@ -1,5 +1,6 @@
 #include "itinerary_calculator.h"
 #include "orbit_calculator/transfer_calc.h"
+#include "orbit_calculator/transfer_tools.h"
 #include "gui/gui_manager.h"
 #include "gui/settings.h"
 #include "gui/info_win_manager.h"
@@ -18,8 +19,12 @@ GObject *cb_ic_transfertype;
 GObject *tf_ic_totdv;
 GObject *tf_ic_depdv;
 GObject *tf_ic_satdv;
+GObject *vp_ic_fbbodies;
+GtkWidget *grid_ic_fbbodies;
 
 struct System *ic_system;
+
+GtkWidget * ic_update_seq_body_grid(GObject *viewport, GtkWidget *grid);
 
 void init_itinerary_calculator(GtkBuilder *builder) {
 	tf_ic_window = gtk_builder_get_object(builder, "window");
@@ -34,6 +39,7 @@ void init_itinerary_calculator(GtkBuilder *builder) {
 	tf_ic_totdv = gtk_builder_get_object(builder, "tf_ic_totdv");
 	tf_ic_depdv = gtk_builder_get_object(builder, "tf_ic_depdv");
 	tf_ic_satdv = gtk_builder_get_object(builder, "tf_ic_satdv");
+	vp_ic_fbbodies = gtk_builder_get_object(builder, "vp_ic_fbbodies");
 
 	ic_system = NULL;
 
@@ -45,6 +51,7 @@ void init_itinerary_calculator(GtkBuilder *builder) {
 		ic_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))];
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_depbody), ic_system);
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_arrbody), ic_system);
+		grid_ic_fbbodies = ic_update_seq_body_grid(vp_ic_fbbodies, grid_ic_fbbodies);
 	}
 }
 
@@ -52,6 +59,53 @@ void ic_change_date_type(enum DateType old_date_type, enum DateType new_date_typ
 	change_text_field_date_type(tf_ic_mindepdate, old_date_type, new_date_type);
 	change_text_field_date_type(tf_ic_maxdepdate, old_date_type, new_date_type);
 	change_text_field_date_type(tf_ic_maxarrdate, old_date_type, new_date_type);
+}
+
+
+GtkWidget * ic_update_seq_body_grid(GObject *viewport, GtkWidget *grid) {
+	if (grid != NULL && GTK_WIDGET(viewport) == gtk_widget_get_parent(grid)) {
+		gtk_container_remove(GTK_CONTAINER(viewport), grid);
+	}
+
+	grid = gtk_grid_new();
+
+	// Create labels and buttons and add them to the grid
+	for (int body_idx = 0; body_idx < ic_system->num_bodies; body_idx++) {
+		int row = body_idx;
+		GtkWidget *widget;
+		// Create a show body check button
+		widget = gtk_check_button_new_with_label(ic_system->bodies[body_idx]->name);
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), 1);
+		gtk_widget_set_halign(widget, GTK_ALIGN_START);
+
+		// Set the label in the grid at the specified row and column
+		gtk_grid_attach(GTK_GRID(grid), widget, 0, row, 1, 1);
+	}
+	gtk_container_add (GTK_CONTAINER (viewport), grid);
+	gtk_widget_show_all(GTK_WIDGET(viewport));
+
+	return grid;
+}
+
+int get_num_selected_bodies_from_grid(GtkWidget *grid) {
+	int num_bodies = 0;
+	for(int i = 0; i < ic_system->num_bodies; i++) {
+		if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(gtk_grid_get_child_at(GTK_GRID(grid), 0, i))))
+			num_bodies++;
+	}
+	return num_bodies;
+}
+
+struct Body ** get_bodies_from_grid(GtkWidget *grid, int num_bodies) {
+	struct Body **bodies = malloc(num_bodies * sizeof(struct Body*));
+	int idx = 0;
+	for(int i = 0; i < ic_system->num_bodies; i++) {
+		if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(gtk_grid_get_child_at(GTK_GRID(grid), 0, i)))) {
+			bodies[idx] = ic_system->bodies[i]; idx++;
+		}
+	}
+
+	return bodies;
 }
 
 
@@ -100,12 +154,22 @@ void ic_calc_thread() {
 	string = (char*) gtk_combo_box_get_active_id(GTK_COMBO_BOX(cb_ic_transfertype));
 	calc_data.dv_filter.last_transfer_type = (int) strtol(string, NULL, 10);
 
-	calc_data.dep_body_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_depbody));
-	calc_data.arr_body_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody));
+	// Make sure arrival body is a fly-by body
+	struct Body *arr_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))];
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_grid_get_child_at(GTK_GRID(grid_ic_fbbodies), 0, get_body_system_id(arr_body, ic_system))), 1);
 
-	calc_data.system = ic_system;
+	struct ItinSequenceInfo seq_info = {
+			.system = ic_system,
+			.dep_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_depbody))],
+			.arr_body = arr_body,
+			.num_flyby_bodies = get_num_selected_bodies_from_grid(grid_ic_fbbodies),
+	};
+	seq_info.flyby_bodies = get_bodies_from_grid(grid_ic_fbbodies, seq_info.num_flyby_bodies);
+	calc_data.seq_info = &seq_info;
 
 	ic_results = search_for_itinerary_to_target(calc_data);
+
+	free(seq_info.flyby_bodies);
 
 	// GUI stuff needs to happen in main thread
 	g_idle_add((GSourceFunc)end_ic_calc_thread, NULL);
@@ -123,7 +187,30 @@ G_MODULE_EXPORT void on_ic_system_change() {
 		ic_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))];
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_depbody), ic_system);
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_arrbody), ic_system);
+		grid_ic_fbbodies = ic_update_seq_body_grid(vp_ic_fbbodies, grid_ic_fbbodies);
 	}
+}
+
+G_MODULE_EXPORT void on_get_ic_ref_values() {
+	if(ic_system == NULL) return;
+	double dv_dep, dv_arr_cap, dv_arr_circ, dur;
+	struct Body *dep_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_depbody))];
+	struct Body *arr_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))];
+
+	if(dep_body == arr_body) return;
+
+	calc_interplanetary_hohmann_transfer(dep_body, arr_body, ic_system->cb, &dur, &dv_dep, &dv_arr_cap, &dv_arr_circ);
+
+	dur /= get_settings_datetime_type() != DATE_KERBAL ? (24*60*60) : (6*60*60);
+
+	char msg[256];
+	sprintf(msg, "Hohmann Transfer from %s to %s \n(from %.3E km to %.3E km circular orbit):\n\n"
+				 "Departure dv: %.0f m/s\n"
+				 "Arrival Capture dv: %.0f m/s\n"
+				 "Arrival Circularization: %.0f m/s\n"
+				 "Duration: %.0f days",
+			dep_body->name, arr_body->name, dep_body->orbit.a/1e3, arr_body->orbit.a/1e3, dv_dep, dv_arr_cap, dv_arr_circ, dur);
+	show_msg_window(msg);
 }
 
 void reset_ic() {

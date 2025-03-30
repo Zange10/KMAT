@@ -97,11 +97,6 @@ void in_orbit_calculator(struct Body * parent_body) {
     } while(selection != 0);
 }
 
-double calc_hohmann_transfer_duration(double r0, double r1, struct Body *attractor) {
-	double sma_pow_3 = pow(((r0 + r1) / 2),3);
-	return M_PI * sqrt(sma_pow_3 / attractor->mu);
-}
-
 struct Body * choose_celestial_body(struct Body *parent_body) {
     char input[20];
 

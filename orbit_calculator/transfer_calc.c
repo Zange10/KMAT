@@ -26,9 +26,7 @@ struct Itin_To_Target_Thread {
 	double jd_max_dep;
 	double jd_max_arr;
 	int max_duration;
-	int dep_body_id;
-	int arr_body_id;
-	struct System *system;
+	struct ItinSequenceInfo *seq_info;
 	struct Dv_Filter *dv_filter;
 };
 
@@ -148,9 +146,9 @@ void *calc_itin_to_target_from_departure(void *args) {
 	double jd_max_dep = thread_args->jd_max_dep;
 	double jd_max_arr = thread_args->jd_max_arr;
 	int max_total_duration = thread_args->max_duration;
-	struct System *system = thread_args->system;
-	struct Body *dep_body = system->bodies[thread_args->dep_body_id];
-	struct Body *arr_body = system->bodies[thread_args->arr_body_id];
+	struct System *system = thread_args->seq_info->system;
+	struct Body *dep_body = thread_args->seq_info->dep_body;
+	struct Body *arr_body = thread_args->seq_info->arr_body;
 
 	int index = get_incr_thread_counter(0);
 	// increase finished counter to 1 (first finished should reflect a num of finished of 1)
@@ -183,12 +181,13 @@ void *calc_itin_to_target_from_departure(void *args) {
 
 		struct Body *next_step_body;
 
-		for(int body_id = 0; body_id < system->num_bodies; body_id++) {
-			if(system->bodies[body_id] == dep_body) continue;
+		for(int i = 0; i < thread_args->seq_info->num_flyby_bodies; i++) {
+			next_step_body = thread_args->seq_info->flyby_bodies[i];
+			if(next_step_body == dep_body) continue;
 
 			struct OSV arr_body_temp_osv = system->calc_method == ORB_ELEMENTS ?
-										   osv_from_elements(system->bodies[body_id]->orbit, jd_dep, system) :
-										   osv_from_ephem(system->bodies[body_id]->ephem, jd_dep, system->cb);
+										   osv_from_elements(next_step_body->orbit, jd_dep, system) :
+										   osv_from_ephem(next_step_body->ephem, jd_dep, system->cb);
 
 			double r0 = vector_mag(osv_body0.r), r1 = vector_mag(arr_body_temp_osv.r);
 			double r_ratio =  r1/r0;
@@ -197,16 +196,14 @@ void *calc_itin_to_target_from_departure(void *args) {
 			double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
 			double max_min_duration_diff = max_duration - min_duration;
 
-			next_step_body = system->bodies[body_id];
-
 			for(int j = 0; j < NUM_INITIAL_TRANSFERS; j++) {
 				double jd_arr = jd_dep + min_duration + max_min_duration_diff * j/(NUM_INITIAL_TRANSFERS-1);
 
 				if(jd_arr > jd_max_arr) break;
 
 				osv_body1 = system->calc_method == ORB_ELEMENTS ?
-						osv_from_elements(system->bodies[body_id]->orbit, jd_arr, system) :
-						osv_from_ephem(system->bodies[body_id]->ephem, jd_arr, system->cb);
+						osv_from_elements(next_step_body->orbit, jd_arr, system) :
+						osv_from_ephem(next_step_body->ephem, jd_arr, system->cb);
 
 				double data[3];
 
@@ -223,7 +220,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 
 				curr_step = curr_step->next[next_step_id];
 
-				curr_step->body = system->bodies[body_id];
+				curr_step->body = next_step_body;
 				curr_step->date = jd_arr;
 				curr_step->r = osv_body1.r;
 				curr_step->v_dep = tf.v0;
@@ -243,7 +240,7 @@ void *calc_itin_to_target_from_departure(void *args) {
 		// remove end nodes that do not satisfy dv requirements
 		num_of_end_nodes = remove_end_nodes_that_do_not_satisfy_dv_requirements(curr_step, num_of_end_nodes, dv_filter);
 		if(curr_step->num_next_nodes > 0) {
-			continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, system, arr_body, jd_max_arr, max_total_duration, dv_filter);
+			continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, thread_args->seq_info, jd_max_arr, max_total_duration, dv_filter);
 		}
 
 		double progress = get_incr_thread_counter(1);
@@ -275,9 +272,7 @@ struct Transfer_Calc_Results search_for_itinerary_to_target(struct Transfer_To_T
 			calc_data.jd_max_dep,
 			calc_data.jd_max_arr,
 			calc_data.max_duration,
-			calc_data.dep_body_id,
-			calc_data.arr_body_id,
-			calc_data.system,
+			calc_data.seq_info,
 			&calc_data.dv_filter
 	};
 

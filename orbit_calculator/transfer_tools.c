@@ -1,5 +1,6 @@
 #include "transfer_tools.h"
 #include "tools/data_tool.h"
+#include "orbit_calculator/orbit_calculator.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -290,6 +291,30 @@ struct Transfer calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1,
     struct Transfer transfer = {r1, v_t1, r2, v_t2};
 
     return transfer;
+}
+
+
+double calc_hohmann_transfer_duration(double r0, double r1, struct Body *attractor) {
+	double sma_pow_3 = pow(((r0 + r1) / 2),3);
+	return M_PI * sqrt(sma_pow_3 / attractor->mu);
+}
+
+void calc_hohmann_transfer_dv(double r0, double r1, struct Body *attractor, double *dv_dep, double *dv_arr) {
+	*dv_dep = calc_maneuver_dV(r0, r0, r1, attractor);
+	*dv_arr = calc_maneuver_dV(r1, r0, r1, attractor);
+}
+
+void calc_interplanetary_hohmann_transfer(struct Body *dep_body, struct Body *arr_body, struct Body *attractor, double *dur, double *dv_dep, double *dv_arr_cap, double *dv_arr_circ) {
+	double r0 = dep_body->orbit.a;
+	double r1 = arr_body->orbit.a;
+
+	*dur = calc_hohmann_transfer_duration(r0, r1, attractor);
+	calc_hohmann_transfer_dv(r0, r1, attractor, dv_dep, dv_arr_cap);
+	*dv_arr_circ = *dv_arr_cap;
+
+	*dv_dep = dv_circ(dep_body, dep_body->atmo_alt + 50e3, *dv_dep);
+	*dv_arr_circ = dv_circ(arr_body, dep_body->atmo_alt + 50e3, *dv_arr_circ);
+	*dv_arr_cap = dv_capture(arr_body, dep_body->atmo_alt + 50e3, *dv_arr_cap);
 }
 
 
