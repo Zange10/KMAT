@@ -248,7 +248,7 @@ void print_itinerary(struct ItinStep *itin) {
 }
 
 int get_number_of_itineraries(struct ItinStep *itin) {
-	if(itin == NULL) return 0;
+	if(itin == NULL || (itin->prev == NULL && itin->num_next_nodes == 0)) return 0;
 	if(itin->num_next_nodes == 0) return 1;
 	int counter = 0;
 	for(int i = 0; i < itin->num_next_nodes; i++) {
@@ -311,28 +311,30 @@ struct PorkchopPoint create_porkchop_point(struct ItinStep *itin) {
 int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step) {
 	double max_duration = jd_max_arr-curr_step->date;
 	double min_duration = MIN_TRANSFER_DURATION;
-	if(bodies[step] != bodies[step-1]) find_viable_flybys(curr_step, system, bodies[step], min_duration*86400, max_duration*86400);
-	else {
-		printf("DSB not yet reimplemented!\n");
-//		find_viable_dsb_flybys(curr_step, &bodies[step+1]->ephem, bodies[step+1],
-//							   min_duration[step-1]*86400, max_duration[step-1]*86400, min_duration[step]*86400, max_duration[step]*86400);
-	}
+	if(max_duration > min_duration) {
+		if(bodies[step] != bodies[step - 1]) find_viable_flybys(curr_step, system, bodies[step], min_duration * 86400, max_duration * 86400);
+		else {
+			printf("DSB not yet reimplemented!\n");
+			//		find_viable_dsb_flybys(curr_step, &bodies[step+1]->ephem, bodies[step+1],
+			//							   min_duration[step-1]*86400, max_duration[step-1]*86400, min_duration[step]*86400, max_duration[step]*86400);
+		}
 
-	for(int i = 0; i < curr_step->num_next_nodes; i++) {
-		struct ItinStep *next = bodies[step] != bodies[step-1] ? curr_step->next[i] : curr_step->next[i]->next[0]->next[0];
-		if(step == num_steps-1) {
-			struct PorkchopPoint porkchop_point = create_porkchop_point(next);
-			double dv_sat = porkchop_point.dv_dsm;
-			if(dv_filter->last_transfer_type == 1) dv_sat += porkchop_point.dv_arr_cap;
-			if(dv_filter->last_transfer_type == 2) dv_sat += porkchop_point.dv_arr_circ;
-			if(dv_sat > dv_filter->max_satdv || porkchop_point.dv_dep + dv_sat > dv_filter->max_totdv) {
-				if(curr_step->num_next_nodes <= 1) {
-					remove_step_from_itinerary(next);
-					return 0;
-				} else {
-					remove_step_from_itinerary(next);
+		for(int i = 0; i < curr_step->num_next_nodes; i++) {
+			struct ItinStep *next = bodies[step] != bodies[step - 1] ? curr_step->next[i] : curr_step->next[i]->next[0]->next[0];
+			if(step == num_steps - 1) {
+				struct PorkchopPoint porkchop_point = create_porkchop_point(next);
+				double dv_sat = porkchop_point.dv_dsm;
+				if(dv_filter->last_transfer_type == 1) dv_sat += porkchop_point.dv_arr_cap;
+				if(dv_filter->last_transfer_type == 2) dv_sat += porkchop_point.dv_arr_circ;
+				if(dv_sat > dv_filter->max_satdv || porkchop_point.dv_dep + dv_sat > dv_filter->max_totdv) {
+					if(curr_step->num_next_nodes <= 1) {
+						remove_step_from_itinerary(next);
+						return 0;
+					} else {
+						remove_step_from_itinerary(next);
+					}
+					i--;
 				}
-				i--;
 			}
 		}
 	}

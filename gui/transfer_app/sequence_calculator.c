@@ -170,7 +170,7 @@ gboolean end_sc_calc_thread() {
 
 void sc_calc_thread() {
 	char *string;
-	struct Transfer_Calc_Data calc_data;
+	struct Transfer_Spec_Calc_Data calc_data;
 
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_sc_mindepdate));
 	calc_data.jd_min_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));

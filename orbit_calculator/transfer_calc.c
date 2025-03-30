@@ -321,7 +321,7 @@ struct Transfer_Calc_Results search_for_itinerary_to_target(struct Transfer_To_T
 	return results;
 }
 
-struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Calc_Data calc_data) {
+struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Spec_Calc_Data calc_data) {
 	struct Transfer_Calc_Results results = {NULL, 0, 0};
 
 	struct timeval start, end;
