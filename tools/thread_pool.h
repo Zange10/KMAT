@@ -29,6 +29,7 @@ struct Thread_Pool {
  * @return A populated Thread_Pool structure with 64 threads
  */
 struct Thread_Pool use_thread_pool64(void *thread_method(void*), void *thread_args);
+struct Thread_Pool use_thread_pool01(void *thread_method(void*), void *thread_args);
 
 /**
  * @brief Gets the current specified thread counter value
