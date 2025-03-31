@@ -348,7 +348,7 @@ struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Spec_Calc
 	};
 
 	show_progress("Transfer Calculation progress: ", 0, 1);
-	struct Thread_Pool thread_pool = use_thread_pool64(calc_spec_itin_from_departure, &thread_args);
+	struct Thread_Pool thread_pool = use_thread_pool01(calc_spec_itin_from_departure, &thread_args);
 	join_thread_pool(thread_pool);
 	show_progress("Transfer Calculation progress: ", 1, 1);
 	printf("\n");

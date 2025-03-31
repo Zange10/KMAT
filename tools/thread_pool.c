@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 thread_t threads32[32];
+thread_t threads01[1];
 
 #define NUM_COUNTER 4
 
@@ -48,6 +49,50 @@ struct Thread_Pool use_thread_pool64(void *thread_method(void*), void *thread_ar
 				exit(EXIT_FAILURE);
 			}
 		#endif
+	}
+
+	return thread_pool;
+}
+
+struct Thread_Pool use_thread_pool01(void *thread_method(void*), void *thread_args) {
+	size_t size = 1;
+	struct Thread_Pool thread_pool = {threads01, size};
+
+	// Initialize counters
+	for (int i = 0; i < NUM_COUNTER; i++) {
+		counter[i] = 0;
+	}
+
+	// Initialize mutexes
+	for (int i = 0; i < NUM_COUNTER; i++) {
+#ifdef _WIN32
+		InitializeCriticalSection(&counter_lock[i]); // Windows mutex init
+#else
+		pthread_mutex_init(&counter_lock[i], NULL); // Linux mutex init
+#endif
+	}
+
+	// Create threads
+	for (int i = 0; i < size; i++) {
+#ifdef _WIN32
+		thread_pool.threads[i] = CreateThread(
+				NULL,                        // default security attributes
+				0,                           // default stack size
+				(LPTHREAD_START_ROUTINE) thread_method, // pointer to the thread function
+				thread_args,                 // argument to thread function
+				0,                           // default creation flags
+				NULL);                       // thread ID (not needed in this case)
+
+		if (thread_pool.threads[i] == NULL) {
+			fprintf(stderr, "Error creating thread %d\n", i);
+			exit(EXIT_FAILURE);
+		}
+#else
+		if (pthread_create(&thread_pool.threads[i], NULL, thread_method, thread_args) != 0) {
+				perror("pthread_create");
+				exit(EXIT_FAILURE);
+			}
+#endif
 	}
 
 	return thread_pool;
