@@ -327,6 +327,7 @@ struct Transfer_Calc_Results search_for_spec_itinerary(struct Transfer_Spec_Calc
 
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+	for(int i = 0; i < num_deps; i++) departures[i]->num_next_nodes = 0;
 
 	struct Itin_Spec_Thread_Args thread_args = {
 			departures,
