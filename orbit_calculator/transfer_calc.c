@@ -123,8 +123,10 @@ void *calc_spec_itin_from_departure(void *args) {
 			curr_step->v_body = osv_body1.v;
 			curr_step->num_next_nodes = 0;
 
+			curr_step = curr_step->prev;
+
 			if(num_steps > 2) {
-				if(!calc_next_spec_itin_step(curr_step, system, bodies, jd_max_arr,
+				if(!calc_next_spec_itin_step(curr_step->next[j - fb1_del], system, bodies, jd_max_arr,
 											 thread_args->dv_filter, num_steps, 2)) fb1_del++;
 			}
 		}
