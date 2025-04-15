@@ -3,7 +3,7 @@ project(KSP C)
 
 set(CMAKE_C_STANDARD 11)
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
+if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND NOT CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
     message(STATUS "Configuring for Windows (MinGW-w64)")
     set(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)
     set(CMAKE_CXX_COMPILER x86_64-w64-mingw32-g++)
@@ -108,51 +108,94 @@ add_executable(KSP-Tools
 
 # Platform-specific setup
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    message(STATUS "Configuring for Windows (MinGW-w64)")
+    if(NOT CMAKE_HOST_SYSTEM_NAME STREQUAL "Windows")
+        message(STATUS "Configuring for Windows (MinGW-w64)")
 
-    # Set MinGW compiler
-    set(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)
-    set(CMAKE_CXX_COMPILER x86_64-w64-mingw32-g++)
+        # Set MinGW compiler
+        set(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)
+        set(CMAKE_CXX_COMPILER x86_64-w64-mingw32-g++)
 
-    # GTK3 installation directory (modify if needed)
-    set(GTK3_ROOT "/usr/x86_64-w64-mingw32/gtk")  # Change to actual GTK3 install path
+        # GTK3 installation directory (modify if needed)
+        set(GTK3_ROOT "/usr/x86_64-w64-mingw32/gtk")  # Change to actual GTK3 install path
 
-    # Explicit GTK3 include directories
-    include_directories(
-            ${GTK3_ROOT}/include
-            ${GTK3_ROOT}/include/gtk-3.0
-            ${GTK3_ROOT}/include/glib-2.0
-            ${GTK3_ROOT}/lib/glib-2.0/include
-            ${GTK3_ROOT}/include/pango-1.0
-            ${GTK3_ROOT}/include/cairo
-            ${GTK3_ROOT}/include/gdk-pixbuf-2.0
-            ${GTK3_ROOT}/include/atk-1.0
-            ${GTK3_ROOT}/include/harfbuzz
-    )
+        # Explicit GTK3 include directories
+        include_directories(
+                ${GTK3_ROOT}/include
+                ${GTK3_ROOT}/include/gtk-3.0
+                ${GTK3_ROOT}/include/glib-2.0
+                ${GTK3_ROOT}/lib/glib-2.0/include
+                ${GTK3_ROOT}/include/pango-1.0
+                ${GTK3_ROOT}/include/cairo
+                ${GTK3_ROOT}/include/gdk-pixbuf-2.0
+                ${GTK3_ROOT}/include/atk-1.0
+                ${GTK3_ROOT}/include/harfbuzz
+        )
 
-    # Explicit GTK3 library directories
-    link_directories(
-            ${GTK3_ROOT}/lib
-            ${GTK3_ROOT}/lib/gtk-3.0
-            ${GTK3_ROOT}/lib/glib-2.0
-    )
+        # Explicit GTK3 library directories
+        link_directories(
+                ${GTK3_ROOT}/lib
+                ${GTK3_ROOT}/lib/gtk-3.0
+                ${GTK3_ROOT}/lib/glib-2.0
+        )
 
-    target_link_libraries(KSP-Tools
-            m
-            gtk-3
-            gdk-3
-            gobject-2.0
-            glib-2.0
-            pango-1.0
-            cairo
-            gdk_pixbuf-2.0
-            atk-1.0
-            gio-2.0
-            urlmon
-            sqlite3
-    )
+        target_link_libraries(KSP-Tools
+                m
+                gtk-3
+                gdk-3
+                gobject-2.0
+                glib-2.0
+                pango-1.0
+                cairo
+                gdk_pixbuf-2.0
+                atk-1.0
+                gio-2.0
+                urlmon
+                sqlite3
+        )
 
-    set_target_properties(KSP-Tools PROPERTIES WIN32_EXECUTABLE TRUE)
+        set_target_properties(KSP-Tools PROPERTIES WIN32_EXECUTABLE TRUE)
+    else()
+        message(STATUS "Configuring for Windows (native MinGW)")
+
+        set(GTK3_ROOT "C:/msys64/ucrt64")
+
+        include_directories(
+                ${GTK3_ROOT}/include
+                ${GTK3_ROOT}/include/gtk-3.0
+                ${GTK3_ROOT}/include/glib-2.0
+                ${GTK3_ROOT}/lib/glib-2.0/include
+                ${GTK3_ROOT}/include/pango-1.0
+                ${GTK3_ROOT}/include/cairo
+                ${GTK3_ROOT}/include/gdk-pixbuf-2.0
+                ${GTK3_ROOT}/include/atk-1.0
+                ${GTK3_ROOT}/include/harfbuzz
+        )
+
+        # Explicit GTK3 library directories
+        link_directories(
+                ${GTK3_ROOT}/lib
+        )
+
+        file(GLOB GTK_LIBS "${GTK3_ROOT}/lib/*.dll.a")
+        message(STATUS "Found GTK libraries: ${GTK_LIBS}")
+
+        target_link_libraries(KSP-Tools
+                gtk-3
+                gdk-3
+                gobject-2.0
+                glib-2.0
+                pango-1.0
+                cairo
+                gdk_pixbuf-2.0
+                atk-1.0
+                gio-2.0
+                urlmon
+                sqlite3
+        )
+
+
+        set_target_properties(KSP-Tools PROPERTIES WIN32_EXECUTABLE TRUE)
+    endif ()
 
 else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(STATUS "Configuring for Linux (GCC)")
