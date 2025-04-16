@@ -156,7 +156,7 @@ void save_itineraries_sc(struct ItinStep **departures, int num_deps, int num_nod
 	store_itineraries_in_bfile(departures, num_nodes, num_deps, sc_system, filepath, get_current_bin_file_type());
 }
 
-struct Transfer_Calc_Results sc_results;
+struct Itin_Calc_Results sc_results;
 
 gboolean end_sc_calc_thread() {
 	end_sc_ic_progress_window();
@@ -171,7 +171,7 @@ gboolean end_sc_calc_thread() {
 
 void sc_calc_thread() {
 	char *string;
-	struct Transfer_Spec_Calc_Data calc_data;
+	Itin_Calc_Data calc_data;
 
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_sc_mindepdate));
 	calc_data.jd_min_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
@@ -193,19 +193,21 @@ void sc_calc_thread() {
 	calc_data.dv_filter.last_transfer_type = (int) strtol(string, NULL, 10);
 
 	struct PlannedScStep *step = get_first_sc(sc_step);
-	calc_data.num_steps = get_num_sc_steps(step);
-	calc_data.bodies = malloc(calc_data.num_steps * sizeof(struct Body*));
-	for(int i = 0; i < calc_data.num_steps; i++) {
-		calc_data.bodies[i] = step->body;
+	struct ItinSequenceInfoSpecItin seq_info;
+	seq_info.type = ITIN_SEQ_INFO_SPEC_SEQ;
+	seq_info.num_steps = get_num_sc_steps(step);
+	seq_info.bodies = malloc(seq_info.num_steps * sizeof(struct Body*));
+	for(int i = 0; i < seq_info.num_steps; i++) {
+		seq_info.bodies[i] = step->body;
 		step = step->next;
 	}
+	seq_info.system = sc_system;
+	calc_data.seq_info.spec_seq = seq_info;
 
-	calc_data.system = sc_system;
-
-	sc_results = search_for_spec_itinerary(calc_data);
+	sc_results = search_for_itineraries(calc_data);
 
 	// GUI stuff needs to happen in main thread
-	free(calc_data.bodies);
+	free(seq_info.bodies);
 	g_idle_add((GSourceFunc)end_sc_calc_thread, NULL);
 }
 

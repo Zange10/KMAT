@@ -118,7 +118,7 @@ void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nod
 
 
 
-struct Transfer_Calc_Results ic_results;
+struct Itin_Calc_Results ic_results;
 
 gboolean end_ic_calc_thread() {
 	end_sc_ic_progress_window();
@@ -133,7 +133,7 @@ gboolean end_ic_calc_thread() {
 
 void ic_calc_thread() {
 	char *string;
-	struct Transfer_To_Target_Calc_Data calc_data;
+	struct Itin_Calc_Data calc_data;
 
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_mindepdate));
 	calc_data.jd_min_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
@@ -158,16 +158,16 @@ void ic_calc_thread() {
 	struct Body *arr_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))];
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_grid_get_child_at(GTK_GRID(grid_ic_fbbodies), 0, get_body_system_id(arr_body, ic_system))), 1);
 
-	struct ItinSequenceInfo seq_info = {
+	struct ItinSequenceInfoToTarget seq_info = {
 			.system = ic_system,
 			.dep_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_depbody))],
 			.arr_body = arr_body,
 			.num_flyby_bodies = get_num_selected_bodies_from_grid(grid_ic_fbbodies),
 	};
 	seq_info.flyby_bodies = get_bodies_from_grid(grid_ic_fbbodies, seq_info.num_flyby_bodies);
-	calc_data.seq_info = &seq_info;
+	calc_data.seq_info.to_target = seq_info;
 
-	ic_results = search_for_itinerary_to_target(calc_data);
+	ic_results = search_for_itineraries(calc_data);
 
 	free(seq_info.flyby_bodies);
 
