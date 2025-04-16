@@ -1,6 +1,7 @@
 #include "testing_algorithms.h"
 #include "tools/tool_funcs.h"
 #include "orbit_calculator/transfer_calc.h"
+#include "orbit_calculator/transfer_tools.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -21,7 +22,86 @@ struct Body * get_body_by_name(char *name, struct System *system) {
 	return NULL;
 }
 
-enum TestingResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test test_data) {
+int has_porkchop_point_valid_dep_arr_flyby_bodies(struct PorkchopPoint porkchop_point, struct ItinSequenceInfoToTarget seq_info_to_target) {
+	int has_valid_fly_by_bodies = 1;
+	struct ItinStep *step_ptr = porkchop_point.arrival;
+
+	if(step_ptr->body != seq_info_to_target.arr_body) {has_valid_fly_by_bodies = 0; printf("Wrong Arrival Body: %s | %s\n", step_ptr->body->name, seq_info_to_target.arr_body->name);}
+	if(get_first(step_ptr)->body != seq_info_to_target.dep_body) {has_valid_fly_by_bodies = 0; printf("Wrong Departure Body: %s | %s\n", get_first(step_ptr)->body->name, seq_info_to_target.dep_body->name);}
+
+	while(step_ptr->prev != NULL && step_ptr->prev->prev != NULL) {
+		step_ptr = step_ptr->prev;
+		int is_part_of_flyby_bodies = 0;
+		for(int i = 0; i < seq_info_to_target.num_flyby_bodies; i++) {
+			if(step_ptr->body == seq_info_to_target.flyby_bodies[i]) {is_part_of_flyby_bodies = 1; break;}
+		}
+		if(!is_part_of_flyby_bodies) {has_valid_fly_by_bodies = 0; printf("%s is not part of the allowed fly-by bodies\n", step_ptr->body->name); break;}
+	}
+	return has_valid_fly_by_bodies;
+}
+
+int has_porkchop_point_valid_itinerary_sequence(struct PorkchopPoint porkchop_point, struct ItinSequenceInfoSpecItin seq_info_spec_itin) {
+	int has_valid_seq = 1;
+	struct ItinStep *step_ptr = porkchop_point.arrival;
+
+	int step = seq_info_spec_itin.num_steps-1;
+
+	while(step_ptr != NULL) {
+		if(step_ptr->body != seq_info_spec_itin.bodies[step]) {has_valid_seq = 0; printf("Invalid itinerary sequence (Step: %d, Expected: %s, Instead: %s)\n", step, seq_info_spec_itin.bodies[step]->name, step_ptr->body->name); break;}
+		step_ptr = step_ptr->prev;
+		step--;
+	}
+	return has_valid_seq;
+}
+
+int is_porkchop_point_inside_time_constraints(struct PorkchopPoint porkchop_point, struct Itin_Calc_Data itin_calc_data) {
+	int is_inside_time_constraints = 1;
+	struct ItinStep *arrival = porkchop_point.arrival;
+	if(arrival->date > itin_calc_data.jd_max_arr) {is_inside_time_constraints = 0; printf("Arrival after max arrival date: %f | %f\n", arrival->date, itin_calc_data.jd_max_arr);}
+	if(get_first(arrival)->date < itin_calc_data.jd_min_dep) {is_inside_time_constraints = 0; printf("Departure before min departure date: %f | %f\n", get_first(arrival)->date, itin_calc_data.jd_min_dep);}
+	if(get_first(arrival)->date > itin_calc_data.jd_max_dep) {is_inside_time_constraints = 0; printf("Departure after max departure date: %f | %f\n", get_first(arrival)->date, itin_calc_data.jd_max_dep);}
+	return is_inside_time_constraints;
+}
+
+int is_porkchop_point_inside_dv_filter(struct PorkchopPoint porkchop_point, struct Dv_Filter dv_filter) {
+	int is_inside_dv_filter = 1;
+	double dv_sat = porkchop_point.dv_dsm;
+	dv_sat += dv_filter.last_transfer_type == TF_CIRC ? porkchop_point.dv_arr_circ : dv_filter.last_transfer_type == TF_CAPTURE ? porkchop_point.dv_arr_cap : 0;
+	if(porkchop_point.dv_dep > dv_filter.max_depdv) {is_inside_dv_filter = 0; printf("Departure dv too high: %f | %f\n", porkchop_point.dv_dep, dv_filter.max_depdv);}
+	if(dv_sat > dv_filter.max_satdv) {is_inside_dv_filter = 0; printf("Satellite dv too high: %f | %f\n", dv_sat, dv_filter.max_satdv);}
+	if(porkchop_point.dv_dep + dv_sat > dv_filter.max_totdv) {is_inside_dv_filter = 0; printf("Total dv too high: %f | %f\n", porkchop_point.dv_dep + dv_sat, dv_filter.max_totdv);}
+	return is_inside_dv_filter;
+}
+
+int has_porkchop_point_valid_itinerary(struct PorkchopPoint porkchop_point) {
+	int is_valid_itinerary = 1;
+	struct ItinStep *step_ptr = porkchop_point.arrival;
+	struct ItinStep *prev = porkchop_point.arrival->prev;
+
+	while(prev->prev != NULL && prev->body != NULL) {
+		double t[3] = {prev->prev->date, prev->date, step_ptr->date};
+		struct OSV osv0 = {prev->prev->r, prev->prev->v_body};
+		struct OSV osv1 = {prev->r, prev->v_body};
+		struct OSV osv2 = {step_ptr->r, step_ptr->v_body};
+		struct OSV osvs[3] = {osv0, osv1, osv2};
+		struct Body *bodies[3] = {prev->prev->body, prev->body, step_ptr->body};
+		if(!is_flyby_viable(t, osvs, bodies, bodies[0]->orbit.body)) {
+			is_valid_itinerary = 0;
+			printf("Invalid Itinerary:\n%f - %s\n%f - %s\n%f - %s\n", t[0], bodies[0]->name, t[1], bodies[1]->name, t[2], bodies[2]->name);
+			for(int i = 0; i < 3; i++) {
+				print_date(convert_JD_date(t[i], DATE_ISO), 0); printf(" | "); print_date(convert_JD_date(t[i], DATE_KERBAL), 0); printf(" | ");
+				printf("%s\n", bodies[i]->name);
+			}
+			break;
+		}
+		step_ptr = prev;
+		prev = prev->prev;
+	}
+
+	return is_valid_itinerary;
+}
+
+enum TestResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test test_data) {
 	struct System *system = get_system_by_name(test_data.system_name);
 	if(system == NULL) {
 		printf("Celestial System not found: %s\n", test_data.system_name);
@@ -79,9 +159,22 @@ enum TestingResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test tes
 	int num_itins = 0;
 	for(int i = 0; i < results.num_deps; i++) num_itins += get_number_of_itineraries(results.departures[i]);
 
+	enum TestResult test_result = TEST_PASSED;
+	struct PorkchopPoint *porkchop_points = create_porkchop_array_from_departures(results.departures, results.num_deps);
+	for(int i = 0; i < num_itins; i++) {
+		if(!has_porkchop_point_valid_dep_arr_flyby_bodies(porkchop_points[i], seq_info_to_target)) {test_result = TEST_FAIL_ITINERARY_HAS_INVALID_CELESTIAL_BODY; break;}
+		if(!is_porkchop_point_inside_time_constraints(porkchop_points[i], itin_calc_data)) {test_result = TEST_FAIL_ITINERARY_OUTSIDE_TIME_CONSTRAINTS; break;}
+		if(!is_porkchop_point_inside_dv_filter(porkchop_points[i], dv_filter)) {test_result = TEST_FAIL_ITINERARY_NOT_INSIDE_DV_FILTER; break;}
+		if(!has_porkchop_point_valid_itinerary(porkchop_points[i])) {test_result = TEST_FAIL_INVALID_ITINERARY; break;}
+	}
+
+	// FREE
+	free(porkchop_points);
 	for(int i = 0; i < results.num_deps; i++) free_itinerary(results.departures[i]);
 	free(results.departures);
 	if(test_data.num_flyby_bodies > 0) free(seq_info_to_target.flyby_bodies);
+
+	if(test_result != TEST_PASSED) return test_result;
 
 	printf("Number of Nodes: % 6d | Number of Itineraries: % 6d\n", results.num_nodes, num_itins);
 	printf("Number of Nodes: % 6d | Number of Itineraries: % 6d  (EXPECTED)\n", test_data.expected_num_nodes, test_data.expected_num_itins);
@@ -90,7 +183,7 @@ enum TestingResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test tes
 	return TEST_PASSED;
 }
 
-enum TestingResult test_sequence_calculator(struct Itin_Spec_Seq_Calc_Test test_data) {
+enum TestResult test_sequence_calculator(struct Itin_Spec_Seq_Calc_Test test_data) {
 	struct System *system = get_system_by_name(test_data.system_name);
 	if(system == NULL) {
 		printf("Celestial System not found: %s\n", test_data.system_name);
@@ -144,9 +237,22 @@ enum TestingResult test_sequence_calculator(struct Itin_Spec_Seq_Calc_Test test_
 	int num_itins = 0;
 	for(int i = 0; i < results.num_deps; i++) num_itins += get_number_of_itineraries(results.departures[i]);
 
+	enum TestResult test_result = TEST_PASSED;
+	struct PorkchopPoint *porkchop_points = create_porkchop_array_from_departures(results.departures, results.num_deps);
+	for(int i = 0; i < num_itins; i++) {
+		if(!has_porkchop_point_valid_itinerary_sequence(porkchop_points[i], seq_info_spec_seq)) {test_result = TEST_FAIL_ITINERARY_HAS_INVALID_CELESTIAL_BODY; break;}
+		if(!is_porkchop_point_inside_time_constraints(porkchop_points[i], itin_calc_data)) {test_result = TEST_FAIL_ITINERARY_OUTSIDE_TIME_CONSTRAINTS; break;}
+		if(!is_porkchop_point_inside_dv_filter(porkchop_points[i], dv_filter)) {test_result = TEST_FAIL_ITINERARY_NOT_INSIDE_DV_FILTER; break;}
+		if(!has_porkchop_point_valid_itinerary(porkchop_points[i])) {test_result = TEST_FAIL_INVALID_ITINERARY; break;}
+	}
+
+	// FREE
+	free(porkchop_points);
 	for(int i = 0; i < results.num_deps; i++) free_itinerary(results.departures[i]);
 	free(results.departures);
 	free(seq_info_spec_seq.bodies);
+
+	if(test_result != TEST_PASSED) return test_result;
 
 	printf("Number of Nodes: % 6d | Number of Itineraries: % 6d\n", results.num_nodes, num_itins);
 	printf("Number of Nodes: % 6d | Number of Itineraries: % 6d  (EXPECTED)\n", test_data.expected_num_nodes, test_data.expected_num_itins);

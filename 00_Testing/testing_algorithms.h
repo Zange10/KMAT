@@ -8,12 +8,16 @@
 
 enum TestType {TEST_ITIN_TO_TARGET, TEST_ITIN_SPEC_SEQ};
 
-enum TestingResult {
+enum TestResult {
 	TEST_PASSED,
 	TEST_FAIL_CELESTIAL_SYSTEM_NOT_FOUND,
 	TEST_FAIL_CELESTIAL_BODY_NOT_FOUND,
 	TEST_FAIL_CONFIGURATION_ERROR,
-	TEST_WARN_DIFF_EXPECTED_NUM_NODES_OR_ITINS
+	TEST_WARN_DIFF_EXPECTED_NUM_NODES_OR_ITINS,
+	TEST_FAIL_ITINERARY_NOT_INSIDE_DV_FILTER,
+	TEST_FAIL_ITINERARY_HAS_INVALID_CELESTIAL_BODY,
+	TEST_FAIL_ITINERARY_OUTSIDE_TIME_CONSTRAINTS,
+	TEST_FAIL_INVALID_ITINERARY,
 };
 
 union TestData { ;
@@ -44,9 +48,9 @@ union TestData { ;
 	} itin_spec_seq_calc_test;
 };
 
-enum TestingResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test test_data);
+enum TestResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test test_data);
 
-enum TestingResult test_sequence_calculator(struct Itin_Spec_Seq_Calc_Test test_data);
+enum TestResult test_sequence_calculator(struct Itin_Spec_Seq_Calc_Test test_data);
 
 
 

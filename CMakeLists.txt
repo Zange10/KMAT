@@ -94,6 +94,10 @@ add_executable(KSP-Tools
         tools/datetime.h
         gui/settings.c
         gui/settings.h
+        00_Testing/testing.c
+        00_Testing/testing.h
+        00_Testing/testing_algorithms.c
+        00_Testing/testing_algorithms.h
 )
 
 # Platform-specific setup

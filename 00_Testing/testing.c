@@ -4,11 +4,6 @@
 
 
 void run_tests() {
-	const int num_ic_test_data = 6;
-	struct Itin_To_Target_Calc_Test ic_test_data[num_ic_test_data];
-	const int num_sc_test_data = 4;
-	struct Itin_Spec_Seq_Calc_Test sc_test_data[num_sc_test_data];
-
 	const int num_tests = 10;
 	union TestData test_data[num_tests];
 
@@ -174,7 +169,7 @@ void run_tests() {
 
 	// TEST RESULTS #################################################################################
 
-	enum TestingResult test_results[num_tests];
+	enum TestResult test_results[num_tests];
 
 	for(int i = 0; i < num_tests; i++) {
 		printf("###################### TEST %02d/%02d ######################\n", i+1, num_tests);
@@ -200,16 +195,28 @@ void run_tests() {
 				printf("PASS\n");
 				break;
 			case TEST_FAIL_CELESTIAL_SYSTEM_NOT_FOUND:
-				printf("FAIL  |  Celestial System not found\n");
+				printf("FAIL  |  Celestial system not found\n");
 				break;
 			case TEST_FAIL_CELESTIAL_BODY_NOT_FOUND:
-				printf("FAIL  |  Celestial Body not found\n");
+				printf("FAIL  |  Celestial body not found\n");
 				break;
 			case TEST_FAIL_CONFIGURATION_ERROR:
-				printf("FAIL  |  Configuration Error\n");
+				printf("FAIL  |  Configuration error\n");
 				break;
 			case TEST_WARN_DIFF_EXPECTED_NUM_NODES_OR_ITINS:
-				printf("WARN  |  Number of Nodes and/or Number of Itineraries differ from Expectation\n");
+				printf("WARN  |  Number of nodes and/or number of itineraries differ from expectation\n");
+				break;
+			case TEST_FAIL_ITINERARY_NOT_INSIDE_DV_FILTER:
+				printf("FAIL  |  Itinerary not inside dv-filter\n");
+				break;
+			case TEST_FAIL_ITINERARY_HAS_INVALID_CELESTIAL_BODY:
+				printf("FAIL  |  Itinerary has invalid celestial body\n");
+				break;
+			case TEST_FAIL_ITINERARY_OUTSIDE_TIME_CONSTRAINTS:
+				printf("FAIL  |  Itinerary is outside time constraint\n");
+				break;
+			case TEST_FAIL_INVALID_ITINERARY:
+				printf("FAIL  |  Has invalid itinerary\n");
 				break;
 			default:
 				printf("\n");
