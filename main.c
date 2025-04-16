@@ -3,6 +3,7 @@
 #include "orbit_calculator/orbit_calculator.h"
 #include "tools/tool_funcs.h"
 #include "gui/gui_manager.h"
+#include "00_Testing/testing.h"
 //#include "database/database.h"
 #ifdef _WIN32
 #include <windows.h>  // for SetPriorityClass(), SetThreadPriority()
@@ -33,6 +34,8 @@ int main() {
     init_celestial_bodies();
 	init_available_systems("../Celestial_Systems/");
 //	init_db();
+
+	test();
 	start_gui("../GUI/GUI.glade");
 
 //    int selection;
@@ -65,8 +68,6 @@ int main() {
     return 0;
 }
 
-
-
 void test() {
-
-}
+	run_tests();
+};
