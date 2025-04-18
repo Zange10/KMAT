@@ -28,6 +28,7 @@ struct Body * new_body() {
 	new_body->sl_atmo_p = 0;
 	new_body->scale_height = 1000;
 	new_body->atmo_alt = 0;
+	new_body->system = NULL;
 	new_body->ephem = NULL;
 
 	new_body->orbit.a = 150e9;
@@ -58,6 +59,45 @@ struct System * new_system() {
 	return system;
 }
 
+void parse_and_sort_into_celestial_subsystems(struct System *system) {
+	for(int i = 0; i < system->num_bodies; i++) {
+		int num_child_bodies = 0;
+		struct Body *body = system->bodies[i];
+		for(int j = 0; j < system->num_bodies; j++) {
+			if(system->bodies[j]->orbit.body == body) num_child_bodies++;
+		}
+		if(num_child_bodies > 0) {
+			struct System *child_system = new_system();
+			sprintf(child_system->name, "%s SYSTEM", body->name);
+			child_system->num_bodies = num_child_bodies;
+			child_system->bodies = malloc(num_child_bodies * sizeof(struct Body*));
+			child_system->cb = body;
+			child_system->calc_method = system->calc_method;
+			child_system->ut0 = system->ut0;
+			body->system = child_system;
+		}
+	}
+	
+	for(int i = 0; i < system->num_bodies; i++) {
+		struct Body *body = system->bodies[i];
+		struct Body *attractor = body->orbit.body;
+		if(attractor != system->cb) {
+			for(int j = 0; j < attractor->system->num_bodies-1; j++) {
+				attractor->system->bodies[j] = attractor->system->bodies[j+1];
+			}
+			attractor->system->bodies[attractor->system->num_bodies-1] = body;
+			for(int j = i; j < system->num_bodies-1; j++) {
+				system->bodies[j] = system->bodies[j+1];
+			}
+			system->num_bodies--;
+			i--;
+		}
+	}
+	
+	struct Body **temp = realloc(system->bodies, system->num_bodies*(sizeof(struct Body*)));
+	if(temp == NULL) return;
+	system->bodies = temp;
+}
 
 void init_available_systems(const char *directory) {
 	available_systems = (struct System**) malloc(10 * sizeof(struct System*));	// A maximum of 10 systems seems reasonable
@@ -96,6 +136,27 @@ int is_available_system(struct System *system) {
 	return 0;
 }
 
+struct System * get_system_by_name(char *name) {
+	for(int i = 0; i < get_num_available_systems(); i++) {
+		if(strcmp(get_available_systems()[i]->name, name) == 0) return get_available_systems()[i];
+	}
+	
+	return NULL;
+}
+
+struct Body * get_body_by_name(char *name, struct System *system) {
+	if(strcmp(system->cb->name, name) == 0) return system->cb;
+	for(int i = 0; i < system->num_bodies; i++) {
+		if(system->bodies[i] == NULL) return NULL;
+		if(strcmp(system->bodies[i]->name, name) == 0) return system->bodies[i];
+		if(system->bodies[i]->system != NULL) {
+			struct Body *body = get_body_by_name(name, system->bodies[i]->system);
+			if(body != NULL) return body;
+		}
+	}
+	return NULL;
+}
+
 void free_all_celestial_systems() {
 	for(int i = 0; i < num_available_systems; i++) {
 		free_system(get_available_systems()[i]);
@@ -119,6 +180,20 @@ int get_body_system_id(struct Body *body, struct System *system) {
 	return -1;
 }
 
+void print_celestial_system_layer(struct System *system, int layer) {
+	for(int i = 0; i < system->num_bodies; i++) {
+		for(int j = 0; j < layer-1; j++) printf("│  ");
+		if(layer != 0 && i < system->num_bodies-1) printf("├─ ");
+		else if(layer != 0) printf("└─ ");
+		printf("%s\n", system->bodies[i]->name);
+		if(system->bodies[i]->system != NULL) print_celestial_system_layer(system->bodies[i]->system, layer+1);
+	}
+}
+
+void print_celestial_system(struct System *system) {
+	printf("%s\n", system->cb->name);
+	print_celestial_system_layer(system, 1);
+}
 
 
 

@@ -6,23 +6,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-
-struct System * get_system_by_name(char *name) {
-	for(int i = 0; i < get_num_available_systems(); i++) {
-		if(strcmp(get_available_systems()[i]->name, name) == 0) return get_available_systems()[i];
-	}
-
-	return NULL;
-}
-
-struct Body * get_body_by_name(char *name, struct System *system) {
-	for(int i = 0; i < system->num_bodies; i++) {
-		if(strcmp(system->bodies[i]->name, name) == 0) return system->bodies[i];
-	}
-
-	return NULL;
-}
-
 int has_porkchop_point_valid_dep_arr_flyby_bodies(struct PorkchopPoint porkchop_point, struct ItinSequenceInfoToTarget seq_info_to_target) {
 	int has_valid_fly_by_bodies = 1;
 	struct ItinStep *step_ptr = porkchop_point.arrival;

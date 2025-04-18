@@ -246,7 +246,7 @@ void update_system_dropdown(GtkComboBox *cb_sel_system) {
 	// Add items to the list store
 	for(int i = 0; i < get_num_available_systems(); i++) {
 		gtk_list_store_append(store, &iter);
-		char entry[30];
+		char entry[50];
 		sprintf(entry, "%s", get_available_systems()[i]->name);
 		gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
 	}
@@ -264,7 +264,7 @@ void update_body_dropdown(GtkComboBox *cb_sel_body, struct System *system) {
 	// Add items to the list store
 	for(int i = 0; i < system->num_bodies; i++) {
 		gtk_list_store_append(store, &iter);
-		char entry[30];
+		char entry[32];
 		sprintf(entry, "%s", system->bodies[i]->name);
 		gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
 	}
@@ -283,7 +283,7 @@ void update_launcher_dropdown(GtkComboBox *cb_sel_launcher) {
 	// Add items to the list store
 	for(int i = 0; i < num_launcher; i++) {
 		gtk_list_store_append(store, &iter);
-		char entry[30];
+		char entry[32];
 		sprintf(entry, "%s", all_launcher[i].name);
 		gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
 	}

@@ -86,6 +86,7 @@ void store_body_in_config_file(FILE *file, struct Body *body, struct System *sys
 		fprintf(file, "raan = %f\n", rad2deg(body->orbit.raan));
 		fprintf(file, "argument_of_periapsis = %f\n", rad2deg(body->orbit.arg_peri));
 		fprintf(file, "true_anomaly_ut0 = %f\n", rad2deg(body->orbit.theta));
+		fprintf(file, "parent_body = %s", body->orbit.body->name);
 	}
 }
 
@@ -132,12 +133,14 @@ int get_key_and_value_from_config(char *key, char *value, char *line) {
 	return 0;
 }
 
-struct Body * load_body_from_config_file(FILE *file, struct Body *attractor) {
+struct Body * load_body_from_config_file(FILE *file, struct System *system) {
 	struct Body *body = new_body();
 	double mean_anomaly = 0;
 	double g_asl = 0;
 	int has_mean_anomaly = 0;
 	int has_g_asl = 0;
+	int has_central_body_name = 0;
+	char central_body_name[50];
 
 	char line[256];  // Buffer for each line
 	while (fgets(line, sizeof(line), file)) {
@@ -189,21 +192,32 @@ struct Body * load_body_from_config_file(FILE *file, struct Body *attractor) {
 				} else if (strcmp(key, "mean_anomaly_ut0") == 0) {
 					sscanf(value, "%lf", &mean_anomaly);
 					has_mean_anomaly = 1;
+				} else if (strcmp(key, "parent_body") == 0) {
+					sscanf(value, "%s", central_body_name);
+					has_central_body_name = 1;
 				}
 			}
 		}
 	}
 	if(has_g_asl) body->mu = 9.81*g_asl * body->radius*body->radius;
-
-	if(attractor != NULL) body->orbit = constr_orbit(
-			body->orbit.a,
-			body->orbit.e,
-			body->orbit.inclination,
-			body->orbit.raan,
-			body->orbit.arg_peri,
-			has_mean_anomaly ? calc_true_anomaly_from_mean_anomaly(body->orbit, mean_anomaly) : body->orbit.theta,
-			attractor
-			);
+	
+	if(system != NULL) {
+		struct Body *attractor = system->cb;
+		if(has_central_body_name) {
+			struct Body *attr_temp = get_body_by_name(central_body_name, system);
+			if(attr_temp != NULL) attractor = attr_temp;
+		}
+		
+		body->orbit = constr_orbit(
+				body->orbit.a,
+				body->orbit.e,
+				body->orbit.inclination,
+				body->orbit.raan,
+				body->orbit.arg_peri,
+				has_mean_anomaly ? calc_true_anomaly_from_mean_anomaly(body->orbit, mean_anomaly) : body->orbit.theta,
+				attractor
+		);
+	}
 	return body;
 }
 
@@ -249,7 +263,7 @@ struct System * load_system_from_config_file(char *filename) {
 
 	system->cb = cb;
 	system->bodies = (struct Body**) calloc(system->num_bodies, sizeof(struct Body*));
-	for(int i = 0; i < system->num_bodies; i++) system->bodies[i] = load_body_from_config_file(file, system->cb);
+	for(int i = 0; i < system->num_bodies; i++) system->bodies[i] = load_body_from_config_file(file, system);
 
 	if(system->calc_method == EPHEMS) {
 		for(int i = 0; i < system->num_bodies; i++) {
@@ -261,6 +275,8 @@ struct System * load_system_from_config_file(char *filename) {
 	}
 
 	fclose(file);
+	
+	parse_and_sort_into_celestial_subsystems(system);
 
 	return system;
 }
@@ -409,6 +425,8 @@ struct System * load_celestial_system_from_bfile(FILE *file, int file_type) {
 			get_body_ephems(system->bodies[i], system->cb);
 		}
 	}
+	
+	parse_and_sort_into_celestial_subsystems(system);
 
 	return system;
 }
