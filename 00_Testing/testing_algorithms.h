@@ -6,7 +6,7 @@
 #include "orbit_calculator/itin_tool.h"
 
 
-enum TestType {TEST_ITIN_TO_TARGET, TEST_ITIN_SPEC_SEQ};
+enum TestType {TEST_ITIN_TO_TARGET, TEST_ITIN_SPEC_SEQ, TEST_ITINS_FILE, TEST_ITIN_FILE};
 
 enum TestResult {
 	TEST_PASSED,
@@ -46,12 +46,24 @@ union TestData { ;
 		char **body_names;
 		int expected_num_nodes, expected_num_itins;
 	} itin_spec_seq_calc_test;
+
+	struct Itins_File_Test {
+		enum TestType test_type;
+		char *filepath;
+	} itins_file_test;
+
+	struct Itin_File_Test {
+		enum TestType test_type;
+		char *filepath;
+	} itin_file_test;
 };
 
 enum TestResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test test_data);
 
 enum TestResult test_sequence_calculator(struct Itin_Spec_Seq_Calc_Test test_data);
 
+enum TestResult test_itins_file(char *filepath);
 
+enum TestResult test_itin_file(char *filepath);
 
 #endif //KSP_TESTING_ALGORITHMS_H

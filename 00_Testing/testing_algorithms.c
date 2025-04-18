@@ -2,6 +2,7 @@
 #include "tools/tool_funcs.h"
 #include "orbit_calculator/transfer_calc.h"
 #include "orbit_calculator/transfer_tools.h"
+#include "tools/file_io.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -101,6 +102,13 @@ int has_porkchop_point_valid_itinerary(struct PorkchopPoint porkchop_point) {
 	return is_valid_itinerary;
 }
 
+
+
+
+// TEST METHODS -----------------------------------------------------------------------------------------------------------------------------------
+
+
+
 enum TestResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test test_data) {
 	struct System *system = get_system_by_name(test_data.system_name);
 	if(system == NULL) {
@@ -180,6 +188,8 @@ enum TestResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test test_d
 	printf("Number of Nodes: % 6d | Number of Itineraries: % 6d  (EXPECTED)\n", test_data.expected_num_nodes, test_data.expected_num_itins);
 	if(results.num_nodes != test_data.expected_num_nodes || num_itins != test_data.expected_num_itins) return TEST_WARN_DIFF_EXPECTED_NUM_NODES_OR_ITINS;
 
+	printf("SUCCESS\n");
+
 	return TEST_PASSED;
 }
 
@@ -258,5 +268,78 @@ enum TestResult test_sequence_calculator(struct Itin_Spec_Seq_Calc_Test test_dat
 	printf("Number of Nodes: % 6d | Number of Itineraries: % 6d  (EXPECTED)\n", test_data.expected_num_nodes, test_data.expected_num_itins);
 	if(results.num_nodes != test_data.expected_num_nodes || num_itins != test_data.expected_num_itins) return TEST_WARN_DIFF_EXPECTED_NUM_NODES_OR_ITINS;
 
+	printf("SUCCESS\n");
+
 	return TEST_PASSED;
+}
+
+enum TestResult test_itins_file(char *filepath) {
+	printf("Loading : %s\n", filepath);
+	struct ItinsLoadFileResults file_results = load_itineraries_from_bfile(filepath);
+
+	struct System *system = file_results.system;
+	struct ItinStep **departures = file_results.departures;
+	int num_deps = file_results.num_deps;
+
+	printf("System: %s\nNumber of Departures: %d\n", system->name, num_deps);
+
+	int num_itins = 0;
+	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(departures[i]);
+
+	printf("Number of Itineraries: %d\n", num_itins);
+
+	enum TestResult test_result = TEST_PASSED;
+	struct PorkchopPoint *porkchop_points = create_porkchop_array_from_departures(departures, num_deps);
+	for(int i = 0; i < num_itins; i++) {
+		if(!has_porkchop_point_valid_itinerary(porkchop_points[i])) {test_result = TEST_FAIL_INVALID_ITINERARY; break;}
+	}
+
+
+	// FREE
+	free(porkchop_points);
+	for(int i = 0; i < num_deps; i++) free_itinerary(departures[i]);
+	free(departures);
+	free_system(system);
+
+	if(test_result == TEST_PASSED) printf("SUCCESS\n");
+
+	return test_result;
+}
+
+
+enum TestResult test_itin_file(char *filepath) {
+	printf("Loading : %s\n", filepath);
+	struct ItinLoadFileResults file_results = load_single_itinerary_from_bfile(filepath);
+
+	struct System *system = file_results.system;
+	struct ItinStep *arrival = file_results.itin;
+
+	printf("System: %s\n", system->name);
+	printf("Itinerary: ");
+	struct ItinStep *ptr = get_first(arrival);
+	while(ptr != NULL) {
+		printf("%s", ptr->body->name);
+		if(ptr->num_next_nodes > 0) {
+			printf(" -> ");
+			ptr = ptr->next[0];
+		} else ptr = NULL;
+	}
+	printf("\n");
+
+	enum TestResult test_result = TEST_PASSED;
+	struct PorkchopPoint porkchop_point = create_porkchop_point(arrival);
+
+	printf("DV: (%f | %f | %f | %f)\nDeparture date: ", porkchop_point.dv_dep, porkchop_point.dv_dsm, porkchop_point.dv_arr_cap, porkchop_point.dv_arr_circ);
+	print_date(convert_JD_date(porkchop_point.dep_date, DATE_ISO), 0); printf("  |  "); print_date(convert_JD_date(porkchop_point.dep_date, DATE_KERBAL), 1);
+	printf("Duration: %f days\n", porkchop_point.dur);
+
+	if(!has_porkchop_point_valid_itinerary(porkchop_point)) test_result = TEST_FAIL_INVALID_ITINERARY;
+
+	// FREE
+	free_itinerary(arrival);
+	free_system(system);
+
+	if(test_result == TEST_PASSED) printf("SUCCESS\n");
+
+	return test_result;
 }

@@ -29,16 +29,12 @@
 
 # Porkchop Analyzer:
 ## Passes if:
-- Header can be loaded
-- Header matches content
 - has only valid itineraries (Periapsides etc.)
 ## Tests:
 - Load number of different .itins files
 
 # Transfer Planner:
 ## Passes if:
-- Header can be loaded
-- Header matches content
 - itinerary is valid (Periapsides etc.)
 ## Tests:
 - Load number of different .itin files
