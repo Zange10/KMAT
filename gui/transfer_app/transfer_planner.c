@@ -90,7 +90,16 @@ void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_typ
 
 
 G_MODULE_EXPORT void on_tp_system_change() {
-	if(get_num_available_systems() == 0) return;
+	if(get_num_available_systems() == 0 ||
+			gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system)) == get_num_available_systems() ||
+			tp_system == get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system))] ||
+			gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system)) == -1) return;
+	
+	if(!is_available_system(tp_system) && tp_system != NULL) {
+		free_system(tp_system);
+		tp_system = NULL;
+		remove_combobox_last_entry(GTK_COMBO_BOX(cb_tp_system));
+	}
 
 	tp_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system))];
 	remove_all_transfers();
@@ -580,8 +589,11 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_OPEN)) return;
 
 	if(curr_transfer_tp != NULL) free_itinerary(get_first(curr_transfer_tp));
+	if(!is_available_system(tp_system) && tp_system != NULL) free_system(tp_system);
+	curr_transfer_tp = NULL;
+	tp_system = NULL;
+	if(gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system)) == get_num_available_systems()) remove_combobox_last_entry(GTK_COMBO_BOX(cb_tp_system));
 
-	if(!is_available_system(tp_system)) free_system(tp_system);
 	struct ItinLoadFileResults load_results = load_single_itinerary_from_bfile(filepath);
 	curr_transfer_tp = get_first(load_results.itin);
 	tp_system = load_results.system;
@@ -589,6 +601,7 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
 	tp_update_bodies();
 	update_itinerary();
+	append_combobox_entry(GTK_COMBO_BOX(cb_tp_system), tp_system->name);
 
 	struct ItinStep *step2pr = get_first(curr_transfer_tp);
 	struct DepArrHyperbolaParams dep_hyp_params = get_dep_hyperbola_params(step2pr->next[0]->v_dep, step2pr->v_body,

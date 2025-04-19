@@ -196,6 +196,35 @@ void create_combobox_dropdown_text_renderer(GObject *combo_box) {
 	gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(combo_box), renderer, "text", 0, NULL);
 }
 
+void append_combobox_entry(GtkComboBox *combo_box, char *new_entry) {
+	GtkListStore *store = GTK_LIST_STORE(gtk_combo_box_get_model(combo_box));
+	GtkTreeIter iter;
+	gtk_list_store_append(store, &iter);  // Appends to the end
+	char entry[54];
+	sprintf(entry, "- %s -", new_entry);
+	gtk_list_store_set(store, &iter, 0, entry, -1);
+	gtk_combo_box_set_active_iter(combo_box, &iter);
+}
+
+void remove_combobox_last_entry(GtkComboBox *combo_box) {
+	GtkListStore *store = GTK_LIST_STORE(gtk_combo_box_get_model(combo_box));
+	
+	GtkTreeIter iter, last_iter;
+	gboolean valid = gtk_tree_model_get_iter_first(GTK_TREE_MODEL(store), &iter);
+	
+	if (!valid) {
+		// List is empty, nothing to remove
+		return;
+	}
+	
+	last_iter = iter;  // In case there's only one row
+	while (gtk_tree_model_iter_next(GTK_TREE_MODEL(store), &iter)) {
+		last_iter = iter;  // Keep updating to track the last one
+	}
+	
+	gtk_list_store_remove(store, &last_iter);
+}
+
 void change_text_field_date_type(GObject *text_field, enum DateType old_date_type, enum DateType new_date_type) {
 	char *old_string, new_string[32];
 	old_string = (char*) gtk_entry_get_text(GTK_ENTRY(text_field));
