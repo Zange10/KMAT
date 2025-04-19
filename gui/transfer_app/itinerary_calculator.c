@@ -9,6 +9,8 @@
 
 GObject *tf_ic_window;
 GObject *cb_ic_system;
+GObject *cb_ic_central_body;
+GObject *lb_ic_central_body;
 GObject *cb_ic_depbody;
 GObject *cb_ic_arrbody;
 GObject *tf_ic_mindepdate;
@@ -29,6 +31,8 @@ GtkWidget * ic_update_seq_body_grid(GObject *viewport, GtkWidget *grid);
 void init_itinerary_calculator(GtkBuilder *builder) {
 	tf_ic_window = gtk_builder_get_object(builder, "window");
 	cb_ic_system = gtk_builder_get_object(builder, "cb_ic_system");
+	cb_ic_central_body = gtk_builder_get_object(builder, "cb_ic_central_body");
+	lb_ic_central_body = gtk_builder_get_object(builder, "lb_ic_central_body");
 	cb_ic_depbody = gtk_builder_get_object(builder, "cb_ic_depbody");
 	cb_ic_arrbody = gtk_builder_get_object(builder, "cb_ic_arrbody");
 	tf_ic_mindepdate = gtk_builder_get_object(builder, "tf_ic_mindepdate");
@@ -44,11 +48,13 @@ void init_itinerary_calculator(GtkBuilder *builder) {
 	ic_system = NULL;
 
 	create_combobox_dropdown_text_renderer(cb_ic_system);
+	create_combobox_dropdown_text_renderer(cb_ic_central_body);
 	create_combobox_dropdown_text_renderer(cb_ic_depbody);
 	create_combobox_dropdown_text_renderer(cb_ic_arrbody);
 	update_system_dropdown(GTK_COMBO_BOX(cb_ic_system));
 	if(get_num_available_systems() > 0) {
 		ic_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))];
+		update_central_body_dropdown(GTK_COMBO_BOX(cb_ic_central_body), ic_system);
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_depbody), ic_system);
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_arrbody), ic_system);
 		grid_ic_fbbodies = ic_update_seq_body_grid(vp_ic_fbbodies, grid_ic_fbbodies);
@@ -185,6 +191,26 @@ G_MODULE_EXPORT void on_calc_ic() {
 G_MODULE_EXPORT void on_ic_system_change() {
 	if(get_num_available_systems() > 0) {
 		ic_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))];
+		update_central_body_dropdown(GTK_COMBO_BOX(cb_ic_central_body), ic_system);
+		update_body_dropdown(GTK_COMBO_BOX(cb_ic_depbody), ic_system);
+		update_body_dropdown(GTK_COMBO_BOX(cb_ic_arrbody), ic_system);
+		grid_ic_fbbodies = ic_update_seq_body_grid(vp_ic_fbbodies, grid_ic_fbbodies);
+	}
+}
+
+G_MODULE_EXPORT void on_ic_central_body_change() {
+	if(get_num_available_systems() > 0) {
+		if(get_number_of_subsystems(get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))]) == 0) {
+//			gtk_widget_set_visible(GTK_WIDGET(cb_ic_central_body), 0);
+//			gtk_widget_set_visible(GTK_WIDGET(lb_ic_central_body), 0);
+			gtk_widget_set_sensitive(GTK_WIDGET(cb_ic_central_body), 0);
+			return;
+		}
+		gtk_widget_set_sensitive(GTK_WIDGET(cb_ic_central_body), 1);
+//		gtk_widget_set_visible(GTK_WIDGET(cb_ic_central_body), 1);
+//		gtk_widget_set_visible(GTK_WIDGET(lb_ic_central_body), 1);
+		struct System *ic_og_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))];
+		ic_system = get_subsystem_from_system_and_id(ic_og_system, gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_central_body)));
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_depbody), ic_system);
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_arrbody), ic_system);
 		grid_ic_fbbodies = ic_update_seq_body_grid(vp_ic_fbbodies, grid_ic_fbbodies);

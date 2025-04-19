@@ -136,6 +136,33 @@ int is_available_system(struct System *system) {
 	return 0;
 }
 
+int get_number_of_subsystems(struct System *system) {
+	int num_subsystems = 0;
+	for(int i = 0; i < system->num_bodies; i++) {
+		if(system->bodies[i]->system != NULL) {
+			num_subsystems++;
+			num_subsystems += get_number_of_subsystems(system->bodies[i]->system);
+		}
+	}
+	return num_subsystems;
+}
+
+struct System * get_subsystem_from_system_and_id_rec(struct System *system, int *id) {
+	if(*id == 0) return system;
+	(*id)--;
+	for(int i = 0; i < system->num_bodies; i++) {
+		if(system->bodies[i]->system != NULL) {
+			struct System *subsystem = get_subsystem_from_system_and_id_rec(system->bodies[i]->system, id);
+			if(subsystem != NULL) return subsystem;
+		}
+	}
+	return NULL;
+}
+
+struct System * get_subsystem_from_system_and_id(struct System *system, int id) {
+	return get_subsystem_from_system_and_id_rec(system, &id);
+}
+
 struct System * get_system_by_name(char *name) {
 	for(int i = 0; i < get_num_available_systems(); i++) {
 		if(strcmp(get_available_systems()[i]->name, name) == 0) return get_available_systems()[i];

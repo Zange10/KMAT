@@ -286,6 +286,23 @@ void update_system_dropdown(GtkComboBox *cb_sel_system) {
 	g_object_unref(store);
 }
 
+void update_central_body_dropdown(GtkComboBox *cb_sel_central_body, struct System *system) {
+	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
+	GtkTreeIter iter;
+	// Add items to the list store
+	for(int i = 0; i <= get_number_of_subsystems(system); i++) {
+		gtk_list_store_append(store, &iter);
+		char entry[50];
+		sprintf(entry, "%s", get_subsystem_from_system_and_id(system, i)->cb->name);
+		gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
+	}
+	
+	gtk_combo_box_set_model(cb_sel_central_body, GTK_TREE_MODEL(store));
+	gtk_combo_box_set_active(cb_sel_central_body, 0);
+	
+	g_object_unref(store);
+}
+
 
 void update_body_dropdown(GtkComboBox *cb_sel_body, struct System *system) {
 	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
