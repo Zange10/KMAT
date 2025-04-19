@@ -219,8 +219,10 @@ void print_orbit_info(struct Orbit orbit) {
     printf("Apoapsis:\t\t%g km\n", (orbit.apoapsis-body->radius)/1000);
     printf("Periapsis:\t\t%g km\n", (orbit.periapsis-body->radius)/1000);
     printf("Semi-major axis:\t%g km\n", orbit.a /1000);
-    printf("Inclination:\t\t%g°\n", orbit.inclination);
+    printf("Inclination:\t\t%g°\n", rad2deg(orbit.inclination));
     printf("Eccentricity:\t\t%g\n", orbit.e);
+	printf("RAAN:\t\t\t\t%g°\n", rad2deg(orbit.raan));
+	printf("Arg of Periapsis:\t%g°\n", rad2deg(orbit.arg_peri));
     printf("Orbital Period:\t\t%gs\n", orbit.period);
     printf("______________________\n\n");
 }
