@@ -60,6 +60,8 @@ struct System * new_system() {
 }
 
 void parse_and_sort_into_celestial_subsystems(struct System *system) {
+	system->cb->system = system;
+	
 	for(int i = 0; i < system->num_bodies; i++) {
 		int num_child_bodies = 0;
 		struct Body *body = system->bodies[i];
@@ -161,6 +163,12 @@ struct System * get_subsystem_from_system_and_id_rec(struct System *system, int 
 
 struct System * get_subsystem_from_system_and_id(struct System *system, int id) {
 	return get_subsystem_from_system_and_id_rec(system, &id);
+}
+
+struct System * get_top_level_system(struct System *system) {
+	if(system == NULL) return NULL;
+	while(system->cb->orbit.body != NULL) system = system->cb->orbit.body->system;
+	return system;
 }
 
 struct System * get_system_by_name(char *name) {

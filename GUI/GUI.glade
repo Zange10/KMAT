@@ -2031,7 +2031,7 @@
                       </packing>
                     </child>
                     <child>
-                      <!-- n-columns=2 n-rows=2 -->
+                      <!-- n-columns=2 n-rows=3 -->
                       <object class="GtkGrid">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
@@ -2040,6 +2040,19 @@
                         <property name="margin-top">10</property>
                         <property name="row-spacing">5</property>
                         <property name="column-spacing">10</property>
+                        <child>
+                          <object class="GtkComboBox" id="cb_tp_system">
+                            <property name="name">cb_tp_system</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <signal name="changed" handler="on_tp_system_change" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">0</property>
+                            <property name="width">2</property>
+                          </packing>
+                        </child>
                         <child>
                           <object class="GtkScrolledWindow">
                             <property name="width-request">125</property>
@@ -2058,7 +2071,7 @@
                           </object>
                           <packing>
                             <property name="left-attach">0</property>
-                            <property name="top-attach">1</property>
+                            <property name="top-attach">2</property>
                           </packing>
                         </child>
                         <child>
@@ -2188,19 +2201,18 @@
                           </object>
                           <packing>
                             <property name="left-attach">1</property>
-                            <property name="top-attach">1</property>
+                            <property name="top-attach">2</property>
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkComboBox" id="cb_tp_system">
-                            <property name="name">cb_tp_system</property>
+                          <object class="GtkComboBox" id="cb_tp_central_body">
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
-                            <signal name="changed" handler="on_tp_system_change" swapped="no"/>
+                            <signal name="changed" handler="on_tp_central_body_change" swapped="no"/>
                           </object>
                           <packing>
                             <property name="left-attach">0</property>
-                            <property name="top-attach">0</property>
+                            <property name="top-attach">1</property>
                             <property name="width">2</property>
                           </packing>
                         </child>

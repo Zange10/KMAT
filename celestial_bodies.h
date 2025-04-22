@@ -45,6 +45,8 @@ int get_number_of_subsystems(struct System *system);
 
 struct System * get_subsystem_from_system_and_id(struct System *system, int id);
 
+struct System * get_top_level_system(struct System *system);
+
 struct System * get_system_by_name(char *name);
 
 struct Body * get_body_by_name(char *name, struct System *system);

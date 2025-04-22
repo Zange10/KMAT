@@ -201,14 +201,10 @@ G_MODULE_EXPORT void on_ic_system_change() {
 G_MODULE_EXPORT void on_ic_central_body_change() {
 	if(get_num_available_systems() > 0) {
 		if(get_number_of_subsystems(get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))]) == 0) {
-//			gtk_widget_set_visible(GTK_WIDGET(cb_ic_central_body), 0);
-//			gtk_widget_set_visible(GTK_WIDGET(lb_ic_central_body), 0);
 			gtk_widget_set_sensitive(GTK_WIDGET(cb_ic_central_body), 0);
 			return;
 		}
 		gtk_widget_set_sensitive(GTK_WIDGET(cb_ic_central_body), 1);
-//		gtk_widget_set_visible(GTK_WIDGET(cb_ic_central_body), 1);
-//		gtk_widget_set_visible(GTK_WIDGET(lb_ic_central_body), 1);
 		struct System *ic_og_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))];
 		ic_system = get_subsystem_from_system_and_id(ic_og_system, gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_central_body)));
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_depbody), ic_system);
