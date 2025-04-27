@@ -27,52 +27,26 @@ namespace SystemConfigCreator
 			double angle = Math.Acos(acosPart);
 			return Math.Abs(angle);
 		}
+		
+		// only (not actually good) approximation, but very simple model
+		public double calcScaleHeight(CelestialBody body)
+		{
+			float atmoHeight = (float) body.atmosphereDepth;
+			float h = atmoHeight / 10f;
+			double scaleHeight;
+			if (body.atmospherePressureCurveIsNormalized) scaleHeight = - h / Math.Log(body.atmospherePressureCurve.Evaluate(h));
+			else scaleHeight = - h / Math.Log(body.atmospherePressureCurve.Evaluate(h) / body.atmospherePressureSeaLevel);
+			return scaleHeight;
+		}
 
 		public double rad2deg(double rad)
 		{
 			return rad / Math.PI * 180;
 		}
-
-		public double deg2rad(double deg)
-		{
-			return deg / 180 * Math.PI;
-		}
 		
 		public bool IsRSS()
 		{
 			return FlightGlobals.Bodies.Exists(b => b.name == "Earth");
-		}
-
-		public int get_central_body_idx(CelestialBody body, List<CelestialBody> bodies)
-		{
-			if (body.isStar) return -1;
-
-			CelestialBody centralBody = body.referenceBody;
-			
-			for (var i = 0; i < bodies.Count; i++)
-			{
-				if(bodies[i] == centralBody) return i;
-			}
-
-			return bodies.Count;
-		}
-		
-		public List<CelestialBody> sort_bodies(List<CelestialBody> bodies)
-		{
-			for (int i = 0; i < bodies.Count; i++)
-			{
-				int cb_id = get_central_body_idx(bodies[i], bodies);
-				if (cb_id > i)
-				{
-					CelestialBody temp = bodies[i];
-					bodies[i] = bodies[cb_id];
-					bodies[cb_id] = bodies[i];
-					Debug.Log("Switched {bodies[cb_id].name} and {bodies[i].name}");
-					i--;
-				}
-			}
-
-			return bodies;
 		}
 
 		public void store_body_in_file(StreamWriter writer, CelestialBody body)
@@ -85,7 +59,12 @@ namespace SystemConfigCreator
 			writer.WriteLine("gravitational_parameter = " + body.gravParameter);
 			writer.WriteLine("radius = " + body.Radius);
 			writer.WriteLine("rotational_period = " + body.rotationPeriod);
-			if (body.atmosphere) writer.WriteLine("atmosphere_altitude = " + body.atmosphereDepth);
+			if (body.atmosphere)
+			{
+				writer.WriteLine("sea_level_pressure = " + body.atmospherePressureSeaLevel);
+				writer.WriteLine("scale_height = " + calcScaleHeight(body));
+				writer.WriteLine("atmosphere_altitude = " + body.atmosphereDepth);
+			}
 
 			if (!body.isStar)
 			{
@@ -169,18 +148,18 @@ namespace SystemConfigCreator
 		// Coroutine to wait for the GUI and orbits to be ready
 		private IEnumerator WaitForTrackingStationGUIAndStoreSystem()
 		{
-			PrintToLog("Registered entering tracking station");
+			// PrintToLog("Registered entering tracking station");
 			// Wait until the MapView is active (i.e., Tracking Station GUI is visible)
 			while (!MapView.MapIsEnabled)
 			{
-				PrintToLog("MapView not yet enabled");
+				// PrintToLog("MapView not yet enabled");
 				yield return new WaitForSeconds(0.5f);
 			}
-			PrintToLog("MapView enabled");
+			// PrintToLog("MapView enabled");
 			// The GUI and orbits are ready, you can execute your code now
 			yield return new WaitForSeconds(0.5f);
 			
-			PrintToLog("Initiating config file creation");
+			// PrintToLog("Initiating config file creation");
 			
 			CelestialBody centralBody = FlightGlobals.Bodies[0];
 			foreach (var body in FlightGlobals.Bodies)
