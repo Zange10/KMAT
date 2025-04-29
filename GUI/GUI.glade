@@ -5153,6 +5153,16 @@
               <object class="GtkComboBoxText" id="cb_settings_datetime_type">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">1. ISO time:
+	Format: YYYY-MM-DD (ISO8601)
+	1 year = 365 days (365.25 days); 1 day = 24 hours
+    	Use this one only for the real solar system
+2. Kerbal time:
+	Format: YYY-DDD
+	1 year = 426 days; 1 day = 6 hours
+3. ISO-like Kerbal time:
+	Format: YYY-DDD
+	1 year = 365 days; 1 day = 24 hours</property>
                 <property name="active">0</property>
                 <items>
                   <item translatable="yes">ISO Time</item>

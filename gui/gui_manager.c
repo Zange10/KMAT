@@ -103,7 +103,7 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 	g_object_unref(builder);
 }
 
-int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAction action) {
+int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAction action, char *initial_name) {
 	create_directory_if_not_exists(get_itins_directory());
 	#ifdef _WIN32
 		OPENFILENAME ofn;
@@ -152,6 +152,7 @@ int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAc
 												 "_Cancel", GTK_RESPONSE_CANCEL,
 												 "_Save", GTK_RESPONSE_ACCEPT,
 												 NULL);
+			gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), initial_name);
 		} else {
 			dialog = gtk_file_chooser_dialog_new("Open File", NULL, action,
 												 "_Cancel", GTK_RESPONSE_CANCEL,

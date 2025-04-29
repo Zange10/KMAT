@@ -558,7 +558,7 @@ G_MODULE_EXPORT void on_find_closest_transfer(GtkWidget* widget, gpointer data) 
 }
 
 G_MODULE_EXPORT void on_find_itinerary(GtkWidget* widget, gpointer data) {
-	if(tp_system == NULL) return;
+	if(tp_system == NULL || curr_transfer_tp == NULL) return;
 	struct ItinStep *itin_copy = create_itin_copy(get_first(curr_transfer_tp));
 	while(itin_copy->prev != NULL) {
 		if(itin_copy->prev->body == NULL) return;	// double swing-by not implemented
@@ -599,13 +599,13 @@ G_MODULE_EXPORT void on_save_itinerary(GtkWidget* widget, gpointer data) {
 	if(first == NULL || !is_valid_itinerary(get_last(curr_transfer_tp))) return;
 
 	char filepath[255];
-	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_SAVE)) return;
+	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_SAVE, "")) return;
 	store_single_itinerary_in_bfile(first, tp_system, filepath);
 }
 
 G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 	char filepath[255];
-	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_OPEN)) return;
+	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_OPEN, "")) return;
 
 	if(curr_transfer_tp != NULL) free_itinerary(get_first(curr_transfer_tp));
 	if(!is_available_system(tp_system) && tp_system != NULL) free_system(tp_system);

@@ -537,7 +537,7 @@ void analyze_departure_itins() {
 
 G_MODULE_EXPORT void on_load_itineraries(GtkWidget* widget, gpointer data) {
 	char filepath[255];
-	if(!get_path_from_file_chooser(filepath, ".itins", GTK_FILE_CHOOSER_ACTION_OPEN)) return;
+	if(!get_path_from_file_chooser(filepath, ".itins", GTK_FILE_CHOOSER_ACTION_OPEN, "")) return;
 
 	free_all_porkchop_analyzer_itins();
 	struct ItinsLoadFileResults load_results = load_itineraries_from_bfile(filepath);
@@ -557,7 +557,7 @@ G_MODULE_EXPORT void on_save_best_itinerary(GtkWidget* widget, gpointer data) {
 	if(first == NULL) return;
 
 	char filepath[255];
-	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_SAVE)) return;
+	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_SAVE, "")) return;
 	store_single_itinerary_in_bfile(first, pa_system, filepath);
 }
 

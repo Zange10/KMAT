@@ -12,7 +12,7 @@ void create_combobox_dropdown_text_renderer(GObject *combo_box);
 void append_combobox_entry(GtkComboBox *combo_box, char *new_entry);
 void remove_combobox_last_entry(GtkComboBox *combo_box);
 
-int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAction action);
+int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAction action, char *initial_name);
 
 void update_system_dropdown(GtkComboBox *cb_sel_body);
 void update_central_body_dropdown(GtkComboBox *cb_sel_central_body, struct System *system);

@@ -345,8 +345,6 @@ void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnal
 	cairo_destroy(buffer_cr);
 	cairo_surface_destroy(buffer_surface);
 
-	printf("%d points drawn; %d total number of points\n", num_draw_itins, num_itins);
-
 	free(draw_idx);
 }
 

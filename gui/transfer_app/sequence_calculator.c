@@ -152,7 +152,7 @@ void update_sc_preview() {
 void save_itineraries_sc(struct ItinStep **departures, int num_deps, int num_nodes) {
 	if(departures == NULL || num_deps == 0) return;
 	char filepath[255];
-	if(!get_path_from_file_chooser(filepath,  ".itins", GTK_FILE_CHOOSER_ACTION_SAVE)) return;
+	if(!get_path_from_file_chooser(filepath,  ".itins", GTK_FILE_CHOOSER_ACTION_SAVE, "")) return;
 	store_itineraries_in_bfile(departures, num_nodes, num_deps, sc_system, filepath, get_current_bin_file_type());
 }
 
