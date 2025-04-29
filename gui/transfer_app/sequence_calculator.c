@@ -40,7 +40,7 @@ void init_sequence_calculator(GtkBuilder *builder) {
 	vp_sc_preview = gtk_builder_get_object(builder, "vp_sc_preview");
 
 	sc_step = NULL;
-	create_combobox_dropdown_text_renderer(cb_sc_system);
+	create_combobox_dropdown_text_renderer(cb_sc_system, GTK_ALIGN_CENTER);
 	update_system_dropdown(GTK_COMBO_BOX(cb_sc_system));
 	sc_system = NULL;
 	if(get_num_available_systems() > 0) sc_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_sc_system))];
@@ -121,7 +121,7 @@ void update_sc_preview() {
 	while(step != NULL) {
 		// Body drop-down
 		widget = gtk_combo_box_new();
-		create_combobox_dropdown_text_renderer(G_OBJECT(widget));
+		create_combobox_dropdown_text_renderer(G_OBJECT(widget), GTK_ALIGN_CENTER);
 		update_body_dropdown(GTK_COMBO_BOX(widget), sc_system);
 		gtk_combo_box_set_active(GTK_COMBO_BOX(widget), get_body_system_id(step->body, sc_system));
 		g_signal_connect(widget, "changed", G_CALLBACK(on_update_step_body_sc), step);

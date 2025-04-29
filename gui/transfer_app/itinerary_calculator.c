@@ -47,10 +47,10 @@ void init_itinerary_calculator(GtkBuilder *builder) {
 
 	ic_system = NULL;
 
-	create_combobox_dropdown_text_renderer(cb_ic_system);
-	create_combobox_dropdown_text_renderer(cb_ic_central_body);
-	create_combobox_dropdown_text_renderer(cb_ic_depbody);
-	create_combobox_dropdown_text_renderer(cb_ic_arrbody);
+	create_combobox_dropdown_text_renderer(cb_ic_system, GTK_ALIGN_CENTER);
+	create_combobox_dropdown_text_renderer(cb_ic_central_body, GTK_ALIGN_CENTER);
+	create_combobox_dropdown_text_renderer(cb_ic_depbody, GTK_ALIGN_CENTER);
+	create_combobox_dropdown_text_renderer(cb_ic_arrbody, GTK_ALIGN_CENTER);
 	update_system_dropdown(GTK_COMBO_BOX(cb_ic_system));
 	if(get_num_available_systems() > 0) {
 		ic_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))];

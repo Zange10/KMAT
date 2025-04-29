@@ -191,19 +191,18 @@ int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAc
 	else return 1;
 }
 
-void create_combobox_dropdown_text_renderer(GObject *combo_box) {
+void create_combobox_dropdown_text_renderer(GObject *combo_box, GtkAlign align) {
 	GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
 	gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(combo_box), renderer, TRUE);
 	gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(combo_box), renderer, "text", 0, NULL);
+	if(align == GTK_ALIGN_CENTER) g_object_set(renderer, "xalign", 0.5, NULL);
 }
 
 void append_combobox_entry(GtkComboBox *combo_box, char *new_entry) {
 	GtkListStore *store = GTK_LIST_STORE(gtk_combo_box_get_model(combo_box));
 	GtkTreeIter iter;
 	gtk_list_store_append(store, &iter);  // Appends to the end
-	char entry[54];
-	sprintf(entry, "- %s -", new_entry);
-	gtk_list_store_set(store, &iter, 0, entry, -1);
+	gtk_list_store_set(store, &iter, 0, new_entry, -1);
 	gtk_combo_box_set_active_iter(combo_box, &iter);
 }
 
@@ -272,13 +271,15 @@ char * get_itins_directory() {
 
 void update_system_dropdown(GtkComboBox *cb_sel_system) {
 	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
-	GtkTreeIter iter;
-	// Add items to the list store
-	for(int i = 0; i < get_num_available_systems(); i++) {
-		gtk_list_store_append(store, &iter);
-		char entry[50];
-		sprintf(entry, "%s", get_available_systems()[i]->name);
-		gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
+	if(cb_sel_system != NULL) {
+		GtkTreeIter iter;
+		// Add items to the list store
+		for(int i = 0; i < get_num_available_systems(); i++) {
+			gtk_list_store_append(store, &iter);
+			char entry[50];
+			sprintf(entry, "%s", get_available_systems()[i]->name);
+			gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
+		}
 	}
 
 	gtk_combo_box_set_model(cb_sel_system, GTK_TREE_MODEL(store));
@@ -307,13 +308,15 @@ void update_central_body_dropdown(GtkComboBox *cb_sel_central_body, struct Syste
 
 void update_body_dropdown(GtkComboBox *cb_sel_body, struct System *system) {
 	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
-	GtkTreeIter iter;
-	// Add items to the list store
-	for(int i = 0; i < system->num_bodies; i++) {
-		gtk_list_store_append(store, &iter);
-		char entry[32];
-		sprintf(entry, "%s", system->bodies[i]->name);
-		gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
+	if(system != NULL) {
+		GtkTreeIter iter;
+		// Add items to the list store
+		for(int i = 0; i < system->num_bodies; i++) {
+			gtk_list_store_append(store, &iter);
+			char entry[32];
+			sprintf(entry, "%s", system->bodies[i]->name);
+			gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
+		}
 	}
 
 	gtk_combo_box_set_model(cb_sel_body, GTK_TREE_MODEL(store));
