@@ -7,15 +7,138 @@
 #include <math.h>
 
 
-
+int mouse_pressed = 0;
 GObject *drawing_area;
 
-struct Vector observer = {-10,0,5};
-struct Vector looking = {1,0,0};
-double angle = 20*M_PI/180;
+Camera cam = {
+		(struct Vector) {-50,0,50},
+		(struct Vector) {1,0,0},
+		0
+};
 
+double pitch = 0, yaw = 0, pitch_add = 0.01, distance = 50;
+
+
+
+// Global to track if right button is held
+gboolean right_button_held = FALSE;
+struct Vector2D mouse_pos;
+
+gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
+	if(event->direction == GDK_SCROLL_UP && distance / 1.2 > 1) distance /= 1.2;
+	if(event->direction == GDK_SCROLL_DOWN && distance * 1.2 < 200) distance *= 1.2;
+	gtk_widget_queue_draw(GTK_WIDGET(drawing_area));
+	return TRUE;
+}
+
+
+
+gboolean on_button_press(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+	if (event->button == GDK_BUTTON_SECONDARY) {
+		right_button_held = TRUE;
+		mouse_pos = (struct Vector2D) {event->x, event->y};
+		return TRUE;
+	}
+	return FALSE;
+}
+
+gboolean on_button_release(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+	if (event->button == GDK_BUTTON_SECONDARY) {
+		right_button_held = FALSE;
+		return TRUE;
+	}
+	return FALSE;
+}
+
+gboolean on_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+	// Check if it's the right mouse button
+	if (right_button_held) {
+		// event->x and event->y are relative to the widget (drawing area)
+		struct Vector2D mouse_mov = {event->x-mouse_pos.x, event->y-mouse_pos.y};
+
+		yaw += mouse_mov.x * 0.005;
+		pitch -= mouse_mov.y * 0.005;
+		if(pitch >=  M_PI/2) pitch =  M_PI/2 - 0.001;
+		if(pitch <= -M_PI/2) pitch = -M_PI/2 + 0.001;
+
+		mouse_pos = (struct Vector2D) {event->x, event->y};
+		gtk_widget_queue_draw(GTK_WIDGET(drawing_area));
+		return TRUE; // Event handled
+	}
+	return FALSE;
+}
 
 void on_draw_projection(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
+	cam.pos = (struct Vector) {cos(yaw), sin(yaw), 0};
+	cam.pos = scalar_multiply(cam.pos, distance);
+	struct Vector right = norm_vector(cross_product(cam.pos, vec(0,0,1)));
+	cam.pos = rotate_vector_around_axis(cam.pos,right, pitch);
+	cam.looking = norm_vector(scalar_multiply(cam.pos, -1));
+//	print_vector(looking);
+
+	// reset drawing area
+	GtkAllocation allocation;
+	gtk_widget_get_allocation(widget, &allocation);
+	int area_width = allocation.width;
+	int area_height = allocation.height;
+
+	cairo_rectangle(cr, 0, 0, area_width, area_height);
+	cairo_set_source_rgb(cr, 0,0,0);
+	cairo_fill(cr);
+
+	cairo_set_source_rgb(cr, 1.0, 1.0, 0.3); // Blue color
+	cairo_set_line_width(cr, 5.0);
+
+	struct Vector2D p2d_sun = p3d_to_p2d(cam, vec(0,0,0), area_width, area_height);
+	cairo_arc(cr, p2d_sun.x, p2d_sun.y,5, 0, 2 * M_PI);
+	cairo_fill(cr);
+
+	cairo_set_source_rgb(cr, 0.0, 1.0, 1.0); // Blue color
+	struct Vector p3d_last = {1,0,0};
+	for(double i = 0; i < 2*M_PI; i+=0.01) {
+		struct Vector p3d = {cos(i),sin(i), 0};
+
+		if(i > M_PI) cairo_set_source_rgb(cr, 0.0, 0.0, 1.0); // Blue color
+
+		struct Vector2D p2d = p3d_to_p2d(cam, p3d, area_width, area_height);
+		struct Vector2D p2d_last = p3d_to_p2d(cam, p3d_last, area_width, area_height);
+
+		draw_stroke(cr, p2d_last, p2d);
+
+		p3d_last = p3d;
+	}
+	p3d_last = (struct Vector){2,0,0};
+	cairo_set_source_rgb(cr, 1.0, 1.0, 0.0); // Blue color
+	for(double i = 0; i < 2*M_PI; i+=0.01) {
+		struct Vector p3d = {2*cos(i),2*sin(i), 0};
+		if(i > M_PI) cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); // Blue color
+
+		struct Vector2D p2d = p3d_to_p2d(cam, p3d, area_width, area_height);
+		struct Vector2D p2d_last = p3d_to_p2d(cam, p3d_last, area_width, area_height);
+
+		draw_stroke(cr, p2d_last, p2d);
+
+		p3d_last = p3d;
+	}
+	p3d_last = (struct Vector){2,0,0};
+	cairo_set_source_rgb(cr, 0.2, 1.0, 0.0); // Blue color
+	for(double i = 0; i < 2*M_PI; i+=0.01) {
+		struct Vector p3d = {2*cos(i), 0, 2*sin(i)};
+		if(i > M_PI) cairo_set_source_rgb(cr, 0.0, 1.0, 0.0); // Blue color
+
+		struct Vector2D p2d = p3d_to_p2d(cam, p3d, area_width, area_height);
+		struct Vector2D p2d_last = p3d_to_p2d(cam, p3d_last, area_width, area_height);
+
+		draw_stroke(cr, p2d_last, p2d);
+
+		p3d_last = p3d;
+	}
+
+//	print_vector(p3d);
+}
+
+
+void on_draw_projection1(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 	// reset drawing area
 	GtkAllocation allocation;
 	gtk_widget_get_allocation(widget, &allocation);
@@ -28,31 +151,50 @@ void on_draw_projection(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 	cairo_set_source_rgb(cr, 0,0,0);
 	cairo_fill(cr);
 
-	cairo_set_source_rgb(cr, 0.0, 1.0, 1.0); // Blue color
+	cairo_set_source_rgb(cr, 0.0, 1.0, 1.0);
 	cairo_set_line_width(cr, 5.0);
 
-	struct Vector p3d_last = {1,0,0};
-	for(double i = 0; i < 2*M_PI; i+=0.01) {
-		struct Vector p3d = {cos(i),sin(i), 0};
+	int num_rows = 20;
+	int num_cols = num_rows;
 
-		struct Vector2D p2d = p3d_to_p2d(observer, looking, p3d, area_width, area_height);
-		struct Vector2D p2d_last = p3d_to_p2d(observer, looking, p3d_last, area_width, area_height);
+	double points_x = 10000;
+	double spacing = 100;
 
-		draw_stroke(cr, p2d_last, p2d);
+	for(int i = -num_cols/2; i < num_cols/2; i++) {
+		for(int j = -num_rows/2; j < num_rows/2; j++) {
+			struct Vector p3d = {points_x, i*spacing, j*spacing};
 
-		p3d_last = p3d;
+			struct Vector2D p2d = p3d_to_p2d(cam, p3d, area_width, area_height);
+//			print_vector2d(p2d);
+			cairo_arc(cr, p2d.x, p2d.y, 2, 0, 2 * M_PI);
+			cairo_fill(cr);
+		}
 	}
-	p3d_last = (struct Vector){2,0,0};
-	cairo_set_source_rgb(cr, 1.0, 1.0, 0.0); // Blue color
-	for(double i = 0; i < 2*M_PI; i+=0.01) {
-		struct Vector p3d = {2*cos(i),2*sin(i), 0};
 
-		struct Vector2D p2d = p3d_to_p2d(observer, looking, p3d, area_width, area_height);
-		struct Vector2D p2d_last = p3d_to_p2d(observer, looking, p3d_last, area_width, area_height);
+	for(int i = -num_cols/2; i < num_cols/2; i++) {
+		for(int j = -num_rows/2; j < num_rows/2; j++) {
+			struct Vector p3d = {points_x, i*spacing, j*spacing};
+			struct Vector p3d_last = {points_x, i*spacing, (j-1)*spacing};
 
-		draw_stroke(cr, p2d_last, p2d);
+			struct Vector2D p2d = p3d_to_p2d(cam, p3d, area_width, area_height);
+			struct Vector2D p2d_last = p3d_to_p2d(cam, p3d_last, area_width, area_height);
+//			print_vector2d(p2d);
 
-		p3d_last = p3d;
+			draw_stroke(cr, p2d_last, p2d);
+		}
+	}
+
+	for(int i = -num_rows/2; i < num_rows/2; i++) {
+		for(int j = -num_cols/2; j < num_cols/2; j++) {
+			struct Vector p3d = {points_x, j*spacing, i*spacing};
+			struct Vector p3d_last = {points_x, (j-1)*spacing, i*spacing};
+
+			struct Vector2D p2d = p3d_to_p2d(cam, p3d, area_width, area_height);
+			struct Vector2D p2d_last = p3d_to_p2d(cam, p3d_last, area_width, area_height);
+//			print_vector2d(p2d);
+
+			draw_stroke(cr, p2d_last, p2d);
+		}
 	}
 
 //	print_vector(p3d);
@@ -70,10 +212,7 @@ void init_test() {
 }
 
 static gboolean on_timeout(gpointer data) {
-	observer.x += 0.01;
-	looking = norm_vector(scalar_multiply(observer, -1));
-	print_vector(looking);
-	gtk_widget_queue_draw(GTK_WIDGET(drawing_area));
+
 	return G_SOURCE_CONTINUE;
 }
 
@@ -87,13 +226,21 @@ void activate_test(GtkApplication *app, gpointer user_data) {
 
 	/* Connect signal handlers to the constructed widgets. */
 	GObject *window = gtk_builder_get_object (builder, "window");
-	gtk_window_set_application(GTK_WINDOW (window), app);
-	gtk_widget_set_visible(GTK_WIDGET (window), TRUE);
 
 
 	drawing_area = gtk_builder_get_object(builder, "drawing_area");
+	gtk_widget_add_events(GTK_WIDGET(drawing_area),
+						  GDK_BUTTON_PRESS_MASK |
+						  GDK_BUTTON_RELEASE_MASK |
+						  GDK_POINTER_MOTION_MASK |
+						  GDK_SCROLL_MASK);
 
-	g_timeout_add(1.0/60*1000.0, on_timeout, drawing_area);
+	g_signal_connect(drawing_area, "button-press-event", G_CALLBACK(on_button_press), NULL);
+	g_signal_connect(drawing_area, "button-release-event", G_CALLBACK(on_button_release), NULL);
+	g_signal_connect(GTK_WIDGET(drawing_area), "motion-notify-event", G_CALLBACK(on_mouse_move), NULL);
+	g_signal_connect(drawing_area, "scroll-event", G_CALLBACK(on_scroll), NULL);
+	gtk_window_set_application(GTK_WINDOW (window), app);
+	gtk_widget_set_visible(GTK_WIDGET (window), TRUE);
 
 	/* We do not need the builder anymore */
 	g_object_unref(builder);
