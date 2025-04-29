@@ -28,7 +28,7 @@ struct Thread_Pool {
  * @param thread_args   Pointer to the arguments for the thread method
  * @return A populated Thread_Pool structure with 64 threads
  */
-struct Thread_Pool use_thread_pool64(void *thread_method(void*), void *thread_args);
+struct Thread_Pool use_thread_pool32(void *thread_method(void*), void *thread_args);
 struct Thread_Pool use_thread_pool01(void *thread_method(void*), void *thread_args);
 
 /**

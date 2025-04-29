@@ -30,7 +30,7 @@ static gboolean update_sc_ic_progress_window(gpointer data) {
 	struct Transfer_Calc_Status calc_status = get_current_transfer_calc_status();
 	gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(tf_prog_bar), calc_status.progress);
 	char s[200];
-	if(get_thread_counter(0) <= calc_status.jd_diff)
+	if(get_thread_counter(3) == 0)
 		sprintf(s, "Departure dates analyzed: %d / %d\nItineraries found: %d", calc_status.num_deps, (int) calc_status.jd_diff, calc_status.num_itins);
 	else
 		sprintf(s, "Departures dates analyzed: %d / %d\nItineraries found: %d\nEnding Calculations...", calc_status.num_deps, (int) calc_status.jd_diff, calc_status.num_itins);
@@ -50,10 +50,7 @@ void end_sc_ic_progress_window() {
 }
 
 G_MODULE_EXPORT void end_progress_calculation() {
-	struct Transfer_Calc_Status calc_status = get_current_transfer_calc_status();
-	for(int i = 0; i <= calc_status.jd_diff; i++) {
-		get_incr_thread_counter(0);
-	}
+	get_incr_thread_counter(3);
 }
 
 void show_msg_window(char *msg) {

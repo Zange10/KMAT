@@ -64,7 +64,6 @@ void *calc_itins_from_departure(void *args) {
 	// index in departure array (iterated over)
 	int index = get_incr_thread_counter(0);
 	// increase finished counter to 1 (first finished should reflect a num of finished of 1)
-	if(index == 0) get_incr_thread_counter(1);
 
 	double jd_dep = jd_min_dep + index;
 	struct ItinStep *curr_step;
@@ -73,7 +72,7 @@ void *calc_itins_from_departure(void *args) {
 	// used for progress feedback
 	double jd_diff = jd_max_dep-jd_min_dep+1;
 
-	while(jd_dep <= jd_max_dep) {
+	while(jd_dep <= jd_max_dep && get_thread_counter(3) == 0) {
 		osv_body0 = system->calc_method == ORB_ELEMENTS ?
 					osv_from_elements(dep_body->orbit, jd_dep, system) :
 					osv_from_ephem(dep_body->ephem, jd_dep, system->cb);
@@ -172,7 +171,7 @@ void *calc_itins_from_departure(void *args) {
 			}
 		}
 
-		double progress = get_incr_thread_counter(1);
+		double progress = get_incr_thread_counter(1)+1;	// +1 because it gets the last value, not the incremented value
 		show_progress("Transfer Calculation progress", progress, jd_diff);
 		incr_thread_counter_by_amount(2, get_number_of_itineraries(get_first(curr_step)));
 		index = get_incr_thread_counter(0);
@@ -207,7 +206,7 @@ struct Itin_Calc_Results search_for_itineraries(Itin_Calc_Data calc_data) {
 
 	show_progress("Transfer Calculation progress", 0, 1);
 	struct Thread_Pool thread_pool;
-	thread_pool = use_thread_pool64(calc_itins_from_departure, &thread_args);
+	thread_pool = use_thread_pool32(calc_itins_from_departure, &thread_args);
 	join_thread_pool(thread_pool);
 	show_progress("Transfer Calculation progress", 1, 1);
 	printf("\n");

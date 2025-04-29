@@ -3,6 +3,7 @@
 #include "transfer_tools.h"
 #include "tools/data_tool.h"
 #include "double_swing_by.h"
+#include "tools/thread_pool.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -327,7 +328,7 @@ struct PorkchopPoint create_porkchop_point(struct ItinStep *itin) {
 int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step) {
 	double max_duration = jd_max_arr-curr_step->date;
 	double min_duration = MIN_TRANSFER_DURATION;
-	if(max_duration > min_duration) {
+	if(max_duration > min_duration && get_thread_counter(3) == 0) {
 		if(bodies[step] != bodies[step - 1]) find_viable_flybys(curr_step, system, bodies[step], min_duration * 86400, max_duration * 86400);
 		else {
 			printf("DSB not yet reimplemented!\n");
@@ -379,6 +380,7 @@ int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, 
 
 int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct ItinSequenceInfoToTarget *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
 	for(int i = 0; i < seq_info->num_flyby_bodies; i++) {
+		if(get_thread_counter(3) > 0) break;
 		if(seq_info->flyby_bodies[i] == curr_step->body) continue;
 		double jd_max;
 		if(get_first(curr_step)->date + max_total_duration < jd_max_arr)
