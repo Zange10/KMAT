@@ -35,7 +35,7 @@ int main() {
 	init_available_systems("../Celestial_Systems/");
 //	init_db();
 
-	test();
+//	test();
 	start_gui("../GUI/GUI.glade");
 
 //    int selection;
