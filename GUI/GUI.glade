@@ -144,7 +144,7 @@
                 <property name="column-spacing">50</property>
                 <property name="column-homogeneous">True</property>
                 <child>
-                  <!-- n-columns=2 n-rows=8 -->
+                  <!-- n-columns=1 n-rows=3 -->
                   <object class="GtkGrid">
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
@@ -152,208 +152,273 @@
                     <property name="column-spacing">20</property>
                     <property name="column-homogeneous">True</property>
                     <child>
-                      <object class="GtkEntry" id="tf_ic_maxdur">
-                        <property name="visible">True</property>
-                        <property name="can-focus">True</property>
-                        <property name="has-frame">False</property>
-                        <property name="text" translatable="yes">10000</property>
-                        <property name="xalign">0.5</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">1</property>
-                        <property name="top-attach">6</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkLabel">
+                      <!-- n-columns=2 n-rows=4 -->
+                      <object class="GtkGrid">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="halign">end</property>
-                        <property name="label" translatable="yes">Max Duration:</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">0</property>
-                        <property name="top-attach">6</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="halign">end</property>
-                        <property name="label" translatable="yes">Max Arrival Date:</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">0</property>
-                        <property name="top-attach">5</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkEntry" id="tf_ic_maxarrdate">
-                        <property name="visible">True</property>
-                        <property name="can-focus">True</property>
-                        <property name="has-frame">False</property>
-                        <property name="text" translatable="yes">2000-01-01</property>
-                        <property name="xalign">0.5</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">1</property>
-                        <property name="top-attach">5</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="halign">end</property>
-                        <property name="label" translatable="yes">Max Departure Date:</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">0</property>
-                        <property name="top-attach">4</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkEntry" id="tf_ic_maxdepdate">
-                        <property name="visible">True</property>
-                        <property name="can-focus">True</property>
-                        <property name="has-frame">False</property>
-                        <property name="text" translatable="yes">1950-01-01</property>
-                        <property name="xalign">0.5</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">1</property>
-                        <property name="top-attach">4</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkEntry" id="tf_ic_mindepdate">
-                        <property name="visible">True</property>
-                        <property name="can-focus">True</property>
-                        <property name="has-frame">False</property>
-                        <property name="text" translatable="yes">1950-01-01</property>
-                        <property name="xalign">0.5</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">1</property>
-                        <property name="top-attach">3</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="halign">end</property>
-                        <property name="label" translatable="yes">Min Departure Date:</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">0</property>
-                        <property name="top-attach">3</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkComboBox" id="cb_ic_arrbody">
-                        <property name="width-request">150</property>
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">1</property>
-                        <property name="top-attach">2</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="halign">end</property>
-                        <property name="label" translatable="yes">Target Body:</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">0</property>
-                        <property name="top-attach">2</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkComboBox" id="cb_ic_depbody">
-                        <property name="width-request">150</property>
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">1</property>
-                        <property name="top-attach">1</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="halign">end</property>
-                        <property name="label" translatable="yes">Departure Body:</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">0</property>
-                        <property name="top-attach">1</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="halign">end</property>
-                        <property name="label" translatable="yes">Celestial System:</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">0</property>
-                        <property name="top-attach">0</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkComboBox" id="cb_ic_system">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <signal name="changed" handler="on_ic_system_change" swapped="no"/>
-                      </object>
-                      <packing>
-                        <property name="left-attach">1</property>
-                        <property name="top-attach">0</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkLabel">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="halign">end</property>
-                        <property name="valign">start</property>
-                        <property name="margin-top">15</property>
-                        <property name="label" translatable="yes">Flyby Bodies:</property>
-                      </object>
-                      <packing>
-                        <property name="left-attach">0</property>
-                        <property name="top-attach">7</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <object class="GtkScrolledWindow">
-                        <property name="height-request">200</property>
-                        <property name="visible">True</property>
-                        <property name="can-focus">True</property>
-                        <property name="margin-top">15</property>
-                        <property name="shadow-type">in</property>
+                        <property name="row-spacing">7</property>
+                        <property name="column-spacing">20</property>
+                        <property name="column-homogeneous">True</property>
                         <child>
-                          <object class="GtkViewport" id="vp_ic_fbbodies">
+                          <object class="GtkLabel">
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
-                            <child>
-                              <placeholder/>
-                            </child>
+                            <property name="halign">end</property>
+                            <property name="label" translatable="yes">Celestial System:</property>
                           </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkComboBox" id="cb_ic_system">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <signal name="changed" handler="on_ic_system_change" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="halign">end</property>
+                            <property name="label" translatable="yes">Target Body:</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">3</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkComboBox" id="cb_ic_arrbody">
+                            <property name="width-request">150</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">3</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="halign">end</property>
+                            <property name="label" translatable="yes">Departure Body:</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkComboBox" id="cb_ic_depbody">
+                            <property name="width-request">150</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkComboBox" id="cb_ic_central_body">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <signal name="changed" handler="on_ic_central_body_change" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">1</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="lb_ic_central_body">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="halign">end</property>
+                            <property name="label" translatable="yes">Central Body:</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">1</property>
+                          </packing>
                         </child>
                       </object>
                       <packing>
-                        <property name="left-attach">1</property>
-                        <property name="top-attach">7</property>
+                        <property name="left-attach">0</property>
+                        <property name="top-attach">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <!-- n-columns=2 n-rows=4 -->
+                      <object class="GtkGrid">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="row-spacing">7</property>
+                        <property name="column-spacing">20</property>
+                        <property name="column-homogeneous">True</property>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="halign">end</property>
+                            <property name="label" translatable="yes">Max Duration:</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">3</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="halign">end</property>
+                            <property name="label" translatable="yes">Max Arrival Date:</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="halign">end</property>
+                            <property name="label" translatable="yes">Max Departure Date:</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">1</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="halign">end</property>
+                            <property name="label" translatable="yes">Min Departure Date:</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="tf_ic_maxdur">
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="has-frame">False</property>
+                            <property name="text" translatable="yes">10000</property>
+                            <property name="xalign">0.5</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">3</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="tf_ic_maxarrdate">
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="has-frame">False</property>
+                            <property name="text" translatable="yes">2000-01-01</property>
+                            <property name="xalign">0.5</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="tf_ic_maxdepdate">
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="has-frame">False</property>
+                            <property name="text" translatable="yes">1950-01-01</property>
+                            <property name="xalign">0.5</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">1</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="tf_ic_mindepdate">
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="has-frame">False</property>
+                            <property name="text" translatable="yes">1950-01-01</property>
+                            <property name="xalign">0.5</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">0</property>
+                          </packing>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="left-attach">0</property>
+                        <property name="top-attach">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <!-- n-columns=2 n-rows=1 -->
+                      <object class="GtkGrid">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="row-spacing">7</property>
+                        <property name="column-spacing">20</property>
+                        <property name="column-homogeneous">True</property>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="halign">end</property>
+                            <property name="valign">start</property>
+                            <property name="margin-top">15</property>
+                            <property name="label" translatable="yes">Flyby Bodies:</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkScrolledWindow">
+                            <property name="height-request">200</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="margin-top">15</property>
+                            <property name="shadow-type">in</property>
+                            <child>
+                              <object class="GtkViewport" id="vp_ic_fbbodies">
+                                <property name="visible">True</property>
+                                <property name="can-focus">False</property>
+                                <child>
+                                  <placeholder/>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">0</property>
+                          </packing>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="left-attach">0</property>
+                        <property name="top-attach">2</property>
                       </packing>
                     </child>
                   </object>
@@ -1670,303 +1735,7 @@
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <child>
-                      <object class="GtkStack" id="transfer_panel">
-                        <property name="visible">True</property>
-                        <property name="can-focus">False</property>
-                        <property name="vexpand">True</property>
-                        <child>
-                          <!-- n-columns=4 n-rows=8 -->
-                          <object class="GtkGrid">
-                            <property name="visible">True</property>
-                            <property name="can-focus">False</property>
-                            <property name="margin-top">20</property>
-                            <property name="margin-bottom">20</property>
-                            <property name="row-spacing">2</property>
-                            <property name="column-homogeneous">True</property>
-                            <child>
-                              <object class="GtkLabel">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="xpad">0</property>
-                                <property name="label" translatable="yes">Date:</property>
-                                <property name="single-line-mode">True</property>
-                              </object>
-                              <packing>
-                                <property name="left-attach">0</property>
-                                <property name="top-attach">1</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkToggleButton" id="tb_tp_tfdate">
-                                <property name="label" translatable="yes">2000-01-01</property>
-                                <property name="visible">True</property>
-                                <property name="can-focus">True</property>
-                                <property name="receives-default">True</property>
-                                <signal name="toggled" handler="on_toggle_transfer_date_lock" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left-attach">1</property>
-                                <property name="top-attach">1</property>
-                                <property name="width">2</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkButton" id="bt_tp_change_tf_body">
-                                <property name="label" translatable="yes">Planet</property>
-                                <property name="visible">True</property>
-                                <property name="can-focus">True</property>
-                                <property name="receives-default">True</property>
-                                <signal name="clicked" handler="on_transfer_body_change" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left-attach">1</property>
-                                <property name="top-attach">0</property>
-                                <property name="width">2</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkButton" id="bt_tp_prev_transfer">
-                                <property name="label" translatable="yes">&lt;</property>
-                                <property name="visible">True</property>
-                                <property name="can-focus">True</property>
-                                <property name="receives-default">True</property>
-                                <signal name="clicked" handler="on_prev_transfer" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left-attach">0</property>
-                                <property name="top-attach">0</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkButton" id="bt_tp_goto_tf_date">
-                                <property name="label" translatable="yes">Goto</property>
-                                <property name="visible">True</property>
-                                <property name="can-focus">True</property>
-                                <property name="receives-default">True</property>
-                                <signal name="clicked" handler="on_goto_transfer_date" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left-attach">3</property>
-                                <property name="top-attach">1</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkButton" id="bt_tp_next_transfer">
-                                <property name="label" translatable="yes">&gt;</property>
-                                <property name="visible">True</property>
-                                <property name="can-focus">True</property>
-                                <property name="receives-default">True</property>
-                                <signal name="clicked" handler="on_next_transfer" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left-attach">3</property>
-                                <property name="top-attach">0</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkButton" id="bt_tp_add_transfer">
-                                <property name="label" translatable="yes">Add Transfer</property>
-                                <property name="visible">True</property>
-                                <property name="can-focus">True</property>
-                                <property name="receives-default">True</property>
-                                <signal name="clicked" handler="on_add_transfer" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left-attach">0</property>
-                                <property name="top-attach">2</property>
-                                <property name="width">2</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkButton" id="bt_tp_remove_transfer">
-                                <property name="label" translatable="yes">Remove Transfer</property>
-                                <property name="visible">True</property>
-                                <property name="can-focus">True</property>
-                                <property name="receives-default">True</property>
-                                <signal name="clicked" handler="on_remove_transfer" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left-attach">2</property>
-                                <property name="top-attach">2</property>
-                                <property name="width">2</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkLabel">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">Total dv:</property>
-                              </object>
-                              <packing>
-                                <property name="left-attach">0</property>
-                                <property name="top-attach">6</property>
-                                <property name="width">2</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkLabel" id="lb_tp_total_dv">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">0 m/s</property>
-                              </object>
-                              <packing>
-                                <property name="left-attach">2</property>
-                                <property name="top-attach">6</property>
-                                <property name="width">2</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkLabel">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">Transfer dv:</property>
-                              </object>
-                              <packing>
-                                <property name="left-attach">0</property>
-                                <property name="top-attach">5</property>
-                                <property name="width">2</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkLabel" id="lb_tp_transfer_dv">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <property name="label" translatable="yes">0 m/s</property>
-                              </object>
-                              <packing>
-                                <property name="left-attach">2</property>
-                                <property name="top-attach">5</property>
-                                <property name="width">2</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkButton" id="bt_tp_closest_transfer">
-                                <property name="label" translatable="yes">Find Transfer</property>
-                                <property name="visible">True</property>
-                                <property name="can-focus">True</property>
-                                <property name="receives-default">True</property>
-                                <signal name="clicked" handler="on_find_closest_transfer" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left-attach">0</property>
-                                <property name="top-attach">3</property>
-                                <property name="width">2</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkButton" id="bt_tp_viable_itin">
-                                <property name="label" translatable="yes">Find Itinerary</property>
-                                <property name="visible">True</property>
-                                <property name="can-focus">True</property>
-                                <property name="receives-default">True</property>
-                                <signal name="clicked" handler="on_find_itinerary" swapped="no"/>
-                              </object>
-                              <packing>
-                                <property name="left-attach">2</property>
-                                <property name="top-attach">3</property>
-                                <property name="width">2</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkSeparator">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                              </object>
-                              <packing>
-                                <property name="left-attach">0</property>
-                                <property name="top-attach">4</property>
-                                <property name="width">4</property>
-                              </packing>
-                            </child>
-                            <child>
-                              <object class="GtkScrolledWindow">
-                                <property name="visible">True</property>
-                                <property name="can-focus">True</property>
-                                <property name="margin-start">5</property>
-                                <property name="margin-end">5</property>
-                                <property name="margin-top">20</property>
-                                <property name="vexpand">True</property>
-                                <property name="shadow-type">in</property>
-                                <child>
-                                  <object class="GtkViewport">
-                                    <property name="visible">True</property>
-                                    <property name="can-focus">False</property>
-                                    <child>
-                                      <!-- n-columns=2 n-rows=1 -->
-                                      <object class="GtkGrid">
-                                        <property name="visible">True</property>
-                                        <property name="can-focus">False</property>
-                                        <property name="margin-start">5</property>
-                                        <property name="margin-end">5</property>
-                                        <property name="margin-top">5</property>
-                                        <property name="margin-bottom">5</property>
-                                        <property name="column-spacing">5</property>
-                                        <child>
-                                          <object class="GtkLabel" id="lb_tp_param_labels">
-                                            <property name="visible">True</property>
-                                            <property name="can-focus">False</property>
-                                          </object>
-                                          <packing>
-                                            <property name="left-attach">0</property>
-                                            <property name="top-attach">0</property>
-                                          </packing>
-                                        </child>
-                                        <child>
-                                          <object class="GtkLabel" id="lb_tp_param_values">
-                                            <property name="visible">True</property>
-                                            <property name="can-focus">False</property>
-                                          </object>
-                                          <packing>
-                                            <property name="left-attach">1</property>
-                                            <property name="top-attach">0</property>
-                                          </packing>
-                                        </child>
-                                      </object>
-                                    </child>
-                                  </object>
-                                </child>
-                              </object>
-                              <packing>
-                                <property name="left-attach">0</property>
-                                <property name="top-attach">7</property>
-                                <property name="width">4</property>
-                              </packing>
-                            </child>
-                          </object>
-                          <packing>
-                            <property name="name">page0</property>
-                            <property name="title" translatable="yes">page0</property>
-                          </packing>
-                        </child>
-                        <child>
-                          <object class="GtkScrolledWindow">
-                            <property name="visible">True</property>
-                            <property name="can-focus">True</property>
-                            <property name="shadow-type">in</property>
-                            <child>
-                              <object class="GtkViewport" id="vp_tp_tfbody">
-                                <property name="visible">True</property>
-                                <property name="can-focus">False</property>
-                                <child>
-                                  <placeholder/>
-                                </child>
-                              </object>
-                            </child>
-                          </object>
-                          <packing>
-                            <property name="name">page1</property>
-                            <property name="title" translatable="yes">page1</property>
-                            <property name="position">1</property>
-                          </packing>
-                        </child>
-                      </object>
-                      <packing>
-                        <property name="left-attach">0</property>
-                        <property name="top-attach">1</property>
-                      </packing>
-                    </child>
-                    <child>
-                      <!-- n-columns=2 n-rows=2 -->
+                      <!-- n-columns=2 n-rows=3 -->
                       <object class="GtkGrid">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
@@ -1975,6 +1744,19 @@
                         <property name="margin-top">10</property>
                         <property name="row-spacing">5</property>
                         <property name="column-spacing">10</property>
+                        <child>
+                          <object class="GtkComboBox" id="cb_tp_system">
+                            <property name="name">cb_tp_system</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <signal name="changed" handler="on_tp_system_change" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">0</property>
+                            <property name="width">2</property>
+                          </packing>
+                        </child>
                         <child>
                           <object class="GtkScrolledWindow">
                             <property name="width-request">125</property>
@@ -1993,7 +1775,7 @@
                           </object>
                           <packing>
                             <property name="left-attach">0</property>
-                            <property name="top-attach">1</property>
+                            <property name="top-attach">2</property>
                           </packing>
                         </child>
                         <child>
@@ -2123,19 +1905,18 @@
                           </object>
                           <packing>
                             <property name="left-attach">1</property>
-                            <property name="top-attach">1</property>
+                            <property name="top-attach">2</property>
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkComboBox" id="cb_tp_system">
-                            <property name="name">cb_tp_system</property>
+                          <object class="GtkComboBox" id="cb_tp_central_body">
                             <property name="visible">True</property>
                             <property name="can-focus">False</property>
-                            <signal name="changed" handler="on_tp_system_change" swapped="no"/>
+                            <signal name="changed" handler="on_tp_central_body_change" swapped="no"/>
                           </object>
                           <packing>
                             <property name="left-attach">0</property>
-                            <property name="top-attach">0</property>
+                            <property name="top-attach">1</property>
                             <property name="width">2</property>
                           </packing>
                         </child>
@@ -2282,6 +2063,269 @@
                       <packing>
                         <property name="left-attach">0</property>
                         <property name="top-attach">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <!-- n-columns=4 n-rows=8 -->
+                      <object class="GtkGrid">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="margin-top">20</property>
+                        <property name="margin-bottom">20</property>
+                        <property name="vexpand">True</property>
+                        <property name="row-spacing">2</property>
+                        <property name="column-homogeneous">True</property>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="xpad">0</property>
+                            <property name="label" translatable="yes">Date:</property>
+                            <property name="single-line-mode">True</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">1</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkToggleButton" id="tb_tp_tfdate">
+                            <property name="label" translatable="yes">2000-01-01</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="toggled" handler="on_toggle_transfer_date_lock" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">1</property>
+                            <property name="width">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="bt_tp_prev_transfer">
+                            <property name="label" translatable="yes">&lt;</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_prev_transfer" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="bt_tp_goto_tf_date">
+                            <property name="label" translatable="yes">Goto</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_goto_transfer_date" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">3</property>
+                            <property name="top-attach">1</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="bt_tp_next_transfer">
+                            <property name="label" translatable="yes">&gt;</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_next_transfer" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">3</property>
+                            <property name="top-attach">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="bt_tp_add_transfer">
+                            <property name="label" translatable="yes">Add Transfer</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_add_transfer" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">2</property>
+                            <property name="width">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="bt_tp_remove_transfer">
+                            <property name="label" translatable="yes">Remove Transfer</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_remove_transfer" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">2</property>
+                            <property name="top-attach">2</property>
+                            <property name="width">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="label" translatable="yes">Total dv:</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">6</property>
+                            <property name="width">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="lb_tp_total_dv">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="label" translatable="yes">0 m/s</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">2</property>
+                            <property name="top-attach">6</property>
+                            <property name="width">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="label" translatable="yes">Transfer dv:</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">5</property>
+                            <property name="width">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="lb_tp_transfer_dv">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <property name="label" translatable="yes">0 m/s</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">2</property>
+                            <property name="top-attach">5</property>
+                            <property name="width">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="bt_tp_closest_transfer">
+                            <property name="label" translatable="yes">Find Transfer</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_find_closest_transfer" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">3</property>
+                            <property name="width">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton" id="bt_tp_viable_itin">
+                            <property name="label" translatable="yes">Find Itinerary</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_find_itinerary" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">2</property>
+                            <property name="top-attach">3</property>
+                            <property name="width">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkSeparator">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">4</property>
+                            <property name="width">4</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkScrolledWindow">
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="margin-start">5</property>
+                            <property name="margin-end">5</property>
+                            <property name="margin-top">20</property>
+                            <property name="vexpand">True</property>
+                            <property name="shadow-type">in</property>
+                            <child>
+                              <object class="GtkViewport">
+                                <property name="visible">True</property>
+                                <property name="can-focus">False</property>
+                                <child>
+                                  <!-- n-columns=2 n-rows=1 -->
+                                  <object class="GtkGrid">
+                                    <property name="visible">True</property>
+                                    <property name="can-focus">False</property>
+                                    <property name="margin-start">5</property>
+                                    <property name="margin-end">5</property>
+                                    <property name="margin-top">5</property>
+                                    <property name="margin-bottom">5</property>
+                                    <property name="column-spacing">5</property>
+                                    <child>
+                                      <object class="GtkLabel" id="lb_tp_param_labels">
+                                        <property name="visible">True</property>
+                                        <property name="can-focus">False</property>
+                                      </object>
+                                      <packing>
+                                        <property name="left-attach">0</property>
+                                        <property name="top-attach">0</property>
+                                      </packing>
+                                    </child>
+                                    <child>
+                                      <object class="GtkLabel" id="lb_tp_param_values">
+                                        <property name="visible">True</property>
+                                        <property name="can-focus">False</property>
+                                      </object>
+                                      <packing>
+                                        <property name="left-attach">1</property>
+                                        <property name="top-attach">0</property>
+                                      </packing>
+                                    </child>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                          <packing>
+                            <property name="left-attach">0</property>
+                            <property name="top-attach">7</property>
+                            <property name="width">4</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkComboBox" id="cb_tp_tfbody">
+                            <property name="visible">True</property>
+                            <property name="can-focus">False</property>
+                            <signal name="changed" handler="on_transfer_body_change" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">1</property>
+                            <property name="top-attach">0</property>
+                            <property name="width">2</property>
+                          </packing>
+                        </child>
+                      </object>
+                      <packing>
+                        <property name="left-attach">0</property>
+                        <property name="top-attach">1</property>
                       </packing>
                     </child>
                   </object>
@@ -5076,6 +5120,16 @@
               <object class="GtkComboBoxText" id="cb_settings_datetime_type">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">1. ISO time:
+	Format: YYYY-MM-DD (ISO8601)
+	1 year = 365 days (365.25 days); 1 day = 24 hours
+    	Use this one only for the real solar system
+2. Kerbal time:
+	Format: YYY-DDD
+	1 year = 426 days; 1 day = 6 hours
+3. ISO-like Kerbal time:
+	Format: YYY-DDD
+	1 year = 365 days; 1 day = 24 hours</property>
                 <property name="active">0</property>
                 <items>
                   <item translatable="yes">ISO Time</item>

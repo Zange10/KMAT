@@ -291,11 +291,29 @@ void update_group_overview() {
 	for (int group_idx = 0; group_idx < pa_num_groups; group_idx++) {
 		if(!pa_groups[group_idx].has_itin_inside_filter) continue;
 		int row = group_idx*2+3;
+		
+		char widget_text[100];
+		char tooltip_text[255];
+		sprintf(widget_text, "");
+		sprintf(tooltip_text, "");
+		struct ItinStep *ptr;
+		for(int step_idx = 0; step_idx < pa_groups[group_idx].num_steps; step_idx++) {
+			ptr = pa_groups[group_idx].sample_arrival_node;
+			for(int k = 0; k < pa_groups[group_idx].num_steps - step_idx - 1; k++) ptr = ptr->prev;
+			if(step_idx != 0) {
+				sprintf(widget_text, "%s - ", widget_text);
+				sprintf(tooltip_text, "%s - ", tooltip_text);
+			}
+			if(ptr->body != NULL) {
+				sprintf(widget_text, "%s%d", widget_text, get_body_system_id(ptr->body, pa_system) + 1);
+				sprintf(tooltip_text, "%s%s", tooltip_text, ptr->body->name);
+			} else
+				sprintf(widget_text, "%sDSB", widget_text);
+		}
 
 		for (int j = 0; j < num_cols; j++) {
 			int col = j*2+1;
-			char widget_text[100];
-			GtkWidget *widget;
+			GtkWidget *widget = NULL;
 			switch(j) {
 				case 0:
 					// Create a show group check button
@@ -304,21 +322,12 @@ void update_group_overview() {
 					gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(widget), pa_groups[group_idx].show_group);
 					g_signal_connect(widget, "clicked", G_CALLBACK(on_change_itin_group_visibility), &(pa_groups[group_idx]));
 					pa_groups[group_idx].cb_pa_show_group = widget;
+					gtk_widget_set_tooltip_text(widget, tooltip_text);
 					break;
 				case 1:
-					sprintf(widget_text, "");
-					struct ItinStep *ptr;
-					for(int step_idx = 0; step_idx < pa_groups[group_idx].num_steps; step_idx++) {
-						ptr = pa_groups[group_idx].sample_arrival_node;
-						for(int k = 0; k < pa_groups[group_idx].num_steps - step_idx - 1; k++) ptr = ptr->prev;
-						if(step_idx != 0) sprintf(widget_text, "%s - ", widget_text);
-						if(ptr->body != NULL)
-							sprintf(widget_text, "%s%d", widget_text, get_body_system_id(ptr->body, pa_system)+1);
-						else
-							sprintf(widget_text, "%sDSB", widget_text);
-					}
 					// Create itinerary group label
 					widget = gtk_label_new(widget_text);
+					gtk_widget_set_tooltip_text(widget, tooltip_text);
 					gtk_widget_set_halign(widget, GTK_ALIGN_START);
 					// set css class
 					set_css_class_for_widget(GTK_WIDGET(widget), "pag-group-itin");
@@ -528,7 +537,7 @@ void analyze_departure_itins() {
 
 G_MODULE_EXPORT void on_load_itineraries(GtkWidget* widget, gpointer data) {
 	char filepath[255];
-	if(!get_path_from_file_chooser(filepath, ".itins", GTK_FILE_CHOOSER_ACTION_OPEN)) return;
+	if(!get_path_from_file_chooser(filepath, ".itins", GTK_FILE_CHOOSER_ACTION_OPEN, "")) return;
 
 	free_all_porkchop_analyzer_itins();
 	struct ItinsLoadFileResults load_results = load_itineraries_from_bfile(filepath);
@@ -548,7 +557,7 @@ G_MODULE_EXPORT void on_save_best_itinerary(GtkWidget* widget, gpointer data) {
 	if(first == NULL) return;
 
 	char filepath[255];
-	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_SAVE)) return;
+	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_SAVE, "")) return;
 	store_single_itinerary_in_bfile(first, pa_system, filepath);
 }
 

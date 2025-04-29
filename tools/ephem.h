@@ -1,7 +1,7 @@
 #ifndef KSP_EPHEM_H
 #define KSP_EPHEM_H
 
-#import "celestial_bodies.h"
+#include "celestial_bodies.h"
 
 /**
  * @brief Represents the ephemeral data consisting of date, position, and velocity components

@@ -7,11 +7,15 @@
 
 void start_gui(const char* gui_filepath);
 
-void create_combobox_dropdown_text_renderer(GObject *combo_box);
+void create_combobox_dropdown_text_renderer(GObject *combo_box, GtkAlign align);
 
-int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAction action);
+void append_combobox_entry(GtkComboBox *combo_box, char *new_entry);
+void remove_combobox_last_entry(GtkComboBox *combo_box);
+
+int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAction action, char *initial_name);
 
 void update_system_dropdown(GtkComboBox *cb_sel_body);
+void update_central_body_dropdown(GtkComboBox *cb_sel_central_body, struct System *system);
 void update_body_dropdown(GtkComboBox *cb_sel_body, struct System *system);
 void change_text_field_date_type(GObject *text_field, enum DateType old_date_type, enum DateType new_date_type);
 void change_label_date_type(GObject *label, enum DateType old_date_type, enum DateType new_date_type);

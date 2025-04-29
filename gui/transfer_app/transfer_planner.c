@@ -19,22 +19,20 @@ struct System *tp_system;
 
 GObject *da_tp;
 GObject *cb_tp_system;
+GObject *cb_tp_central_body;
+GObject *cb_tp_tfbody;
 GObject *lb_tp_date;
 GObject *tb_tp_tfdate;
-GObject *bt_tp_tfbody;
 GObject *bt_tp_1m30dp;
 GObject *bt_tp_1m30dm;
 GObject *lb_tp_transfer_dv;
 GObject *lb_tp_total_dv;
 GObject *lb_tp_param_labels;
 GObject *lb_tp_param_values;
-GObject *transfer_panel_tp;
 GObject *vp_tp_bodies;
 GtkWidget *grid_tp_bodies;
-GObject *vp_tp_tfbody;
-GtkWidget *grid_tp_tfbody;
 
-gboolean *body_show_status_tp;
+gboolean *body_show_status_tp, fix_tfbody;
 double current_date_tp;
 
 enum LastTransferType tp_last_transfer_type;
@@ -49,27 +47,31 @@ void init_transfer_planner(GtkBuilder *builder) {
 	tp_last_transfer_type = TF_FLYBY;
 
 	cb_tp_system = gtk_builder_get_object(builder, "cb_tp_system");
+	cb_tp_central_body = gtk_builder_get_object(builder, "cb_tp_central_body");
+	cb_tp_tfbody = gtk_builder_get_object(builder, "cb_tp_tfbody");
 	tb_tp_tfdate = gtk_builder_get_object(builder, "tb_tp_tfdate");
-	bt_tp_tfbody = gtk_builder_get_object(builder, "bt_tp_change_tf_body");
 	bt_tp_1m30dp = gtk_builder_get_object(builder, "bt_tp_1m30dp");
 	bt_tp_1m30dm = gtk_builder_get_object(builder, "bt_tp_1m30dm");
 	lb_tp_transfer_dv = gtk_builder_get_object(builder, "lb_tp_transfer_dv");
 	lb_tp_total_dv = gtk_builder_get_object(builder, "lb_tp_total_dv");
 	lb_tp_param_labels = gtk_builder_get_object(builder, "lb_tp_param_labels");
 	lb_tp_param_values = gtk_builder_get_object(builder, "lb_tp_param_values");
-	transfer_panel_tp = gtk_builder_get_object(builder, "transfer_panel");
 	lb_tp_date = gtk_builder_get_object(builder, "lb_tp_date");
 	da_tp = gtk_builder_get_object(builder, "da_tp");
 	vp_tp_bodies = gtk_builder_get_object(builder, "vp_tp_bodies");
-	vp_tp_tfbody = gtk_builder_get_object(builder, "vp_tp_tfbody");
 
 	tp_system = NULL;
 	curr_transfer_tp = NULL;
 
-	create_combobox_dropdown_text_renderer(cb_tp_system);
+	fix_tfbody = TRUE;
+
+	create_combobox_dropdown_text_renderer(cb_tp_system, GTK_ALIGN_CENTER);
+	create_combobox_dropdown_text_renderer(cb_tp_central_body, GTK_ALIGN_CENTER);
+	create_combobox_dropdown_text_renderer(cb_tp_tfbody, GTK_ALIGN_CENTER);
 	if(get_num_available_systems() > 0) {
 		update_system_dropdown(GTK_COMBO_BOX(cb_tp_system));
 		tp_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system))];
+		update_central_body_dropdown(GTK_COMBO_BOX(cb_tp_central_body), tp_system);
 		tp_update_bodies();
 	}
 
@@ -90,9 +92,33 @@ void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_typ
 
 
 G_MODULE_EXPORT void on_tp_system_change() {
-	if(get_num_available_systems() == 0) return;
+	if(get_num_available_systems() == 0 ||
+			gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system)) == get_num_available_systems() ||
+			tp_system == get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system))] ||
+			gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system)) == -1) return;
+	
+	if(!is_available_system(get_top_level_system(tp_system)) && tp_system != NULL) {
+		free_system(get_top_level_system(tp_system));
+		tp_system = NULL;
+		remove_combobox_last_entry(GTK_COMBO_BOX(cb_tp_system));
+	}
 
 	tp_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system))];
+	update_central_body_dropdown(GTK_COMBO_BOX(cb_tp_central_body), tp_system);
+	remove_all_transfers();
+	tp_update_bodies();
+	update();
+}
+
+
+G_MODULE_EXPORT void on_tp_central_body_change() {
+	if(get_number_of_subsystems(get_top_level_system(tp_system)) == 0) {
+		gtk_widget_set_sensitive(GTK_WIDGET(cb_tp_central_body), 0);
+		return;
+	}
+	gtk_widget_set_sensitive(GTK_WIDGET(cb_tp_central_body), 1);
+	tp_system = get_subsystem_from_system_and_id(get_top_level_system(tp_system), gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_central_body)));
+	
 	remove_all_transfers();
 	tp_update_bodies();
 	update();
@@ -227,14 +253,16 @@ void update_date_label() {
 void update_transfer_panel() {
 	if(curr_transfer_tp == NULL) {
 		gtk_button_set_label(GTK_BUTTON(tb_tp_tfdate), get_settings_datetime_type() == DATE_ISO ? "0000-00-00" : "0000-000");
-		gtk_button_set_label(GTK_BUTTON(bt_tp_tfbody), "Planet");
+		update_body_dropdown(GTK_COMBO_BOX(cb_tp_tfbody), NULL);
+		fix_tfbody = TRUE;
 	} else {
 		struct Date date = convert_JD_date(curr_transfer_tp->date, get_settings_datetime_type());
 		char date_string[10];
 		date_to_string(date, date_string, 0);
 		gtk_button_set_label(GTK_BUTTON(tb_tp_tfdate), date_string);
-		if(curr_transfer_tp->body != NULL) gtk_button_set_label(GTK_BUTTON(bt_tp_tfbody), curr_transfer_tp->body->name);
-		else gtk_button_set_label(GTK_BUTTON(bt_tp_tfbody), "Deep-Space Man");
+		if(gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_tfbody)) < 0) update_body_dropdown(GTK_COMBO_BOX(cb_tp_tfbody), tp_system);
+		gtk_combo_box_set_active(GTK_COMBO_BOX(cb_tp_tfbody), get_body_system_id(curr_transfer_tp->body, tp_system));
+		fix_tfbody = FALSE;
 		char s_dv[20];
 		sprintf(s_dv, "%6.0f m/s", calc_step_dv(curr_transfer_tp));
 		gtk_label_set_label(GTK_LABEL(lb_tp_transfer_dv), s_dv);
@@ -289,34 +317,6 @@ void tp_update_show_body_list() {
 	gtk_widget_show_all(GTK_WIDGET(vp_tp_bodies));
 }
 
-void tp_update_tfbody_buttons() {
-	// Remove grid if exists
-	if (grid_tp_tfbody != NULL && GTK_WIDGET(vp_tp_tfbody) == gtk_widget_get_parent(grid_tp_tfbody)) {
-		gtk_container_remove(GTK_CONTAINER(vp_tp_tfbody), grid_tp_tfbody);
-	}
-
-	grid_tp_tfbody = gtk_grid_new();
-	gtk_grid_set_column_homogeneous(GTK_GRID(grid_tp_tfbody), 1);
-
-	int num_cols = 1;
-
-	// Create labels and buttons and add them to the grid
-	for (int body_idx = 0; body_idx < tp_system->num_bodies; body_idx++) {
-		int row = body_idx/num_cols;
-		int col = body_idx-row*num_cols;
-		GtkWidget *widget;
-		// Create a show body check button
-		widget = gtk_button_new_with_label(tp_system->bodies[body_idx]->name);
-		g_signal_connect(widget, "clicked", G_CALLBACK(on_transfer_body_select), tp_system->bodies[body_idx]);
-		gtk_widget_set_halign(widget, GTK_ALIGN_FILL);
-
-		// Set the label in the grid at the specified row and column
-		gtk_grid_attach(GTK_GRID(grid_tp_tfbody), widget, col, row, 1, 1);
-	}
-	gtk_container_add (GTK_CONTAINER (vp_tp_tfbody), grid_tp_tfbody);
-	gtk_widget_show_all(GTK_WIDGET(vp_tp_tfbody));
-}
-
 void show_bodies_of_itinerary(struct ItinStep *step) {
 	while(step != NULL) {
 		if(step->body != NULL) {
@@ -333,7 +333,6 @@ void tp_update_bodies() {
 	for(int i = 0; i < tp_system->num_bodies; i++) body_show_status_tp[i] = 0;
 	if(curr_transfer_tp != NULL) show_bodies_of_itinerary(get_first(curr_transfer_tp));
 	tp_update_show_body_list();
-	tp_update_tfbody_buttons();
 }
 
 
@@ -387,8 +386,8 @@ G_MODULE_EXPORT void on_next_transfer(GtkWidget* widget, gpointer data) {
 }
 
 G_MODULE_EXPORT void on_transfer_body_change(GtkWidget* widget, gpointer data) {
-	if(curr_transfer_tp == NULL) return;
-	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel_tp), "page1");
+	if(curr_transfer_tp == NULL || fix_tfbody) return;
+	curr_transfer_tp->body = tp_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_tfbody))];
 	update_itinerary();
 }
 
@@ -416,12 +415,6 @@ G_MODULE_EXPORT void on_toggle_transfer_date_lock(GtkWidget* widget, gpointer da
 G_MODULE_EXPORT void on_goto_transfer_date(GtkWidget* widget, gpointer data) {
 	if(curr_transfer_tp == NULL) return;
 	current_date_tp = curr_transfer_tp->date;
-	update_itinerary();
-}
-
-G_MODULE_EXPORT void on_transfer_body_select(GtkWidget* widget, gpointer data) {
-	curr_transfer_tp->body = data;
-	gtk_stack_set_visible_child_name(GTK_STACK(transfer_panel_tp), "page0");
 	update_itinerary();
 }
 
@@ -525,12 +518,14 @@ int find_closest_transfer(struct ItinStep *step) {
 
 G_MODULE_EXPORT void on_find_closest_transfer(GtkWidget* widget, gpointer data) {
 	if(tp_system == NULL) return;
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
 	int success = find_closest_transfer(curr_transfer_tp);
 	if(success) update_itinerary();
 }
 
 G_MODULE_EXPORT void on_find_itinerary(GtkWidget* widget, gpointer data) {
-	if(tp_system == NULL) return;
+	if(tp_system == NULL || curr_transfer_tp == NULL) return;
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
 	struct ItinStep *itin_copy = create_itin_copy(get_first(curr_transfer_tp));
 	while(itin_copy->prev != NULL) {
 		if(itin_copy->prev->body == NULL) return;	// double swing-by not implemented
@@ -571,17 +566,24 @@ G_MODULE_EXPORT void on_save_itinerary(GtkWidget* widget, gpointer data) {
 	if(first == NULL || !is_valid_itinerary(get_last(curr_transfer_tp))) return;
 
 	char filepath[255];
-	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_SAVE)) return;
+	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_SAVE, "")) return;
 	store_single_itinerary_in_bfile(first, tp_system, filepath);
 }
 
 G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 	char filepath[255];
-	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_OPEN)) return;
+	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_OPEN, "")) return;
 
-	if(curr_transfer_tp != NULL) free_itinerary(get_first(curr_transfer_tp));
+	if(curr_transfer_tp != NULL) {
+		fix_tfbody = TRUE;
+		update_body_dropdown(GTK_COMBO_BOX(cb_tp_tfbody), NULL);
+		free_itinerary(get_first(curr_transfer_tp));
+	}
+	if(!is_available_system(tp_system) && tp_system != NULL) free_system(tp_system);
+	curr_transfer_tp = NULL;
+	tp_system = NULL;
+	if(gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system)) == get_num_available_systems()) remove_combobox_last_entry(GTK_COMBO_BOX(cb_tp_system));
 
-	if(!is_available_system(tp_system)) free_system(tp_system);
 	struct ItinLoadFileResults load_results = load_single_itinerary_from_bfile(filepath);
 	curr_transfer_tp = get_first(load_results.itin);
 	tp_system = load_results.system;
@@ -589,6 +591,10 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
 	tp_update_bodies();
 	update_itinerary();
+	char system_name[50];
+	sprintf(system_name, "- %s -", tp_system->name);
+	append_combobox_entry(GTK_COMBO_BOX(cb_tp_system), system_name);
+	update_central_body_dropdown(GTK_COMBO_BOX(cb_tp_central_body), tp_system);
 
 	struct ItinStep *step2pr = get_first(curr_transfer_tp);
 	struct DepArrHyperbolaParams dep_hyp_params = get_dep_hyperbola_params(step2pr->next[0]->v_dep, step2pr->v_body,

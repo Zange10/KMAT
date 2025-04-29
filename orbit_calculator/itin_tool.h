@@ -17,11 +17,23 @@ struct ItinStep {
 	struct ItinStep **next;
 };
 
-struct ItinSequenceInfo {
-	struct System *system;
-	struct Body *dep_body, *arr_body, **flyby_bodies;
-	int num_flyby_bodies;
-};
+enum ItinSequenceInfoType {ITIN_SEQ_INFO_TO_TARGET, ITIN_SEQ_INFO_SPEC_SEQ};
+
+typedef union ItinSequenceInfo {
+	struct ItinSequenceInfoToTarget {
+		enum ItinSequenceInfoType type;
+		struct System *system;
+		struct Body *dep_body, *arr_body, **flyby_bodies;
+		int num_flyby_bodies;
+	} to_target;
+
+	struct ItinSequenceInfoSpecItin {
+		enum ItinSequenceInfoType type;
+		struct System *system;
+		struct Body **bodies;
+		int num_steps;
+	} spec_seq;
+} ItinSequenceInfo;
 
 struct Dv_Filter {
 	double max_totdv, max_depdv, max_satdv;
@@ -64,6 +76,9 @@ void store_itineraries_in_array(struct ItinStep *itin, struct ItinStep **array, 
 // returns the itinerary duration in days (arrival first)
 double get_itinerary_duration(struct ItinStep *itin);
 
+// returns an array of porkchop points analyzed from the given departures (allocates porkchop array memory --> needs to be freed)
+struct PorkchopPoint *create_porkchop_array_from_departures(struct ItinStep **departures, int num_deps);
+
 // add itinerary departure date, duration, departure dv, deep-space maneuvre dv and arrival dv in porkchop array
 struct PorkchopPoint create_porkchop_point(struct ItinStep *itin);
 
@@ -71,10 +86,10 @@ struct PorkchopPoint create_porkchop_point(struct ItinStep *itin);
 int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step);
 
 // from current step and given information, initiate calculation of next steps
-int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct ItinSequenceInfo *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
+int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct ItinSequenceInfoToTarget *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
 
 // initiate calc of next itinerary steps and return 0 if no steps are remaining in this itinerary (1 otherwise)
-int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct ItinSequenceInfo *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
+int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct ItinSequenceInfoToTarget *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
 
 // find end nodes (next step at arrival body) and copy to the end of the next steps array of curr_step
 int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_body);

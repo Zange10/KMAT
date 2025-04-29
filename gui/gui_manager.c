@@ -103,7 +103,7 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 	g_object_unref(builder);
 }
 
-int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAction action) {
+int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAction action, char *initial_name) {
 	create_directory_if_not_exists(get_itins_directory());
 	#ifdef _WIN32
 		OPENFILENAME ofn;
@@ -152,6 +152,7 @@ int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAc
 												 "_Cancel", GTK_RESPONSE_CANCEL,
 												 "_Save", GTK_RESPONSE_ACCEPT,
 												 NULL);
+			gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), initial_name);
 		} else {
 			dialog = gtk_file_chooser_dialog_new("Open File", NULL, action,
 												 "_Cancel", GTK_RESPONSE_CANCEL,
@@ -190,10 +191,38 @@ int get_path_from_file_chooser(char *filepath, char *extension, GtkFileChooserAc
 	else return 1;
 }
 
-void create_combobox_dropdown_text_renderer(GObject *combo_box) {
+void create_combobox_dropdown_text_renderer(GObject *combo_box, GtkAlign align) {
 	GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
 	gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(combo_box), renderer, TRUE);
 	gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(combo_box), renderer, "text", 0, NULL);
+	if(align == GTK_ALIGN_CENTER) g_object_set(renderer, "xalign", 0.5, NULL);
+}
+
+void append_combobox_entry(GtkComboBox *combo_box, char *new_entry) {
+	GtkListStore *store = GTK_LIST_STORE(gtk_combo_box_get_model(combo_box));
+	GtkTreeIter iter;
+	gtk_list_store_append(store, &iter);  // Appends to the end
+	gtk_list_store_set(store, &iter, 0, new_entry, -1);
+	gtk_combo_box_set_active_iter(combo_box, &iter);
+}
+
+void remove_combobox_last_entry(GtkComboBox *combo_box) {
+	GtkListStore *store = GTK_LIST_STORE(gtk_combo_box_get_model(combo_box));
+	
+	GtkTreeIter iter, last_iter;
+	gboolean valid = gtk_tree_model_get_iter_first(GTK_TREE_MODEL(store), &iter);
+	
+	if (!valid) {
+		// List is empty, nothing to remove
+		return;
+	}
+	
+	last_iter = iter;  // In case there's only one row
+	while (gtk_tree_model_iter_next(GTK_TREE_MODEL(store), &iter)) {
+		last_iter = iter;  // Keep updating to track the last one
+	}
+	
+	gtk_list_store_remove(store, &last_iter);
 }
 
 void change_text_field_date_type(GObject *text_field, enum DateType old_date_type, enum DateType new_date_type) {
@@ -242,13 +271,15 @@ char * get_itins_directory() {
 
 void update_system_dropdown(GtkComboBox *cb_sel_system) {
 	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
-	GtkTreeIter iter;
-	// Add items to the list store
-	for(int i = 0; i < get_num_available_systems(); i++) {
-		gtk_list_store_append(store, &iter);
-		char entry[30];
-		sprintf(entry, "%s", get_available_systems()[i]->name);
-		gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
+	if(cb_sel_system != NULL) {
+		GtkTreeIter iter;
+		// Add items to the list store
+		for(int i = 0; i < get_num_available_systems(); i++) {
+			gtk_list_store_append(store, &iter);
+			char entry[50];
+			sprintf(entry, "%s", get_available_systems()[i]->name);
+			gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
+		}
 	}
 
 	gtk_combo_box_set_model(cb_sel_system, GTK_TREE_MODEL(store));
@@ -257,16 +288,35 @@ void update_system_dropdown(GtkComboBox *cb_sel_system) {
 	g_object_unref(store);
 }
 
-
-void update_body_dropdown(GtkComboBox *cb_sel_body, struct System *system) {
+void update_central_body_dropdown(GtkComboBox *cb_sel_central_body, struct System *system) {
 	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
 	GtkTreeIter iter;
 	// Add items to the list store
-	for(int i = 0; i < system->num_bodies; i++) {
+	for(int i = 0; i <= get_number_of_subsystems(system); i++) {
 		gtk_list_store_append(store, &iter);
-		char entry[30];
-		sprintf(entry, "%s", system->bodies[i]->name);
+		char entry[50];
+		sprintf(entry, "%s", get_subsystem_from_system_and_id(system, i)->cb->name);
 		gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
+	}
+	
+	gtk_combo_box_set_model(cb_sel_central_body, GTK_TREE_MODEL(store));
+	gtk_combo_box_set_active(cb_sel_central_body, 0);
+	
+	g_object_unref(store);
+}
+
+
+void update_body_dropdown(GtkComboBox *cb_sel_body, struct System *system) {
+	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
+	if(system != NULL) {
+		GtkTreeIter iter;
+		// Add items to the list store
+		for(int i = 0; i < system->num_bodies; i++) {
+			gtk_list_store_append(store, &iter);
+			char entry[32];
+			sprintf(entry, "%s", system->bodies[i]->name);
+			gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
+		}
 	}
 
 	gtk_combo_box_set_model(cb_sel_body, GTK_TREE_MODEL(store));
@@ -283,7 +333,7 @@ void update_launcher_dropdown(GtkComboBox *cb_sel_launcher) {
 	// Add items to the list store
 	for(int i = 0; i < num_launcher; i++) {
 		gtk_list_store_append(store, &iter);
-		char entry[30];
+		char entry[32];
 		sprintf(entry, "%s", all_launcher[i].name);
 		gtk_list_store_set(store, &iter, 0, entry, 1, i, -1);
 	}

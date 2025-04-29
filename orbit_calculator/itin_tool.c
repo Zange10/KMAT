@@ -3,6 +3,7 @@
 #include "transfer_tools.h"
 #include "tools/data_tool.h"
 #include "double_swing_by.h"
+#include "tools/thread_pool.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -87,7 +88,7 @@ void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body 
 				double beta = (M_PI - angle_vec_vec(v_dep, v_init)) / 2;
 				double rp = (1 / cos(beta) - 1) * (tf->body->mu / (pow(vector_mag(v_dep), 2)));
 
-				if (rp > tf->body->radius + tf->body->atmo_alt) {
+				if (rp > tf->body->radius + tf->body->atmo_alt + 10e3) {	// +10e3 to avoid precision errors when checking for fly-by viability later on
 					new_steps[counter] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 					new_steps[counter]->body = next_body;
 					new_steps[counter]->date = t1;
@@ -285,6 +286,22 @@ double get_itinerary_duration(struct ItinStep *itin) {
 	return jd1-jd0;
 }
 
+struct PorkchopPoint *create_porkchop_array_from_departures(struct ItinStep **departures, int num_deps) {
+	int num_itins = 0;
+	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(departures[i]);
+
+	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
+	int index = 0;
+	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(departures[i], arrivals, &index);
+	struct PorkchopPoint *porkchop_points = malloc(num_itins * sizeof(struct PorkchopPoint));
+	for(int i = 0; i < num_itins; i++) {
+		porkchop_points[i] = create_porkchop_point(arrivals[i]);
+	}
+	free(arrivals);
+
+	return porkchop_points;
+}
+
 struct PorkchopPoint create_porkchop_point(struct ItinStep *itin) {
 	struct PorkchopPoint pp;
 	pp.arrival = itin;
@@ -311,7 +328,7 @@ struct PorkchopPoint create_porkchop_point(struct ItinStep *itin) {
 int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step) {
 	double max_duration = jd_max_arr-curr_step->date;
 	double min_duration = MIN_TRANSFER_DURATION;
-	if(max_duration > min_duration) {
+	if(max_duration > min_duration && get_thread_counter(3) == 0) {
 		if(bodies[step] != bodies[step - 1]) find_viable_flybys(curr_step, system, bodies[step], min_duration * 86400, max_duration * 86400);
 		else {
 			printf("DSB not yet reimplemented!\n");
@@ -361,8 +378,9 @@ int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, 
 	return num_valid > 0;
 }
 
-int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct ItinSequenceInfo *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
+int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct ItinSequenceInfoToTarget *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
 	for(int i = 0; i < seq_info->num_flyby_bodies; i++) {
+		if(get_thread_counter(3) > 0) break;
 		if(seq_info->flyby_bodies[i] == curr_step->body) continue;
 		double jd_max;
 		if(get_first(curr_step)->date + max_total_duration < jd_max_arr)
@@ -391,7 +409,7 @@ int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct ItinSequenc
 	return continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, seq_info, jd_max_arr, max_total_duration, dv_filter);
 }
 
-int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct ItinSequenceInfo *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
+int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct ItinSequenceInfoToTarget *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
 	int num_valid = num_of_end_nodes;
 	int init_num_nodes = curr_step->num_next_nodes;
 	int step_del = 0;

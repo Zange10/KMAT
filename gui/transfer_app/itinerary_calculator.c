@@ -9,6 +9,8 @@
 
 GObject *tf_ic_window;
 GObject *cb_ic_system;
+GObject *cb_ic_central_body;
+GObject *lb_ic_central_body;
 GObject *cb_ic_depbody;
 GObject *cb_ic_arrbody;
 GObject *tf_ic_mindepdate;
@@ -29,6 +31,8 @@ GtkWidget * ic_update_seq_body_grid(GObject *viewport, GtkWidget *grid);
 void init_itinerary_calculator(GtkBuilder *builder) {
 	tf_ic_window = gtk_builder_get_object(builder, "window");
 	cb_ic_system = gtk_builder_get_object(builder, "cb_ic_system");
+	cb_ic_central_body = gtk_builder_get_object(builder, "cb_ic_central_body");
+	lb_ic_central_body = gtk_builder_get_object(builder, "lb_ic_central_body");
 	cb_ic_depbody = gtk_builder_get_object(builder, "cb_ic_depbody");
 	cb_ic_arrbody = gtk_builder_get_object(builder, "cb_ic_arrbody");
 	tf_ic_mindepdate = gtk_builder_get_object(builder, "tf_ic_mindepdate");
@@ -43,12 +47,14 @@ void init_itinerary_calculator(GtkBuilder *builder) {
 
 	ic_system = NULL;
 
-	create_combobox_dropdown_text_renderer(cb_ic_system);
-	create_combobox_dropdown_text_renderer(cb_ic_depbody);
-	create_combobox_dropdown_text_renderer(cb_ic_arrbody);
+	create_combobox_dropdown_text_renderer(cb_ic_system, GTK_ALIGN_CENTER);
+	create_combobox_dropdown_text_renderer(cb_ic_central_body, GTK_ALIGN_CENTER);
+	create_combobox_dropdown_text_renderer(cb_ic_depbody, GTK_ALIGN_CENTER);
+	create_combobox_dropdown_text_renderer(cb_ic_arrbody, GTK_ALIGN_CENTER);
 	update_system_dropdown(GTK_COMBO_BOX(cb_ic_system));
 	if(get_num_available_systems() > 0) {
 		ic_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))];
+		update_central_body_dropdown(GTK_COMBO_BOX(cb_ic_central_body), ic_system);
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_depbody), ic_system);
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_arrbody), ic_system);
 		grid_ic_fbbodies = ic_update_seq_body_grid(vp_ic_fbbodies, grid_ic_fbbodies);
@@ -112,13 +118,13 @@ struct Body ** get_bodies_from_grid(GtkWidget *grid, int num_bodies) {
 void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nodes) {
 	if(departures == NULL || num_deps == 0) return;
 	char filepath[255];
-	if(!get_path_from_file_chooser(filepath,  ".itins", GTK_FILE_CHOOSER_ACTION_SAVE)) return;
+	if(!get_path_from_file_chooser(filepath,  ".itins", GTK_FILE_CHOOSER_ACTION_SAVE, "")) return;
 	store_itineraries_in_bfile(departures, num_nodes, num_deps, ic_system, filepath, get_current_bin_file_type());
 }
 
 
 
-struct Transfer_Calc_Results ic_results;
+struct Itin_Calc_Results ic_results;
 
 gboolean end_ic_calc_thread() {
 	end_sc_ic_progress_window();
@@ -133,7 +139,7 @@ gboolean end_ic_calc_thread() {
 
 void ic_calc_thread() {
 	char *string;
-	struct Transfer_To_Target_Calc_Data calc_data;
+	struct Itin_Calc_Data calc_data;
 
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_mindepdate));
 	calc_data.jd_min_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
@@ -158,16 +164,16 @@ void ic_calc_thread() {
 	struct Body *arr_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))];
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_grid_get_child_at(GTK_GRID(grid_ic_fbbodies), 0, get_body_system_id(arr_body, ic_system))), 1);
 
-	struct ItinSequenceInfo seq_info = {
+	struct ItinSequenceInfoToTarget seq_info = {
 			.system = ic_system,
 			.dep_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_depbody))],
 			.arr_body = arr_body,
 			.num_flyby_bodies = get_num_selected_bodies_from_grid(grid_ic_fbbodies),
 	};
 	seq_info.flyby_bodies = get_bodies_from_grid(grid_ic_fbbodies, seq_info.num_flyby_bodies);
-	calc_data.seq_info = &seq_info;
+	calc_data.seq_info.to_target = seq_info;
 
-	ic_results = search_for_itinerary_to_target(calc_data);
+	ic_results = search_for_itineraries(calc_data);
 
 	free(seq_info.flyby_bodies);
 
@@ -185,6 +191,22 @@ G_MODULE_EXPORT void on_calc_ic() {
 G_MODULE_EXPORT void on_ic_system_change() {
 	if(get_num_available_systems() > 0) {
 		ic_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))];
+		update_central_body_dropdown(GTK_COMBO_BOX(cb_ic_central_body), ic_system);
+		update_body_dropdown(GTK_COMBO_BOX(cb_ic_depbody), ic_system);
+		update_body_dropdown(GTK_COMBO_BOX(cb_ic_arrbody), ic_system);
+		grid_ic_fbbodies = ic_update_seq_body_grid(vp_ic_fbbodies, grid_ic_fbbodies);
+	}
+}
+
+G_MODULE_EXPORT void on_ic_central_body_change() {
+	if(get_num_available_systems() > 0) {
+		if(get_number_of_subsystems(get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))]) == 0) {
+			gtk_widget_set_sensitive(GTK_WIDGET(cb_ic_central_body), 0);
+			return;
+		}
+		gtk_widget_set_sensitive(GTK_WIDGET(cb_ic_central_body), 1);
+		struct System *ic_og_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))];
+		ic_system = get_subsystem_from_system_and_id(ic_og_system, gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_central_body)));
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_depbody), ic_system);
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_arrbody), ic_system);
 		grid_ic_fbbodies = ic_update_seq_body_grid(vp_ic_fbbodies, grid_ic_fbbodies);

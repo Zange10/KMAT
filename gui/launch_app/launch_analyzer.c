@@ -102,8 +102,8 @@ void init_launch_analyzer(GtkBuilder *builder) {
 	update_launcher_dropdown(GTK_COMBO_BOX(cb_la_sel_launcher));
 	update_la_display_radios();
 
-	create_combobox_dropdown_text_renderer(cb_la_sel_launcher);
-	create_combobox_dropdown_text_renderer(cb_la_sel_profile);
+	create_combobox_dropdown_text_renderer(cb_la_sel_launcher, GTK_ALIGN_CENTER);
+	create_combobox_dropdown_text_renderer(cb_la_sel_profile, GTK_ALIGN_CENTER);
 }
 
 void free_launch_data_points() {

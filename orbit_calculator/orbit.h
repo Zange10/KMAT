@@ -1,12 +1,10 @@
 #ifndef ORBIT
 #define ORBIT
 
-#include "celestial_bodies.h"
-#include "tools/analytic_geometry.h"
-#include "tools/ephem.h"
-
+// needs to be before include ephem (or anything that includes celestial bodies),
+// because struct Orbit needs to be defined before defining struct Body in celestial_bodies.h
 struct Orbit {
-    struct Body * body; // parent body
+    struct Body * body; // central body
     double e;           // eccentricity
     double a;           // semi-major axis
     double inclination; // inclination
@@ -19,19 +17,8 @@ struct Orbit {
     double periapsis;   // lowest point in orbit
 };
 
-struct Body {
-    char name[32];
-	double color[3];		// color used for orbit and body visualization
-    int id;                 // ID given by JPL's Horizon API
-    double mu;              // gravitational parameter of body [m³/s²]
-    double radius;          // radius of body [m]
-    double rotation_period; // the time period, in which the body rotates around its axis [s]
-    double sl_atmo_p;       // atmospheric pressure at sea level [Pa]
-    double scale_height;    // the height at which the atmospheric pressure decreases by the factor e [m]
-    double atmo_alt;        // highest altitude with atmosphere (ksp-specific) [m]
-    struct Orbit orbit;     // orbit of body
-	struct Ephem *ephem;	// Ephemerides of body (if available)
-};
+#include "tools/analytic_geometry.h"
+#include "tools/ephem.h"
 
 // constructs orbit using orbital elements
 struct Orbit constr_orbit(double a, double e, double i, double raan, double arg_of_peri, double theta, struct Body *body);

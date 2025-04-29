@@ -10,7 +10,7 @@ thread_t threads01[1];
 int counter[NUM_COUNTER];
 thread_mutex_t counter_lock[NUM_COUNTER];
 
-struct Thread_Pool use_thread_pool64(void *thread_method(void*), void *thread_args) {
+struct Thread_Pool use_thread_pool32(void *thread_method(void*), void *thread_args) {
 	size_t size = 32;
 	struct Thread_Pool thread_pool = {threads32, size};
 
