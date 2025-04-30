@@ -102,6 +102,10 @@ add_executable(KSP
         gui/transfer_app/itinerary_calculator.h
         projection_test/projection_test.c
         projection_test/projection_test.h
+        meshing_test/mesh_creator.c
+        meshing_test/mesh_creator.h
+        meshing_test/mesh_test.c
+        meshing_test/mesh_test.h
 )
 
 target_link_libraries(KSP m;

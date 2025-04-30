@@ -10,7 +10,7 @@
       <object class="GtkDrawingArea" id="drawing_area">
         <property name="visible">True</property>
         <property name="can-focus">False</property>
-        <signal name="draw" handler="on_draw_projection" swapped="no"/>
+        <signal name="draw" handler="on_draw_mesh_test" swapped="no"/>
       </object>
     </child>
   </object>
