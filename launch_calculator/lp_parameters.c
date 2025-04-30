@@ -112,7 +112,7 @@ int lp_param_fixed_payload_analysis4(struct LV lv, double payload_mass, struct P
 		struct ParamThreadArgs pta = {lv,payload_mass, pta_results, pad, only_check_for_orbit};
 
 		show_progress("Fixed Payload Analysis: ", 0, 1);
-		struct Thread_Pool thread_pool = use_thread_pool64(lp_param_fpa4, &pta);
+		struct Thread_Pool thread_pool = use_thread_pool32(lp_param_fpa4, &pta);
 		join_thread_pool(thread_pool);
 
 		for(int j = 0; j < pad.steps[0]; j++) {

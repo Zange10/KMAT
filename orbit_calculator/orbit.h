@@ -1,11 +1,10 @@
 #ifndef ORBIT
 #define ORBIT
 
-#include "celestial_bodies.h"
-#include "tools/analytic_geometry.h"
-
+// needs to be before include ephem (or anything that includes celestial bodies),
+// because struct Orbit needs to be defined before defining struct Body in celestial_bodies.h
 struct Orbit {
-    struct Body * body; // parent body
+    struct Body * body; // central body
     double e;           // eccentricity
     double a;           // semi-major axis
     double inclination; // inclination
@@ -18,22 +17,11 @@ struct Orbit {
     double periapsis;   // lowest point in orbit
 };
 
-
-
-struct Body {
-    char name[10];
-    int id;                 // ID issued by JPL's Horizon API
-    double mu;              // gravitational parameter of body [m³/s²]
-    double radius;          // radius of body [m]
-    double rotation_period; // the time period, in which the body rotates around its axis [s]
-    double sl_atmo_p;       // atmospheric pressure at sea level [Pa]
-    double scale_height;    // the height at which the atmospheric pressure decreases by the factor e [m]
-    double atmo_alt;        // highest altitude with atmosphere (ksp-specific) [m]
-    struct Orbit orbit;     // orbit of body
-};
+#include "tools/analytic_geometry.h"
+#include "tools/ephem.h"
 
 // constructs orbit using orbital elements
-struct Orbit constr_orbit(double a, double e, double i, double lan, double arg_of_peri, struct Body *body);
+struct Orbit constr_orbit(double a, double e, double i, double raan, double arg_of_peri, double theta, struct Body *body);
 
 // constructs orbit using apsides and inclination
 struct Orbit constr_orbit_w_apsides(double apsis1, double apsis2, double inclination, struct Body * body);
@@ -53,6 +41,8 @@ double calc_dt_from_dtheta(struct Orbit orbit, double dtheta);
 double calc_orbit_apoapsis(struct Orbit orbit);
 
 double calc_orbit_periapsis(struct Orbit orbit);
+
+double calc_true_anomaly_from_mean_anomaly(struct Orbit orbit, double mean_anomaly);
 
 // Prints parameters specific to the orbit
 void print_orbit_info(struct Orbit orbit);

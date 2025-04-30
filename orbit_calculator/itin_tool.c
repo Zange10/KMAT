@@ -3,19 +3,21 @@
 #include "transfer_tools.h"
 #include "tools/data_tool.h"
 #include "double_swing_by.h"
+#include "tools/thread_pool.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
 
-// TODO Remove or change later
-double best_diff_vinf, best_alt;
-double get_best_diff_vinf() {return best_diff_vinf;}
-double get_best_alt() {return best_alt;}
+const int MIN_TRANSFER_DURATION = 10;	// days
 
-void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, struct Body *next_body, double min_dt, double max_dt) {
+
+void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body *next_body, double min_dt, double max_dt) {
 	struct OSV osv_dep = {tf->r, tf->v_body};
-	struct OSV osv_arr0 = osv_from_ephem(next_body_ephems, tf->date, SUN());
+	struct OSV osv_arr0 = system->calc_method == ORB_ELEMENTS ?
+			osv_from_elements(next_body->orbit, tf->date, system) :
+			osv_from_ephem(next_body->ephem, tf->date, system->cb);
+
 	struct Vector proj_vec = proj_vec_plane(osv_dep.r, constr_plane(vec(0,0,0), osv_arr0.r, osv_arr0.v));
 	double theta_conj_opp = angle_vec_vec(proj_vec, osv_arr0.r);
 	if(cross_product(proj_vec, osv_arr0.r).z < 0) theta_conj_opp *= -1;
@@ -26,14 +28,14 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, str
 
 	int counter = 0;
 
-	struct OSV osv_arr1 = propagate_orbit_theta(osv_arr0.r, osv_arr0.v, -theta_conj_opp, SUN());
-	struct Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
-	struct Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
+	struct OSV osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb), -theta_conj_opp, SUN());
+	struct Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
+	struct Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, system->cb);
 	double dt0 = arr1.t-arr0.t;
 
-	osv_arr1 = propagate_orbit_theta(osv_arr0.r, osv_arr0.v, -theta_conj_opp+M_PI, SUN());
-	arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, SUN());
-	arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, SUN());
+	osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb), -theta_conj_opp+M_PI, system->cb);
+	arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
+	arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, system->cb);
 	double dt1 = arr1.t-arr0.t;
 
 	while(dt0 < 0) dt0 += arr0.period;
@@ -51,9 +53,6 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, str
 		dt1 = dt0 + arr0.period;
 		dt0 = temp;
 	}
-
-	// TODO Remove or change later
-	best_diff_vinf = 1e9, best_alt = 0;
 
 	// x: dt, y: diff_vinf (data[0].x: number of data points beginning at index 1)
 	struct Vector2D data[101];
@@ -74,28 +73,22 @@ void find_viable_flybys(struct ItinStep *tf, struct Ephem *next_body_ephems, str
 
 			t1 = t0 + dt / 86400;
 
-			struct OSV osv_arr = osv_from_ephem(next_body_ephems, t1, SUN());
+			struct OSV osv_arr = system->calc_method == ORB_ELEMENTS ?
+					osv_from_elements(next_body->orbit, t1, system) :
+					osv_from_ephem(next_body->ephem, t1, system->cb);
 
 			struct Transfer new_transfer = calc_transfer(circfb, tf->body, next_body, osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, dt,
-														 NULL);
+														 system->cb, NULL);
 
 			struct Vector v_dep = subtract_vectors(new_transfer.v0, tf->v_body);
 
 			diff_vinf = vector_mag(v_dep) - vector_mag(v_init);
 
-			// TODO Remove or change later
-			if(fabs(diff_vinf) < best_diff_vinf) best_diff_vinf = fabs(diff_vinf);
-
 			if (fabs(diff_vinf) < 1) {
 				double beta = (M_PI - angle_vec_vec(v_dep, v_init)) / 2;
 				double rp = (1 / cos(beta) - 1) * (tf->body->mu / (pow(vector_mag(v_dep), 2)));
 
-				// TODO Remove or change later
-//				printf("vinf check: %f\n", fabs(diff_vinf));
-//				printf("Alt check: %f  %f\n", rp, tf->body->radius+tf->body->atmo_alt);
-				if(rp > best_alt) best_alt = rp;
-
-				if (rp > tf->body->radius + tf->body->atmo_alt) {
+				if (rp > tf->body->radius + tf->body->atmo_alt + 10e3) {	// +10e3 to avoid precision errors when checking for fly-by viability later on
 					new_steps[counter] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 					new_steps[counter]->body = next_body;
 					new_steps[counter]->date = t1;
@@ -177,7 +170,7 @@ void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct B
 			jd_arr = jd_sb2 + dt1;
 
 			struct OSV osv_arr = osv_from_ephem(ephems[1], jd_arr, SUN());
-			struct Transfer transfer_after_dsb = calc_transfer(circfb, body0, body1, osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, NULL);
+			struct Transfer transfer_after_dsb = calc_transfer(circfb, body0, body1, osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, SUN(), NULL);
 
 			s1.r = transfer_after_dsb.r0;
 			s1.v = transfer_after_dsb.v0;
@@ -252,11 +245,11 @@ void print_itinerary(struct ItinStep *itin) {
 		print_itinerary(itin->prev);
 		printf(" - ");
 	}
-	print_date(convert_JD_date(itin->date), 0);
+	print_date(convert_JD_date(itin->date, DATE_ISO), 0);
 }
 
 int get_number_of_itineraries(struct ItinStep *itin) {
-	if(itin == NULL) return 0;
+	if(itin == NULL || (itin->prev == NULL && itin->num_next_nodes == 0)) return 0;
 	if(itin->num_next_nodes == 0) return 1;
 	int counter = 0;
 	for(int i = 0; i < itin->num_next_nodes; i++) {
@@ -293,48 +286,72 @@ double get_itinerary_duration(struct ItinStep *itin) {
 	return jd1-jd0;
 }
 
-void create_porkchop_point(struct ItinStep *itin, double* porkchop, int circ0_cap1) {
+struct PorkchopPoint *create_porkchop_array_from_departures(struct ItinStep **departures, int num_deps) {
+	int num_itins = 0;
+	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(departures[i]);
+
+	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
+	int index = 0;
+	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(departures[i], arrivals, &index);
+	struct PorkchopPoint *porkchop_points = malloc(num_itins * sizeof(struct PorkchopPoint));
+	for(int i = 0; i < num_itins; i++) {
+		porkchop_points[i] = create_porkchop_point(arrivals[i]);
+	}
+	free(arrivals);
+
+	return porkchop_points;
+}
+
+struct PorkchopPoint create_porkchop_point(struct ItinStep *itin) {
+	struct PorkchopPoint pp;
+	pp.arrival = itin;
+	pp.dur = get_itinerary_duration(itin);
+
 	double vinf = vector_mag(subtract_vectors(itin->v_arr, itin->v_body));
+	pp.dv_arr_cap = dv_capture(itin->body, itin->body->atmo_alt + 50e3, vinf);
+	pp.dv_arr_circ = dv_circ(itin->body, itin->body->atmo_alt + 50e3, vinf);
 
-	porkchop[4] = circ0_cap1 == 0 ? dv_circ(itin->body, itin->body->atmo_alt+100e3, vinf) : dv_capture(itin->body, itin->body->atmo_alt+100e3, vinf);
-	porkchop[1] = get_itinerary_duration(itin);
-
-	porkchop[3] = 0;
-
+	pp.dv_dsm = 0;
 	while(itin->prev->prev != NULL) {
 		if(itin->body == NULL) {
-			porkchop[3] += vector_mag(subtract_vectors(itin->next[0]->v_dep, itin->v_arr));
+			pp.dv_dsm += vector_mag(subtract_vectors(itin->next[0]->v_dep, itin->v_arr));
 		}
 		itin = itin->prev;
 	}
 
+	pp.dep_date = itin->prev->date;
 	vinf = vector_mag(subtract_vectors(itin->v_dep, itin->prev->v_body));
-	porkchop[2] = dv_circ(itin->prev->body, itin->prev->body->atmo_alt+100e3, vinf);
-	porkchop[0] = itin->prev->date;
+	pp.dv_dep = dv_circ(itin->prev->body, itin->prev->body->atmo_alt + 50e3, vinf);
+	return pp;
 }
 
-int calc_next_spec_itin_step(struct ItinStep *curr_step, struct Ephem **ephems, struct Body **bodies, const int *min_duration, const int *max_duration, struct Dv_Filter *dv_filter, int num_steps, int step) {
-	if(bodies[step] != bodies[step-1]) find_viable_flybys(curr_step, ephems[step], bodies[step], min_duration[step-1]*86400, max_duration[step-1]*86400);
-	else {
-		find_viable_dsb_flybys(curr_step, &ephems[step], bodies[step+1],
-							   min_duration[step-1]*86400, max_duration[step-1]*86400, min_duration[step]*86400, max_duration[step]*86400);
-	}
+int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step) {
+	double max_duration = jd_max_arr-curr_step->date;
+	double min_duration = MIN_TRANSFER_DURATION;
+	if(max_duration > min_duration && get_thread_counter(3) == 0) {
+		if(bodies[step] != bodies[step - 1]) find_viable_flybys(curr_step, system, bodies[step], min_duration * 86400, max_duration * 86400);
+		else {
+			printf("DSB not yet reimplemented!\n");
+			//		find_viable_dsb_flybys(curr_step, &bodies[step+1]->ephem, bodies[step+1],
+			//							   min_duration[step-1]*86400, max_duration[step-1]*86400, min_duration[step]*86400, max_duration[step]*86400);
+		}
 
-	for(int i = 0; i < curr_step->num_next_nodes; i++) {
-		struct ItinStep *next = bodies[step] != bodies[step-1] ? curr_step->next[i] : curr_step->next[i]->next[0]->next[0];
-		double porkchop[5];
-		create_porkchop_point(next, porkchop, dv_filter->last_transfer_type == 1);
-		if(step == num_steps-1) {
-			int fb0_pow1 = dv_filter->last_transfer_type != 0;
-			if(porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_satdv ||
-					porkchop[2] + porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_totdv) {
-				if(curr_step->num_next_nodes <= 1) {
-					remove_step_from_itinerary(next);
-					return 0;
-				} else {
-					remove_step_from_itinerary(next);
+		for(int i = 0; i < curr_step->num_next_nodes; i++) {
+			struct ItinStep *next = bodies[step] != bodies[step - 1] ? curr_step->next[i] : curr_step->next[i]->next[0]->next[0];
+			if(step == num_steps - 1) {
+				struct PorkchopPoint porkchop_point = create_porkchop_point(next);
+				double dv_sat = porkchop_point.dv_dsm;
+				if(dv_filter->last_transfer_type == 1) dv_sat += porkchop_point.dv_arr_cap;
+				if(dv_filter->last_transfer_type == 2) dv_sat += porkchop_point.dv_arr_circ;
+				if(dv_sat > dv_filter->max_satdv || porkchop_point.dv_dep + dv_sat > dv_filter->max_totdv) {
+					if(curr_step->num_next_nodes <= 1) {
+						remove_step_from_itinerary(next);
+						return 0;
+					} else {
+						remove_step_from_itinerary(next);
+					}
+					i--;
 				}
-				i--;
 			}
 		}
 	}
@@ -351,8 +368,8 @@ int calc_next_spec_itin_step(struct ItinStep *curr_step, struct Ephem **ephems, 
 
 	if(step < num_steps-1) {
 		for(int i = 0; i < init_num_nodes; i++) {
-			if(bodies[step] != bodies[step-1]) result = calc_next_spec_itin_step(curr_step->next[i - step_del], ephems, bodies, min_duration, max_duration, dv_filter, num_steps, step + 1);
-			else result = calc_next_spec_itin_step(curr_step->next[i - step_del]->next[0]->next[0], ephems, bodies, min_duration, max_duration, dv_filter, num_steps, step + 2);
+			if(bodies[step] != bodies[step-1]) result = calc_next_spec_itin_step(curr_step->next[i - step_del], system, bodies, jd_max_arr, dv_filter, num_steps, step + 1);
+			else result = calc_next_spec_itin_step(curr_step->next[i - step_del]->next[0]->next[0], system, bodies, jd_max_arr, dv_filter, num_steps, step + 2);
 			num_valid += result;
 			if(!result) step_del++;
 		}
@@ -361,19 +378,19 @@ int calc_next_spec_itin_step(struct ItinStep *curr_step, struct Ephem **ephems, 
 	return num_valid > 0;
 }
 
-// TODO dv filter
-int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
-	for(int body_id = 1; body_id <= 9; body_id++) {
-		if(body_id == curr_step->body->id) continue;
+int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct ItinSequenceInfoToTarget *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
+	for(int i = 0; i < seq_info->num_flyby_bodies; i++) {
+		if(get_thread_counter(3) > 0) break;
+		if(seq_info->flyby_bodies[i] == curr_step->body) continue;
 		double jd_max;
 		if(get_first(curr_step)->date + max_total_duration < jd_max_arr)
 			jd_max = get_first(curr_step)->date + max_total_duration;
 		else
 			jd_max = jd_max_arr;
 		double max_duration = jd_max-curr_step->date;
-		double min_duration = 10;	// [days]
+		double min_duration = MIN_TRANSFER_DURATION;
 		if(max_duration > min_duration)
-			find_viable_flybys(curr_step, body_ephems[body_id], get_body_from_id(body_id), min_duration*86400, max_duration*86400);
+			find_viable_flybys(curr_step, seq_info->system, seq_info->flyby_bodies[i], min_duration*86400, max_duration*86400);
 	}
 
 
@@ -382,17 +399,17 @@ int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct Ephem **bod
 		return 0;
 	}
 
-	int num_of_end_nodes = find_copy_and_store_end_nodes(curr_step, arr_body);
+	int num_of_end_nodes = find_copy_and_store_end_nodes(curr_step, seq_info->arr_body);
 
 	// remove end nodes that do not satisfy dv requirements
 	num_of_end_nodes = remove_end_nodes_that_do_not_satisfy_dv_requirements(curr_step, num_of_end_nodes, dv_filter);
 	if(curr_step->num_next_nodes <= 0) return 0;
 
 	// returns 1 if has valid steps (0 otherwise)
-	return continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, body_ephems, arr_body, jd_max_arr, max_total_duration, dv_filter);
+	return continue_to_next_steps_and_check_for_valid_itins(curr_step, num_of_end_nodes, seq_info, jd_max_arr, max_total_duration, dv_filter);
 }
 
-int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct Ephem **body_ephems, struct Body *arr_body, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
+int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct ItinSequenceInfoToTarget *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter) {
 	int num_valid = num_of_end_nodes;
 	int init_num_nodes = curr_step->num_next_nodes;
 	int step_del = 0;
@@ -400,7 +417,7 @@ int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step,
 
 	for(int i = 0; i < init_num_nodes-num_of_end_nodes; i++) {
 		int idx = i - step_del;
-		has_valid_init = calc_next_itin_to_target_step(curr_step->next[idx], body_ephems, arr_body, jd_max_arr, max_total_duration, dv_filter);
+		has_valid_init = calc_next_itin_to_target_step(curr_step->next[idx], seq_info, jd_max_arr, max_total_duration, dv_filter);
 		num_valid += has_valid_init;
 		if(!has_valid_init) step_del++;
 	}
@@ -411,7 +428,7 @@ int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step,
 int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_body) {
 	int num_of_end_nodes = 0;
 	for(int i = 0; i < curr_step->num_next_nodes; i++) {
-		if(curr_step->next[i]->body->id == arr_body->id) num_of_end_nodes++;
+		if(curr_step->next[i]->body == arr_body) num_of_end_nodes++;
 	}
 	// if there were end nodes found, copy them and store them at the end
 	if(num_of_end_nodes > 0) {
@@ -425,7 +442,7 @@ int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_b
 		int end_node_idx = 0;
 
 		for(int i = 0; i < curr_step->num_next_nodes; i++) {
-			if(curr_step->next[i]->body->id == arr_body->id) {
+			if(curr_step->next[i]->body == arr_body) {
 				struct ItinStep *end_node = malloc(num_of_end_nodes * sizeof(struct ItinStep));
 				end_node->body 	= curr_step->next[i]->body;
 				end_node->date 	= curr_step->next[i]->date;
@@ -450,11 +467,11 @@ int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_b
 int remove_end_nodes_that_do_not_satisfy_dv_requirements(struct ItinStep *curr_step, int num_of_end_nodes, struct Dv_Filter *dv_filter) {
 	for(int i = curr_step->num_next_nodes-num_of_end_nodes; i < curr_step->num_next_nodes; i++) {
 		struct ItinStep *next = curr_step->next[i];
-		double porkchop[5];
-		create_porkchop_point(next, porkchop, dv_filter->last_transfer_type == 1);
-		int fb0_pow1 = dv_filter->last_transfer_type != 0;
-		if(porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_satdv ||
-		   porkchop[2] + porkchop[3] + porkchop[4] * fb0_pow1 > dv_filter->max_totdv) {
+		struct PorkchopPoint porkchop_point = create_porkchop_point(next);
+		double dv_sat = porkchop_point.dv_dsm;
+		if(dv_filter->last_transfer_type == 1) dv_sat += porkchop_point.dv_arr_cap;
+		if(dv_filter->last_transfer_type == 2) dv_sat += porkchop_point.dv_arr_circ;
+		if(dv_sat > dv_filter->max_satdv || porkchop_point.dv_dep + dv_sat > dv_filter->max_totdv) {
 			if(curr_step->num_next_nodes <= 1) {
 				remove_step_from_itinerary(next);
 				curr_step->num_next_nodes = 0;
@@ -478,11 +495,13 @@ int get_num_of_itin_layers(struct ItinStep *step) {
 	return counter;
 }
 
-void update_itin_body_osvs(struct ItinStep *step, struct Ephem **body_ephems) {
+void update_itin_body_osvs(struct ItinStep *step, struct System *system) {
 	struct OSV body_osv;
 	while(step != NULL) {
 		if(step->body != NULL) {
-			body_osv = osv_from_ephem(body_ephems[step->body->id-1], step->date, SUN());
+			body_osv = system->calc_method == ORB_ELEMENTS ?
+					osv_from_elements(step->body->orbit, step->date, system) :
+					osv_from_ephem(step->body->ephem, step->date, system->cb);
 			step->r = body_osv.r;
 			step->v_body = body_osv.v;
 		} else step->v_body = vec(0, 0, 0);	// don't draw the trajectory (except changed in later calc)
@@ -490,7 +509,7 @@ void update_itin_body_osvs(struct ItinStep *step, struct Ephem **body_ephems) {
 	}
 }
 
-void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step) {
+void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *system) {
 	if(step == NULL) return;
 	struct ItinStep *next;
 	while(step->next != NULL) {
@@ -504,7 +523,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step) {
 				next = next->next[0];
 				double dt = (next->date - step->date) * 86400;
 				struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-														 next->v_body, dt, NULL);
+														 next->v_body, dt, system->cb, NULL);
 				next->v_dep = transfer.v0;
 				next->v_arr = transfer.v1;
 			} else {
@@ -514,7 +533,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step) {
 				struct OSV osv_arr = {next->next[0]->next[0]->r, next->next[0]->next[0]->v_body};
 				struct Transfer transfer_after_dsb = calc_transfer(circfb, sb2->body, arr->body, osv_sb2.r, osv_sb2.v,
 																   osv_arr.r, osv_arr.v,
-																   (arr->date - sb2->date) * 86400, NULL);
+																   (arr->date - sb2->date) * 86400, system->cb, NULL);
 
 				struct OSV s0 = {step->r, step->v_arr};
 				struct OSV p0 = {step->r, step->v_body};
@@ -532,7 +551,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step) {
 					next = next->next[0];
 					dt = (next->date - step->date) * 86400;
 					struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-															 next->v_body, dt, NULL);
+															 next->v_body, dt, system->cb, NULL);
 					next->v_dep = transfer.v0;
 					next->v_arr = transfer.v1;
 				}
@@ -540,7 +559,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step) {
 		} else {
 			double dt = (next->date - step->date) * 86400;
 			struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-													 next->v_body, dt, NULL);
+													 next->v_body, dt, system->cb, NULL);
 			next->v_dep = transfer.v0;
 			next->v_arr = transfer.v1;
 		}
@@ -652,362 +671,138 @@ void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int 
 	fclose(file);
 }
 
-union ItinStepBinHeader {
-	struct ItinStepBinHeaderT0 {
-		int num_nodes, num_deps, num_layers;
-	} t0;
 
-	struct ItinStepBinHeaderT1 {
-		int num_nodes, num_deps;
-	} t1;
-};
 
-union ItinStepBin {
-	struct ItinStepBinT0 {
-		struct Vector r;
-		struct Vector v_dep, v_arr, v_body;
-		double date;
-		int num_next_nodes;
-	} t0;
+void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum DateType date_type, struct ItinStep *step) {
+	if(step == NULL) {sprintf(s_labels,""); sprintf(s_values,""); return;}
+	struct DepArrHyperbolaParams dep_hyp_params;
 
-	struct ItinStepBinT1 {
-		double date;
-		struct Vector r;
-		struct Vector v_dep, v_arr, v_body;
-		int body_id;
-		int num_next_nodes;
-	} t1;
-};
+	// is departure step
+	if(step->prev == NULL) {
+		dep_hyp_params = get_dep_hyperbola_params(step->next[0]->v_dep, step->v_body, step->body,
+												  50e3 + step->body->atmo_alt);
+		sprintf(s_labels, "Departure\n"
+						  "T+:\n"
+						  "RadPer:\n"
+						  "AltPer:\n"
+						  "Min Incl:\n\n"
+						  "C3Energy:\n"
+						  "RHA (out):\n"
+						  "DHA (out):");
 
-union ItinStepBin convert_ItinStep_bin(struct ItinStep *step, int file_type) {
-	union ItinStepBin bin_step;
-	if(file_type == 0) {
-		bin_step.t0.r = step->r;
-		bin_step.t0.v_dep = step->v_dep;
-		bin_step.t0.v_arr = step->v_arr;
-		bin_step.t0.v_body = step->v_body;
-		bin_step.t0.date = step->date;
-		bin_step.t0.num_next_nodes = step->num_next_nodes;
-	} else if(file_type == 1) {
-		bin_step.t1.r = step->r;
-		bin_step.t1.v_dep = step->v_dep;
-		bin_step.t1.v_arr = step->v_arr;
-		bin_step.t1.v_body = step->v_body;
-		bin_step.t1.date = step->date;
-		bin_step.t1.body_id = step->body->id;
-		bin_step.t1.num_next_nodes = step->num_next_nodes;
-	}
+		sprintf(s_values, "\n0 days\n"
+						  "%.0f km\n"
+						  "%.0f km\n"
+						  "%.2f°\n\n"
+						  "%.2f km²/s²\n"
+						  "%.2f°\n"
+						  "%.2f°",
+				dep_hyp_params.r_pe / 1000, (dep_hyp_params.r_pe-step->body->radius) / 1000, fabs(rad2deg(dep_hyp_params.decl)), dep_hyp_params.c3_energy / 1e6,
+				rad2deg(dep_hyp_params.bplane_angle), rad2deg(dep_hyp_params.decl));
 
-	return bin_step;
-}
+	} else if(step->num_next_nodes == 0) {
+		double rp = 100000e3;
+		double dt_in_days = step->date - get_first(step)->date;
+		if(date_type == DATE_KERBAL) dt_in_days *= 4;
+		struct DepArrHyperbolaParams arr_hyp_params = get_dep_hyperbola_params(step->v_arr, step->v_body, step->body, rp - step->body->radius);
+		arr_hyp_params.decl *= -1;
+		arr_hyp_params.bplane_angle = pi_norm(M_PI + arr_hyp_params.bplane_angle);
+		sprintf(s_labels, "Arrival\n"
+						  "T+:\n"
+						  "Min Incl:\n"
+						  "Max Incl:\n\n"
+						  "C3Energy:\n"
+						  "RHA (in):\n"
+						  "DHA (in):");
 
-void convert_bin_ItinStep(union ItinStepBin bin_step, struct ItinStep *step, struct Body *body, int file_type) {
-	if(file_type == 0) {
-		step->body = body;
-		step->r = bin_step.t0.r;
-		step->v_arr = bin_step.t0.v_arr;
-		step->v_body = bin_step.t0.v_body;
-		step->v_dep = bin_step.t0.v_dep;
-		step->date = bin_step.t0.date;
-		step->num_next_nodes = bin_step.t0.num_next_nodes;
-	} else if(file_type == 1) {
-		step->body = get_body_from_id(bin_step.t1.body_id);
-		step->r = bin_step.t1.r;
-		step->v_arr = bin_step.t1.v_arr;
-		step->v_body = bin_step.t1.v_body;
-		step->v_dep = bin_step.t1.v_dep;
-		step->date = bin_step.t1.date;
-		step->num_next_nodes = bin_step.t1.num_next_nodes;
-	}
-}
+		sprintf(s_values, "\n%.2f days\n"
+						  "%.2f°\n"
+						  "%.2f°\n\n"
+						  "%.2f km²/s²\n"
+						  "%.2f°\n"
+						  "%.2f°",
+				dt_in_days, fabs(rad2deg(arr_hyp_params.decl)), 180.0 - fabs(rad2deg(arr_hyp_params.decl)), arr_hyp_params.c3_energy / 1e6,
+				rad2deg(arr_hyp_params.bplane_angle), rad2deg(arr_hyp_params.decl));
 
-void store_step_in_bfile(struct ItinStep *step, FILE *file, int file_type) {
-	if(file_type == 0) {
-		union ItinStepBin bin_step = convert_ItinStep_bin(step, 0);
-		fwrite(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
-	} else if(file_type == 1) {
-		union ItinStepBin bin_step = convert_ItinStep_bin(step, 1);
-		fwrite(&bin_step.t1, sizeof(struct ItinStepBinT1), 1, file);
-	}
-	for(int i = 0; i < step->num_next_nodes; i++) {
-		store_step_in_bfile(step->next[i], file, file_type);
-	}
-}
+	} else {
+		if(step->body != NULL) {
+			struct Vector v_arr = step->v_arr;
+			struct Vector v_dep = step->next[0]->v_dep;
+			struct Vector v_body = step->v_body;
+			double rp = get_flyby_periapsis(v_arr, v_dep, v_body, step->body);
+			double incl = get_flyby_inclination(v_arr, v_dep, v_body);
 
-void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, char *filepath, int file_type) {
-	// Check if the string ends with ".itins"
-	if (strlen(filepath) >= 6 && strcmp(filepath + strlen(filepath) - 6, ".itins") != 0) {
-		// If not, append ".itins" to the string
-		strcat(filepath, ".itins");
-	}
+			struct FlybyHyperbolaParams hyp_params = get_hyperbola_params(step->v_arr, step->next[0]->v_dep,
+																		  step->v_body, step->body,
+																		  rp - step->body->radius);
+			double dt_in_days = step->date - get_first(step)->date;
+			if(date_type == DATE_KERBAL) dt_in_days *= 4;
 
-	union ItinStepBinHeader bin_header;
-	FILE *file = fopen(filepath, "wb");
-	fwrite(&file_type, sizeof(int), 1, file);
+			sprintf(s_labels, "Hyperbola\n"
+							  "T+:\n"
+							  "RadPer:\n"
+							  "AltPer:\n"
+							  "Inclination:\n\n"
+							  "C3Energy:\n"
+							  "RHA (in):\n"
+							  "DHA (in):\n"
+							  "BVAZI (in):\n"
+							  "RHA (out):\n"
+							  "DHA (out):\n"
+							  "BVAZI (out):");
 
-	// TYPE 0 --------------------------------------------
-	if(file_type == 0) {
-		bin_header.t0.num_nodes = num_nodes;
-		bin_header.t0.num_deps = num_deps;
-		bin_header.t0.num_layers = get_num_of_itin_layers(departures[0]);
+			sprintf(s_values, "\n%.2f days\n"
+							  "%.0f km\n"
+							  "%.0f km\n"
+							  "%.2f°\n\n"
+							  "%.2f km²/s²\n"
+							  "%.2f°\n"
+							  "%.2f°\n"
+							  "%.2f°\n"
+							  "%.2f°\n"
+							  "%.2f°\n"
+							  "%.2f°",
+					dt_in_days, hyp_params.dep_hyp.r_pe / 1000, (hyp_params.dep_hyp.r_pe-step->body->radius) / 1000, rad2deg(incl),
+					hyp_params.dep_hyp.c3_energy / 1e6,
+					rad2deg(hyp_params.arr_hyp.bplane_angle), rad2deg(hyp_params.arr_hyp.decl),
+					rad2deg(hyp_params.arr_hyp.bvazi),
+					rad2deg(hyp_params.dep_hyp.bplane_angle), rad2deg(hyp_params.dep_hyp.decl),
+					rad2deg(hyp_params.dep_hyp.bvazi));
+		} else {
+			double dt_in_days = step->date - get_first(step)->date;
+			if(date_type == DATE_KERBAL) dt_in_days *= 4;
+			double dist_to_sun = vector_mag(step->r);
 
-		printf("Filesize: ~%.3f MB\n", (double) num_nodes*sizeof(struct ItinStepBinT0)/1e6);
+			struct Vector orbit_prograde = step->v_arr;
+			struct Vector orbit_normal = cross_product(step->r, step->v_arr);
+			struct Vector orbit_radialin = cross_product(orbit_normal, step->v_arr);
+			struct Vector dv_vec = subtract_vectors(step->next[0]->v_dep, step->v_arr);
 
-		printf("Number of stored nodes: %d\n", bin_header.t0.num_nodes);
-		printf("Number of Departures: %d, Number of Steps: %d\n", num_deps, bin_header.t0.num_layers);
+			// dv vector in S/C coordinate system (prograde, radial in, normal) (sign it if projected vector more than 90° from target vector / pointing in opposite direction)
+			struct Vector dv_vec_sc = {
+					vector_mag(proj_vec_vec(dv_vec, orbit_prograde)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_prograde), orbit_prograde) < M_PI/2 ? 1 : -1),
+					vector_mag(proj_vec_vec(dv_vec, orbit_radialin)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_radialin), orbit_radialin) < M_PI/2 ? 1 : -1),
+					vector_mag(proj_vec_vec(dv_vec, orbit_normal)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_normal), orbit_normal) < M_PI/2 ? 1 : -1)
+			};
 
-		fwrite(&bin_header.t0, sizeof(struct ItinStepBinHeaderT0), 1, file);
+			sprintf(s_labels, "DSM\n"
+							  "T+:\n"
+							  "Distance to the Sun:\n"
+							  "Dv Prograde:\n"
+							  "Dv Radial:\n"
+							  "Dv Normal:\n"
+							  "Total:");
 
-		struct ItinStep *ptr = departures[0];
-
-		// same algorithm as layer counter (part of header)
-		while(ptr != NULL) {
-			int body_id = (ptr->body != NULL) ? ptr->body->id : 0;
-			fwrite(&body_id, sizeof(int), 1, file);
-			if(ptr->next != NULL) ptr = ptr->next[0];
-			else break;
-		}
-
-		int end_of_bodies_designator = -1;
-		fwrite(&end_of_bodies_designator, sizeof(int), 1, file);
-
-		for(int i = 0; i < num_deps; i++) {
-			store_step_in_bfile(departures[i], file, file_type);
-		}
-	// TYPE 1 --------------------------------------------
-	} else if(file_type == 1) {
-		bin_header.t1.num_nodes = num_nodes;
-		bin_header.t1.num_deps = num_deps;
-
-		printf("Filesize: ~%.3f MB\n", (double) num_nodes*sizeof(struct ItinStepBinT1)/1e6);
-
-		printf("Number of stored nodes: %d\n", bin_header.t1.num_nodes);
-		printf("Number of Departures: %d\n", num_deps);
-
-		fwrite(&bin_header.t1, sizeof(struct ItinStepBinHeaderT1), 1, file);
-
-		int end_of_bodies_designator = -1;
-		fwrite(&end_of_bodies_designator, sizeof(int), 1, file);
-
-		for(int i = 0; i < num_deps; i++) {
-			store_step_in_bfile(departures[i], file, file_type);
+			sprintf(s_values, "\n%.2f days\n"
+							  "%.3f AU\n"
+							  "%.3f m/s\n"
+							  "%.3f m/s\n"
+							  "%.3f m/s\n"
+							  "%.3f m/s",
+					dt_in_days, dist_to_sun / 1.495978707e11, dv_vec_sc.x, dv_vec_sc.y, dv_vec_sc.z, vector_mag(dv_vec_sc));
 		}
 	}
-	// ---------------------------------------------------
-
-	fclose(file);
 }
-
-void load_step_from_bfile(struct ItinStep *step, FILE *file, struct Body **body, int file_type) {
-	union ItinStepBin bin_step;
-	// TYPE 0 --------------------------------------------
-	if(file_type == 0) {
-		fread(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
-		convert_bin_ItinStep(bin_step, step, body[0], 0);
-	// TYPE 1 --------------------------------------------
-	} else if(file_type == 1) {
-		fread(&bin_step.t1, sizeof(struct ItinStepBinT1), 1, file);
-		convert_bin_ItinStep(bin_step, step, NULL, 1);
-	}
-	// ---------------------------------------------------
-
-	if(step->num_next_nodes > 0)
-		step->next = (struct ItinStep **) malloc(step->num_next_nodes * sizeof(struct ItinStep *));
-	else step->next = NULL;
-
-	for(int i = 0; i < step->num_next_nodes; i++) {
-		step->next[i] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-		step->next[i]->prev = step;
-		load_step_from_bfile(step->next[i], file, body == NULL ? NULL : body + 1, file_type);
-	}
-}
-
-struct ItinStep ** load_itineraries_from_bfile(char *filepath) {
-	struct ItinStep **departures = NULL;
-	union ItinStepBinHeader bin_header;
-
-	FILE *file;
-	file = fopen(filepath,"rb");
-
-	int type;
-	fread(&type, sizeof(int), 1, file);
-
-	// TYPE 0 --------------------------------------------
-	if(type == 0 || type > 3) {
-		if(type > 3) {fclose(file); file = fopen(filepath,"rb");}	// no type specified in header
-		fread(&bin_header.t0, sizeof(struct ItinStepBinHeaderT0), 1, file);
-
-		int *bodies_id = (int *) malloc(bin_header.t0.num_layers * sizeof(int));
-		fread(bodies_id, sizeof(int), bin_header.t0.num_layers, file);
-
-		int buf;
-		fread(&buf, sizeof(int), 1, file);
-
-		if(buf != -1) {
-			printf("Problems reading itinerary file (Body list or header wrong)\n");
-			fclose(file);
-			return NULL;
-		}
-
-		departures = (struct ItinStep **) malloc(bin_header.t0.num_deps * sizeof(struct ItinStep *));
-
-		struct Body **bodies = (struct Body **) malloc(bin_header.t0.num_layers * sizeof(struct Body *));
-		for(int i = 0; i < bin_header.t0.num_layers; i++)
-			bodies[i] = (bodies_id[i] > 0) ? get_body_from_id(bodies_id[i]) : NULL;
-		free(bodies_id);
-
-		for(int i = 0; i < bin_header.t0.num_deps; i++) {
-			departures[i] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-			departures[i]->prev = NULL;
-			load_step_from_bfile(departures[i], file, bodies, 0);
-		}
-		free(bodies);
-	// TYPE 1 --------------------------------------------
-	} else if(type == 1) {
-		fread(&bin_header.t1, sizeof(struct ItinStepBinHeaderT1), 1, file);
-
-		int buf;
-		fread(&buf, sizeof(int), 1, file);
-
-		if(buf != -1) {
-			printf("Problems reading itinerary file (Body list or header wrong)\n");
-			fclose(file);
-			return NULL;
-		}
-
-		departures = (struct ItinStep **) malloc(bin_header.t1.num_deps * sizeof(struct ItinStep *));
-
-		for(int i = 0; i < bin_header.t1.num_deps; i++) {
-			departures[i] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-			departures[i]->prev = NULL;
-			load_step_from_bfile(departures[i], file, NULL, 1);
-		}
-	}
-	// ---------------------------------------------------
-
-	fclose(file);
-	return departures;
-}
-
-int get_num_of_deps_of_itinerary_from_bfile(char *filepath) {
-	FILE *file;
-	file = fopen(filepath,"rb");
-	union ItinStepBinHeader bin_header;
-	int num_deps = 0;
-
-	int type;
-	fread(&type, sizeof(int), 1, file);
-
-	// TYPE 0 --------------------------------------------
-	if(type == 0 || type > 3) {
-		if(type > 3) {fclose(file); file = fopen(filepath,"rb");}	// no type specified in header
-		fread(&bin_header.t0, sizeof(struct ItinStepBinHeaderT0), 1, file);
-		num_deps = bin_header.t0.num_deps;
-	// TYPE 1 --------------------------------------------
-	} else if(type == 1) {
-		fread(&bin_header.t1, sizeof(struct ItinStepBinHeaderT1), 1, file);
-		num_deps = bin_header.t1.num_deps;
-	}
-	// ---------------------------------------------------
-
-	fclose(file);
-	return num_deps;
-}
-
-void store_single_itinerary_in_bfile(struct ItinStep *itin, char *filepath) {
-	if(itin == NULL) return;
-
-	int num_nodes = get_num_of_itin_layers(itin);
-
-	// Check if the string ends with ".itin"
-	if (strlen(filepath) >= 5 && strcmp(filepath + strlen(filepath) - 5, ".itin") != 0) {
-		// If not, append ".itin" to the string
-		strcat(filepath, ".itin");
-	}
-
-
-	printf("Storing Itinerary: %s\n", filepath);
-
-	FILE *file;
-	file = fopen(filepath,"wb");
-
-	fwrite(&num_nodes, sizeof(int), 1, file);
-
-	struct ItinStep *ptr = itin;
-
-	// same algorithm as layer counter (part of header)
-	while(ptr != NULL) {
-		int body_id = (ptr->body != NULL) ? ptr->body->id : 0;
-		fwrite(&body_id, sizeof(int), 1, file);
-		if(ptr->next != NULL) ptr = ptr->next[0];
-		else break;
-	}
-
-	int end_of_bodies_designator = -1;
-	fwrite(&end_of_bodies_designator, sizeof(int), 1, file);
-
-	ptr = itin;
-	while(ptr != NULL) {
-		union ItinStepBin bin_step = convert_ItinStep_bin(ptr, 0);
-		fwrite(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
-		if(ptr->next != NULL) ptr = ptr->next[0];
-		else break;
-	}
-
-	fclose(file);
-}
-
-struct ItinStep * load_single_itinerary_from_bfile(char *filepath) {
-	int num_nodes;
-
-	printf("Loading Itinerary: %s\n", filepath);
-
-	FILE *file;
-	file = fopen(filepath,"rb");
-
-	fread(&num_nodes, sizeof(int), 1, file);
-
-	int *bodies_id = (int*) malloc(num_nodes * sizeof(int));
-	fread(bodies_id, sizeof(int), num_nodes, file);
-
-	int buf;
-	fread(&buf, sizeof(int), 1, file);
-
-	if(buf != -1) {
-		printf("Problems reading itinerary file (Body list or header wrong)\n");
-		fclose(file);
-		return NULL;
-	}
-
-
-	struct Body **bodies = (struct Body**) malloc(num_nodes * sizeof(struct Body*));
-	for(int i = 0; i < num_nodes; i++) bodies[i] = (bodies_id[i] > 0) ? get_body_from_id(bodies_id[i]) : NULL;
-	free(bodies_id);
-
-	struct ItinStep *itin;
-	union ItinStepBin bin_step;
-	struct ItinStep *last_step = NULL;
-
-	for(int i = 0; i < num_nodes; i++) {
-		itin = (struct ItinStep*) malloc(sizeof(struct ItinStep));
-		fread(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
-		convert_bin_ItinStep(bin_step, itin, bodies[i], 0);
-		itin->prev = last_step;
-		itin->next = NULL;
-		if(last_step != NULL) {
-			last_step->next = (struct ItinStep**) malloc(sizeof(struct ItinStep*));
-			last_step->next[0] = itin;
-		}
-		last_step = itin;
-	}
-
-	fclose(file);
-	free(bodies);
-	return itin;
-}
-
-
-
 
 
 void remove_step_from_itinerary(struct ItinStep *step) {

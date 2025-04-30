@@ -1,16 +1,17 @@
 #include <stdio.h>
 
 #include "drawing.h"
+#include "settings.h"
 #include "math.h"
-#include <stdlib.h>
 
 
 void draw_orbit(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor) {
 	int steps = 100;
 	struct OSV last_osv = {r,v};
+	
 	for(int i = 1; i <= steps; i++) {
 		double theta = 2*M_PI/steps * i;
-		struct OSV osv = propagate_orbit_theta(r,v,theta,attractor);
+		struct OSV osv = propagate_orbit_theta(constr_orbit_from_osv(r,v,attractor),theta,attractor);
 		// y negative, because in GUI y gets bigger downwards
 		struct Vector2D p1 = {last_osv.r.x, -last_osv.r.y};
 		struct Vector2D p2 = {osv.r.x, -osv.r.y};
@@ -49,7 +50,7 @@ void draw_transfer_point(cairo_t *cr, struct Vector2D center, double scale, stru
 
 
 // Rework trajectory drawing -> OSV + dt   ----------------------------------------------
-void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf) {
+void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf, struct Body *attractor) {
 	// if double swing-by is not worth drawing
 	if(tf->body == NULL && tf->v_body.x == 0) return;
 
@@ -66,16 +67,17 @@ void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct I
 		struct OSV osv2 = {tf->r, tf->v_body};
 		struct OSV osvs[3] = {osv0, osv1, osv2};
 		struct Body *bodies[3] = {prev->prev->body, prev->body, tf->body};
-		if(!is_flyby_viable(t, osvs, bodies)) cairo_set_source_rgb(cr, 1, 0, 0);
+		if(!is_flyby_viable(t, osvs, bodies, attractor)) cairo_set_source_rgb(cr, 1, 0, 0);
 	}
 
 	int steps = 1000;
 	struct Vector r = prev->r;
 	struct Vector v = tf->v_dep;
 	struct OSV last_osv = {r,v};
+
 	for(int i = 1; i <= steps; i++) {
 		double time = dt/steps * i;
-		struct OSV osv = propagate_orbit_time(r,v,time,SUN());
+		struct OSV osv = propagate_orbit_time(constr_orbit_from_osv(r,v,attractor),time, attractor);
 		// y negative, because in GUI y gets bigger downwards
 		struct Vector2D p1 = {last_osv.r.x, -last_osv.r.y};
 		struct Vector2D p2 = {osv.r.x, -osv.r.y};
@@ -96,28 +98,17 @@ void draw_stroke(cairo_t *cr, struct Vector2D p1, struct Vector2D p2) {
 	cairo_stroke(cr);
 }
 
-double calc_scale(int area_width, int area_height, int highest_id) {
-	if(highest_id == 0) return 1e-9;
-	struct Body *body = get_body_from_id(highest_id);
-	double apoapsis = body->orbit.apoapsis;
+double calc_scale(int area_width, int area_height, struct Body *farthest_body) {
+	if(farthest_body == NULL) return 1e-9;
+	double apoapsis = farthest_body->orbit.apoapsis;
 	int wh = area_width < area_height ? area_width : area_height;
 	return 1/apoapsis*wh/2.2;	// divided by 2.2 because apoapsis is only one side and buffer
 }
 
-void set_cairo_body_color(cairo_t *cr, int id) {
-	switch(id) {
-		case 0: cairo_set_source_rgb(cr, 1.0, 1.0, 0.3); break;	// Sun
-		case 1: cairo_set_source_rgb(cr, 0.3, 0.3, 0.3); break;	// Mercury
-		case 2: cairo_set_source_rgb(cr, 0.6, 0.6, 0.2); break;	// Venus
-		case 3: cairo_set_source_rgb(cr, 0.2, 0.2, 1.0); break;	// Earth
-		case 4: cairo_set_source_rgb(cr, 1.0, 0.2, 0.0); break;	// Mars
-		case 5: cairo_set_source_rgb(cr, 0.6, 0.4, 0.2); break;	// Jupiter
-		case 6: cairo_set_source_rgb(cr, 0.8, 0.8, 0.6); break;	// Saturn
-		case 7: cairo_set_source_rgb(cr, 0.2, 0.6, 1.0); break;	// Uranus
-		case 8: cairo_set_source_rgb(cr, 0.0, 0.0, 1.0); break;	// Neptune
-		case 9: cairo_set_source_rgb(cr, 0.7, 0.7, 0.7); break;	// Pluto
-		default:cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); break;
-	}
+void set_cairo_body_color(cairo_t *cr, struct Body *body) {
+	if(body != NULL) {
+		cairo_set_source_rgb(cr, body->color[0], body->color[1], body->color[2]);
+	} else cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
 }
 
 void draw_center_aligned_text(cairo_t *cr, double x, double y, char *text) {
@@ -140,11 +131,6 @@ void draw_right_aligned_text(cairo_t *cr, double x, double y, char *text) {
 	// Position and draw text to the left
 	cairo_move_to(cr, x - text_width, y); // adjust starting position to the left
 	cairo_show_text(cr, text);
-}
-
-void draw_data_point(cairo_t *cr, double x, double y, double radius) {
-	cairo_arc(cr, x, y, radius,0,M_PI*2);
-	cairo_fill(cr);
 }
 
 void draw_coordinate_system(cairo_t *cr, double width, double height, enum CoordAxisLabelType x_axis_label_type, enum CoordAxisLabelType y_axis_label_type,
@@ -217,8 +203,10 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 		cairo_set_source_rgb(cr, 1, 1, 1);
 		if(x_axis_label_type == COORD_LABEL_NUMBER)
 			sprintf(string, "%g", label);
+		else if(x_axis_label_type == COORD_LABEL_DURATION)
+			sprintf(string, "%g", get_settings_datetime_type() == DATE_KERBAL ? label*4 : label);
 		else if(x_axis_label_type == COORD_LABEL_DATE)
-			date_to_string(convert_JD_date(label), string, 0);
+			date_to_string(convert_JD_date(label, get_settings_datetime_type()), string, 0);
 		draw_center_aligned_text(cr, x, x_label_y, string);
 		cairo_set_source_rgb(cr, 0, 0, 0);
 		draw_stroke(cr, vec2D(x, origin.y), vec2D(x, 0));
@@ -231,37 +219,58 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 		cairo_set_source_rgb(cr, 1, 1, 1);
 		if(y_axis_label_type == COORD_LABEL_NUMBER)
 			sprintf(string, "%g", label);
+		else if(y_axis_label_type == COORD_LABEL_DURATION)
+			sprintf(string, "%g", get_settings_datetime_type() == DATE_KERBAL ? label*4 : label);
 		else if(y_axis_label_type == COORD_LABEL_DATE)
-			date_to_string(convert_JD_date(label), string, 0);
+			date_to_string(convert_JD_date(label, get_settings_datetime_type()), string, 0);
 		draw_right_aligned_text(cr, y_label_x, y+half_font_size, string);
 		cairo_set_source_rgb(cr, 0, 0, 0);
 		draw_stroke(cr, vec2D(origin.x, y), vec2D(width, y));
 	}
 }
 
-void draw_porkchop(cairo_t *cr, double width, double height, const double *porkchop, int fb0_pow1) {
+void draw_data_point(cairo_t *cr, double x, double y, double radius) {
+	if(radius > 3) {
+		cairo_arc(cr, x, y, radius,0,M_PI*2);
+		cairo_fill(cr);
+	} else {
+		cairo_rectangle(cr, x-radius, y-radius, radius, radius);
+		cairo_fill(cr);
+	}
+}
+
+void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnalyzerPoint *porkchop, int num_itins, enum LastTransferType last_transfer_type) {
 	double dv, date, dur;
-	int num_itins = (int) (porkchop[0]/5);
-	int min_dv_ind = 0;
 
 	struct Vector2D origin = {45, height-40};
 
-	double min_dur = porkchop[1 + 1], max_dur = porkchop[1 + 1];
-	double min_date = porkchop[0+1], max_date = porkchop[0+1];
-	double min_dv = porkchop[2+1]+porkchop[3+1]+porkchop[4+1]*fb0_pow1;
-	double max_dv = porkchop[2+1]+porkchop[3+1]+porkchop[4+1]*fb0_pow1;
+	int first_show_ind = 0;
+	while(!porkchop[first_show_ind].inside_filter) first_show_ind++;
+
+	struct PorkchopPoint pp = porkchop[first_show_ind].data;
+	double dv_sat = pp.dv_dsm;
+	if(last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
+	if(last_transfer_type == TF_CIRC)		dv_sat += pp.dv_arr_circ;
+
+	double min_date = pp.dep_date, max_date = pp.dep_date;
+	double min_dur = pp.dur, max_dur = pp.dur;
+	double min_dv = pp.dv_dep + dv_sat;
+	double max_dv = pp.dv_dep + dv_sat;
 
 	// find min and max
 	for(int i = 1; i < num_itins; i++) {
-		int index = 1+i*5;
-		dv = porkchop[index+2]+porkchop[index+3]+porkchop[index+4]*fb0_pow1;
-		date = porkchop[index+0];
-		dur = porkchop[index+1];
+		if(!porkchop[i].inside_filter) continue;
+		pp = porkchop[i].data;
 
-		if(dv < min_dv) {
-			min_dv = dv;
-			min_dv_ind = i;
-		}
+		dv_sat = pp.dv_dsm;
+		if(last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
+		if(last_transfer_type == TF_CIRC)		dv_sat += pp.dv_arr_circ;
+
+		dv = pp.dv_dep + dv_sat;
+		date = pp.dep_date;
+		dur = pp.dur;
+
+		if(dv < min_dv) min_dv = dv;
 		else if(dv > max_dv) max_dv = dv;
 		if(date < min_date) min_date = date;
 		else if(date > max_date) max_date = date;
@@ -285,27 +294,58 @@ void draw_porkchop(cairo_t *cr, double width, double height, const double *porkc
 	m_date = (width-origin.x)/(max_date - min_date);
 	m_dur = -origin.y/(max_dur - min_dur); // negative, because positive is down
 
-	draw_coordinate_system(cr, width, height, COORD_LABEL_DATE, COORD_LABEL_NUMBER, min_date, max_date, min_dur, max_dur, origin, 5, 10);
+	draw_coordinate_system(cr, width, height, COORD_LABEL_DATE, COORD_LABEL_DURATION, min_date, max_date, min_dur, max_dur, origin, 5, 10);
 
-	// data
+	// find points to draw
+	int *draw_idx = calloc(sizeof(int), num_itins);
+	int num_draw_itins = 0;
+	for(int i = 0; i < num_itins; i++) {
+		if(porkchop[i].inside_filter && porkchop[i].group->show_group) {
+			draw_idx[num_draw_itins] = i;
+			num_draw_itins++;
+		}
+	}
+
+	// Create an off-screen surface to draw porkchop all at onece
+	cairo_surface_t* buffer_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, (int) width, (int) height);
+	cairo_t* buffer_cr = cairo_create(buffer_surface);
+
+	// draw points
 	double color_bias;
-	for(int i = num_itins-1; i >= -1; i--) {
-		int index = i >= 0 ? 1+i*5 : 1+min_dv_ind*5;
+	int i = num_draw_itins-1;
+	while(i >= 0) {
+		pp = porkchop[draw_idx[i]].data;
 
-		dv = porkchop[index+2]+porkchop[index+3]+porkchop[index+4]*fb0_pow1;
-		date = porkchop[index+0];
-		dur = porkchop[index+1];
+		dv_sat = pp.dv_dsm;
+		if(last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
+		if(last_transfer_type == TF_CIRC)		dv_sat += pp.dv_arr_circ;
+
+		dv = pp.dv_dep + dv_sat;
+		date = pp.dep_date;
+		dur = pp.dur;
 
 		// color coding
 		color_bias = (dv - min_dv) / (max_dv - min_dv);
-		double r = i < 0 ? 1 : color_bias;
-		double g = i < 0 ? 0 : 1-color_bias;
-		double b = i < 0 ? 0 : 4*pow(color_bias-0.5,2);
-		cairo_set_source_rgb(cr, r,g,b);
+		double r = i == 0 ? 1 : color_bias;
+		double g = i == 0 ? 0 : 1-color_bias;
+		double b = i == 0 ? 0 : 4*pow(color_bias-0.5,2);
+		cairo_set_source_rgb(buffer_cr, r,g,b);
 
 		struct Vector2D data_point = vec2D(origin.x + m_date*(date - min_date), origin.y + m_dur * (dur - min_dur));
-		draw_data_point(cr, data_point.x, data_point.y, i >= 0 ? 2 : 5);
+		int radius = i > 0 ? 2 : 5;
+		if(num_draw_itins < 10000) radius += 2;
+		draw_data_point(buffer_cr, data_point.x, data_point.y, radius);
+
+		i--;
 	}
+
+	// Copy the buffer to the main canvas and buffer cleanup
+	cairo_set_source_surface(cr, buffer_surface, 0, 0);
+	cairo_paint(cr);
+	cairo_destroy(buffer_cr);
+	cairo_surface_destroy(buffer_surface);
+
+	free(draw_idx);
 }
 
 void draw_plot(cairo_t *cr, double width, double height, double *x, double *y, int num_points) {
