@@ -28,7 +28,7 @@ void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body 
 
 	int counter = 0;
 
-	struct OSV osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb), -theta_conj_opp, SUN());
+	struct OSV osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb), -theta_conj_opp, system->cb);
 	struct Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
 	struct Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, system->cb);
 	double dt0 = arr1.t-arr0.t;

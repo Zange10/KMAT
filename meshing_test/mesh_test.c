@@ -7,6 +7,7 @@
 #include "tools/analytic_geometry.h"
 #include "gui/drawing.h"
 #include "mesh_creator.h"
+#include "tools/file_io.h"
 
 
 GObject *mesh_drawing_area;
@@ -101,7 +102,6 @@ double get_triangle_interpolated_value(MeshTriangle triangle, struct Vector2D p)
 
 
 void set_color_from_value(cairo_t *cr, double value) {
-	value /= 1000;
 	double r = value;
 	double g = 1-value;
 	double b = 4*pow(value-0.5,2);
@@ -110,7 +110,6 @@ void set_color_from_value(cairo_t *cr, double value) {
 
 void get_color_from_value(double value, uint32_t *color) {
 	// Normalize to [0, 1]
-	value /= 1000.0;
 	if (value < 0) value = 0;
 	if (value > 1) value = 1;
 
@@ -129,17 +128,23 @@ void draw_mesh_triangle(cairo_t *cr, MeshTriangle triangle) {
 	for(int i = 0; i < 3; i++) {
 		draw_stroke(cr, vec2D(triangle.points[i].x, triangle.points[i].y), vec2D(triangle.points[(i+1)%3].x, triangle.points[(i+1)%3].y));
 	}
-	for(int i = 0; i < 3; i++) {
-		set_color_from_value(cr, triangle.points[i].z);
-		cairo_arc(cr, triangle.points[i].x, triangle.points[i].y, 10, 0, 2*M_PI);
-		cairo_fill(cr);
-	}
 }
 
 void draw_mesh(cairo_t *cr) {
 	cairo_set_source_rgb(cr, 0.0, 1.0, 1.0);
 	for(int i = 0; i < mesh.num_triangles; i++) {
 		draw_mesh_triangle(cr, mesh.triangles[i]);
+	}
+}
+
+void draw_points(cairo_t *cr) {
+	for(int c = 0; c < mesh.num_triangles; c++) {
+		MeshTriangle triangle = mesh.triangles[c];
+		for(int i = 0; i < 3; i++) {
+			set_color_from_value(cr, triangle.points[i].z);
+			cairo_arc(cr, triangle.points[i].x, triangle.points[i].y, 3, 0, 2*M_PI);
+			cairo_fill(cr);
+		}
 	}
 }
 
@@ -164,16 +169,6 @@ void draw_mesh_interpolated_points(cairo_t *cr, int width, int height) {
 			}
 		}
 	}
-
-//	for(int x = 0; x < 2000; x+=step) {
-//		for(int y = 0; y < 2000; y+=step) {
-//			struct Vector2D p = vec2D(x, y);
-//			MeshTriangle *triangle = find_triangle_for_point(p);
-//			if(triangle != NULL) {
-//				get_color_from_value(get_triangle_interpolated_value(*triangle, p), &pixel_data[y*width+x]);
-//			}
-//		}
-//	}
 
 	cairo_surface_t *image_surface = cairo_image_surface_create_for_data(
 			(unsigned char *)pixel_data,
@@ -208,49 +203,38 @@ void on_draw_mesh_test(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 	cairo_set_source_rgb(cr, 0,0,0);
 	cairo_fill(cr);
 
-	draw_mesh_interpolated_points(cr, area_width, area_height);
+//	draw_points(cr);
 	draw_mesh(cr);
+//	draw_mesh_interpolated_points(cr, area_width, area_height);
 }
 
 
 void init_mesh_test() {
-	double x_vals[] = {100, 300, 500, 700, 900, 1100, 1250, 1400, 1550, 1700, 1750, 1900};
-	int num_cols = sizeof(x_vals) / sizeof(double);
+	char filepath[] = "../Itineraries/mesh_test1.itins";
 
-	double *y_vals[] = {
-			(double[]){50, 150, 250, 400, 600},                            // 5 points
-			(double[]){100, 180, 350, 600, 850, 1200},                     // 6 points
-			(double[]){75, 200, 500, 700, 1100},                           // 5 points
-			(double[]){100, 300, 550, 900, 1300, 1500},                    // 6 points
-			(double[]){200, 400, 750, 1100, 1500, 1950},                   // 6 points
-			(double[]){250, 600, 950, 1300, 1650, 1900},                   // 6 points
-			(double[]){100, 300, 500, 800, 1150, 1700},                    // 6 points
-			(double[]){50, 250, 500, 800, 1100, 1400, 1950},               // 7 points
-			(double[]){200, 400, 700, 1050, 1350, 1650, 1950},             // 7 points
-			(double[]){300, 600, 900, 1300, 1700},                         // 5 points
-			(double[]){150, 400, 750, 1200, 1600, 1680},                   // 6 points
-			(double[]){100, 250, 500, 800, 1150, 1500, 1850, 1990}         // 8 points
-	};
+	struct ItinsLoadFileResults load_results = load_itineraries_from_bfile(filepath);
+	int num_deps = load_results.num_deps;
+	struct ItinStep **departures = load_results.departures;
 
-	int num_points[] = {5, 6, 5, 6, 6, 6, 6, 7, 7, 5, 6, 8};
+	int num_itins = 0;
+	int *num_itins_per_dep = calloc(num_deps, sizeof(int));
+	for(int i = 0; i < num_deps; i++) {
+		num_itins_per_dep[i] = get_number_of_itineraries(departures[i]);
+		num_itins += num_itins_per_dep[i];
+	}
 
-	double *z_vals[] = {
-			(double[]){100, 220, 310, 460, 580},                         // 5
-			(double[]){90, 250, 470, 610, 720, 910},                     // 6
-			(double[]){80, 190, 520, 700, 990},                          // 5
-			(double[]){150, 340, 570, 810, 930, 1000},                   // 6
-			(double[]){120, 260, 600, 850, 980, 990},                    // 6
-			(double[]){200, 400, 700, 880, 940, 999},                    // 6
-			(double[]){170, 300, 500, 790, 910, 980},                    // 6
-			(double[]){130, 220, 500, 740, 850, 920, 1000},              // 7
-			(double[]){110, 330, 610, 840, 920, 970, 990},               // 7
-			(double[]){140, 370, 590, 850, 910},                         // 5
-			(double[]){160, 300, 650, 780, 880, 950},                    // 6
-			(double[]){190, 310, 540, 770, 890, 930, 970, 999}           // 8
-	};
+	int index = 0;
+	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
+	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(departures[i], arrivals, &index);
+	struct PorkchopPoint *porkchop_points = malloc(num_itins * sizeof(struct PorkchopPoint));
+	for(int i = 0; i < num_itins; i++) porkchop_points[i] = create_porkchop_point(arrivals[i]);
 
+//	mesh_grid = grid_from_porkchop(porkchop_points, num_itins, num_deps, num_itins_per_dep);
 
-	mesh_grid = create_mesh_grid(x_vals, y_vals, z_vals, num_cols, num_points);
+	mesh = mesh_from_porkchop(porkchop_points, num_itins, num_deps, num_itins_per_dep);
+
+	free(arrivals);
+	free(porkchop_points);
 
 	GtkApplication *app = gtk_application_new ("org.gtk.example", G_APPLICATION_DEFAULT_FLAGS);
 	g_signal_connect (app, "activate", G_CALLBACK (activate_mesh_test), NULL);
@@ -260,17 +244,6 @@ void init_mesh_test() {
 }
 
 static gboolean on_timeout_mesh_test(gpointer data) {
-	angle += 0.1;
-
-	for(int i = 0; i < mesh_grid.num_columns; i++) {
-		double y_add = sin(angle+i*2)*10;
-		for(int j = 0; j < mesh_grid.num_points[i]; j++) {
-			y_add += sin(angle+j)*10;
-			mesh_grid.points[i][j].y += y_add;
-		}
-	}
-
-	mesh = create_mesh_from_grid(mesh_grid);
 	gtk_widget_queue_draw(GTK_WIDGET(mesh_drawing_area));
 	return G_SOURCE_CONTINUE;
 }
