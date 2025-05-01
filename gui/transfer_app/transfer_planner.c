@@ -163,31 +163,9 @@ G_MODULE_EXPORT void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gp
 		draw_orbit(cr, tp_system_camera, tp_system->bodies[i]->orbit, area_width, area_height);
 	}
 
-	// Scale
-//	struct Body *farthest_body = NULL;
-//	double max_apoapsis = 0;
-//	for(int i = 0; i < tp_system->num_bodies; i++) {
-//		if(body_show_status_tp[i] && tp_system->bodies[i]->orbit.apoapsis > max_apoapsis) {farthest_body = tp_system->bodies[i]; max_apoapsis = tp_system->bodies[i]->orbit.apoapsis;}
-//	}
-//	double scale = calc_scale(area_width, area_height, farthest_body);
-//
-//	// Sun
-//	set_cairo_body_color(cr, tp_system->cb);
-//	draw_body_2d(cr, center, 0, vec(0, 0, 0));
-//	cairo_fill(cr);
-//
-//	// Planets
-//	for(int i = 0; i < tp_system->num_bodies; i++) {
-//		if(body_show_status_tp[i]) {
-//			set_cairo_body_color(cr, tp_system->bodies[i]);
-//			struct OSV osv = tp_system->calc_method == ORB_ELEMENTS ?
-//					osv_from_elements(tp_system->bodies[i]->orbit, current_date_tp, tp_system) :
-//					osv_from_ephem(tp_system->bodies[i]->ephem, current_date_tp, tp_system->cb);
-//			draw_body_2d(cr, center, scale, osv.r);
-//			draw_orbit_2d(cr, center, scale, osv.r, osv.v, tp_system->cb);
-//		}
-//	}
-//
+
+	draw_itinerary(cr, tp_system_camera, tp_system, curr_transfer_tp, area_width, area_height);
+
 //	// Transfers
 //	if(curr_transfer_tp != NULL) {
 //		struct ItinStep *temp_transfer = get_first(curr_transfer_tp);

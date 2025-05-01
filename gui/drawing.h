@@ -14,8 +14,9 @@ enum CoordAxisLabelType {COORD_LABEL_NUMBER, COORD_LABEL_DATE, COORD_LABEL_DURAT
 
 void draw_stroke(cairo_t *cr, struct Vector2D p1, struct Vector2D p2);
 void draw_celestial_system(cairo_t *cr, Camera camera, struct System *system, double jd_date, int width, int height);
-void draw_body(cairo_t *cr, Camera camera, struct System *system, struct Body *body, double jd_date, int width, int height);
+void draw_body(cairo_t *cr, Camera camera, struct System *system, struct Body *body, double jd_date, int screen_width, int screen_height);
 void draw_orbit(cairo_t *cr, Camera camera, struct Orbit orbit, int width, int height);
+void draw_itinerary(cairo_t *cr, Camera camera, struct System *system, struct ItinStep *tf, int screen_width, int screen_height);
 void draw_orbit_2d(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor);
 void draw_body_2d(cairo_t *cr, struct Vector2D center, double scale, struct Vector r);
 double calc_scale(int area_width, int area_height, struct Body *farthest_body);

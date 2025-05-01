@@ -5,37 +5,132 @@
 #include "math.h"
 
 
-void draw_body(cairo_t *cr, Camera camera, struct System *system, struct Body *body, double jd_date, int width, int height) {
+void draw_body(cairo_t *cr, Camera camera, struct System *system, struct Body *body, double jd_date, int screen_width, int screen_height) {
 	set_cairo_body_color(cr, body);
 	struct OSV osv_body = {.r = vec(0,0,0)};
-	if(body != system->cb) osv_body = osv_from_elements(body->orbit, jd_date, system);
-	struct Vector2D p2d_body = p3d_to_p2d(camera, osv_body.r, width, height);
+	if(body != system->cb) osv_body = system->calc_method == ORB_ELEMENTS ?
+										osv_from_elements(body->orbit, jd_date, system) :
+									  	osv_from_ephem(body->ephem, jd_date, system->cb);
+	struct Vector2D p2d_body = p3d_to_p2d(camera, osv_body.r, screen_width, screen_height);
 	cairo_arc(cr, p2d_body.x, p2d_body.y, 5, 0, 2 * M_PI);
 	cairo_fill(cr);
 }
 
-void draw_orbit(cairo_t *cr, Camera camera, struct Orbit orbit, int width, int height) {
+void draw_orbit(cairo_t *cr, Camera camera, struct Orbit orbit, int screen_width, int screen_height) {
 	struct OSV osv = propagate_orbit_theta(orbit, 0, orbit.body);
-	struct Vector2D p2d = p3d_to_p2d(camera, osv.r, width, height);
+	struct Vector2D p2d = p3d_to_p2d(camera, osv.r, screen_width, screen_height);
 
 	struct Vector2D last_p2d = p2d;
 	double dtheta_step = deg2rad(0.5);
 
 	for(double dtheta = 0; dtheta < M_PI*2 + dtheta_step; dtheta += dtheta_step) {
 		osv = propagate_orbit_theta(orbit, dtheta, orbit.body);
-		p2d = p3d_to_p2d(camera, osv.r, width, height);
+		p2d = p3d_to_p2d(camera, osv.r, screen_width, screen_height);
 		draw_stroke(cr, last_p2d, p2d);
 		last_p2d = p2d;
 	}
 }
 
-void draw_celestial_system(cairo_t *cr, Camera camera, struct System *system, double jd_date, int width, int height) {
-	draw_body(cr, camera, system, system->cb, jd_date, width, height);
+void draw_celestial_system(cairo_t *cr, Camera camera, struct System *system, double jd_date, int screen_width, int screen_height) {
+	draw_body(cr, camera, system, system->cb, jd_date, screen_width, screen_height);
 
 	for(int i = 0; i < system->num_bodies; i++) {
-		draw_body(cr, camera, system, system->bodies[i], jd_date, width, height);
-		draw_orbit(cr, camera, system->bodies[i]->orbit, width, height);
+		draw_body(cr, camera, system, system->bodies[i], jd_date, screen_width, screen_height);
+		draw_orbit(cr, camera, system->bodies[i]->orbit, screen_width, screen_height);
 	}
+}
+
+void draw_trajectory(cairo_t *cr, Camera camera, struct OSV osv0, double dt, struct Body *attractor, int screen_width, int screen_height) {
+	struct Orbit orbit = constr_orbit_from_osv(osv0.r, osv0.v, attractor);
+
+	if(orbit.period < dt*86400) {
+		draw_orbit(cr, camera, orbit, screen_width, screen_height);
+	}
+
+	struct OSV osv1 = propagate_orbit_time(orbit, dt*86400, attractor);
+	double theta0 = orbit.theta;
+	double theta1 = constr_orbit_from_osv(osv1.r, osv1.v, attractor).theta;
+
+	if(theta1 < theta0) theta1 += 2*M_PI;
+
+	struct OSV osv = osv0;
+	struct Vector2D p2d = p3d_to_p2d(camera, osv.r, screen_width, screen_height);
+	struct Vector2D last_p2d = p2d;
+	double theta_step = (theta1-theta0)/1000;
+
+	for(double dtheta = 0; dtheta <= (theta1-theta0); dtheta += theta_step) {
+		osv = propagate_orbit_theta(orbit, dtheta, orbit.body);
+		p2d = p3d_to_p2d(camera, osv.r, screen_width, screen_height);
+		draw_stroke(cr, last_p2d, p2d);
+		last_p2d = p2d;
+	}
+}
+
+void draw_itinerary_step_point(cairo_t *cr, Camera camera, struct Vector r, int screen_width, int screen_height) {
+	int cross_length = 4;
+	cairo_set_source_rgb(cr, 1, 0, 0);
+	struct Vector2D p2d = p3d_to_p2d(camera, r, screen_width, screen_height);
+	// y negative, because in GUI y gets bigger downwards
+	for(int i = -1; i<=1; i+=2) {
+		struct Vector2D p1 = {p2d.x - cross_length, p2d.y + cross_length*i};
+		struct Vector2D p2 = {p2d.x + cross_length, p2d.y - cross_length*i};
+		draw_stroke(cr, p1, p2);
+	}
+}
+
+void draw_itinerary(cairo_t *cr, Camera camera, struct System *system, struct ItinStep *tf, int screen_width, int screen_height) {
+	if(tf == NULL) return;
+	// draw trajectories
+	struct ItinStep *ptr = get_first(tf);
+	int tf_in_past = 0;
+	while(ptr->next != NULL) {
+		struct OSV tf_osv0 = {ptr->r, ptr->next[0]->v_dep};
+		double dt = ptr->next[0]->date - ptr->date;
+
+		if(ptr == tf) tf_in_past = 1;
+		cairo_set_source_rgb(cr, 0, tf_in_past ? 1 : 0.6, tf_in_past ? 0 : 0.4);
+
+		if(ptr->prev != NULL) {
+			double t[3] = {ptr->prev->date, ptr->date, ptr->next[0]->date};
+			struct OSV osv0 = {ptr->prev->r, ptr->prev->v_body};
+			struct OSV osv1 = {ptr->r, ptr->v_body};
+			struct OSV osv2 = {ptr->next[0]->r, ptr->next[0]->v_body};
+			struct OSV osvs[3] = {osv0, osv1, osv2};
+			struct Body *bodies[3] = {ptr->prev->body, ptr->body, ptr->next[0]->body};
+			if(!is_flyby_viable(t, osvs, bodies, system->cb)) cairo_set_source_rgb(cr, tf_in_past ? 1 : 0.5, 0, tf_in_past ? 1 : 0.2);
+		}
+
+		draw_trajectory(cr, camera, tf_osv0, dt, system->cb, screen_width, screen_height);
+		ptr = ptr->next[0];
+	}
+
+	// draw trajectories
+	while(ptr != NULL) {
+		draw_itinerary_step_point(cr, camera, ptr->r, screen_width, screen_height);
+		ptr = ptr->prev;
+	}
+
+
+
+//	// if double swing-by is not worth drawing
+//	if(tf->body == NULL && tf->v_body.x == 0) return;
+//
+//	struct ItinStep *prev = tf->prev;
+//	// skip not working double swing-by
+//	if(tf->prev->body == NULL && tf->prev->v_body.x == 0) prev = tf->prev->prev;
+//	double dt = (tf->date-prev->date)*24*60*60;
+//
+//	if(prev->prev != NULL && prev->body != NULL) {
+//		double t[3] = {prev->prev->date, prev->date, tf->date};
+//		struct OSV osv0 = {prev->prev->r, prev->prev->v_body};
+//		struct OSV osv1 = {prev->r, prev->v_body};
+//		struct OSV osv2 = {tf->r, tf->v_body};
+//		struct OSV osvs[3] = {osv0, osv1, osv2};
+//		struct Body *bodies[3] = {prev->prev->body, prev->body, tf->body};
+//		if(!is_flyby_viable(t, osvs, bodies, attractor)) cairo_set_source_rgb(cr, 1, 0, 0);
+//	}
+
+
 }
 
 void draw_orbit_2d(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor) {
