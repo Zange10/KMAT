@@ -88,20 +88,14 @@ gboolean on_camera_zoom(GtkWidget *widget, GdkEventScroll *event, Camera *camera
 }
 
 gboolean on_enable_camera_rotation(GtkWidget *widget, GdkEventButton *event, Camera *camera) {
-	if (event->button == GDK_BUTTON_SECONDARY) {
-		camera->rotation_sensitive = 1;
-		last_mouse_pos = (struct Vector2D) {event->x, event->y};
-		return TRUE;
-	}
-	return FALSE;
+	camera->rotation_sensitive = 1;
+	last_mouse_pos = (struct Vector2D) {event->x, event->y};
+	return TRUE;
 }
 
 gboolean on_disable_camera_rotation(GtkWidget *widget, GdkEventButton *event, Camera *camera) {
-	if (event->button == GDK_BUTTON_SECONDARY) {
-		camera->rotation_sensitive = 0;
-		return TRUE;
-	}
-	return FALSE;
+	camera->rotation_sensitive = 0;
+	return TRUE;
 }
 
 gboolean on_camera_rotate(GtkWidget *widget, GdkEventButton *event, Camera *camera) {
