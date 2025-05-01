@@ -41,6 +41,7 @@ void draw_celestial_system(cairo_t *cr, Camera camera, struct System *system, do
 }
 
 void draw_trajectory(cairo_t *cr, Camera camera, struct OSV osv0, double dt, struct Body *attractor, int screen_width, int screen_height) {
+	if(dt <= 1.0/86400) return;
 	struct Orbit orbit = constr_orbit_from_osv(osv0.r, osv0.v, attractor);
 
 	if(orbit.period < dt*86400) {
@@ -66,11 +67,17 @@ void draw_trajectory(cairo_t *cr, Camera camera, struct OSV osv0, double dt, str
 	}
 }
 
+void draw_itinerary_spacecraft(cairo_t *cr, Camera camera, struct Vector r, int screen_width, int screen_height) {
+	cairo_set_source_rgb(cr, 1, 0.4, 0.1);
+	struct Vector2D p2d = p3d_to_p2d(camera, r, screen_width, screen_height);
+	cairo_arc(cr, p2d.x, p2d.y, 3, 0, 2 * M_PI);
+	cairo_fill(cr);
+}
+
 void draw_itinerary_step_point(cairo_t *cr, Camera camera, struct Vector r, int screen_width, int screen_height) {
 	int cross_length = 4;
 	cairo_set_source_rgb(cr, 1, 0, 0);
 	struct Vector2D p2d = p3d_to_p2d(camera, r, screen_width, screen_height);
-	// y negative, because in GUI y gets bigger downwards
 	for(int i = -1; i<=1; i+=2) {
 		struct Vector2D p1 = {p2d.x - cross_length, p2d.y + cross_length*i};
 		struct Vector2D p2 = {p2d.x + cross_length, p2d.y - cross_length*i};
@@ -78,59 +85,72 @@ void draw_itinerary_step_point(cairo_t *cr, Camera camera, struct Vector r, int 
 	}
 }
 
-void draw_itinerary(cairo_t *cr, Camera camera, struct System *system, struct ItinStep *tf, int screen_width, int screen_height) {
+void set_trajectory_color(cairo_t *cr, int trajectory_is_in_the_past, int trajectory_is_viable) {
+	if(trajectory_is_in_the_past) {
+		if(trajectory_is_viable) cairo_set_source_rgb(cr, 0, 0.6, 0.4);
+		else cairo_set_source_rgb(cr, 0.6, 0, 0.2);
+	} else {
+		if(trajectory_is_viable) cairo_set_source_rgb(cr, 0, 1, 0);
+		else cairo_set_source_rgb(cr, 1, 0, 0);
+	}
+}
+
+void draw_itinerary(cairo_t *cr, Camera camera, struct System *system, struct ItinStep *tf, double current_time, int screen_width, int screen_height) {
 	if(tf == NULL) return;
+
 	// draw trajectories
-	struct ItinStep *ptr = get_first(tf);
-	int tf_in_past = 0;
-	while(ptr->next != NULL) {
-		struct OSV tf_osv0 = {ptr->r, ptr->next[0]->v_dep};
-		double dt = ptr->next[0]->date - ptr->date;
+	tf = get_first(tf);
+	while(tf->next != NULL) {
+		struct OSV tf_osv0 = {tf->r, tf->next[0]->v_dep};
+		int trajectory_is_viable = 1;
+		double dt = tf->next[0]->date - tf->date;
 
-		if(ptr == tf) tf_in_past = 1;
-		cairo_set_source_rgb(cr, 0, tf_in_past ? 1 : 0.6, tf_in_past ? 0 : 0.4);
-
-		if(ptr->prev != NULL) {
-			double t[3] = {ptr->prev->date, ptr->date, ptr->next[0]->date};
-			struct OSV osv0 = {ptr->prev->r, ptr->prev->v_body};
-			struct OSV osv1 = {ptr->r, ptr->v_body};
-			struct OSV osv2 = {ptr->next[0]->r, ptr->next[0]->v_body};
+		if(tf->prev != NULL) {
+			double t[3] = {tf->prev->date, tf->date, tf->next[0]->date};
+			struct OSV osv0 = {tf->prev->r, tf->prev->v_body};
+			struct OSV osv1 = {tf->r, tf->v_body};
+			struct OSV osv2 = {tf->next[0]->r, tf->next[0]->v_body};
 			struct OSV osvs[3] = {osv0, osv1, osv2};
-			struct Body *bodies[3] = {ptr->prev->body, ptr->body, ptr->next[0]->body};
-			if(!is_flyby_viable(t, osvs, bodies, system->cb)) cairo_set_source_rgb(cr, tf_in_past ? 1 : 0.5, 0, tf_in_past ? 1 : 0.2);
+			struct Body *bodies[3] = {tf->prev->body, tf->body, tf->next[0]->body};
+			trajectory_is_viable = is_flyby_viable(t, osvs, bodies, system->cb);
 		}
 
-		draw_trajectory(cr, camera, tf_osv0, dt, system->cb, screen_width, screen_height);
-		ptr = ptr->next[0];
+		if(current_time >= tf->date && current_time < tf->next[0]->date) {
+			set_trajectory_color(cr, 1, trajectory_is_viable);
+			dt = current_time - tf->date;
+			draw_trajectory(cr, camera, tf_osv0, dt, system->cb, screen_width, screen_height);
+
+			struct OSV current_osv = propagate_orbit_time(constr_orbit_from_osv(tf_osv0.r, tf_osv0.v, system->cb), dt*86400, system->cb);
+
+			set_trajectory_color(cr, 0, trajectory_is_viable);
+			dt = tf->next[0]->date - current_time;
+			draw_trajectory(cr, camera, current_osv, dt, system->cb, screen_width, screen_height);
+
+			draw_itinerary_spacecraft(cr, camera, current_osv.r, screen_width, screen_height);
+		} else {
+			set_trajectory_color(cr, current_time > tf->date, trajectory_is_viable);
+			draw_trajectory(cr, camera, tf_osv0, dt, system->cb, screen_width, screen_height);
+		}
+		tf = tf->next[0];
 	}
 
-	// draw trajectories
-	while(ptr != NULL) {
-		draw_itinerary_step_point(cr, camera, ptr->r, screen_width, screen_height);
-		ptr = ptr->prev;
+	if(current_time <= get_first(tf)->date) {
+		struct OSV osv_body = system->calc_method == ORB_ELEMENTS ?
+				   osv_from_elements(get_first(tf)->body->orbit, current_time, system) :
+				   osv_from_ephem(get_first(tf)->body->ephem, current_time, system->cb);
+		draw_itinerary_spacecraft(cr, camera, osv_body.r, screen_width, screen_height);
+	} else if(current_time >= tf->date) {
+		struct OSV osv_body = system->calc_method == ORB_ELEMENTS ?
+							  osv_from_elements(tf->body->orbit, current_time, system) :
+							  osv_from_ephem(tf->body->ephem, current_time, system->cb);
+		draw_itinerary_spacecraft(cr, camera, osv_body.r, screen_width, screen_height);
 	}
 
-
-
-//	// if double swing-by is not worth drawing
-//	if(tf->body == NULL && tf->v_body.x == 0) return;
-//
-//	struct ItinStep *prev = tf->prev;
-//	// skip not working double swing-by
-//	if(tf->prev->body == NULL && tf->prev->v_body.x == 0) prev = tf->prev->prev;
-//	double dt = (tf->date-prev->date)*24*60*60;
-//
-//	if(prev->prev != NULL && prev->body != NULL) {
-//		double t[3] = {prev->prev->date, prev->date, tf->date};
-//		struct OSV osv0 = {prev->prev->r, prev->prev->v_body};
-//		struct OSV osv1 = {prev->r, prev->v_body};
-//		struct OSV osv2 = {tf->r, tf->v_body};
-//		struct OSV osvs[3] = {osv0, osv1, osv2};
-//		struct Body *bodies[3] = {prev->prev->body, prev->body, tf->body};
-//		if(!is_flyby_viable(t, osvs, bodies, attractor)) cairo_set_source_rgb(cr, 1, 0, 0);
-//	}
-
-
+	// draw itin step points
+	while(tf != NULL) {
+		draw_itinerary_step_point(cr, camera, tf->r, screen_width, screen_height);
+		tf = tf->prev;
+	}
 }
 
 void draw_orbit_2d(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor) {

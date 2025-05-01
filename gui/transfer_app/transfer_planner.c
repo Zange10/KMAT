@@ -160,26 +160,15 @@ G_MODULE_EXPORT void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gp
 	for(int i = 0; i < tp_system->num_bodies; i++) {
 		if(!body_show_status_tp[i]) continue;
 		draw_body(cr, tp_system_camera, tp_system, tp_system->bodies[i], current_date_tp, area_width, area_height);
-		draw_orbit(cr, tp_system_camera, tp_system->bodies[i]->orbit, area_width, area_height);
+		struct Orbit orbit = tp_system->bodies[i]->orbit;
+		if(tp_system->calc_method == EPHEMS) {
+			struct OSV body_osv = osv_from_ephem(tp_system->bodies[i]->ephem, current_date_tp, tp_system->cb);
+			orbit = constr_orbit_from_osv(body_osv.r, body_osv.v, tp_system->cb);
+		}
+		draw_orbit(cr, tp_system_camera, orbit, area_width, area_height);
 	}
 
-
-	draw_itinerary(cr, tp_system_camera, tp_system, curr_transfer_tp, area_width, area_height);
-
-//	// Transfers
-//	if(curr_transfer_tp != NULL) {
-//		struct ItinStep *temp_transfer = get_first(curr_transfer_tp);
-//		while(temp_transfer != NULL) {
-//			if(temp_transfer->body != NULL) {
-//				set_cairo_body_color(cr, temp_transfer->body);
-//				draw_transfer_point_2d(cr, center, scale, temp_transfer->r);
-//				// skip not working or draw working double swing-by
-//			} else if(temp_transfer->body == NULL && temp_transfer->v_body.x == 1)
-//				draw_transfer_point_2d(cr, center, scale, temp_transfer->r);
-//			if(temp_transfer->prev != NULL) draw_trajectory_2d(cr, center, scale, temp_transfer, tp_system->cb);
-//			temp_transfer = temp_transfer->next != NULL ? temp_transfer->next[0] : NULL;
-//		}
-//	}
+	draw_itinerary(cr, tp_system_camera, tp_system, curr_transfer_tp, current_date_tp, area_width, area_height);
 }
 
 double calc_step_dv(struct ItinStep *step) {
