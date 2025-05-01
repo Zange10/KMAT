@@ -31,6 +31,10 @@ struct Body * new_body() {
 	new_body->system = NULL;
 	new_body->ephem = NULL;
 
+	new_body->is_homebody = 0;
+	new_body->rot_axis = vec(0, 0, 1);
+	new_body->pm_ut0 = vec(1, 0, 0);
+
 	new_body->orbit.a = 150e9;
 	new_body->orbit.e = 0;
 	new_body->orbit.inclination = 0;

@@ -13,6 +13,9 @@ struct Body {
 	double sl_atmo_p;       // atmospheric pressure at sea level [Pa]
 	double scale_height;    // the height at which the atmospheric pressure decreases by the factor e [m]
 	double atmo_alt;        // highest altitude with atmosphere (ksp-specific) [m]
+	int is_homebody;		// home body of system (e.g. Earth or Kerbin)
+	struct Vector rot_axis; // Rotation axis pointing to northpole
+	struct Vector pm_ut0;	// the prime meridian at ut0
 	struct System *system;	// the system the body is the central body of
 	struct Orbit orbit;     // orbit of body
 	struct Ephem *ephem;	// Ephemerides of body (if available)

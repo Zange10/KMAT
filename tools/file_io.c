@@ -6,6 +6,9 @@
 #include <gtk/gtk.h>
 
 #include "file_io.h"
+
+#include <math.h>
+
 #include "orbit_calculator/transfer_tools.h"
 
 const int current_bin_file_type = 2;
@@ -141,6 +144,9 @@ struct Body * load_body_from_config_file(FILE *file, struct System *system) {
 	int has_g_asl = 0;
 	int has_central_body_name = 0;
 	char central_body_name[50];
+	double north_pole_declination = M_PI/2;
+	double north_pole_right_ascension = 0;
+	double initial_rotation = M_PI/2;
 
 	char line[256];  // Buffer for each line
 	while (fgets(line, sizeof(line), file)) {
@@ -161,7 +167,7 @@ struct Body * load_body_from_config_file(FILE *file, struct System *system) {
 					sscanf(value, "%lg", &g_asl); has_g_asl = 1;
 				} else if (strcmp(key, "radius") == 0) {
 					sscanf(value, "%lf", &body->radius);
-					body->radius *= 1e3;  // Convert from km to m
+					// body->radius *= 1e3;  // Convert from km to m
 				} else if (strcmp(key, "rotational_period") == 0) {
 					sscanf(value, "%lf", &body->rotation_period);
 				} else if (strcmp(key, "sea_level_pressure") == 0) {
@@ -171,10 +177,10 @@ struct Body * load_body_from_config_file(FILE *file, struct System *system) {
 					sscanf(value, "%lf", &body->scale_height);
 				} else if (strcmp(key, "atmosphere_altitude") == 0) {
 					sscanf(value, "%lf", &body->atmo_alt);
-					body->atmo_alt *= 1e3;  // Convert from km to m
+					// body->atmo_alt *= 1e3;  // Convert from km to m
 				} else if (strcmp(key, "semi_major_axis") == 0) {
 					sscanf(value, "%lf", &body->orbit.a);
-					body->orbit.a *= 1e3;  // Convert from km to m
+					// body->orbit.a *= 1e3;  // Convert from km to m
 				} else if (strcmp(key, "eccentricity") == 0) {
 					sscanf(value, "%lf", &body->orbit.e);
 				} else if (strcmp(key, "inclination") == 0) {
@@ -196,9 +202,29 @@ struct Body * load_body_from_config_file(FILE *file, struct System *system) {
 					sscanf(value, "%s", central_body_name);
 					has_central_body_name = 1;
 				}
+
+				else if (strcmp(key, "is_homebody") == 0) {
+					if (strcmp(value, "True") == 0) body->is_homebody = 1;
+				} else if (strcmp(key, "north_pole_declination") == 0) {
+					sscanf(value, "%lf", &north_pole_declination);
+					north_pole_declination = deg2rad(north_pole_declination);
+				} else if (strcmp(key, "north_pole_right_ascension") == 0) {
+					sscanf(value, "%lf", &north_pole_right_ascension);
+					north_pole_right_ascension = deg2rad(north_pole_right_ascension);
+				} else if (strcmp(key, "initial_rotation") == 0) {
+					sscanf(value, "%lf", &initial_rotation);
+					initial_rotation = deg2rad(initial_rotation);
+				}
 			}
 		}
 	}
+
+	body->rot_axis = rotate_vector_around_axis(vec(1, 0, 0), vec(0, 1, 0), -north_pole_declination);
+	body->rot_axis = rotate_vector_around_axis(body->rot_axis, vec(0, 0, 1), north_pole_right_ascension);
+
+	body->pm_ut0 = cross_product(vec(0, 1, 0), body->rot_axis);
+	body->pm_ut0 = rotate_vector_around_axis(body->pm_ut0, body->rot_axis, initial_rotation);
+
 	if(has_g_asl) body->mu = 9.81*g_asl * body->radius*body->radius;
 	
 	if(system != NULL) {
