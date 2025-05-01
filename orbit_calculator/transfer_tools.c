@@ -1,5 +1,6 @@
 #include "transfer_tools.h"
 #include "tools/data_tool.h"
+#include "orbit_calculator/orbit_calculator.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -93,20 +94,21 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
         theta2 = pi_norm(theta1 + dtheta);
         e = (r1 - r0) / (r0 * cos(theta1) - r1 * cos(theta2));
         if(e < 0){  // not possible
-			printf("%.10f°, %f°, %f, %f, %f, %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
-			printf("%f°, %f°, %f\n", rad2deg(min_theta1), rad2deg(max_theta1), e);
+			printf("\n\n!!!!! PANIC e < 0 !!!!!!!!\n");
+			printf("theta1: %.10f°; theta2: %f°; target dt: %fd\nr0: %fe6m; r1: %fe6m; dtheta: %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
+			printf("min theta1: %f°; max theta1: %f°\ne: %f; a: %f\n", rad2deg(min_theta1), rad2deg(max_theta1), e, a);
 			printf("theta1 = [");
 			for(int j = 1; j <= data[0].x; j++) {
 				if(j!=1) printf(", ");
-				printf("%.1f°", rad2deg(data[j].x));
+				printf("%.10f", rad2deg(data[j].x));
 			}
 			printf("]\ndt = [");
 			for(int j = 1; j <= data[0].x; j++) {
 				if(j!=1) printf(", ");
-				printf("%.2f", data[j].y/86400);
+				printf("%.4f", data[j].y/86400);
 			}
 			printf("]\n");
-			printf("\n\n!!!!! PANIC e < 0 !!!!!!!!\n");
+			printf("-------------\n\n");
 			exit(1);
         } else if(e==1) e += 1e-10;	// no calculations for parabola -> make it a hyperbola
 
@@ -150,8 +152,9 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
         }
 
         if(isnan(dt)){  // at this theta1 orbit not solvable
-			printf("%.10f°, %f°, %f, %f, %f, %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
-			printf("%f°, %f°, %f, %f, %f, %f, %f, %f\n", rad2deg(min_theta1), rad2deg(max_theta1), t1/86400, t2/86400, T/86400, T/2/86400, e, a);
+			printf("---!!!!   NAN   !!!!---\n");
+			printf("theta1: %.10f°; theta2: %f°; target dt: %fd\nr0: %fe6m; r1: %fe6m; dtheta: %f°\n", rad2deg(theta1), rad2deg(theta2), target_dt/86400, r0*1e-9, r1*1e-9, rad2deg(dtheta));
+			printf("min theta1: %f°; max theta1: %f°\nt1: %fd; t2: %fd; T: %fd; T/2: %fd\ne: %f; a: %f\n", rad2deg(min_theta1), rad2deg(max_theta1), t1/86400, t2/86400, T/86400, T/2/86400, e, a);
 			printf("theta1 = [");
 			for(int j = 1; j <= data[0].x; j++) {
 				if(j!=1) printf(", ");
@@ -163,7 +166,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 				printf("%.4f", data[j].y/86400);
 			}
 			printf("]\n");
-			printf("---!!!!   NAN   !!!!---\n");
+			printf("-------------\n\n");
             break;
         }
 		
@@ -173,28 +176,29 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
 		if(fabs(target_dt-dt) < 1) break;
     }
 
-    struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, SUN()), theta1, theta2};
+    struct Transfer2D transfer = {constr_orbit(a, e, 0, 0, 0, 0, attractor), theta1, theta2};
     return transfer;
 }
 
-struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, double *data) {
+struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, struct Body *attractor, double *data) {
     double dtheta = angle_vec_vec(r1, r2);
     if (cross_product(r1, r2).z < 0) dtheta = 2 * M_PI - dtheta;
 
-    struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, SUN());
+    struct Transfer2D transfer2d = calc_2d_transfer_orbit(vector_mag(r1), vector_mag(r2), dt, dtheta, attractor);
 	struct Transfer transfer = calc_transfer_dv(transfer2d, r1, r2);
-
-    if(data != NULL) {
+	
+	
+	if(data != NULL) {
 		double dv1, dv2;
 		if(dep_body != NULL) {
 			double v_t1_inf = fabs(vector_mag(subtract_vectors(transfer.v0, v1)));
-			dv1 = tt % 2 == 0 ? dv_capture(dep_body, dep_body->atmo_alt + 100e3, v_t1_inf) : dv_circ(dep_body,dep_body->atmo_alt + 100e3,v_t1_inf);
+			dv1 = tt % 2 == 0 ? dv_capture(dep_body, dep_body->atmo_alt + 50e3, v_t1_inf) : dv_circ(dep_body,dep_body->atmo_alt + 50e3,v_t1_inf);
 		} else dv1 = vector_mag(v1);
 
 		if(arr_body != NULL) {
 			double v_t2_inf = fabs(vector_mag(subtract_vectors(transfer.v1, v2)));
-			if(tt < 2) dv2 = dv_capture(arr_body, arr_body->atmo_alt + 100e3, v_t2_inf);
-			else if(tt < 4) dv2 = dv_circ(arr_body, arr_body->atmo_alt + 100e3, v_t2_inf);
+			if(tt < 2) dv2 = dv_capture(arr_body, arr_body->atmo_alt + 50e3, v_t2_inf);
+			else if(tt < 4) dv2 = dv_circ(arr_body, arr_body->atmo_alt + 50e3, v_t2_inf);
 			else dv2 = 0;
 		} else {
 			dv2 = vector_mag(v2);
@@ -219,8 +223,8 @@ struct Vector2D calc_v_2d(double r_mag, double v_mag, double theta, double gamma
 struct Vector heliocentric_rot(struct Vector2D v, double RAAN, double w, double inc) {
     double Q[3][3] = {
             {-sin(RAAN)*cos(inc)*sin(w)+cos(RAAN)*cos(w),     -sin(RAAN)*cos(inc)*cos(w)-cos(RAAN)*sin(w),   sin(RAAN)*sin(inc)},
-            { cos(RAAN)*cos(inc)*sin(w)+sin(RAAN)*cos(w),      cos(RAAN)*cos(inc)*cos(w)-sin(RAAN)*sin(w),  -cos(RAAN)*sin(inc)},
-            { sin(inc)*sin(w),                                 sin(inc)*cos(w),                              cos(inc)}};
+            { cos(RAAN)*cos(inc)*sin(w)+sin(RAAN)*cos(w),     cos(RAAN)*cos(inc)*cos(w)-sin(RAAN)*sin(w),  -cos(RAAN)*sin(inc)},
+            { sin(inc)*sin(w),                                 		 sin(inc)*cos(w),                              		  cos(inc)}};
 
     double v_vec[3] = {v.x, v.y, 0};
     double result[3] = {0,0,0};
@@ -290,15 +294,40 @@ struct Transfer calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1,
 }
 
 
-int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body) {
+double calc_hohmann_transfer_duration(double r0, double r1, struct Body *attractor) {
+	double sma_pow_3 = pow(((r0 + r1) / 2),3);
+	return M_PI * sqrt(sma_pow_3 / attractor->mu);
+}
+
+void calc_hohmann_transfer_dv(double r0, double r1, struct Body *attractor, double *dv_dep, double *dv_arr) {
+	*dv_dep = calc_maneuver_dV(r0, r0, r1, attractor);
+	*dv_arr = calc_maneuver_dV(r1, r0, r1, attractor);
+}
+
+void calc_interplanetary_hohmann_transfer(struct Body *dep_body, struct Body *arr_body, struct Body *attractor, double *dur, double *dv_dep, double *dv_arr_cap, double *dv_arr_circ) {
+	double r0 = dep_body->orbit.a;
+	double r1 = arr_body->orbit.a;
+
+	*dur = calc_hohmann_transfer_duration(r0, r1, attractor);
+	calc_hohmann_transfer_dv(r0, r1, attractor, dv_dep, dv_arr_cap);
+	*dv_arr_circ = *dv_arr_cap;
+
+	*dv_dep = dv_circ(dep_body, dep_body->atmo_alt + 50e3, *dv_dep);
+	*dv_arr_circ = dv_circ(arr_body, dep_body->atmo_alt + 50e3, *dv_arr_circ);
+	*dv_arr_cap = dv_capture(arr_body, dep_body->atmo_alt + 50e3, *dv_arr_cap);
+}
+
+
+int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body, struct Body *attractor) {
 	double data[3];
 	struct Transfer transfer1 = calc_transfer(circcirc, body[0], body[1], osv[0].r, osv[0].v, osv[1].r,
-											  osv[1].v, (t[1] - t[0]) * (24 * 60 * 60), data);
+											  osv[1].v, (t[1] - t[0]) * (24 * 60 * 60), attractor, data);
 	double arr_v = data[2];
 	struct Transfer transfer2 = calc_transfer(circcirc, body[1], body[2], osv[1].r, osv[1].v, osv[2].r,
-											  osv[2].v, (t[2] - t[1]) * (24 * 60 * 60), data);
+											  osv[2].v, (t[2] - t[1]) * (24 * 60 * 60), attractor, data);
 	double dep_v = data[1];
 	if (fabs(arr_v - dep_v) > 10) return 0;
+
 
 	struct Vector v_arr = subtract_vectors(transfer1.v1, osv[1].v);
 	struct Vector v_dep = subtract_vectors(transfer2.v0, osv[1].v);
@@ -372,15 +401,13 @@ double get_flyby_inclination(struct Vector v_arr, struct Vector v_dep, struct Ve
 	return angle_plane_plane(ecliptic, hyperbola_plane);
 }
 
-struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, struct Body *attractor) {
-	struct Orbit orbit = constr_orbit_from_osv(r,v,attractor);
-
+struct OSV propagate_orbit_time(struct Orbit orbit, double dt, struct Body *attractor) {
 	double theta = orbit.theta;
 	double t = orbit.t;
 	double e = orbit.e;
 	double target_t = t + dt;
 	double a = orbit.a;
-	double RAAN = orbit.raan;
+	double raan = orbit.raan;
 	double arg_peri = orbit.arg_peri;
 	double i = orbit.inclination;
 	double mu = attractor->mu;
@@ -445,16 +472,14 @@ struct OSV propagate_orbit_time(struct Vector r, struct Vector v, double dt, str
 	struct Vector2D r_2d = {cos(theta) * r_mag, sin(theta) * r_mag};
 	struct Vector2D v_2d = calc_v_2d(r_mag, v_mag, theta, gamma);
 
-	r = heliocentric_rot(r_2d, RAAN, arg_peri, i);
-	v = heliocentric_rot(v_2d, RAAN, arg_peri, i);
+	struct Vector r = heliocentric_rot(r_2d, raan, arg_peri, i);
+	struct Vector v = heliocentric_rot(v_2d, raan, arg_peri, i);
 
 	struct OSV osv = {r, v};
 	return osv;
 }
 
-struct OSV propagate_orbit_theta(struct Vector r, struct Vector v, double dtheta, struct Body *attractor) {
-	struct Orbit orbit = constr_orbit_from_osv(r,v,attractor);
-
+struct OSV propagate_orbit_theta(struct Orbit orbit, double dtheta, struct Body *attractor) {
 	double theta = pi_norm(orbit.theta+dtheta);
 	double e = orbit.e;
 	double a = orbit.a;
@@ -462,15 +487,15 @@ struct OSV propagate_orbit_theta(struct Vector r, struct Vector v, double dtheta
 	double arg_peri = orbit.arg_peri;
 	double i = orbit.inclination;
 	double mu = attractor->mu;
-
+	
 	double gamma = atan(e*sin(theta)/(1+e*cos(theta)));
 	double r_mag = a*(1-pow(e,2)) / (1+e*cos(theta));
 	double v_mag = sqrt(mu*(2/r_mag - 1/a));
 	struct Vector2D r_2d = {cos(theta) * r_mag, sin(theta) * r_mag};
 	struct Vector2D v_2d = calc_v_2d(r_mag, v_mag, theta, gamma);
 
-	r = heliocentric_rot(r_2d, RAAN, arg_peri, i);
-	v = heliocentric_rot(v_2d, RAAN, arg_peri, i);
+	struct Vector r = heliocentric_rot(r_2d, RAAN, arg_peri, i);
+	struct Vector v = heliocentric_rot(v_2d, RAAN, arg_peri, i);
 
 	struct OSV osv = {r, v};
 	return osv;
@@ -481,6 +506,12 @@ struct OSV osv_from_ephem(struct Ephem *ephem_list, double date, struct Body *at
     struct Vector r1 = {ephem.x, ephem.y, ephem.z};
     struct Vector v1 = {ephem.vx, ephem.vy, ephem.vz};
     double dt1 = (date - ephem.date) * (24 * 60 * 60);
-    struct OSV osv = propagate_orbit_time(r1, v1, dt1, attractor);
+    struct OSV osv = propagate_orbit_time(constr_orbit_from_osv(r1,v1,attractor), dt1, attractor);
     return osv;
+}
+
+struct OSV osv_from_elements(struct Orbit orbit, double date, struct System *system) {
+	double dt = (date - system->ut0) * (24 * 60 * 60);
+	struct OSV osv = propagate_orbit_time(orbit, dt, system->cb);
+	return osv;
 }

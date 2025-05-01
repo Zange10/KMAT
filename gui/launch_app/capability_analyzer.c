@@ -1,6 +1,6 @@
 #include "capability_analyzer.h"
 #include "launch_calculator/lv_profile.h"
-#include "gui/launch_app.h"
+#include "gui/gui_manager.h"
 #include "database/lv_database.h"
 #include "tools/analytic_geometry.h"
 #include "launch_calculator/capability_calculator.h"
@@ -58,11 +58,11 @@ void init_capability_analyzer(GtkBuilder *builder) {
 	cdp.num_points = 0;
 }
 
-void on_ca_change_launcher(GtkWidget* widget, gpointer data) {
+G_MODULE_EXPORT void on_ca_change_launcher(GtkWidget* widget, gpointer data) {
 	update_profile_dropdown(GTK_COMBO_BOX(cb_ca_sel_launcher), GTK_COMBO_BOX(cb_ca_sel_profile));
 }
 
-void on_capability_analyzer_disp_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
+G_MODULE_EXPORT void on_capability_analyzer_disp_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
 	GtkAllocation allocation;
 	gtk_widget_get_allocation(widget, &allocation);
 	int area_width = allocation.width;
@@ -102,7 +102,7 @@ void on_capability_analyzer_disp_draw(GtkWidget *widget, cairo_t *cr, gpointer d
 	}
 }
 
-void on_ca_analyze() {
+G_MODULE_EXPORT void on_ca_analyze() {
 	int launcher_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ca_sel_launcher));
 	int profile_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ca_sel_profile));
 	struct LV *all_launcher = get_all_launcher();

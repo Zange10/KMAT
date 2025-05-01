@@ -2,10 +2,7 @@
 #include "gui/css_loader.h"
 #include "mission_db_tools.h"
 #include "gui/database_app/mission_db.h"
-#include "ephem.h"
-
-#include <math.h>
-
+#include "tools/datetime.h"
 
 GtkWidget *grid_mman_objectives;
 GtkWidget *grid_mman_events;
@@ -49,15 +46,10 @@ struct Mission_DB mission;
 void update_mman_objective_box();
 void update_mman_event_box();
 void reset_mission_manager();
-void on_mman_remove_objective(GtkWidget *button, gpointer data);
-void on_mman_add_objective(GtkWidget *button, gpointer data);
 void update_mman_objectives_list();
-void on_mman_remove_event(GtkWidget *button, gpointer data);
-void on_mman_add_event(GtkWidget *button, gpointer data);
 void update_mman_event_list();
 void update_lists_with_id_and_references();
 double get_event_epoch(struct MissionEventList *event);
-void on_mman_change_event_time_type(GtkWidget *combo_box, gpointer data);
 
 
 void init_mission_manager(GtkBuilder *builder) {
@@ -124,24 +116,24 @@ void switch_to_mission_manager(struct Mission_DB m) {
 }
 
 
-void on_enter_new_program() {
+G_MODULE_EXPORT void on_enter_new_program() {
 	gtk_stack_set_visible_child_name(GTK_STACK(stack_newprogram), "page1");
 }
 
-void on_add_new_program() {
+G_MODULE_EXPORT void on_add_new_program() {
 	char *program_name = (char*) gtk_entry_get_text(GTK_ENTRY(tf_mman_newprogram));
 	if(program_name[0] != '\0') db_new_program(program_name, "");
 	gtk_stack_set_visible_child_name(GTK_STACK(stack_newprogram), "page0");
 	update_program_dropdown(GTK_COMBO_BOX(cb_mman_program), 0);
 }
 
-void on_mman_back() {
+G_MODULE_EXPORT void on_mman_back() {
 	reset_mission_manager();
 	update_db_box();
 	switch_to_mission_database_page();
 }
 
-void on_newupdate_mission() {
+G_MODULE_EXPORT void on_newupdate_mission() {
 	char *mission_name = (char*) gtk_entry_get_text(GTK_ENTRY(tf_mman_name));
 	int program_id = get_active_combobox_id(GTK_COMBO_BOX(cb_mman_program));
 	int launcher_id = get_active_combobox_id(GTK_COMBO_BOX(cb_mman_launcher));
@@ -327,7 +319,7 @@ void update_mman_objectives_list() {
 	}
 }
 
-void on_mman_add_objective(GtkWidget *button, gpointer data) {
+G_MODULE_EXPORT void on_mman_add_objective(GtkWidget *button, gpointer data) {
 	update_mman_objectives_list();
 	num_objectives++;
 
@@ -349,7 +341,7 @@ void on_mman_add_objective(GtkWidget *button, gpointer data) {
 	update_mman_objective_box();
 }
 
-void on_mman_remove_objective(GtkWidget *button, gpointer data) {
+G_MODULE_EXPORT void on_mman_remove_objective(GtkWidget *button, gpointer data) {
 	update_mman_objectives_list();
 	struct MissionObjectiveList *objective = (struct MissionObjectiveList *) data;  // Cast data back to int
 	if(objective->objective->id != 0) objective->objective->id *= -1;
@@ -433,9 +425,9 @@ void update_mman_event_box() {
 		int row = i*2+3;
 		struct Date date = {};
 		if(event_list[i].event_type != TIMESINCE_EVENT) {
-			date = convert_JD_date(events[i].epoch);
+			date = convert_JD_date(events[i].epoch, DATE_ISO);
 		} else {
-			date = get_date_difference_from_epochs(event_list[initial_event_id].event->epoch, event_list[i].event->epoch);
+			date = get_date_difference_from_epochs(event_list[initial_event_id].event->epoch, event_list[i].event->epoch, DATE_ISO);
 		}
 
 
@@ -588,7 +580,7 @@ void update_mman_event_list() {
 	}
 }
 
-void on_mman_add_event(GtkWidget *button, gpointer data) {
+G_MODULE_EXPORT void on_mman_add_event(GtkWidget *button, gpointer data) {
 	update_mman_event_list();
 	num_events++;
 
@@ -613,7 +605,7 @@ void on_mman_add_event(GtkWidget *button, gpointer data) {
 	update_mman_event_box();
 }
 
-void on_mman_remove_event(GtkWidget *button, gpointer data) {
+G_MODULE_EXPORT void on_mman_remove_event(GtkWidget *button, gpointer data) {
 	update_mman_event_list();
 	struct MissionEventList *event = (struct MissionEventList *) data;  // Cast data back to event struct
 	if(event->event->id != 0) event->event->id *= -1;
@@ -645,7 +637,7 @@ void on_mman_remove_event(GtkWidget *button, gpointer data) {
 	update_mman_event_box();
 }
 
-void on_mman_change_event_time_type(GtkWidget *combo_box, gpointer data) {
+G_MODULE_EXPORT void on_mman_change_event_time_type(GtkWidget *combo_box, gpointer data) {
 	update_mman_event_list();
 	struct MissionEventList *event = (struct MissionEventList *) data;
 

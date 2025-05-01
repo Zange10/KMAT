@@ -37,7 +37,7 @@ void add_to_data(double phi, double kappa, double dv, double man_time, double pe
 	num_data++;
 }
 
-double test[2];
+double testvar[2];
 
 
 void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params spsp, struct DSB_Data dd) {
@@ -63,11 +63,11 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 		if(i == 0) dtheta = min_dtheta;
 
 		gettimeofday(&start, NULL);  // Record the starting time
-		struct OSV osv_m0 = propagate_orbit_theta(dd.p0.r, v_t00, dtheta, SUN());
+		struct OSV osv_m0 = propagate_orbit_theta(constr_orbit_from_osv(dd.p0.r, v_t00, SUN()), dtheta, SUN());
 
 		gettimeofday(&end, NULL);  // Record the ending time
 		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-		test[0] += elapsed_time;
+		testvar[0] += elapsed_time;
 
 		double duration = calc_dt_from_dtheta(spsp.orbit, dtheta);
 
@@ -75,10 +75,10 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 
 		gettimeofday(&start, NULL);  // Record the starting time
 		struct Transfer transfer = calc_transfer(capfb, body, body, osv_m0.r, osv_m0.v, dd.p1.r, dd.p1.v,
-												 dd.transfer_duration * 86400 - duration, NULL);
+												 dd.transfer_duration * 86400 - duration, SUN(), NULL);
 		gettimeofday(&end, NULL);  // Record the ending time
 		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-		test[1] += elapsed_time;
+		testvar[1] += elapsed_time;
 
 		struct Vector temp = subtract_vectors(transfer.v0, osv_m0.v);
 		double mag = vector_mag(temp);
@@ -198,9 +198,9 @@ struct DSB calc_double_swing_by(struct OSV s0, struct OSV p0, struct OSV s1, str
 	struct DSB_Data dsb_data = {s0, s1, p0, p1, transfer_duration, body};
 
 	gettimeofday(&start, NULL);  // Record the ending time
-	
-	test[0] = 0;
-	test[1] = 0;
+
+	testvar[0] = 0;
+	testvar[1] = 0;
 
 	int num_angle_analyse = 10;
 	
