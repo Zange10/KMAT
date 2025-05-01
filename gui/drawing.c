@@ -470,8 +470,8 @@ struct Vector2D p3d_to_p2d(Camera cam, struct Vector p3d, int width, int height)
 
 	// Calculate the 2D coordinates based on perspective projection
 	double scale = f * 1.0f / z;  // Perspective divide
-	double px = ((-x * scale) * (hw / 2.0f) +  (double)width/ 2);
-	double py = ((y * scale) * (hw / 2.0f) + (double)height / 2);
+	double px = ((x * scale) * (hw / 2.0f) +  (double)width/ 2);
+	double py = ((-y * scale) * (hw / 2.0f) + (double)height / 2);
 
 	return (struct Vector2D){px, py};
 }

@@ -10,13 +10,9 @@
 int mouse_pressed = 0;
 GObject *drawing_area;
 
-Camera camera = {
-		(struct Vector) {-50,0,50},
-		(struct Vector) {1,0,0},
-		0
-};
+Camera camera;
 
-double pitch = 0, yaw = 0, pitch_add = 0.01, distance = 50;
+double pitch, yaw, distance;
 
 struct System *test_system;
 
@@ -25,8 +21,8 @@ gboolean right_button_held = FALSE;
 struct Vector2D mouse_pos;
 
 gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
-	if(event->direction == GDK_SCROLL_UP && distance / 1.2 > 1) distance /= 1.2;
-	if(event->direction == GDK_SCROLL_DOWN && distance * 1.2 < 200e12) distance *= 1.2;
+	if(event->direction == GDK_SCROLL_UP && vector_mag(camera.pos) / 1.2 > camera.min_pos_dist) distance /= 1.2;
+	if(event->direction == GDK_SCROLL_DOWN && vector_mag(camera.pos) * 1.2 < camera.max_pos_dist) distance *= 1.2;
 	gtk_widget_queue_draw(GTK_WIDGET(drawing_area));
 	return TRUE;
 }
@@ -56,8 +52,8 @@ gboolean on_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer user_d
 		// event->x and event->y are relative to the widget (drawing area)
 		struct Vector2D mouse_mov = {event->x-mouse_pos.x, event->y-mouse_pos.y};
 
-		yaw += mouse_mov.x * 0.005;
-		pitch -= mouse_mov.y * 0.005;
+		yaw -= mouse_mov.x * 0.005;
+		pitch += mouse_mov.y * 0.005;
 		if(pitch >=  M_PI/2) pitch =  M_PI/2 - 0.001;
 		if(pitch <= -M_PI/2) pitch = -M_PI/2 + 0.001;
 
@@ -90,18 +86,35 @@ void draw_body_orbit(cairo_t *cr, Camera *cam, struct Body *body, int width, int
 	}
 }
 
-void draw_system(cairo_t *cr, Camera *cam, int width, int height) {
-	cam->pos = (struct Vector) {cos(yaw), sin(yaw), 0};
-	cam->pos = scalar_multiply(cam->pos, distance);
-	struct Vector right = norm_vector(cross_product(cam->pos, vec(0, 0, 1)));
-	cam->pos = rotate_vector_around_axis(cam->pos, right, pitch);
+void update_camera_position_from_angles(Camera *cam, double p, double y, double r, double dist) {
+	cam->pos = (struct Vector) {dist*cos(p), 0, dist*sin(p)};
+	cam->pos = rotate_vector_around_axis(cam->pos, vec(0,0,1), y);
+}
+
+void camera_look_to_center(Camera *cam) {
 	cam->looking = norm_vector(scalar_multiply(cam->pos, -1));
+}
+
+void draw_system(cairo_t *cr, Camera *cam, int width, int height) {
+	printf("%f  %f   %f\n", pitch, yaw, distance);
+	update_camera_position_from_angles(&camera, pitch, yaw, 0, distance);
+	camera_look_to_center(&camera);
 
 	draw_body_orbit(cr, cam, test_system->cb, width, height);
 
 	for(int i = 0; i < test_system->num_bodies; i++) {
 		draw_body_orbit(cr, cam, test_system->bodies[i], width, height);
 	}
+}
+
+void init_camera(Camera *cam, struct System *system) {
+	pitch = deg2rad(90);
+	yaw = 0;
+	distance = test_system->bodies[2]->orbit.apoapsis*10;
+	cam->min_pos_dist = test_system->bodies[0]->orbit.periapsis*2;
+	cam->max_pos_dist = test_system->bodies[test_system->num_bodies-1]->orbit.periapsis*50;
+	update_camera_position_from_angles(cam, pitch, yaw, 0, distance);
+	camera_look_to_center(cam);
 }
 
 void on_draw_projection(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
@@ -121,8 +134,8 @@ void on_draw_projection(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 void activate_test(GtkApplication *app, gpointer user_data);
 
 void init_test() {
-
 	test_system = get_system_by_name("Stock System");
+	init_camera(&camera, test_system);
 
 	GtkApplication *app = gtk_application_new ("org.gtk.example", G_APPLICATION_DEFAULT_FLAGS);
 	g_signal_connect (app, "activate", G_CALLBACK (activate_test), NULL);

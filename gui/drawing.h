@@ -12,8 +12,8 @@
 enum CoordAxisLabelType {COORD_LABEL_NUMBER, COORD_LABEL_DATE, COORD_LABEL_DURATION};
 
 typedef struct {
-	struct Vector pos, looking;
-	double roll;
+	struct Vector pos, looking, right;
+	double max_pos_dist, min_pos_dist;
 } Camera;
 
 void draw_stroke(cairo_t *cr, struct Vector2D p1, struct Vector2D p2);
