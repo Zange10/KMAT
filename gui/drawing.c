@@ -5,7 +5,40 @@
 #include "math.h"
 
 
-void draw_orbit(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor) {
+void draw_body(cairo_t *cr, Camera camera, struct System *system, struct Body *body, double jd_date, int width, int height) {
+	set_cairo_body_color(cr, body);
+	struct OSV osv_body = {.r = vec(0,0,0)};
+	if(body != system->cb) osv_body = osv_from_elements(body->orbit, jd_date, system);
+	struct Vector2D p2d_body = p3d_to_p2d(camera, osv_body.r, width, height);
+	cairo_arc(cr, p2d_body.x, p2d_body.y, 5, 0, 2 * M_PI);
+	cairo_fill(cr);
+}
+
+void draw_orbit(cairo_t *cr, Camera camera, struct Orbit orbit, int width, int height) {
+	struct OSV osv = propagate_orbit_theta(orbit, 0, orbit.body);
+	struct Vector2D p2d = p3d_to_p2d(camera, osv.r, width, height);
+
+	struct Vector2D last_p2d = p2d;
+	double dtheta_step = deg2rad(0.5);
+
+	for(double dtheta = 0; dtheta < M_PI*2 + dtheta_step; dtheta += dtheta_step) {
+		osv = propagate_orbit_theta(orbit, dtheta, orbit.body);
+		p2d = p3d_to_p2d(camera, osv.r, width, height);
+		draw_stroke(cr, last_p2d, p2d);
+		last_p2d = p2d;
+	}
+}
+
+void draw_celestial_system(cairo_t *cr, Camera camera, struct System *system, double jd_date, int width, int height) {
+	draw_body(cr, camera, system, system->cb, jd_date, width, height);
+
+	for(int i = 0; i < system->num_bodies; i++) {
+		draw_body(cr, camera, system, system->bodies[i], jd_date, width, height);
+		draw_orbit(cr, camera, system->bodies[i]->orbit, width, height);
+	}
+}
+
+void draw_orbit_2d(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor) {
 	int steps = 100;
 	struct OSV last_osv = {r,v};
 	
@@ -24,7 +57,7 @@ void draw_orbit(cairo_t *cr, struct Vector2D center, double scale, struct Vector
 	}
 }
 
-void draw_body(cairo_t *cr, struct Vector2D center, double scale, struct Vector r) {
+void draw_body_2d(cairo_t *cr, struct Vector2D center, double scale, struct Vector r) {
 	int body_radius = 5;
 	r = scalar_multiply(r, scale);
 	// y negative, because in GUI y gets bigger downwards
@@ -33,7 +66,7 @@ void draw_body(cairo_t *cr, struct Vector2D center, double scale, struct Vector 
 	cairo_fill(cr);
 }
 
-void draw_transfer_point(cairo_t *cr, struct Vector2D center, double scale, struct Vector r) {
+void draw_transfer_point_2d(cairo_t *cr, struct Vector2D center, double scale, struct Vector r) {
 	int cross_length = 4;
 	cairo_set_source_rgb(cr, 1, 0, 0);
 	r = scalar_multiply(r, scale);
@@ -50,7 +83,7 @@ void draw_transfer_point(cairo_t *cr, struct Vector2D center, double scale, stru
 
 
 // Rework trajectory drawing -> OSV + dt   ----------------------------------------------
-void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf, struct Body *attractor) {
+void draw_trajectory_2d(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf, struct Body *attractor) {
 	// if double swing-by is not worth drawing
 	if(tf->body == NULL && tf->v_body.x == 0) return;
 

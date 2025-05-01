@@ -46,7 +46,7 @@ gboolean on_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer user_d
 	// Check if it's the right mouse button
 	if (right_button_held) {
 		// event->x and event->y are relative to the widget (drawing area)
-		struct Vector2D mouse_mov = {event->x-mouse_pos.x, event->y-mouse_pos.y};
+		struct Vector2D mouse_mov = {event->x - mouse_pos.x, event->y - mouse_pos.y};
 
 		double pitch = get_camera_pos_pitch(camera);
 		double yaw = get_camera_pos_yaw(camera);
@@ -107,7 +107,7 @@ void on_draw_projection(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 	cairo_set_source_rgb(cr, 0,0,0);
 	cairo_fill(cr);
 
-	draw_system(cr, &camera, area_width, area_height);
+	draw_celestial_system(cr, camera, test_system, 0, area_width, area_height);
 }
 
 void activate_test(GtkApplication *app, gpointer user_data);

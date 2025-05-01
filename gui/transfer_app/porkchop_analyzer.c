@@ -481,7 +481,7 @@ G_MODULE_EXPORT void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer da
 
 	// Sun
 	set_cairo_body_color(cr, pa_system->cb);
-	draw_body(cr, center, 0, vec(0,0,0));
+	draw_body_2d(cr, center, 0, vec(0, 0, 0));
 	cairo_fill(cr);
 
 	// Planets
@@ -491,8 +491,8 @@ G_MODULE_EXPORT void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer da
 			struct OSV osv = pa_system->calc_method == ORB_ELEMENTS ?
 					osv_from_elements(pa_system->bodies[i]->orbit, current_date_pa, pa_system) :
 					osv_from_ephem(pa_system->bodies[i]->ephem, current_date_pa, pa_system->cb);
-			draw_body(cr, center, scale, osv.r);
-			draw_orbit(cr, center, scale, osv.r, osv.v, pa_system->cb);
+			draw_body_2d(cr, center, scale, osv.r);
+			draw_orbit_2d(cr, center, scale, osv.r, osv.v, pa_system->cb);
 		}
 	}
 
@@ -503,8 +503,8 @@ G_MODULE_EXPORT void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer da
 			if(temp_transfer->body != NULL) {
 				set_cairo_body_color(cr, temp_transfer->body);
 			} else temp_transfer->v_body.x = 1;	// set to 1 to draw trajectory
-			draw_transfer_point(cr, center, scale, temp_transfer->r);
-			if(temp_transfer->prev != NULL) draw_trajectory(cr, center, scale, temp_transfer, pa_system->cb);
+			draw_transfer_point_2d(cr, center, scale, temp_transfer->r);
+			if(temp_transfer->prev != NULL) draw_trajectory_2d(cr, center, scale, temp_transfer, pa_system->cb);
 			temp_transfer = temp_transfer->next != NULL ? temp_transfer->next[0] : NULL;
 		}
 	}

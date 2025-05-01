@@ -2,10 +2,12 @@
 #define KSP_CAMERA_H
 
 #include "tools/analytic_geometry.h"
+#include <gtk/gtk.h>
 
 typedef struct {
 	struct Vector pos, looking, right;
 	double max_pos_dist, min_pos_dist;
+	int rotation_sensitive;
 } Camera;
 
 struct System;
@@ -18,5 +20,12 @@ void update_camera_distance_to_center(Camera *camera, double new_distance);
 double get_camera_pos_pitch(Camera camera);
 double get_camera_pos_yaw(Camera camera);
 double get_camera_distance_to_center(Camera camera);
+
+
+
+gboolean on_camera_zoom(GtkWidget *widget, GdkEventScroll *event, Camera *camera);
+gboolean on_enable_camera_rotation(GtkWidget *widget, GdkEventButton *event, Camera *camera);
+gboolean on_disable_camera_rotation(GtkWidget *widget, GdkEventButton *event, Camera *camera);
+gboolean on_camera_rotate(GtkWidget *widget, GdkEventButton *event, Camera *camera);
 
 #endif //KSP_CAMERA_H

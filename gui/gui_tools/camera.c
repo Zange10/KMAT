@@ -1,8 +1,10 @@
 #include "camera.h"
 #include "celestial_bodies.h"
 #include <math.h>
+#include <gtk/gtk.h>
 
 
+struct Vector2D last_mouse_pos;
 
 Camera new_celestial_system_camera(struct System *system, double initial_pos_pitch, double initial_pos_yaw) {
 	Camera camera;
@@ -11,6 +13,7 @@ Camera new_celestial_system_camera(struct System *system, double initial_pos_pit
 	camera_look_to_center(&camera);
 	camera.min_pos_dist = system->bodies[0]->orbit.periapsis*2;
 	camera.max_pos_dist = system->bodies[system->num_bodies-1]->orbit.periapsis*50;
+	camera.rotation_sensitive = 0;
 
 	return camera;
 }
@@ -70,3 +73,58 @@ double get_camera_pos_yaw(Camera camera) {
 double get_camera_distance_to_center(Camera camera) {
 	return vector_mag(camera.pos);
 }
+
+
+// TRANSLATION AND ROTATION -----------------------------------------------------------
+
+gboolean on_camera_zoom(GtkWidget *widget, GdkEventScroll *event, Camera *camera) {
+	double distance = get_camera_distance_to_center(*camera);
+	if(event->direction == GDK_SCROLL_UP && vector_mag(camera->pos) / 1.2 > camera->min_pos_dist) distance /= 1.2;
+	if(event->direction == GDK_SCROLL_DOWN && vector_mag(camera->pos) * 1.2 < camera->max_pos_dist) distance *= 1.2;
+
+	update_camera_distance_to_center(camera, distance);
+	gtk_widget_queue_draw(widget);
+	return TRUE;
+}
+
+gboolean on_enable_camera_rotation(GtkWidget *widget, GdkEventButton *event, Camera *camera) {
+	if (event->button == GDK_BUTTON_SECONDARY) {
+		camera->rotation_sensitive = 1;
+		last_mouse_pos = (struct Vector2D) {event->x, event->y};
+		return TRUE;
+	}
+	return FALSE;
+}
+
+gboolean on_disable_camera_rotation(GtkWidget *widget, GdkEventButton *event, Camera *camera) {
+	if (event->button == GDK_BUTTON_SECONDARY) {
+		camera->rotation_sensitive = 0;
+		return TRUE;
+	}
+	return FALSE;
+}
+
+gboolean on_camera_rotate(GtkWidget *widget, GdkEventButton *event, Camera *camera) {
+	// Check if it's the right mouse button
+	if (camera->rotation_sensitive) {
+		// event->x and event->y are relative to the widget (drawing area)
+		struct Vector2D mouse_mov = {event->x - last_mouse_pos.x, event->y - last_mouse_pos.y};
+
+		double pitch = get_camera_pos_pitch(*camera);
+		double yaw = get_camera_pos_yaw(*camera);
+
+		yaw -= mouse_mov.x * 0.005;
+		pitch += mouse_mov.y * 0.005;
+		if(pitch >=  M_PI/2) pitch =  M_PI/2 - 0.001;
+		if(pitch <= -M_PI/2) pitch = -M_PI/2 + 0.001;
+
+		update_camera_position_from_angles(camera, pitch, yaw, get_camera_distance_to_center(*camera));
+		camera_look_to_center(camera);
+
+		last_mouse_pos = (struct Vector2D) {event->x, event->y};
+		gtk_widget_queue_draw(widget);
+		return TRUE; // Event handled
+	}
+	return FALSE;
+}
+
