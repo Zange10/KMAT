@@ -11,7 +11,9 @@ typedef struct {
 
 typedef struct {
 	struct Vector **points;
+	struct Vector2D *outside_points;
 	size_t num_columns;
+	size_t num_outside_points;
 	size_t *num_points;
 } MeshGrid;
 

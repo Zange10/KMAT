@@ -17,6 +17,11 @@ MeshTriangle create_triangle_from_three_points(struct Vector p1, struct Vector p
 	return triangle;
 }
 
+void add_grid_outside_point(MeshGrid *grid, double x, double y) {
+	grid->outside_points[grid->num_outside_points] = (struct Vector2D) {x,y};
+	grid->num_outside_points++;
+}
+
 MeshGrid create_mesh_grid(double *x_vals, double **y_vals, double **z_vals, int num_cols, int *num_points) {
 	MeshGrid grid = {.num_columns = num_cols};
 	grid.num_points = malloc(sizeof(size_t) * num_cols);
@@ -26,8 +31,17 @@ MeshGrid create_mesh_grid(double *x_vals, double **y_vals, double **z_vals, int 
 		grid.points[i] = malloc(sizeof(struct Vector) * num_points[i]);
 		for(int j = 0; j < num_points[i]; j++) {
 			grid.points[i][j] = (struct Vector) {.x = x_vals[i], .y = y_vals[i][j], .z = z_vals[i][j]};
+			int idx = j;
+			while(idx > 0 && grid.points[i][idx].y < grid.points[i][idx-1].y) {
+				struct Vector temp = grid.points[i][idx];
+				grid.points[i][idx] = grid.points[i][idx-1];
+				grid.points[i][idx-1] = temp;
+				idx--;
+			}
 		}
 	}
+	grid.outside_points = malloc(10000*sizeof(struct Vector2D));
+	grid.num_outside_points = 0;
 
 	return grid;
 };
@@ -107,15 +121,24 @@ MeshGrid fine_mesh_grid_top_bottom(MeshGrid grid, double **init_durs, struct Dv_
 		double init_dur = init_durs[i][0];
 		double step = grid.num_points[i] > 1 ? init_durs[i][0]-init_durs[i][1] : -10;
 		int col_idx = 0;
-		while(fabs(step) > 0.01) {
+		struct ItinStep *ptr = porkchop_points[idx].arrival;
+		while(fabs(step) > 0.001) {
 			init_dur += step;
 //			printf("%f  %f\n", init_dur, porkchop_points[idx].arrival->prev->prev->date-porkchop_points[idx].arrival->prev->prev->prev->date);
-			struct ItinStep *ptr = calc_itinerary(dep, init_dur, dv_filter, porkchop_points[idx].arrival);
-			if(ptr != NULL) {
+			struct ItinStep *ptr_temp = calc_itinerary(dep, init_dur, dv_filter, ptr);
+			if(ptr_temp != NULL) {
+				if(ptr_temp->date-get_first(ptr_temp)->date > grid.points[i][0].y) {
+					free_itinerary(get_first(ptr_temp));
+					init_dur -= step;
+					step /= -2;
+					continue;
+				}
+				ptr = ptr_temp;
 				col[col_idx].x = dep;
 				col[col_idx].y = ptr->date-dep;
 				double vinf = vector_mag(subtract_vectors(get_first(ptr)->next[0]->v_dep, get_first(ptr)->v_body));
 				col[col_idx].z = dv_circ(get_first(ptr)->body, get_first(ptr)->body->atmo_alt+50e3, vinf);
+				col[col_idx].z = 0;
 				col_idx++;
 			} else {
 				init_dur -= step;
@@ -127,19 +150,29 @@ MeshGrid fine_mesh_grid_top_bottom(MeshGrid grid, double **init_durs, struct Dv_
 			col[col_idx].x = grid.points[i][j].x;
 			col[col_idx].y = grid.points[i][j].y;
 			col[col_idx].z = grid.points[i][j].z;
+//			if(j < grid.num_points[i] - 10 && j > 10) j += grid.num_points[i]/50;
 			col_idx++;
 		}
 
 		init_dur = init_durs[i][grid.num_points[i]-1];
 		step = grid.num_points[i] > 1 ? init_durs[i][grid.num_points[i]-1]-init_durs[i][grid.num_points[i]-2] : 10;
-		while(fabs(step) > 0.01) {
+		ptr = porkchop_points[idx+grid.num_points[i]-1].arrival;
+		while(fabs(step) > 0.001) {
 			init_dur += step;
-			struct ItinStep *ptr = calc_itinerary(dep, init_dur, dv_filter, porkchop_points[idx+grid.num_points[i]-1].arrival);
-			if(ptr != NULL) {
+			struct ItinStep *ptr_temp = calc_itinerary(dep, init_dur, dv_filter, ptr);
+			if(ptr_temp != NULL) {
+				if(ptr_temp->date-get_first(ptr_temp)->date < grid.points[i][grid.num_points[i]-1].y) {
+					free_itinerary(get_first(ptr_temp));
+					init_dur -= step;
+					step /= -2;
+					continue;
+				}
+				ptr = ptr_temp;
 				col[col_idx].x = dep;
 				col[col_idx].y = ptr->date-dep;
 				double vinf = vector_mag(subtract_vectors(get_first(ptr)->next[0]->v_dep, get_first(ptr)->v_body));
 				col[col_idx].z = dv_circ(get_first(ptr)->body, get_first(ptr)->body->atmo_alt+50e3, vinf);
+				col[col_idx].z = 0;
 				col_idx++;
 			} else {
 				init_dur -= step;
@@ -152,7 +185,6 @@ MeshGrid fine_mesh_grid_top_bottom(MeshGrid grid, double **init_durs, struct Dv_
 		free(grid.points[i]);
 		grid.points[i] = col;
 		grid.num_points[i] = col_idx;
-
 	}
 
 	return grid;
@@ -180,8 +212,14 @@ Mesh mesh_from_porkchop(struct PorkchopPoint *porkchop_points, int num_itins, in
 	}
 
 	MeshGrid grid = create_mesh_grid(dep, dur, d_v, num_deps, num_itins_per_dep);
+
+
+
 	struct Dv_Filter dv_filter = {1e9, 4000, 1e9, TF_FLYBY};
 	grid = fine_mesh_grid_top_bottom(grid, init_dur, dv_filter, porkchop_points);
+
+
+
 	struct Vector max = grid.points[0][0];
 	struct Vector min = grid.points[0][0];
 
@@ -293,27 +331,14 @@ Mesh create_mesh_from_grid(MeshGrid grid, double max_x_diff) {
 			struct Vector p3 = grid.points[x_idx][1 + y_idx0];
 			struct Vector p4 = grid.points[1 + x_idx][1 + y_idx1];
 
-			double dist12 = vector_distance(vec2D(p1.x, p1.y), vec2D(p2.x, p2.y));
 			double dist14 = vector_distance(vec2D(p1.x, p1.y), vec2D(p4.x, p4.y));
 			double dist23 = vector_distance(vec2D(p2.x, p2.y), vec2D(p3.x, p3.y));
 
-			if(dist12 > 50 || (dist14 > 50 && dist23 > 50)) {
-				if(p1.y > p2.y) y_idx1++;
-				else y_idx0++;
-				continue;
-			}
-
 			if(dist14 < dist23) {
 				mesh.triangles[mesh.num_triangles] = create_triangle_from_three_points(p1, p2, p4);
-				double dist12 = vector_distance(vec2D(p1.x, p1.y), vec2D(p2.x, p2.y));
-				double dist24 = vector_distance(vec2D(p2.x, p2.y), vec2D(p4.x, p4.y));
-				if(dist14 > 30 || dist12 > 30 || dist24 > 30) printf("1   12: %f; 14: %f; 24: %f\n", dist12, dist14, dist24);
 				y_idx1++;
 			} else {
 				mesh.triangles[mesh.num_triangles] = create_triangle_from_three_points(p1, p2, p3);
-				double dist12 = vector_distance(vec2D(p1.x, p1.y), vec2D(p2.x, p2.y));
-				double dist13 = vector_distance(vec2D(p1.x, p1.y), vec2D(p3.x, p3.y));
-				if(dist23 > 30 || dist12 > 30 || dist13 > 30) printf("2   12: %f; 13: %f; 23: %f\n", dist12, dist13, dist23);
 				y_idx0++;
 			}
 			mesh.num_triangles++;

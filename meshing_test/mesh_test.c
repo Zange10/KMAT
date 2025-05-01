@@ -135,6 +135,7 @@ void draw_mesh(cairo_t *cr) {
 	for(int i = 0; i < mesh.num_triangles; i++) {
 		draw_mesh_triangle(cr, mesh.triangles[i]);
 	}
+	printf("Triangles drawn: %zu\n", mesh.num_triangles);
 }
 
 void draw_points(cairo_t *cr) {
@@ -142,7 +143,7 @@ void draw_points(cairo_t *cr) {
 		MeshTriangle triangle = mesh.triangles[c];
 		for(int i = 0; i < 3; i++) {
 			set_color_from_value(cr, triangle.points[i].z);
-			cairo_arc(cr, triangle.points[i].x, triangle.points[i].y, 3, 0, 2*M_PI);
+			cairo_arc(cr, triangle.points[i].x, triangle.points[i].y, 2, 0, 2*M_PI);
 			cairo_fill(cr);
 		}
 	}
@@ -187,6 +188,7 @@ void draw_mesh_interpolated_points(cairo_t *cr, int width, int height) {
 	printf("Execution time2: %.6f seconds\n", duration);
 	gettimeofday(&start, NULL);
 
+	printf("Triangles drawn: %zu\n", mesh.num_triangles);
 	free(pixel_data);
 }
 
@@ -203,9 +205,9 @@ void on_draw_mesh_test(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 	cairo_set_source_rgb(cr, 0,0,0);
 	cairo_fill(cr);
 
-//	draw_points(cr);
-	draw_mesh(cr);
 //	draw_mesh_interpolated_points(cr, area_width, area_height);
+	draw_mesh(cr);
+//	draw_points(cr);
 }
 
 
