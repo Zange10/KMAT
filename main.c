@@ -33,13 +33,13 @@ void set_low_priority() {
 int main() {
 	set_low_priority();
 
+	init_celestial_bodies();
+	init_available_systems("../Celestial_Systems/");
+
 
 	init_test();
 
 	return 0;
-
-    init_celestial_bodies();
-	init_available_systems("../Celestial_Systems/");
 //	init_db();
 
 //	test();

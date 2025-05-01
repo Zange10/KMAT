@@ -10,7 +10,7 @@
 int mouse_pressed = 0;
 GObject *drawing_area;
 
-Camera cam = {
+Camera camera = {
 		(struct Vector) {-50,0,50},
 		(struct Vector) {1,0,0},
 		0
@@ -18,7 +18,7 @@ Camera cam = {
 
 double pitch = 0, yaw = 0, pitch_add = 0.01, distance = 50;
 
-
+struct System *test_system;
 
 // Global to track if right button is held
 gboolean right_button_held = FALSE;
@@ -26,7 +26,7 @@ struct Vector2D mouse_pos;
 
 gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer user_data) {
 	if(event->direction == GDK_SCROLL_UP && distance / 1.2 > 1) distance /= 1.2;
-	if(event->direction == GDK_SCROLL_DOWN && distance * 1.2 < 200) distance *= 1.2;
+	if(event->direction == GDK_SCROLL_DOWN && distance * 1.2 < 200e12) distance *= 1.2;
 	gtk_widget_queue_draw(GTK_WIDGET(drawing_area));
 	return TRUE;
 }
@@ -68,141 +68,61 @@ gboolean on_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer user_d
 	return FALSE;
 }
 
-void on_draw_projection(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
-	cam.pos = (struct Vector) {cos(yaw), sin(yaw), 0};
-	cam.pos = scalar_multiply(cam.pos, distance);
-	struct Vector right = norm_vector(cross_product(cam.pos, vec(0,0,1)));
-	cam.pos = rotate_vector_around_axis(cam.pos,right, pitch);
-	cam.looking = norm_vector(scalar_multiply(cam.pos, -1));
-//	print_vector(looking);
-
-	// reset drawing area
-	GtkAllocation allocation;
-	gtk_widget_get_allocation(widget, &allocation);
-	int area_width = allocation.width;
-	int area_height = allocation.height;
-
-	cairo_rectangle(cr, 0, 0, area_width, area_height);
-	cairo_set_source_rgb(cr, 0,0,0);
+void draw_body_orbit(cairo_t *cr, Camera *cam, struct Body *body, int width, int height) {
+	set_cairo_body_color(cr, body);
+	struct OSV osv_body = {.r = vec(0,0,0)};
+	if(body != test_system->cb) osv_body = osv_from_elements(body->orbit, 0, test_system);
+	struct Vector2D p2d_body = p3d_to_p2d(*cam, osv_body.r, width, height);
+	cairo_arc(cr, p2d_body.x, p2d_body.y, 5, 0, 2 * M_PI);
 	cairo_fill(cr);
 
-	cairo_set_source_rgb(cr, 1.0, 1.0, 0.3); // Blue color
-	cairo_set_line_width(cr, 5.0);
+	if(body == test_system->cb) return;
 
-	struct Vector2D p2d_sun = p3d_to_p2d(cam, vec(0,0,0), area_width, area_height);
-	cairo_arc(cr, p2d_sun.x, p2d_sun.y,5, 0, 2 * M_PI);
-	cairo_fill(cr);
 
-	cairo_set_source_rgb(cr, 0.0, 1.0, 1.0); // Blue color
-	struct Vector p3d_last = {1,0,0};
-	for(double i = 0; i < 2*M_PI; i+=0.01) {
-		struct Vector p3d = {cos(i),sin(i), 0};
+	struct Vector2D last_p2d = p2d_body;
+	double dtheta_step = deg2rad(0.5);
 
-		if(i > M_PI) cairo_set_source_rgb(cr, 0.0, 0.0, 1.0); // Blue color
-
-		struct Vector2D p2d = p3d_to_p2d(cam, p3d, area_width, area_height);
-		struct Vector2D p2d_last = p3d_to_p2d(cam, p3d_last, area_width, area_height);
-
-		draw_stroke(cr, p2d_last, p2d);
-
-		p3d_last = p3d;
+	for(double dtheta = 0; dtheta < M_PI*2 + dtheta_step; dtheta += dtheta_step) {
+		struct OSV osv = propagate_orbit_theta(constr_orbit_from_osv(osv_body.r, osv_body.v, test_system->cb), dtheta, test_system->cb);
+		p2d_body = p3d_to_p2d(*cam, osv.r, width, height);
+		draw_stroke(cr, last_p2d, p2d_body);
+		last_p2d = p2d_body;
 	}
-	p3d_last = (struct Vector){2,0,0};
-	cairo_set_source_rgb(cr, 1.0, 1.0, 0.0); // Blue color
-	for(double i = 0; i < 2*M_PI; i+=0.01) {
-		struct Vector p3d = {2*cos(i),2*sin(i), 0};
-		if(i > M_PI) cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); // Blue color
-
-		struct Vector2D p2d = p3d_to_p2d(cam, p3d, area_width, area_height);
-		struct Vector2D p2d_last = p3d_to_p2d(cam, p3d_last, area_width, area_height);
-
-		draw_stroke(cr, p2d_last, p2d);
-
-		p3d_last = p3d;
-	}
-	p3d_last = (struct Vector){2,0,0};
-	cairo_set_source_rgb(cr, 0.2, 1.0, 0.0); // Blue color
-	for(double i = 0; i < 2*M_PI; i+=0.01) {
-		struct Vector p3d = {2*cos(i), 0, 2*sin(i)};
-		if(i > M_PI) cairo_set_source_rgb(cr, 0.0, 1.0, 0.0); // Blue color
-
-		struct Vector2D p2d = p3d_to_p2d(cam, p3d, area_width, area_height);
-		struct Vector2D p2d_last = p3d_to_p2d(cam, p3d_last, area_width, area_height);
-
-		draw_stroke(cr, p2d_last, p2d);
-
-		p3d_last = p3d;
-	}
-
-//	print_vector(p3d);
 }
 
+void draw_system(cairo_t *cr, Camera *cam, int width, int height) {
+	cam->pos = (struct Vector) {cos(yaw), sin(yaw), 0};
+	cam->pos = scalar_multiply(cam->pos, distance);
+	struct Vector right = norm_vector(cross_product(cam->pos, vec(0, 0, 1)));
+	cam->pos = rotate_vector_around_axis(cam->pos, right, pitch);
+	cam->looking = norm_vector(scalar_multiply(cam->pos, -1));
 
-void on_draw_projection1(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
+	draw_body_orbit(cr, cam, test_system->cb, width, height);
+
+	for(int i = 0; i < test_system->num_bodies; i++) {
+		draw_body_orbit(cr, cam, test_system->bodies[i], width, height);
+	}
+}
+
+void on_draw_projection(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 	// reset drawing area
 	GtkAllocation allocation;
 	gtk_widget_get_allocation(widget, &allocation);
 	int area_width = allocation.width;
 	int area_height = allocation.height;
 
-	struct Vector2D center = {(double)area_width/2, (double)area_height/2};
-
 	cairo_rectangle(cr, 0, 0, area_width, area_height);
 	cairo_set_source_rgb(cr, 0,0,0);
 	cairo_fill(cr);
 
-	cairo_set_source_rgb(cr, 0.0, 1.0, 1.0);
-	cairo_set_line_width(cr, 5.0);
-
-	int num_rows = 20;
-	int num_cols = num_rows;
-
-	double points_x = 10000;
-	double spacing = 100;
-
-	for(int i = -num_cols/2; i < num_cols/2; i++) {
-		for(int j = -num_rows/2; j < num_rows/2; j++) {
-			struct Vector p3d = {points_x, i*spacing, j*spacing};
-
-			struct Vector2D p2d = p3d_to_p2d(cam, p3d, area_width, area_height);
-//			print_vector2d(p2d);
-			cairo_arc(cr, p2d.x, p2d.y, 2, 0, 2 * M_PI);
-			cairo_fill(cr);
-		}
-	}
-
-	for(int i = -num_cols/2; i < num_cols/2; i++) {
-		for(int j = -num_rows/2; j < num_rows/2; j++) {
-			struct Vector p3d = {points_x, i*spacing, j*spacing};
-			struct Vector p3d_last = {points_x, i*spacing, (j-1)*spacing};
-
-			struct Vector2D p2d = p3d_to_p2d(cam, p3d, area_width, area_height);
-			struct Vector2D p2d_last = p3d_to_p2d(cam, p3d_last, area_width, area_height);
-//			print_vector2d(p2d);
-
-			draw_stroke(cr, p2d_last, p2d);
-		}
-	}
-
-	for(int i = -num_rows/2; i < num_rows/2; i++) {
-		for(int j = -num_cols/2; j < num_cols/2; j++) {
-			struct Vector p3d = {points_x, j*spacing, i*spacing};
-			struct Vector p3d_last = {points_x, (j-1)*spacing, i*spacing};
-
-			struct Vector2D p2d = p3d_to_p2d(cam, p3d, area_width, area_height);
-			struct Vector2D p2d_last = p3d_to_p2d(cam, p3d_last, area_width, area_height);
-//			print_vector2d(p2d);
-
-			draw_stroke(cr, p2d_last, p2d);
-		}
-	}
-
-//	print_vector(p3d);
+	draw_system(cr, &camera, area_width, area_height);
 }
 
 void activate_test(GtkApplication *app, gpointer user_data);
 
 void init_test() {
+
+	test_system = get_system_by_name("Stock System");
 
 	GtkApplication *app = gtk_application_new ("org.gtk.example", G_APPLICATION_DEFAULT_FLAGS);
 	g_signal_connect (app, "activate", G_CALLBACK (activate_test), NULL);
