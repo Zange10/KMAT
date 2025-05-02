@@ -17,10 +17,38 @@ int is_triangle_big(PcMeshTriangle triangle) {
 	return (triangle.point_flags >> TRI_FLAG_01_IS_LONG & 1) || (triangle.point_flags >> TRI_FLAG_12_IS_LONG & 1) || (triangle.point_flags >> TRI_FLAG_20_IS_LONG & 1);
 }
 
-void remove_edge_flag_from_triangle(PcMeshTriangle *triangle, PcMeshPoint *p0, PcMeshPoint *p1) {
-	int idx0, idx1;
+void add_edge_flag_to_triangle(PcMeshTriangle *triangle, PcMeshPoint *p0, PcMeshPoint *p1) {
+	int idx0 = -1, idx1 = -1;
 	for(int i = 0; i < 3; i++) if(triangle->points[i] == p0) {idx0 = i; break;}
 	for(int i = 0; i < 3; i++) if(triangle->points[i] == p1) {idx1 = i; break;}
+
+	if(idx0 < 0 || idx1 < 0) {
+		for(int c = 0; c < 3; c++) printf("|-!! %f  %f !!-|\n", triangle->points[c]->data.x,  triangle->points[c]->data.y);
+		return;
+	}
+	if(idx0 > idx1) {
+		int temp = idx0;
+		idx0 = idx1;
+		idx1 = temp;
+	}
+
+	if(idx0 == 0) {
+		if(idx1 == 1) {
+			triangle->point_flags |= 1 << TRI_FLAG_01_IS_EDGE;
+		} else {
+			triangle->point_flags |= 1 << TRI_FLAG_20_IS_EDGE;
+		}
+	} else {
+		triangle->point_flags |= 1 << TRI_FLAG_12_IS_EDGE;
+	}
+}
+
+void remove_edge_flag_from_triangle(PcMeshTriangle *triangle, PcMeshPoint *p0, PcMeshPoint *p1) {
+	int idx0 = -1, idx1 = -1;
+	for(int i = 0; i < 3; i++) if(triangle->points[i] == p0) {idx0 = i; break;}
+	for(int i = 0; i < 3; i++) if(triangle->points[i] == p1) {idx1 = i; break;}
+
+	if(idx0 < 0 || idx1 < 0) return;
 
 	if(idx0 > idx1) {
 		int temp = idx0;
@@ -39,29 +67,34 @@ void remove_edge_flag_from_triangle(PcMeshTriangle *triangle, PcMeshPoint *p0, P
 	}
 }
 
-void check_edge_for_adjacents(PcMeshPoint *p0, PcMeshPoint *p1) {
+void update_point_edges(PcMeshPoint *p0, PcMeshPoint *p1, int add_flag) {
 	PcMeshTriangle *temp_triangle = NULL;
 	for(int i = 0; i < p0->num_triangles; i++) {
 		for(int j = 0; j < p1->num_triangles; j++) {
 			if(p0->triangles[i] == p1->triangles[j]) {
-				if(temp_triangle == NULL) temp_triangle = p0->triangles[0];
+				if(temp_triangle == NULL) temp_triangle = p0->triangles[i];
 				else {
-					remove_edge_flag_from_triangle(temp_triangle, p0, p1);
-					remove_edge_flag_from_triangle(p0->triangles[i], p0, p1);
-					return;
+					if(add_flag) {
+						add_edge_flag_to_triangle(temp_triangle, p0, p1);
+						add_edge_flag_to_triangle(p0->triangles[i], p0, p1);
+					} else {
+						remove_edge_flag_from_triangle(temp_triangle, p0, p1);
+						remove_edge_flag_from_triangle(p0->triangles[i], p0, p1);
+					}
 				}
 			}
 		}
 	}
 }
 
-void check_triangle_edges_for_adjacents(PcMeshTriangle *triangle) {
-	if((triangle->point_flags >> TRI_FLAG_01_IS_EDGE & 1)) check_edge_for_adjacents(triangle->points[0], triangle->points[1]);
-	if((triangle->point_flags >> TRI_FLAG_12_IS_EDGE & 1)) check_edge_for_adjacents(triangle->points[1], triangle->points[2]);
-	if((triangle->point_flags >> TRI_FLAG_20_IS_EDGE & 1)) check_edge_for_adjacents(triangle->points[2], triangle->points[0]);
+void remove_all_triangle_edge_flags_where_adjacents(PcMeshTriangle *triangle) {
+	if((triangle->point_flags >> TRI_FLAG_01_IS_EDGE & 1)) update_point_edges(triangle->points[0], triangle->points[1], 0);
+	if((triangle->point_flags >> TRI_FLAG_12_IS_EDGE & 1)) update_point_edges(triangle->points[1], triangle->points[2], 0);
+	if((triangle->point_flags >> TRI_FLAG_20_IS_EDGE & 1)) update_point_edges(triangle->points[2], triangle->points[0], 0);
 }
 
-void create_triangle_from_three_points(PcMeshTriangle *triangle, PcMeshPoint *p0, PcMeshPoint *p1, PcMeshPoint *p2, double big_threshold) {
+PcMeshTriangle * create_triangle_from_three_points(PcMeshPoint *p0, PcMeshPoint *p1, PcMeshPoint *p2, struct Vector2D big_threshold) {
+	PcMeshTriangle *triangle = malloc(sizeof(PcMeshTriangle));
 	triangle->points[0] = p0;
 	triangle->points[1] = p1;
 	triangle->points[2] = p2;
@@ -71,84 +104,108 @@ void create_triangle_from_three_points(PcMeshTriangle *triangle, PcMeshPoint *p0
 	p1->triangles[p1->num_triangles] = triangle; p1->num_triangles++;
 	p2->triangles[p2->num_triangles] = triangle; p2->num_triangles++;
 
-	double dist_01 = vector_distance(vec2D(p0->data.x, p0->data.y), vec2D(p1->data.x, p1->data.y));
-	double dist_12 = vector_distance(vec2D(p2->data.x, p2->data.y), vec2D(p1->data.x, p1->data.y));
-	double dist_20 = vector_distance(vec2D(p0->data.x, p0->data.y), vec2D(p2->data.x, p2->data.y));
+	struct Vector diff_01 = subtract_vectors(p0->data, p1->data);
+	struct Vector diff_12 = subtract_vectors(p1->data, p2->data);
+	struct Vector diff_20 = subtract_vectors(p2->data, p0->data);
 
 	if(p0->is_edge && p1->is_edge) triangle->point_flags |= (1 << TRI_FLAG_01_IS_EDGE);
 	if(p1->is_edge && p2->is_edge) triangle->point_flags |= (1 << TRI_FLAG_12_IS_EDGE);
 	if(p0->is_edge && p2->is_edge) triangle->point_flags |= (1 << TRI_FLAG_20_IS_EDGE);
 
-	if(is_triangle_edge(*triangle)) check_triangle_edges_for_adjacents(triangle);
+	if(is_triangle_edge(*triangle)) remove_all_triangle_edge_flags_where_adjacents(triangle);
 
-	if(dist_01 > big_threshold) triangle->point_flags |= (1 << TRI_FLAG_01_IS_LONG);
-	if(dist_12 > big_threshold) triangle->point_flags |= (1 << TRI_FLAG_12_IS_LONG);
-	if(dist_20 > big_threshold) triangle->point_flags |= (1 << TRI_FLAG_20_IS_LONG);
+	if(fabs(diff_01.x) > big_threshold.x || fabs(diff_01.y) > big_threshold.y) triangle->point_flags |= (1 << TRI_FLAG_01_IS_LONG);
+	if(fabs(diff_12.x) > big_threshold.x || fabs(diff_12.y) > big_threshold.y) triangle->point_flags |= (1 << TRI_FLAG_12_IS_LONG);
+	if(fabs(diff_20.x) > big_threshold.x || fabs(diff_20.y) > big_threshold.y) triangle->point_flags |= (1 << TRI_FLAG_20_IS_LONG);
+
+	return triangle;
 }
 
-//struct ItinStep * calc_itinerary(double dep, double init_dur, struct Dv_Filter dv_filter, struct ItinStep *template) {
-//	template = get_first(template);
-//	struct Body *body = template->body;
-//	struct System *system = body->orbit.body->system;
-//	enum Transfer_Type tt = dv_filter.last_transfer_type == TF_CIRC ? circcirc : dv_filter.last_transfer_type == TF_CAPTURE ? circcap : circfb;
-//
-//	struct OSV osv_body = system->calc_method == ORB_ELEMENTS ?
-//						  osv_from_elements(body->orbit, dep, system) :
-//						  osv_from_ephem(body->ephem, dep, system->cb);
-//
-//
-//	struct ItinStep *step;
-//	step = (struct ItinStep*) malloc(sizeof(struct ItinStep));
-//	step->body = template->body;
-//	step->date = dep;
-//	step->r = osv_body.r;
-//	step->v_dep = vec(0,0,0);
-//	step->v_arr = vec(0,0,0);
-//	step->v_body = osv_body.v;
-//	step->num_next_nodes = 0;
-//	step->prev = NULL;
-//	step->next = NULL;
-//
-//	template = template->next[0];
-//	body = template->body;
-//
-//	osv_body = system->calc_method == ORB_ELEMENTS ?
-//			   osv_from_elements(body->orbit, dep+init_dur, system) :
-//			   osv_from_ephem(body->ephem, dep+init_dur, system->cb);
-//
-//	double data[3];
-//	struct Transfer tf = calc_transfer(tt, step->body, body, step->r, step->v_body,
-//									   osv_body.r, osv_body.v, init_dur * 86400, system->cb, data);
-//
-//	if(data[1] > dv_filter.max_totdv || data[1] > dv_filter.max_depdv) {free_itinerary(step); return NULL;}
-//	if(template->next == NULL && (data[1] + data[2] > dv_filter.max_totdv || data[2] > dv_filter.max_satdv)) {free_itinerary(step); return NULL;}
-//
-//	step->next = (struct ItinStep **) malloc(sizeof(struct ItinStep*));
-//	step->next[0] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-//	step->next[0]->prev = step;
-//	step->next[0]->next = NULL;
-//	step = step->next[0];
-//	step->body = body;
-//	step->date = dep+init_dur;
-//	step->r = osv_body.r;
-//	step->v_dep = tf.v0;
-//	step->v_arr = tf.v1;
-//	step->v_body = osv_body.v;
-//	step->num_next_nodes = 0;
-//
-//	while(template->next != NULL) {
-//		template = template->next[0];
-//		double dt = template->date-template->prev->date;
-//		find_viable_flybys(step, system, template->body, dt*0.75*86400, dt*1.25*86400);
-//
-//		if(step->num_next_nodes == 0) {free_itinerary(step); return NULL;}
-////		printf("%d\n", step->num_next_nodes);
-//		step = step->next[0];
-//	}
-//
-//	return step;
-//}
-//
+void remove_triangle_from_pcmesh(PcMesh *mesh, int tri_idx) {
+	for(int i = 0; i < 3; i++) update_point_edges(mesh->triangles[tri_idx]->points[i], mesh->triangles[tri_idx]->points[(i+1)%3], 1);
+	for(int i = 0; i < 3; i++) {
+		update_point_edges(mesh->triangles[tri_idx]->points[i], mesh->triangles[tri_idx]->points[(i+1)%3], 1);
+		PcMeshPoint *point = mesh->triangles[tri_idx]->points[i];
+		point->is_edge = 1;
+		for(int j = 0; j < mesh->triangles[tri_idx]->points[i]->num_triangles; j++) {
+			if(point->triangles[j] == mesh->triangles[tri_idx]) {
+				point->triangles[j] = point->triangles[point->num_triangles-1];
+				point->num_triangles--;
+				break;
+			}
+		}
+	}
+
+	free(mesh->triangles[tri_idx]);
+	mesh->triangles[tri_idx] = mesh->triangles[mesh->num_triangles-1];
+	mesh->num_triangles--;
+}
+
+
+
+struct ItinStep * calc_itinerary(double dep, double init_dur, struct Dv_Filter dv_filter, struct ItinStep *template) {
+	template = get_first(template);
+	struct Body *body = template->body;
+	struct System *system = body->orbit.body->system;
+	enum Transfer_Type tt = dv_filter.last_transfer_type == TF_CIRC ? circcirc : dv_filter.last_transfer_type == TF_CAPTURE ? circcap : circfb;
+
+	struct OSV osv_body = system->calc_method == ORB_ELEMENTS ?
+						  osv_from_elements(body->orbit, dep, system) :
+						  osv_from_ephem(body->ephem, dep, system->cb);
+
+
+	struct ItinStep *step;
+	step = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+	step->body = template->body;
+	step->date = dep;
+	step->r = osv_body.r;
+	step->v_dep = vec(0,0,0);
+	step->v_arr = vec(0,0,0);
+	step->v_body = osv_body.v;
+	step->num_next_nodes = 0;
+	step->prev = NULL;
+	step->next = NULL;
+
+	template = template->next[0];
+	body = template->body;
+
+	osv_body = system->calc_method == ORB_ELEMENTS ?
+			   osv_from_elements(body->orbit, dep+init_dur, system) :
+			   osv_from_ephem(body->ephem, dep+init_dur, system->cb);
+
+	double data[3];
+	struct Transfer tf = calc_transfer(tt, step->body, body, step->r, step->v_body,
+									   osv_body.r, osv_body.v, init_dur * 86400, system->cb, data);
+
+	if(data[1] > dv_filter.max_totdv || data[1] > dv_filter.max_depdv) {free_itinerary(step); return NULL;}
+	if(template->next == NULL && (data[1] + data[2] > dv_filter.max_totdv || data[2] > dv_filter.max_satdv)) {free_itinerary(step); return NULL;}
+
+	step->next = (struct ItinStep **) malloc(sizeof(struct ItinStep*));
+	step->next[0] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
+	step->next[0]->prev = step;
+	step->next[0]->next = NULL;
+	step = step->next[0];
+	step->body = body;
+	step->date = dep+init_dur;
+	step->r = osv_body.r;
+	step->v_dep = tf.v0;
+	step->v_arr = tf.v1;
+	step->v_body = osv_body.v;
+	step->num_next_nodes = 0;
+
+	while(template->next != NULL) {
+		template = template->next[0];
+		double dt = template->date-template->prev->date;
+		find_viable_flybys(step, system, template->body, 86400, 10*365*86400);
+
+		if(step->num_next_nodes == 0) {free_itinerary(step); return NULL;}
+//		printf("%d\n", step->num_next_nodes);
+		step = step->next[0];
+	}
+
+	return step;
+}
+
 //PcMeshGrid fine_mesh_grid_top_bottom(PcMeshGrid grid, double **init_durs, struct Dv_Filter dv_filter, struct PorkchopPoint *porkchop_points) {
 //	if(grid.points == NULL) return grid;
 //
@@ -325,6 +382,27 @@ void create_triangle_from_three_points(PcMeshTriangle *triangle, PcMeshPoint *p0
 //	return grid;
 //};
 
+
+void reduce_pcmesh_big_triangles(PcMesh *mesh, struct Dv_Filter dv_filter) {
+	for(int i = 0; i < mesh->num_triangles; i++) {
+		if(is_triangle_big(*mesh->triangles[i])) {
+			struct Vector2D barycenter_xy = {
+					.x = (mesh->triangles[i]->points[0]->data.x + mesh->triangles[i]->points[1]->data.x + mesh->triangles[i]->points[2]->data.x)/3,
+					.y = (mesh->triangles[i]->points[0]->data.y + mesh->triangles[i]->points[1]->data.y + mesh->triangles[i]->points[2]->data.y)/3
+			};
+			struct ItinStep *ptr = calc_itinerary(barycenter_xy.x, barycenter_xy.y, dv_filter, mesh->triangles[i]->points[0]->porkchop_point.arrival);
+			if(ptr != NULL) {
+				free_itinerary(get_first(ptr));
+				mesh->triangles[i]->point_flags |= (1 << TRI_FLAG_SAVED_BIG);
+			} else {
+//				remove_triangle_from_pcmesh(mesh, i);
+//				i--;
+				continue;
+			}
+		}
+	}
+}
+
 PcMeshGrid create_pcmesh_grid_from_porkchop(struct PorkchopPoint *porkchop_points, int num_deps, int *num_itins_per_dep) {
 	PcMeshGrid grid = {.num_cols = num_deps};
 	grid.num_col_rows = malloc(sizeof(size_t) * num_deps);
@@ -355,7 +433,7 @@ PcMeshGrid create_pcmesh_grid_from_porkchop(struct PorkchopPoint *porkchop_point
 	return grid;
 }
 
-void resize_mesh_to_fit(PcMesh mesh, double max_x, double max_y, double max_z) {
+void resize_pcmesh_to_fit(PcMesh mesh, double max_x, double max_y, double max_z) {
 	struct Vector max = mesh.points[0]->data;
 	struct Vector min = mesh.points[0]->data;
 
@@ -396,7 +474,7 @@ PcMesh create_pcmesh_from_grid(PcMeshGrid grid) {
 	mesh.max_num_triangles = 1000000;
 	mesh.num_points = 0;
 	mesh.max_num_points = 1000000;
-	mesh.triangles = malloc(mesh.max_num_triangles*sizeof(PcMeshTriangle));
+	mesh.triangles = malloc(mesh.max_num_triangles*sizeof(PcMeshTriangle*));
 	mesh.points = malloc(mesh.max_num_points*sizeof(PcMeshPoint*));
 
 	for(int i = 0; i < grid.num_cols; i++) {
@@ -406,24 +484,31 @@ PcMesh create_pcmesh_from_grid(PcMeshGrid grid) {
 		}
 	}
 
-	double big_threshold = 1.5;
+	struct Vector2D big_threshold = {1.5, 0.5};
 
 	for(int x_idx = 0; x_idx < grid.num_cols-1; x_idx++) {
 		int y_idx0 = 0, y_idx1 = 0;
 		while(y_idx0 < grid.num_col_rows[x_idx] - 1 && y_idx1 < grid.num_col_rows[x_idx + 1] - 1) {
-			PcMeshPoint *p1 = grid.points[x_idx][y_idx0];
-			PcMeshPoint *p2 = grid.points[1 + x_idx][y_idx1];
-			PcMeshPoint *p3 = grid.points[x_idx][1 + y_idx0];
-			PcMeshPoint *p4 = grid.points[1 + x_idx][1 + y_idx1];
+			PcMeshPoint *p0 = grid.points[x_idx][y_idx0];
+			PcMeshPoint *p1 = grid.points[1 + x_idx][y_idx1];
+			PcMeshPoint *p2 = grid.points[x_idx][1 + y_idx0];
+			PcMeshPoint *p3 = grid.points[1 + x_idx][1 + y_idx1];
 
-			double dist14 = vector_distance(vec2D(p1->data.x, p1->data.y), vec2D(p4->data.x, p4->data.y));
-			double dist23 = vector_distance(vec2D(p2->data.x, p2->data.y), vec2D(p3->data.x, p3->data.y));
+			double dist03 = vector_distance(vec2D(p0->data.x, p0->data.y), vec2D(p3->data.x, p3->data.y));
+			double dist12 = vector_distance(vec2D(p1->data.x, p1->data.y), vec2D(p2->data.x, p2->data.y));
 
-			if(dist14 < dist23) {
-				create_triangle_from_three_points(&mesh.triangles[mesh.num_triangles], p1, p2, p4, big_threshold);
+
+//			double dist01 = vector_distance(vec2D(p0->data.x, p0->data.y), vec2D(p1->data.x, p1->data.y));
+//			double dist02 = vector_distance(vec2D(p0->data.x, p0->data.y), vec2D(p2->data.x, p2->data.y));
+//			double dist13 = vector_distance(vec2D(p1->data.x, p1->data.y), vec2D(p3->data.x, p3->data.y));
+//			double dist23 = vector_distance(vec2D(p3->data.x, p3->data.y), vec2D(p2->data.x, p2->data.y));
+//			printf("%f   %f        %f  %f\n", dist01, dist23, dist02, dist13);
+
+			if(dist03 < dist12) {
+				mesh.triangles[mesh.num_triangles] = create_triangle_from_three_points(p0, p1, p3, big_threshold);
 				y_idx1++;
 			} else {
-				create_triangle_from_three_points(&mesh.triangles[mesh.num_triangles], p1, p2, p3, big_threshold);
+				mesh.triangles[mesh.num_triangles] = create_triangle_from_three_points(p0, p1, p2, big_threshold);
 				y_idx0++;
 			}
 			mesh.num_triangles++;
@@ -432,7 +517,7 @@ PcMesh create_pcmesh_from_grid(PcMeshGrid grid) {
 
 		if(y_idx0 == grid.num_col_rows[x_idx] - 1) {
 			while(y_idx1 < grid.num_col_rows[x_idx + 1] - 1) {
-				create_triangle_from_three_points(&mesh.triangles[mesh.num_triangles], grid.points[x_idx][y_idx0], grid.points[x_idx + 1][y_idx1], grid.points[x_idx + 1][y_idx1 + 1], big_threshold);
+				mesh.triangles[mesh.num_triangles] = create_triangle_from_three_points(grid.points[x_idx][y_idx0], grid.points[x_idx + 1][y_idx1], grid.points[x_idx + 1][y_idx1 + 1], big_threshold);
 				y_idx1++;
 				mesh.num_triangles++;
 			}
@@ -440,7 +525,7 @@ PcMesh create_pcmesh_from_grid(PcMeshGrid grid) {
 
 		if(y_idx1 == grid.num_col_rows[x_idx + 1] - 1) {
 			while(y_idx0 < grid.num_col_rows[x_idx] - 1) {
-				create_triangle_from_three_points(&mesh.triangles[mesh.num_triangles], grid.points[x_idx][y_idx0], grid.points[x_idx][y_idx0 + 1], grid.points[x_idx + 1][y_idx1], big_threshold);
+				mesh.triangles[mesh.num_triangles] = create_triangle_from_three_points(grid.points[x_idx][y_idx0], grid.points[x_idx][y_idx0 + 1], grid.points[x_idx + 1][y_idx1], big_threshold);
 				y_idx0++;
 				mesh.num_triangles++;
 			}
