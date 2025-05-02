@@ -14,9 +14,10 @@ typedef struct PcMeshPoint {
 	size_t num_triangles;
 	size_t max_num_triangles;
 	int is_edge;
+	int is_artificial;
 } PcMeshPoint;
 
-enum TriangleDebugStatus {TRI_FLAG_01_IS_EDGE, TRI_FLAG_12_IS_EDGE, TRI_FLAG_20_IS_EDGE, TRI_FLAG_01_IS_LONG, TRI_FLAG_12_IS_LONG, TRI_FLAG_20_IS_LONG, TRI_FLAG_SAVED_BIG};
+enum TriangleDebugStatus {TRI_FLAG_01_IS_EDGE, TRI_FLAG_12_IS_EDGE, TRI_FLAG_20_IS_EDGE, TRI_FLAG_01_IS_LONG, TRI_FLAG_12_IS_LONG, TRI_FLAG_20_IS_LONG, TRI_FLAG_SAVED_BIG, TRI_FLAG_IS_NEW};
 
 typedef u_int8_t pc_mesh_point_flags;
 
@@ -47,6 +48,8 @@ PcMeshGrid create_pcmesh_grid_from_porkchop(struct PorkchopPoint *porkchop_point
 PcMesh mesh_from_porkchop(struct PorkchopPoint *porkchop_points, int num_itins, int num_deps, int *num_itins_per_dep);
 void reduce_pcmesh_big_triangles(PcMesh *mesh, struct Dv_Filter dv_filter);
 void resize_pcmesh_to_fit(PcMesh mesh, double max_x, double max_y, double max_z);
+void convert_pcmesh_to_total_dur(PcMesh mesh);
 void remove_triangle_from_pcmesh(PcMesh *mesh, int tri_idx);
+void fine_mesh_around_edge(PcMesh *mesh, double max_dist, double min_dist, struct Dv_Filter dv_filter);
 
 #endif //KSP_MESH_CREATOR_H

@@ -152,15 +152,14 @@ void draw_points(cairo_t *cr) {
 	struct timeval start, end;
 	gettimeofday(&start, NULL);
 
-	for(int c = 0; c < mesh.num_triangles; c++) {
-		PcMeshTriangle triangle = *mesh.triangles[c];
-		for(int i = 0; i < 3; i++) {
-//			set_color_from_value(cr, triangle.points[i]->data.z);
-			cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
-			if(triangle.points[i]->is_edge) cairo_set_source_rgb(cr, 0, 0.5, 1);
-			cairo_arc(cr, triangle.points[i]->data.x, triangle.points[i]->data.y, 2, 0, 2*M_PI);
-			cairo_fill(cr);
-		}
+	for(int c = 0; c < mesh.num_points; c++) {
+		PcMeshPoint point = *mesh.points[c];
+//		set_color_from_value(cr, triangle.points[i]->data.z);
+		cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
+		if(point.is_edge) cairo_set_source_rgb(cr, 0, 0.5, 1);
+		if(point.is_artificial) cairo_set_source_rgb(cr, 1, 0.2, 0);
+		cairo_arc(cr, point.data.x, point.data.y, 2, 0, 2*M_PI);
+		cairo_fill(cr);
 	}
 
 	gettimeofday(&end, NULL);
@@ -207,8 +206,9 @@ void draw_triangle_debug(cairo_t *cr) {
 	for(int i = 0; i < mesh.num_triangles; i++) {
 		if(0);
 		else if(is_triangle_edge(*mesh.triangles[i])) cairo_set_source_rgb(cr, 0, 1, 0);
-		else if(mesh.triangles[i]->point_flags >> TRI_FLAG_SAVED_BIG & 1) cairo_set_source_rgb(cr, 0, 0.5, 1);
-		else if(is_triangle_big(*mesh.triangles[i])) cairo_set_source_rgb(cr, 1, 0, 0);
+//		else if(mesh.triangles[i]->point_flags >> TRI_FLAG_SAVED_BIG & 1) cairo_set_source_rgb(cr, 0, 0.5, 1);
+//		else if(is_triangle_big(*mesh.triangles[i])) cairo_set_source_rgb(cr, 1, 0, 0);
+		else if(mesh.triangles[i]->point_flags >> TRI_FLAG_IS_NEW & 1) cairo_set_source_rgb(cr, 1, 1, 1);
 		else cairo_set_source_rgb(cr, 0.3, 0.3, 0.3);
 
 //		if(!is_triangle_edge(*mesh.triangles[i])) continue;
@@ -240,8 +240,6 @@ void on_draw_mesh_test(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 	int area_width = allocation.width;
 	int area_height = allocation.height;
 
-	struct Vector2D center = {(double)area_width/2, (double)area_height/2};
-
 	cairo_rectangle(cr, 0, 0, area_width, area_height);
 	cairo_set_source_rgb(cr, 0,0,0);
 	cairo_fill(cr);
@@ -251,16 +249,40 @@ void on_draw_mesh_test(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 
 
 
-	for(int i = 0; i < mesh.num_triangles; i++) {
-		if(is_triangle_big(*mesh.triangles[i]) && !(mesh.triangles[i]->point_flags >> TRI_FLAG_SAVED_BIG & 1)) {
-			remove_triangle_from_pcmesh(&mesh, i);
-			break;
-		}
-	}
+//	for(int i = 0; i < mesh.num_triangles; i++) {
+//		if(is_triangle_big(*mesh.triangles[i]) && !(mesh.triangles[i]->point_flags >> TRI_FLAG_SAVED_BIG & 1)) {
+//			remove_triangle_from_pcmesh(&mesh, i);
+//			break;
+//		}
+//	}
+//
+//
+//	pixel_data = calloc(2000 * 2000, sizeof(uint32_t));
+//
+//	image_surface = cairo_image_surface_create_for_data(
+//			(unsigned char *)pixel_data,
+//			CAIRO_FORMAT_RGB24,
+//			2000,
+//			2000,
+//			2000 * 4
+//	);
+//
+//
+//	cairo_t *cr1 = cairo_create(image_surface);
+//	draw_mesh_interpolated_points(cr1, 2000, 2000);
+//	draw_mesh(cr1);
+////	draw_triangle_debug(cr1);
+//	draw_points(cr1);
+//
+//
+//
+//	gettimeofday(&end, NULL);
+//	double duration = (end.tv_sec - start.tv_sec) +
+//					  (end.tv_usec - start.tv_usec) / 1e6;
+//	printf("Drawing: %.6f seconds\n", duration);
+}
 
-
-	pixel_data = calloc(2000 * 2000, sizeof(uint32_t));
-
+void on_mesh_drawing_area_pressed() {
 	image_surface = cairo_image_surface_create_for_data(
 			(unsigned char *)pixel_data,
 			CAIRO_FORMAT_RGB24,
@@ -270,23 +292,31 @@ void on_draw_mesh_test(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 	);
 
 
-	cairo_t *cr1 = cairo_create(image_surface);
-	draw_mesh_interpolated_points(cr1, 2000, 2000);
-//	draw_mesh(cr1);
-//	draw_triangle_debug(cr1);
-//	draw_points(cr1);
+	cairo_t *cr = cairo_create(image_surface);
+//	draw_mesh_interpolated_points(cr, 2000, 2000);
+//	draw_mesh(cr);
+	draw_triangle_debug(cr);
+//	draw_points(cr);
 
 
-
-	gettimeofday(&end, NULL);
-	double duration = (end.tv_sec - start.tv_sec) +
-					  (end.tv_usec - start.tv_usec) / 1e6;
-//	printf("Drawing: %.6f seconds\n", duration);
+	gtk_widget_queue_draw(GTK_WIDGET(mesh_drawing_area));
 }
 
 
 void init_mesh_test() {
-	char filepath[] = "../Itineraries/mesh_test3.itins";
+	int test_number = 5;
+
+	char filepath[100];
+	sprintf(filepath, "../Itineraries/mesh_test%d.itins", test_number);
+	double max_depdv;
+	switch(test_number) {
+		case 1: max_depdv = 4000; break;	// simple venus porkchop
+		case 2: max_depdv = 8000; break;	// small sample size
+		case 3: max_depdv = 5000; break;	// overlapping in total dur
+		case 4: max_depdv = 5000; break;	// multi intineraries with one departure
+		case 5: max_depdv = 3700; break;	// venus porkchop close-up
+	}
+	struct Dv_Filter dv_filter = (struct Dv_Filter) {.max_depdv = max_depdv, .max_satdv = 1e9, .max_totdv = 1e9, .last_transfer_type = TF_FLYBY};
 
 	int num_arr_per_dep_fb[10];
 
@@ -335,19 +365,29 @@ void init_mesh_test() {
 	printf("Mesh Creation: %.6f seconds\n", duration);
 	gettimeofday(&start, NULL);
 
+	reduce_pcmesh_big_triangles(&mesh, dv_filter);
 
-	// test1 = 4000
-	// test2 = 8000
-	// test3 = 5000
-	// test4 = 5000
-	// test5 = 3700
-	reduce_pcmesh_big_triangles(&mesh, (struct Dv_Filter) {.max_depdv = 5000, .max_satdv = 1e9, .max_totdv = 1e9, .last_transfer_type = TF_FLYBY});
+
 
 
 	gettimeofday(&end, NULL);
 	duration = (end.tv_sec - start.tv_sec) +
 					  (end.tv_usec - start.tv_usec) / 1e6;
 	printf("Reducing big triangles: %.6f seconds\n", duration);
+	gettimeofday(&start, NULL);
+
+
+
+
+	fine_mesh_around_edge(&mesh, 2, -0.5, dv_filter);
+
+//	convert_pcmesh_to_total_dur(mesh);
+
+
+	gettimeofday(&end, NULL);
+	duration = (end.tv_sec - start.tv_sec) +
+					  (end.tv_usec - start.tv_usec) / 1e6;
+	printf("Fine Meshing: %.6f seconds\n", duration);
 	gettimeofday(&start, NULL);
 
 
@@ -364,23 +404,6 @@ void init_mesh_test() {
 	pixel_data = calloc(2000 * 2000, sizeof(uint32_t));
 
 
-
-	image_surface = cairo_image_surface_create_for_data(
-			(unsigned char *)pixel_data,
-			CAIRO_FORMAT_RGB24,
-			2000,
-			2000,
-			2000 * 4
-	);
-
-
-	cairo_t *cr = cairo_create(image_surface);
-//	draw_mesh_interpolated_points(cr, 2000, 2000);
-//	draw_mesh(cr);
-	draw_triangle_debug(cr);
-	draw_points(cr);
-
-
 //	free(arrivals);
 //	free(porkchop_points);
 
@@ -389,11 +412,6 @@ void init_mesh_test() {
 
 	g_application_run (G_APPLICATION (app), 0, NULL);
 	g_object_unref (app);
-}
-
-static gboolean on_timeout_mesh_test(gpointer data) {
-	gtk_widget_queue_draw(GTK_WIDGET(mesh_drawing_area));
-	return G_SOURCE_CONTINUE;
 }
 
 void activate_mesh_test(GtkApplication *app, gpointer user_data) {
@@ -411,8 +429,16 @@ void activate_mesh_test(GtkApplication *app, gpointer user_data) {
 
 
 	mesh_drawing_area = gtk_builder_get_object(builder, "drawing_area");
+//	g_timeout_add(1.0/60*1000.0, on_timeout_mesh_test, mesh_drawing_area);
+	gtk_widget_add_events(GTK_WIDGET(mesh_drawing_area),
+							GDK_BUTTON_PRESS_MASK |
+							GDK_BUTTON_RELEASE_MASK |
+							GDK_POINTER_MOTION_MASK |
+							GDK_SCROLL_MASK);
 
-	g_timeout_add(1.0/60*1000.0, on_timeout_mesh_test, mesh_drawing_area);
+	g_signal_connect(mesh_drawing_area, "button-press-event", G_CALLBACK(on_mesh_drawing_area_pressed), NULL);
+
+	on_mesh_drawing_area_pressed();
 
 	/* We do not need the builder anymore */
 	g_object_unref(builder);
