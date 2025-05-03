@@ -205,10 +205,10 @@ void draw_triangle_debug(cairo_t *cr) {
 
 	for(int i = 0; i < mesh.num_triangles; i++) {
 		if(0);
-		else if(is_triangle_edge(*mesh.triangles[i])) cairo_set_source_rgb(cr, 0, 1, 0);
-//		else if(mesh.triangles[i]->point_flags >> TRI_FLAG_SAVED_BIG & 1) cairo_set_source_rgb(cr, 0, 0.5, 1);
-//		else if(is_triangle_big(*mesh.triangles[i])) cairo_set_source_rgb(cr, 1, 0, 0);
-		else if(mesh.triangles[i]->point_flags >> TRI_FLAG_IS_NEW & 1) cairo_set_source_rgb(cr, 1, 1, 1);
+//		else if(is_triangle_edge(*mesh.triangles[i])) cairo_set_source_rgb(cr, 0, 1, 0);
+		else if(mesh.triangles[i]->point_flags >> TRI_FLAG_SAVED_BIG & 1) cairo_set_source_rgb(cr, 0, 0.5, 1);
+		else if(is_triangle_big(*mesh.triangles[i])) cairo_set_source_rgb(cr, 1, 0, 0);
+//		else if(mesh.triangles[i]->point_flags >> TRI_FLAG_IS_NEW & 1) cairo_set_source_rgb(cr, 1, 1, 1);
 		else cairo_set_source_rgb(cr, 0.3, 0.3, 0.3);
 
 //		if(!is_triangle_edge(*mesh.triangles[i])) continue;
@@ -291,12 +291,16 @@ void on_mesh_drawing_area_pressed() {
 			2000 * 4
 	);
 
-
 	cairo_t *cr = cairo_create(image_surface);
+
+	cairo_rectangle(cr, 0, 0, 2000, 2000);
+	cairo_set_source_rgb(cr, 0,0,0);
+	cairo_fill(cr);
+
 //	draw_mesh_interpolated_points(cr, 2000, 2000);
+//	draw_triangle_debug(cr);
 //	draw_mesh(cr);
-	draw_triangle_debug(cr);
-//	draw_points(cr);
+	draw_points(cr);
 
 
 	gtk_widget_queue_draw(GTK_WIDGET(mesh_drawing_area));
@@ -304,7 +308,7 @@ void on_mesh_drawing_area_pressed() {
 
 
 void init_mesh_test() {
-	int test_number = 5;
+	int test_number = 6;
 
 	char filepath[100];
 	sprintf(filepath, "../Itineraries/mesh_test%d.itins", test_number);
@@ -315,6 +319,7 @@ void init_mesh_test() {
 		case 3: max_depdv = 5000; break;	// overlapping in total dur
 		case 4: max_depdv = 5000; break;	// multi intineraries with one departure
 		case 5: max_depdv = 3700; break;	// venus porkchop close-up
+		case 6: max_depdv = 8000; break;	// voyager 75-80
 	}
 	struct Dv_Filter dv_filter = (struct Dv_Filter) {.max_depdv = max_depdv, .max_satdv = 1e9, .max_totdv = 1e9, .last_transfer_type = TF_FLYBY};
 
@@ -379,7 +384,7 @@ void init_mesh_test() {
 
 
 
-	fine_mesh_around_edge(&mesh, 2, -0.5, dv_filter);
+//	fine_mesh_around_edge(&mesh, 2, -0.5, dv_filter);
 
 //	convert_pcmesh_to_total_dur(mesh);
 

@@ -160,7 +160,6 @@ void remove_triangle_from_pcmesh(PcMesh *mesh, int tri_idx) {
 }
 
 
-
 struct ItinStep * calc_itinerary(double dep, double init_dur, struct Dv_Filter dv_filter, struct ItinStep *template) {
 	template = get_first(template);
 	struct Body *body = template->body;
@@ -213,11 +212,12 @@ struct ItinStep * calc_itinerary(double dep, double init_dur, struct Dv_Filter d
 
 	while(template->next != NULL) {
 		template = template->next[0];
+		if(template->num_next_nodes > 1) printf("template: %d\n", template->prev->num_next_nodes);
 		double dt = template->date-template->prev->date;
-		find_viable_flybys(step, system, template->body, dt*0.1*86400, dt*2*86400);
+		find_viable_flybys(step, system, template->body, dt*0.01*86400, dt*2.17*86400);
 
 		if(step->num_next_nodes == 0) {free_itinerary(step); return NULL;}
-//		printf("%d\n", step->num_next_nodes);
+//		if(step->num_next_nodes > 1) printf("together: %d %d\n", template->prev->num_next_nodes, step->num_next_nodes);
 		step = step->next[0];
 	}
 
@@ -512,12 +512,15 @@ void fine_mesh_around_edge(PcMesh *mesh, double max_dist, double min_dist, struc
 	int num_points_to_fine_mesh = 0;
 	PcMeshTriangle *curr_triangle;
 
-	for(int i = 50; i < mesh->num_points; i++) {
+	for(int i = 0; i < mesh->num_points; i++) {
 		if(mesh->points[i]->is_edge) {
 			points_to_fine_mesh[num_points_to_fine_mesh] = mesh->points[i];
 			num_points_to_fine_mesh++;
 		}
 	}
+
+	printf("%d\n", num_points_to_fine_mesh);
+//	return;
 
 	while(num_points_to_fine_mesh > 0) {
 		initial_point = points_to_fine_mesh[0];
@@ -564,7 +567,7 @@ void fine_mesh_around_edge(PcMesh *mesh, double max_dist, double min_dist, struc
 				mesh->points[mesh->num_points] = new_point;
 				mesh->num_points++;
 				new_point->porkchop_point = create_porkchop_point(get_last(step));
-				printf("Found: %f %f %f\n", new_point->data.x, new_point->data.y, new_point->data.z);
+//				printf("Found: %f %f %f\n", new_point->data.x, new_point->data.y, new_point->data.z);
 
 				mesh->triangles[mesh->num_triangles] = create_triangle_from_three_points(curr_point, next_point, new_point, vec2D(1e9, 1e9));
 				mesh->triangles[mesh->num_triangles]->point_flags |= 1 << TRI_FLAG_IS_NEW;
@@ -579,37 +582,37 @@ void fine_mesh_around_edge(PcMesh *mesh, double max_dist, double min_dist, struc
 			last_point = new_point;
 
 
-			dir = get_from_point_dir_for_fine_mesh(prev_point, curr_point, next_point);
-			step = find_porkchop_edge(vec2D(curr_point->data.x, curr_point->data.y), dir, 0, max_dist, 0.001, curr_point->porkchop_point.arrival, dv_filter);
-			if(step != NULL) {
-				step = get_first(step);
-				double vinf = vector_mag(subtract_vectors(get_first(step)->next[0]->v_dep, get_first(step)->v_body));
-				new_point = malloc(sizeof(PcMeshPoint));
-				*new_point = (PcMeshPoint) {
-						.data = (struct Vector) {.x = step->date, .y = step->next[0]->date-step->date, dv_circ(get_first(step)->body, get_first(step)->body->atmo_alt+50e3, vinf)},
-						.porkchop_point = create_porkchop_point(get_last(step)),
-						.is_edge = 1,
-						.is_artificial = 1,
-						.triangles = malloc(10 * sizeof(PcMeshTriangle*)),
-						.num_triangles = 0,
-						.max_num_triangles = 10
-				};
-
-				mesh->points[mesh->num_points] = new_point;
-				mesh->num_points++;
-				new_point->porkchop_point = create_porkchop_point(get_last(step));
-				printf("Found: %f %f %f\n", new_point->data.x, new_point->data.y, new_point->data.z);
-
-				if(last_point == NULL && prev_point != NULL) {
-					mesh->triangles[mesh->num_triangles] = create_triangle_from_three_points(curr_point, next_point, new_point, vec2D(1e9, 1e9));
-					mesh->triangles[mesh->num_triangles]->point_flags |= 1 << TRI_FLAG_IS_NEW;
-					mesh->num_triangles++;
-				} else {
-					mesh->triangles[mesh->num_triangles] = create_triangle_from_three_points(curr_point, last_point, new_point, vec2D(1e9, 1e9));
-					mesh->triangles[mesh->num_triangles]->point_flags |= 1 << TRI_FLAG_IS_NEW;
-					mesh->num_triangles++;
-				}
-			} else new_point = NULL;
+//			dir = get_from_point_dir_for_fine_mesh(prev_point, curr_point, next_point);
+//			step = find_porkchop_edge(vec2D(curr_point->data.x, curr_point->data.y), dir, 0, max_dist, 0.001, curr_point->porkchop_point.arrival, dv_filter);
+//			if(step != NULL) {
+//				step = get_first(step);
+//				double vinf = vector_mag(subtract_vectors(get_first(step)->next[0]->v_dep, get_first(step)->v_body));
+//				new_point = malloc(sizeof(PcMeshPoint));
+//				*new_point = (PcMeshPoint) {
+//						.data = (struct Vector) {.x = step->date, .y = step->next[0]->date-step->date, dv_circ(get_first(step)->body, get_first(step)->body->atmo_alt+50e3, vinf)},
+//						.porkchop_point = create_porkchop_point(get_last(step)),
+//						.is_edge = 1,
+//						.is_artificial = 1,
+//						.triangles = malloc(10 * sizeof(PcMeshTriangle*)),
+//						.num_triangles = 0,
+//						.max_num_triangles = 10
+//				};
+//
+//				mesh->points[mesh->num_points] = new_point;
+//				mesh->num_points++;
+//				new_point->porkchop_point = create_porkchop_point(get_last(step));
+////				printf("Found: %f %f %f\n", new_point->data.x, new_point->data.y, new_point->data.z);
+//
+//				if(last_point == NULL && prev_point != NULL) {
+//					mesh->triangles[mesh->num_triangles] = create_triangle_from_three_points(curr_point, next_point, new_point, vec2D(1e9, 1e9));
+//					mesh->triangles[mesh->num_triangles]->point_flags |= 1 << TRI_FLAG_IS_NEW;
+//					mesh->num_triangles++;
+//				} else {
+//					mesh->triangles[mesh->num_triangles] = create_triangle_from_three_points(curr_point, last_point, new_point, vec2D(1e9, 1e9));
+//					mesh->triangles[mesh->num_triangles]->point_flags |= 1 << TRI_FLAG_IS_NEW;
+//					mesh->num_triangles++;
+//				}
+//			} else new_point = NULL;
 
 			last_point = new_point;
 
@@ -701,6 +704,7 @@ void resize_pcmesh_to_fit(PcMesh mesh, double max_x, double max_y, double max_z)
 		mesh.points[i]->data.x *= gradient.x;
 		mesh.points[i]->data.y -= min.y;
 		mesh.points[i]->data.y *= gradient.y;
+		mesh.points[i]->data.y  = max_y-mesh.points[i]->data.y;
 		mesh.points[i]->data.z -= min.z;
 		mesh.points[i]->data.z *= gradient.z;
 	}
@@ -731,7 +735,7 @@ PcMesh create_pcmesh_from_grid(PcMeshGrid grid) {
 		}
 	}
 
-	struct Vector2D big_threshold = {1.5, 0.5};
+	struct Vector2D big_threshold = {1.5, 6};
 
 	for(int x_idx = 0; x_idx < grid.num_cols-1; x_idx++) {
 		int y_idx0 = 0, y_idx1 = 0;
