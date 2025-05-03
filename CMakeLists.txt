@@ -102,6 +102,8 @@ add_executable(KSP-Tools
         projection_test/projection_test.h
         gui/gui_tools/camera.c
         gui/gui_tools/camera.h
+        gui/gui_tools/screen.c
+        gui/gui_tools/screen.h
 )
 
 # Platform-specific setup

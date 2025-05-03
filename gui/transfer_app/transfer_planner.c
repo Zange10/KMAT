@@ -87,7 +87,7 @@ void init_transfer_planner(GtkBuilder *builder) {
 		update_central_body_dropdown(GTK_COMBO_BOX(cb_tp_central_body), tp_system);
 		tp_update_bodies();
 
-		tp_system_camera = new_celestial_system_camera(tp_system, deg2rad(90), 0);
+		tp_system_camera = new_celestial_system_camera(tp_system, deg2rad(90), 0, NULL);
 	}
 
 	update_date_label();
@@ -120,7 +120,7 @@ G_MODULE_EXPORT void on_tp_system_change() {
 
 	tp_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system))];
 	update_central_body_dropdown(GTK_COMBO_BOX(cb_tp_central_body), tp_system);
-	tp_system_camera = new_celestial_system_camera(tp_system, deg2rad(90), 0);
+	tp_system_camera = new_celestial_system_camera(tp_system, deg2rad(90), 0, NULL);
 	remove_all_transfers();
 	tp_update_bodies();
 	update();

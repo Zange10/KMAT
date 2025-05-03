@@ -3,10 +3,7 @@
 #include <math.h>
 #include <gtk/gtk.h>
 
-
-struct Vector2D last_mouse_pos;
-
-Camera new_celestial_system_camera(struct System *system, double initial_pos_pitch, double initial_pos_yaw) {
+Camera new_celestial_system_camera(struct System *system, double initial_pos_pitch, double initial_pos_yaw, GtkWidget *drawing_area) {
 	Camera camera;
 	double initial_distance = system->bodies[system->num_bodies/2]->orbit.apoapsis*10;
 	update_camera_position_from_angles(&camera, initial_pos_pitch, initial_pos_yaw, initial_distance);
@@ -14,6 +11,7 @@ Camera new_celestial_system_camera(struct System *system, double initial_pos_pit
 	camera.min_pos_dist = system->bodies[0]->orbit.periapsis*2;
 	camera.max_pos_dist = system->bodies[system->num_bodies-1]->orbit.periapsis*50;
 	camera.rotation_sensitive = 0;
+	camera.screen = new_screen(drawing_area);
 
 	return camera;
 }
@@ -74,6 +72,17 @@ double get_camera_distance_to_center(Camera camera) {
 	return vector_mag(camera.pos);
 }
 
+void clear_camera_screen(Camera *camera) {
+	cairo_rectangle(camera->screen.cr, 0, 0, camera->screen.width, camera->screen.height);
+	cairo_set_source_rgb(camera->screen.cr, 0,0,0);
+	cairo_fill(camera->screen.cr);
+}
+
+void draw_camera_image(cairo_t *cr_drawing_area, Camera camera, gboolean clear_screen) {
+	cairo_set_source_surface(cr_drawing_area, camera.screen.image_surface, 0, 0);
+	cairo_paint(cr_drawing_area);
+}
+
 
 // TRANSLATION AND ROTATION -----------------------------------------------------------
 
@@ -83,13 +92,13 @@ gboolean on_camera_zoom(GtkWidget *widget, GdkEventScroll *event, Camera *camera
 	if(event->direction == GDK_SCROLL_DOWN && vector_mag(camera->pos) * 1.2 < camera->max_pos_dist) distance *= 1.2;
 
 	update_camera_distance_to_center(camera, distance);
-	gtk_widget_queue_draw(widget);
-	return TRUE;
+	gtk_widget_queue_draw(camera->screen.drawing_area);
+	return FALSE;
 }
 
 gboolean on_enable_camera_rotation(GtkWidget *widget, GdkEventButton *event, Camera *camera) {
 	camera->rotation_sensitive = 1;
-	last_mouse_pos = (struct Vector2D) {event->x, event->y};
+	camera->screen.last_mouse_pos = (struct Vector2D) {event->x, event->y};
 	return TRUE;
 }
 
@@ -98,11 +107,9 @@ gboolean on_disable_camera_rotation(GtkWidget *widget, GdkEventButton *event, Ca
 	return TRUE;
 }
 
-gboolean on_camera_rotate(GtkWidget *widget, GdkEventButton *event, Camera *camera) {
-	// Check if it's the right mouse button
+gboolean on_camera_rotate(Camera *camera, GdkEventButton *event) {
 	if (camera->rotation_sensitive) {
-		// event->x and event->y are relative to the widget (drawing area)
-		struct Vector2D mouse_mov = {event->x - last_mouse_pos.x, event->y - last_mouse_pos.y};
+		struct Vector2D mouse_mov = {event->x - camera->screen.last_mouse_pos.x, event->y - camera->screen.last_mouse_pos.y};
 
 		double pitch = get_camera_pos_pitch(*camera);
 		double yaw = get_camera_pos_yaw(*camera);
@@ -115,8 +122,8 @@ gboolean on_camera_rotate(GtkWidget *widget, GdkEventButton *event, Camera *came
 		update_camera_position_from_angles(camera, pitch, yaw, get_camera_distance_to_center(*camera));
 		camera_look_to_center(camera);
 
-		last_mouse_pos = (struct Vector2D) {event->x, event->y};
-		gtk_widget_queue_draw(widget);
+		camera->screen.last_mouse_pos = (struct Vector2D) {event->x, event->y};
+		gtk_widget_queue_draw(camera->screen.drawing_area);
 		return TRUE; // Event handled
 	}
 	return FALSE;
