@@ -16,6 +16,10 @@ struct System *test_system;
 void update_proj_test_image(Camera *camera) {
 	clear_camera_screen(camera);
 	draw_celestial_system(*camera, test_system, 0);
+//	cairo_set_source_rgb(camera->screen.cr, 1, 1, 1);
+//	struct Orbit orbit = constr_orbit_w_apsides(1000e6, 101e6, 0, test_system->cb);
+//	update_camera_distance_wrt_width_at_center(camera, orbit.apoapsis);
+//	draw_orbit(*camera, orbit);
 	draw_camera_image(camera);
 }
 

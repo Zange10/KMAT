@@ -20,6 +20,7 @@ void update_camera_to_celestial_system(Camera *camera, struct System *system, do
 void update_camera_position_from_angles(Camera *camera, double pos_pitch, double pos_yaw, double dist);
 void camera_look_to_center(Camera *camera);
 void update_camera_distance_to_center(Camera *camera, double new_distance);
+void update_camera_distance_wrt_width_at_center(Camera *camera, double visible_width);
 double get_camera_pos_pitch(Camera camera);
 double get_camera_pos_yaw(Camera camera);
 double get_camera_distance_to_center(Camera camera);

@@ -25,11 +25,17 @@ void reset_camera(Camera *camera) {
 
 void update_camera_to_celestial_system(Camera *camera, struct System *system, double initial_pos_pitch, double initial_pos_yaw) {
 	if(system == NULL) { reset_camera(camera); return; }
-	double initial_distance = system->bodies[system->num_bodies/2]->orbit.apoapsis*10;
-	update_camera_position_from_angles(camera, initial_pos_pitch, initial_pos_yaw, initial_distance);
+	double min_r = system->bodies[0]->orbit.periapsis;
+	double max_r = system->bodies[0]->orbit.apoapsis;
+	for(int i = 0; i < system->num_bodies; i++) {
+		if(system->bodies[i]->orbit.periapsis < min_r) min_r = system->bodies[i]->orbit.periapsis;
+		if(system->bodies[i]->orbit.apoapsis > max_r) max_r = system->bodies[i]->orbit.apoapsis;
+	}
+	update_camera_distance_wrt_width_at_center(camera, system->bodies[system->num_bodies/2]->orbit.a);
+	update_camera_position_from_angles(camera, initial_pos_pitch, initial_pos_yaw, get_camera_distance_to_center(*camera));
 	camera_look_to_center(camera);
-	camera->min_pos_dist = system->bodies[0]->orbit.periapsis*2;
-	camera->max_pos_dist = system->bodies[system->num_bodies-1]->orbit.periapsis*50;
+	camera->min_pos_dist = min_r*2;
+	camera->max_pos_dist = max_r*50;
 	camera->rotation_sensitive = 0;
 }
 
@@ -65,6 +71,10 @@ struct Vector2D p3d_to_p2d(Camera camera, struct Vector p3d) {
 void update_camera_position_from_angles(Camera *camera, double pos_pitch, double pos_yaw, double dist) {
 	camera->pos = (struct Vector) {0, dist * cos(pos_pitch), dist * sin(pos_pitch)}; // yaw = 0 -> x: right, y: up/forward
 	camera->pos = rotate_vector_around_axis(camera->pos, vec(0, 0, 1), pos_yaw);
+}
+
+void update_camera_distance_wrt_width_at_center(Camera *camera, double visible_width) {
+	camera->pos = scalar_multiply(norm_vector(camera->pos), visible_width*7);	// 7 from trial and error
 }
 
 void update_camera_distance_to_center(Camera *camera, double new_distance) {
