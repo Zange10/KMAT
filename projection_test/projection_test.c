@@ -13,15 +13,21 @@ struct System *test_system;
 
 
 
+void update_proj_test_image(Camera *camera) {
+	clear_camera_screen(camera);
+	draw_celestial_system(get_camera_screen_cairo(camera), *camera, test_system, 0, camera->screen.width, camera->screen.height);
+	draw_camera_image(camera);
+}
+
 gboolean on_scroll(GtkWidget *widget, GdkEventScroll *event, Camera *camera) {
 	on_camera_zoom(widget, event, camera);
-	clear_camera_screen(camera);
-	draw_celestial_system(camera->screen.cr, test_camera, test_system, 0, camera->screen.width, camera->screen.height);
+	update_proj_test_image(camera);
 	return TRUE;
 }
 
-void on_draw_projection(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
-	draw_camera_image(cr, test_camera, TRUE);
+void on_draw_resize(GtkWidget *widget, cairo_t *cr, Camera *camera) {
+	resize_camera_screen(camera);
+	update_proj_test_image(camera);
 }
 
 void activate_test(GtkApplication *app, gpointer user_data);
@@ -36,16 +42,11 @@ void init_test() {
 	g_object_unref (app);
 }
 
-//static gboolean on_timeout(gpointer data) {
-//
-//	return G_SOURCE_CONTINUE;
-//}
-
 void on_proj_test_mouse_move(GtkWidget *widget, GdkEventButton *event, Camera *camera) {
 	if (camera->rotation_sensitive) {
 		clear_camera_screen(camera);
 		on_camera_rotate(camera, event);
-		draw_celestial_system(camera->screen.cr, test_camera, test_system, 0, camera->screen.width, camera->screen.height);
+		update_proj_test_image(camera);
 	}
 }
 
@@ -68,15 +69,18 @@ void activate_test(GtkApplication *app, gpointer user_data) {
 						  GDK_POINTER_MOTION_MASK |
 						  GDK_SCROLL_MASK);
 
+	test_camera = new_celestial_system_camera(test_system, deg2rad(90), 0, GTK_WIDGET(drawing_area));
+
 	g_signal_connect(drawing_area, "button-press-event", G_CALLBACK(on_enable_camera_rotation), &test_camera);
 	g_signal_connect(drawing_area, "button-release-event", G_CALLBACK(on_disable_camera_rotation), &test_camera);
 	g_signal_connect(drawing_area, "motion-notify-event", G_CALLBACK(on_proj_test_mouse_move), &test_camera);
 	g_signal_connect(drawing_area, "scroll-event", G_CALLBACK(on_scroll), &test_camera);
+	g_signal_connect(drawing_area, "draw", G_CALLBACK(on_draw_screen), &test_camera.screen);
+	g_signal_connect(drawing_area, "size-allocate", G_CALLBACK(on_draw_resize), &test_camera);
 	gtk_window_set_application(GTK_WINDOW (window), app);
 	gtk_widget_set_visible(GTK_WIDGET (window), TRUE);
 
-	test_camera = new_celestial_system_camera(test_system, deg2rad(90), 0, GTK_WIDGET(drawing_area));
-	draw_celestial_system(test_camera.screen.cr, test_camera, test_system, 0, test_camera.screen.width, test_camera.screen.height);
+	update_proj_test_image(&test_camera);
 
 	/* We do not need the builder anymore */
 	g_object_unref(builder);

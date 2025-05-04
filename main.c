@@ -37,9 +37,9 @@ int main() {
 	init_available_systems("../Celestial_Systems/");
 
 
-//	init_test();
-//
-//	return 0;
+	init_test();
+
+	return 0;
 //	init_db();
 
 //	test();

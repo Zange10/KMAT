@@ -19,6 +19,11 @@ typedef struct {
 } Screen;
 
 Screen new_screen(GtkWidget *drawing_area);
+void draw_screen(Screen *screen);
+void clear_screen(Screen *screen);
+void resize_screen(Screen *screen);
 
+// GTK Callback functions --------------------------
+G_MODULE_EXPORT void on_draw_screen(GtkWidget *drawing_area, cairo_t *cr, Screen *screen);
 
 #endif //KSP_SCREEN_H

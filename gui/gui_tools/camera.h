@@ -22,9 +22,12 @@ void update_camera_distance_to_center(Camera *camera, double new_distance);
 double get_camera_pos_pitch(Camera camera);
 double get_camera_pos_yaw(Camera camera);
 double get_camera_distance_to_center(Camera camera);
-void draw_camera_image(cairo_t *cr_drawing_area, Camera camera, gboolean clear_screen);
-void clear_camera_screen(Camera *camera);
 
+cairo_t * get_camera_screen_cairo(Camera *camera);
+
+void draw_camera_image(Camera *camera);
+void clear_camera_screen(Camera *camera);
+void resize_camera_screen(Camera *camera);
 
 gboolean on_camera_zoom(GtkWidget *widget, GdkEventScroll *event, Camera *camera);
 gboolean on_enable_camera_rotation(GtkWidget *widget, GdkEventButton *event, Camera *camera);

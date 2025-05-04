@@ -72,19 +72,26 @@ double get_camera_distance_to_center(Camera camera) {
 	return vector_mag(camera.pos);
 }
 
+cairo_t * get_camera_screen_cairo(Camera *camera) {
+	return camera->screen.cr;
+}
+
+// SCREEN INTERACTION ------------------------------------------------------------------------------------------
+
 void clear_camera_screen(Camera *camera) {
-	cairo_rectangle(camera->screen.cr, 0, 0, camera->screen.width, camera->screen.height);
-	cairo_set_source_rgb(camera->screen.cr, 0,0,0);
-	cairo_fill(camera->screen.cr);
+	clear_screen(&camera->screen);
 }
 
-void draw_camera_image(cairo_t *cr_drawing_area, Camera camera, gboolean clear_screen) {
-	cairo_set_source_surface(cr_drawing_area, camera.screen.image_surface, 0, 0);
-	cairo_paint(cr_drawing_area);
+void draw_camera_image(Camera *camera) {
+	draw_screen(&camera->screen);
+}
+
+void resize_camera_screen(Camera *camera) {
+	resize_screen(&camera->screen);
 }
 
 
-// TRANSLATION AND ROTATION -----------------------------------------------------------
+// GTK CALLBACK FUNCTION FOR TRANSLATION AND ROTATION -----------------------------------------------------------
 
 gboolean on_camera_zoom(GtkWidget *widget, GdkEventScroll *event, Camera *camera) {
 	double distance = get_camera_distance_to_center(*camera);
