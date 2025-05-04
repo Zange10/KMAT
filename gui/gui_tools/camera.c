@@ -3,20 +3,38 @@
 #include <math.h>
 #include <gtk/gtk.h>
 
-Camera new_celestial_system_camera(struct System *system, double initial_pos_pitch, double initial_pos_yaw, GtkWidget *drawing_area) {
+
+Camera new_camera(GtkWidget *drawing_area) {
 	Camera camera;
-	double initial_distance = system->bodies[system->num_bodies/2]->orbit.apoapsis*10;
-	update_camera_position_from_angles(&camera, initial_pos_pitch, initial_pos_yaw, initial_distance);
+	camera.pos = vec(1,0,0);
 	camera_look_to_center(&camera);
-	camera.min_pos_dist = system->bodies[0]->orbit.periapsis*2;
-	camera.max_pos_dist = system->bodies[system->num_bodies-1]->orbit.periapsis*50;
+	camera.min_pos_dist = 10;
+	camera.max_pos_dist = 0.1;
 	camera.rotation_sensitive = 0;
 	camera.screen = new_screen(drawing_area);
-
 	return camera;
 }
 
-struct Vector2D p3d_to_p2d(Camera camera, struct Vector p3d, int screen_width, int screen_height) {
+void reset_camera(Camera *camera) {
+	camera->pos = vec(1,0,0);
+	camera_look_to_center(camera);
+	camera->min_pos_dist = 10;
+	camera->max_pos_dist = 0.1;
+	camera->rotation_sensitive = 0;
+}
+
+void update_camera_to_celestial_system(Camera *camera, struct System *system, double initial_pos_pitch, double initial_pos_yaw) {
+	if(system == NULL) { reset_camera(camera); return; }
+	double initial_distance = system->bodies[system->num_bodies/2]->orbit.apoapsis*10;
+	update_camera_position_from_angles(camera, initial_pos_pitch, initial_pos_yaw, initial_distance);
+	camera_look_to_center(camera);
+	camera->min_pos_dist = system->bodies[0]->orbit.periapsis*2;
+	camera->max_pos_dist = system->bodies[system->num_bodies-1]->orbit.periapsis*50;
+	camera->rotation_sensitive = 0;
+}
+
+struct Vector2D p3d_to_p2d(Camera camera, struct Vector p3d) {
+	int screen_width = camera.screen.width, screen_height = camera.screen.height;
 	struct Vector v3d = subtract_vectors(p3d, camera.pos);
 
 	struct Vector right = norm_vector(cross_product(camera.looking, vec(0, 0, 1)));
@@ -74,6 +92,10 @@ double get_camera_distance_to_center(Camera camera) {
 
 cairo_t * get_camera_screen_cairo(Camera *camera) {
 	return camera->screen.cr;
+}
+
+void destroy_camera(Camera *camera) {
+	destroy_screen(&camera->screen);
 }
 
 // SCREEN INTERACTION ------------------------------------------------------------------------------------------

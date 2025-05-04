@@ -42,9 +42,10 @@ void resize_screen(Screen *screen) {
 
 	screen->width = new_width;
 	screen->height = new_height;
-	free(screen->pixel_data);
-	screen->pixel_data = new_pixel_data;
+	if(screen->pixel_data != NULL) free(screen->pixel_data);
 	if(screen->image_surface != NULL) cairo_surface_destroy(screen->image_surface);
+	if(screen->cr != NULL) cairo_destroy(screen->cr);
+	screen->pixel_data = new_pixel_data;
 	screen->image_surface = cairo_image_surface_create_for_data(
 			(unsigned char *)screen->pixel_data,
 			CAIRO_FORMAT_RGB24,
@@ -53,6 +54,15 @@ void resize_screen(Screen *screen) {
 			screen->width * 4
 	);
 	screen->cr = cairo_create(screen->image_surface);
+}
+
+void destroy_screen(Screen *screen) {
+	screen->width = -1;
+	screen->height = -1;
+	screen->drawing_area = NULL;
+	if(screen->pixel_data != NULL) free(screen->pixel_data);
+	if(screen->image_surface != NULL) cairo_surface_destroy(screen->image_surface);
+	if(screen->cr != NULL) cairo_destroy(screen->cr);
 }
 
 // GTK Callback functions --------------------------

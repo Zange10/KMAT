@@ -5,47 +5,47 @@
 #include "math.h"
 
 
-void draw_body(cairo_t *cr, Camera camera, struct System *system, struct Body *body, double jd_date, int screen_width, int screen_height) {
-	set_cairo_body_color(cr, body);
+void draw_body(Camera camera, struct System *system, struct Body *body, double jd_date) {
+	set_cairo_body_color(get_camera_screen_cairo(&camera), body);
 	struct OSV osv_body = {.r = vec(0,0,0)};
 	if(body != system->cb) osv_body = system->calc_method == ORB_ELEMENTS ?
 										osv_from_elements(body->orbit, jd_date, system) :
 									  	osv_from_ephem(body->ephem, jd_date, system->cb);
-	struct Vector2D p2d_body = p3d_to_p2d(camera, osv_body.r, screen_width, screen_height);
-	cairo_arc(cr, p2d_body.x, p2d_body.y, 5, 0, 2 * M_PI);
-	cairo_fill(cr);
+	struct Vector2D p2d_body = p3d_to_p2d(camera, osv_body.r);
+	cairo_arc(get_camera_screen_cairo(&camera), p2d_body.x, p2d_body.y, 5, 0, 2 * M_PI);
+	cairo_fill(get_camera_screen_cairo(&camera));
 }
 
-void draw_orbit(cairo_t *cr, Camera camera, struct Orbit orbit, int screen_width, int screen_height) {
+void draw_orbit(Camera camera, struct Orbit orbit) {
 	struct OSV osv = propagate_orbit_theta(orbit, 0, orbit.body);
-	struct Vector2D p2d = p3d_to_p2d(camera, osv.r, screen_width, screen_height);
+	struct Vector2D p2d = p3d_to_p2d(camera, osv.r);
 
 	struct Vector2D last_p2d = p2d;
 	double dtheta_step = deg2rad(0.5);
 
 	for(double dtheta = 0; dtheta < M_PI*2 + dtheta_step; dtheta += dtheta_step) {
 		osv = propagate_orbit_theta(orbit, dtheta, orbit.body);
-		p2d = p3d_to_p2d(camera, osv.r, screen_width, screen_height);
-		draw_stroke(cr, last_p2d, p2d);
+		p2d = p3d_to_p2d(camera, osv.r);
+		draw_stroke(get_camera_screen_cairo(&camera), last_p2d, p2d);
 		last_p2d = p2d;
 	}
 }
 
-void draw_celestial_system(cairo_t *cr, Camera camera, struct System *system, double jd_date, int screen_width, int screen_height) {
-	draw_body(cr, camera, system, system->cb, jd_date, screen_width, screen_height);
+void draw_celestial_system(Camera camera, struct System *system, double jd_date) {
+	draw_body(camera, system, system->cb, jd_date);
 
 	for(int i = 0; i < system->num_bodies; i++) {
-		draw_body(cr, camera, system, system->bodies[i], jd_date, screen_width, screen_height);
-		draw_orbit(cr, camera, system->bodies[i]->orbit, screen_width, screen_height);
+		draw_body(camera, system, system->bodies[i], jd_date);
+		draw_orbit(camera, system->bodies[i]->orbit);
 	}
 }
 
-void draw_trajectory(cairo_t *cr, Camera camera, struct OSV osv0, double dt, struct Body *attractor, int screen_width, int screen_height) {
+void draw_trajectory(Camera camera, struct OSV osv0, double dt, struct Body *attractor) {
 	if(dt <= 1.0/86400) return;
 	struct Orbit orbit = constr_orbit_from_osv(osv0.r, osv0.v, attractor);
 
 	if(orbit.period < dt*86400) {
-		draw_orbit(cr, camera, orbit, screen_width, screen_height);
+		draw_orbit(camera, orbit);
 	}
 
 	struct OSV osv1 = propagate_orbit_time(orbit, dt*86400, attractor);
@@ -55,33 +55,33 @@ void draw_trajectory(cairo_t *cr, Camera camera, struct OSV osv0, double dt, str
 	if(theta1 < theta0) theta1 += 2*M_PI;
 
 	struct OSV osv = osv0;
-	struct Vector2D p2d = p3d_to_p2d(camera, osv.r, screen_width, screen_height);
+	struct Vector2D p2d = p3d_to_p2d(camera, osv.r);
 	struct Vector2D last_p2d = p2d;
 	double theta_step = (theta1-theta0)/1000;
 
 	for(double dtheta = 0; dtheta <= (theta1-theta0); dtheta += theta_step) {
 		osv = propagate_orbit_theta(orbit, dtheta, orbit.body);
-		p2d = p3d_to_p2d(camera, osv.r, screen_width, screen_height);
-		draw_stroke(cr, last_p2d, p2d);
+		p2d = p3d_to_p2d(camera, osv.r);
+		draw_stroke(get_camera_screen_cairo(&camera), last_p2d, p2d);
 		last_p2d = p2d;
 	}
 }
 
-void draw_itinerary_spacecraft(cairo_t *cr, Camera camera, struct Vector r, int screen_width, int screen_height) {
-	cairo_set_source_rgb(cr, 1, 0.4, 0.1);
-	struct Vector2D p2d = p3d_to_p2d(camera, r, screen_width, screen_height);
-	cairo_arc(cr, p2d.x, p2d.y, 3, 0, 2 * M_PI);
-	cairo_fill(cr);
+void draw_itinerary_spacecraft(Camera camera, struct Vector r) {
+	cairo_set_source_rgb(get_camera_screen_cairo(&camera), 1, 0.4, 0.1);
+	struct Vector2D p2d = p3d_to_p2d(camera, r);
+	cairo_arc(get_camera_screen_cairo(&camera), p2d.x, p2d.y, 3, 0, 2 * M_PI);
+	cairo_fill(get_camera_screen_cairo(&camera));
 }
 
-void draw_itinerary_step_point(cairo_t *cr, Camera camera, struct Vector r, int screen_width, int screen_height) {
+void draw_itinerary_step_point(Camera camera, struct Vector r) {
 	int cross_length = 4;
-	cairo_set_source_rgb(cr, 1, 0, 0);
-	struct Vector2D p2d = p3d_to_p2d(camera, r, screen_width, screen_height);
+	cairo_set_source_rgb(get_camera_screen_cairo(&camera), 1, 0, 0);
+	struct Vector2D p2d = p3d_to_p2d(camera, r);
 	for(int i = -1; i<=1; i+=2) {
 		struct Vector2D p1 = {p2d.x - cross_length, p2d.y + cross_length*i};
 		struct Vector2D p2 = {p2d.x + cross_length, p2d.y - cross_length*i};
-		draw_stroke(cr, p1, p2);
+		draw_stroke(get_camera_screen_cairo(&camera), p1, p2);
 	}
 }
 
@@ -95,7 +95,7 @@ void set_trajectory_color(cairo_t *cr, int trajectory_is_in_the_past, int trajec
 	}
 }
 
-void draw_itinerary(cairo_t *cr, Camera camera, struct System *system, struct ItinStep *tf, double current_time, int screen_width, int screen_height) {
+void draw_itinerary(Camera camera, struct System *system, struct ItinStep *tf, double current_time) {
 	if(tf == NULL) return;
 
 	// draw trajectories
@@ -116,20 +116,20 @@ void draw_itinerary(cairo_t *cr, Camera camera, struct System *system, struct It
 		}
 
 		if(current_time >= tf->date && current_time < tf->next[0]->date) {
-			set_trajectory_color(cr, 1, trajectory_is_viable);
+			set_trajectory_color(get_camera_screen_cairo(&camera), 1, trajectory_is_viable);
 			dt = current_time - tf->date;
-			draw_trajectory(cr, camera, tf_osv0, dt, system->cb, screen_width, screen_height);
+			draw_trajectory(camera, tf_osv0, dt, system->cb);
 
 			struct OSV current_osv = propagate_orbit_time(constr_orbit_from_osv(tf_osv0.r, tf_osv0.v, system->cb), dt*86400, system->cb);
 
-			set_trajectory_color(cr, 0, trajectory_is_viable);
+			set_trajectory_color(get_camera_screen_cairo(&camera), 0, trajectory_is_viable);
 			dt = tf->next[0]->date - current_time;
-			draw_trajectory(cr, camera, current_osv, dt, system->cb, screen_width, screen_height);
+			draw_trajectory(camera, current_osv, dt, system->cb);
 
-			draw_itinerary_spacecraft(cr, camera, current_osv.r, screen_width, screen_height);
+			draw_itinerary_spacecraft(camera, current_osv.r);
 		} else {
-			set_trajectory_color(cr, current_time > tf->date, trajectory_is_viable);
-			draw_trajectory(cr, camera, tf_osv0, dt, system->cb, screen_width, screen_height);
+			set_trajectory_color(get_camera_screen_cairo(&camera), current_time > tf->date, trajectory_is_viable);
+			draw_trajectory(camera, tf_osv0, dt, system->cb);
 		}
 		tf = tf->next[0];
 	}
@@ -138,17 +138,17 @@ void draw_itinerary(cairo_t *cr, Camera camera, struct System *system, struct It
 		struct OSV osv_body = system->calc_method == ORB_ELEMENTS ?
 				   osv_from_elements(get_first(tf)->body->orbit, current_time, system) :
 				   osv_from_ephem(get_first(tf)->body->ephem, current_time, system->cb);
-		draw_itinerary_spacecraft(cr, camera, osv_body.r, screen_width, screen_height);
+		draw_itinerary_spacecraft(camera, osv_body.r);
 	} else if(current_time >= tf->date) {
 		struct OSV osv_body = system->calc_method == ORB_ELEMENTS ?
 							  osv_from_elements(tf->body->orbit, current_time, system) :
 							  osv_from_ephem(tf->body->ephem, current_time, system->cb);
-		draw_itinerary_spacecraft(cr, camera, osv_body.r, screen_width, screen_height);
+		draw_itinerary_spacecraft(camera, osv_body.r);
 	}
 
 	// draw itin step points
 	while(tf != NULL) {
-		draw_itinerary_step_point(cr, camera, tf->r, screen_width, screen_height);
+		draw_itinerary_step_point(camera, tf->r);
 		tf = tf->prev;
 	}
 }
