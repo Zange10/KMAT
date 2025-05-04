@@ -44,7 +44,7 @@ void draw_trajectory(Camera camera, struct OSV osv0, double dt, struct Body *att
 	if(dt <= 1.0/86400) return;
 	struct Orbit orbit = constr_orbit_from_osv(osv0.r, osv0.v, attractor);
 
-	if(orbit.period < dt*86400) {
+	if(orbit.period < dt*86400 && orbit.e < 1) {
 		draw_orbit(camera, orbit);
 	}
 

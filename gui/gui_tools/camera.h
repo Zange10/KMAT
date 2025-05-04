@@ -13,6 +13,7 @@ typedef struct {
 } Camera;
 
 struct System;
+struct ItinStep;
 
 Camera new_camera(GtkWidget *drawing_area);
 struct Vector2D p3d_to_p2d(Camera camera, struct Vector p3d);
@@ -21,6 +22,7 @@ void update_camera_position_from_angles(Camera *camera, double pos_pitch, double
 void camera_look_to_center(Camera *camera);
 void update_camera_distance_to_center(Camera *camera, double new_distance);
 void update_camera_distance_wrt_width_at_center(Camera *camera, double visible_width);
+void camera_zoom_to_fit_itinerary(Camera *camera, struct ItinStep *itin_step);
 double get_camera_pos_pitch(Camera camera);
 double get_camera_pos_yaw(Camera camera);
 double get_camera_distance_to_center(Camera camera);

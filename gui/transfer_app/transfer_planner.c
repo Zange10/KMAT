@@ -144,19 +144,6 @@ void on_tp_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer 
 	}
 }
 
-void reset_tp_system_camera_distance_wrt_itinerary() {
-	double highest_r = 0;
-	struct ItinStep *ptr = get_last(curr_transfer_tp);
-	while(ptr != NULL) {
-		if(vector_mag(ptr->r) > highest_r) highest_r = vector_mag(ptr->r);
-		ptr = ptr->prev;
-	}
-
-	update_camera_distance_wrt_width_at_center(&tp_system_camera, highest_r);
-
-	update_tp_system_view();
-}
-
 // -------------------------------------------------------------------------------------
 
 
@@ -619,7 +606,8 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 	tp_update_bodies();
 	update_itinerary();
 	update_camera_to_celestial_system(&tp_system_camera, tp_system, deg2rad(90), 0);
-	reset_tp_system_camera_distance_wrt_itinerary();
+	camera_zoom_to_fit_itinerary(&tp_system_camera, curr_transfer_tp);
+	update_tp_system_view();
 	char system_name[50];
 	sprintf(system_name, "- %s -", tp_system->name);
 	append_combobox_entry(GTK_COMBO_BOX(cb_tp_system), system_name);

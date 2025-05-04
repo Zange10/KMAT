@@ -2,6 +2,7 @@
 #include "celestial_bodies.h"
 #include <math.h>
 #include <gtk/gtk.h>
+#include "orbit_calculator/itin_tool.h"
 
 
 Camera new_camera(GtkWidget *drawing_area) {
@@ -37,6 +38,20 @@ void update_camera_to_celestial_system(Camera *camera, struct System *system, do
 	camera->min_pos_dist = min_r*2;
 	camera->max_pos_dist = max_r*50;
 	camera->rotation_sensitive = 0;
+}
+
+
+
+void camera_zoom_to_fit_itinerary(Camera *camera, struct ItinStep *itin_step) {
+	if(itin_step == NULL) return;
+	double highest_r = 0;
+	itin_step = get_last(itin_step);
+	while(itin_step != NULL) {
+		if(vector_mag(itin_step->r) > highest_r) highest_r = vector_mag(itin_step->r);
+		itin_step = itin_step->prev;
+	}
+
+	update_camera_distance_wrt_width_at_center(camera, highest_r);
 }
 
 struct Vector2D p3d_to_p2d(Camera camera, struct Vector p3d) {
