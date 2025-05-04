@@ -40,6 +40,7 @@ double current_date_tp;
 enum LastTransferType tp_last_transfer_type;
 
 void tp_update_bodies();
+void remove_all_transfers();
 
 void update_tp_system_view();
 void on_tp_screen_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer *ptr);
@@ -711,6 +712,7 @@ G_MODULE_EXPORT void on_create_gmat_script() {
 }
 
 void end_transfer_planner() {
+	remove_all_transfers();
 	if(body_show_status_tp != NULL) free(body_show_status_tp);
 	destroy_camera(&tp_system_camera);
 }

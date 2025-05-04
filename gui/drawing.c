@@ -120,7 +120,7 @@ void draw_itinerary(Camera camera, struct System *system, struct ItinStep *tf, d
 			dt = current_time - tf->date;
 			draw_trajectory(camera, tf_osv0, dt, system->cb);
 
-			struct OSV current_osv = propagate_orbit_time(constr_orbit_from_osv(tf_osv0.r, tf_osv0.v, system->cb), dt*86400, system->cb);
+			struct OSV current_osv = dt != 0 ? propagate_orbit_time(constr_orbit_from_osv(tf_osv0.r, tf_osv0.v, system->cb), dt*86400, system->cb) : tf_osv0;
 
 			set_trajectory_color(get_camera_screen_cairo(&camera), 0, trajectory_is_viable);
 			dt = tf->next[0]->date - current_time;

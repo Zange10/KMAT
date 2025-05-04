@@ -146,7 +146,6 @@ gboolean on_camera_zoom(GtkWidget *widget, GdkEventScroll *event, Camera *camera
 	if(event->direction == GDK_SCROLL_DOWN && vector_mag(camera->pos) * 1.2 < camera->max_pos_dist) distance *= 1.2;
 
 	update_camera_distance_to_center(camera, distance);
-	gtk_widget_queue_draw(camera->screen.drawing_area);
 	return FALSE;
 }
 
