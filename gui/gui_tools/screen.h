@@ -10,16 +10,22 @@ typedef uint32_t ScreenPixel;
 typedef ScreenPixel *PixelBuffer;
 
 typedef struct {
+	double r,g,b;
+} PixelColor ;
+
+typedef struct {
 	int width, height;
 	PixelBuffer pixel_data;
 	cairo_t *cr;
 	cairo_surface_t *image_surface;
 	GtkWidget *drawing_area;
 	struct Vector2D last_mouse_pos;
+	PixelColor background_color;
 } Screen;
 
 Screen new_screen(GtkWidget *drawing_area);
 void draw_screen(Screen *screen);
+void set_screen_background_color(Screen *screen, double red, double green, double blue);
 void clear_screen(Screen *screen);
 void resize_screen(Screen *screen);
 void destroy_screen(Screen *screen);

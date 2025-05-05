@@ -5,7 +5,6 @@
 #include "gui/css_loader.h"
 #include "gui/settings.h"
 #include "tools/file_io.h"
-#include "gui/gui_tools/camera.h"
 
 #include <string.h>
 #include <locale.h>
@@ -72,7 +71,21 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 	vp_pa_groups = gtk_builder_get_object(builder, "vp_pa_groups");
 
 
+	pa_porkchop_screen = new_screen(GTK_WIDGET(da_pa_porkchop));
+	set_screen_background_color(&pa_porkchop_screen, 0.15, 0.15, 0.15);
 	pa_itin_preview_camera = new_camera(GTK_WIDGET(da_pa_preview));
+
+	gtk_widget_add_events(GTK_WIDGET(da_pa_porkchop),
+						  GDK_BUTTON_PRESS_MASK |
+						  GDK_BUTTON_RELEASE_MASK |
+						  GDK_POINTER_MOTION_MASK |
+						  GDK_SCROLL_MASK);
+	g_signal_connect(da_pa_porkchop, "draw", G_CALLBACK(on_draw_screen), &pa_porkchop_screen);
+	g_signal_connect(da_pa_porkchop, "button-press-event", G_CALLBACK(on_enable_camera_rotation), &pa_porkchop_screen);
+	g_signal_connect(da_pa_porkchop, "button-release-event", G_CALLBACK(on_disable_camera_rotation), &pa_porkchop_screen);
+	g_signal_connect(da_pa_porkchop, "motion-notify-event", G_CALLBACK(on_pa_screen_mouse_move), &pa_porkchop_screen);
+	g_signal_connect(da_pa_porkchop, "scroll-event", G_CALLBACK(on_pa_screen_scroll), &pa_porkchop_screen);
+	g_signal_connect(da_pa_porkchop, "size-allocate", G_CALLBACK(on_pa_screen_resize), &pa_porkchop_screen);
 
 	gtk_widget_add_events(GTK_WIDGET(da_pa_preview),
 						  GDK_BUTTON_PRESS_MASK |
@@ -91,6 +104,13 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 
 
 // ITINERARY PREVIEW AND PORKCHOP CALLBACKS -----------------------------------------------
+void update_pa_porkchop_diagram() {
+	clear_screen(&pa_porkchop_screen);
+
+	if(pa_porkchop_points != NULL) draw_porkchop(pa_porkchop_screen.cr, pa_porkchop_screen.width, pa_porkchop_screen.height, pa_porkchop_points, pa_num_itins, pa_last_transfer_type);
+	draw_screen(&pa_porkchop_screen);
+}
+
 void update_pa_itinerary_preview() {
 	clear_camera_screen(&pa_itin_preview_camera);
 
@@ -98,7 +118,6 @@ void update_pa_itinerary_preview() {
 
 	// Sun
 	draw_body(pa_itin_preview_camera, pa_system, pa_system->cb, current_date_pa);
-
 	// Planets
 	for(int i = 0; i < pa_system->num_bodies; i++) {
 		if(!body_show_status_pa[i]) continue;
@@ -110,7 +129,6 @@ void update_pa_itinerary_preview() {
 		}
 		draw_orbit(pa_itin_preview_camera, orbit);
 	}
-
 	// Transfers
 	if(curr_transfer_pa != NULL) draw_itinerary(pa_itin_preview_camera, pa_system, curr_transfer_pa, current_date_pa);
 
@@ -125,6 +143,10 @@ void on_pa_screen_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer *ptr
 }
 
 void on_pa_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr) {
+	if((Screen*)ptr == &pa_porkchop_screen) {
+		resize_screen(&pa_porkchop_screen);
+		update_pa_porkchop_diagram();
+	}
 	if((Camera*)ptr == &pa_itin_preview_camera) {
 		resize_camera_screen(&pa_itin_preview_camera);
 		update_pa_itinerary_preview();
@@ -215,10 +237,6 @@ void pa_update_body_show_status() {
 		if(step->body != NULL) body_show_status_pa[get_body_system_id(step->body,pa_system)] = 1;
 		step = step->prev;
 	}
-}
-
-void update_porkchop_drawing_area() {
-	gtk_widget_queue_draw(GTK_WIDGET(da_pa_porkchop));
 }
 
 void pa_update_preview() {
@@ -520,20 +538,6 @@ void update_best_itin() {
 	camera_zoom_to_fit_itinerary(&pa_itin_preview_camera, curr_transfer_pa);
 }
 
-G_MODULE_EXPORT void on_porkchop_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
-	GtkAllocation allocation;
-	gtk_widget_get_allocation(widget, &allocation);
-	int area_width = allocation.width;
-	int area_height = allocation.height;
-
-	// reset drawing area
-	cairo_rectangle(cr, 0, 0, area_width, area_height);
-	cairo_set_source_rgb(cr, 0.15,0.15, 0.15);
-	cairo_fill(cr);
-
-	if(pa_porkchop_points != NULL) draw_porkchop(cr, area_width, area_height, pa_porkchop_points, pa_num_itins, pa_last_transfer_type);
-}
-
 void analyze_departure_itins() {
 	int num_itins = 0, tot_num_itins = 0;
 	for(int i = 0; i < pa_num_deps; i++) num_itins += get_number_of_itineraries(pa_departures[i]);
@@ -573,7 +577,7 @@ G_MODULE_EXPORT void on_load_itineraries(GtkWidget* widget, gpointer data) {
 	body_show_status_pa = (int*) calloc(pa_system->num_bodies, sizeof(int));
 	analyze_departure_itins();
 
-	update_porkchop_drawing_area();
+	update_pa_porkchop_diagram();
 	pa_update_preview();
 }
 
@@ -597,14 +601,14 @@ G_MODULE_EXPORT void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointe
 
 	sort_porkchop(pa_porkchop_points, pa_num_itins, pa_last_transfer_type);
 	update_best_itin();
-	update_porkchop_drawing_area();
+	update_pa_porkchop_diagram();
 	pa_update_preview();
 	reset_min_max_feedback(1);
 }
 
 void update_pa() {
 	update_best_itin();
-	update_porkchop_drawing_area();
+	update_pa_porkchop_diagram();
 	pa_update_preview();
 	update_group_overview();
 	reset_min_max_feedback(1);

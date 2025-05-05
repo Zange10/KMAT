@@ -16,6 +16,7 @@ Screen new_screen(GtkWidget *drawing_area) {
 	);
 	new_screen.cr = cairo_create(new_screen.image_surface);
 	new_screen.last_mouse_pos = vec2D(0,0);
+	new_screen.background_color = (PixelColor) {0,0,0};
 	return new_screen;
 }
 
@@ -25,8 +26,13 @@ void draw_screen(Screen *screen) {
 
 void clear_screen(Screen *screen) {
 	cairo_rectangle(screen->cr, 0, 0, screen->width, screen->height);
-	cairo_set_source_rgb(screen->cr, 0,0,0);
+	cairo_set_source_rgb(screen->cr, screen->background_color.r, screen->background_color.g, screen->background_color.b);
 	cairo_fill(screen->cr);
+}
+
+void set_screen_background_color(Screen *screen, double red, double green, double blue) {
+	screen->background_color = (PixelColor) {red, green, blue};
+	clear_screen(screen);
 }
 
 void resize_screen(Screen *screen) {
