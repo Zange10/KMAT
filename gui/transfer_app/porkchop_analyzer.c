@@ -132,6 +132,7 @@ void on_pa_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr) {
 
 void on_pa_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer *ptr) {
 	if((Screen*)ptr == pa_porkchop_screen) {
+		if(pa_system == NULL) return;
 		if(pa_porkchop_screen->dragging) {
 			double x = pa_porkchop_screen->mouse_pos_on_press.x;
 			double y = pa_porkchop_screen->mouse_pos_on_press.y;
@@ -161,10 +162,24 @@ void on_pa_screen_button_release(GtkWidget *widget, GdkEventButton *event, gpoin
 		pa_porkchop_screen->dragging = FALSE;
 
 		clear_dynamic_screen_layer(pa_porkchop_screen);
+
+		if(pa_system == NULL) return;
+
 		double x0 = pa_porkchop_screen->mouse_pos_on_press.x;
 		double y0 = pa_porkchop_screen->mouse_pos_on_press.y;
 		double x1 = event->x;
 		double y1 = event->y;
+
+		if(x0 < 45 || y0 > pa_porkchop_screen->height-40) return;
+		if(x0 < 45) x0 = 45;
+		if(x1 < 45) x1 = 45;
+		if(x0 > pa_porkchop_screen->width) x0 = pa_porkchop_screen->width;
+		if(x1 > pa_porkchop_screen->width) x1 = pa_porkchop_screen->width;
+
+		if(y0 < 0) y0 = 0;
+		if(y1 < 0) y1 = 0;
+		if(y0 > pa_porkchop_screen->height-40) y0 = pa_porkchop_screen->height-40;
+		if(y1 > pa_porkchop_screen->height-40) y1 = pa_porkchop_screen->height-40;
 
 		if(x0 > x1) {
 			double temp = x0;
@@ -176,8 +191,77 @@ void on_pa_screen_button_release(GtkWidget *widget, GdkEventButton *event, gpoin
 			y0 = y1;
 			y1 = temp;
 		}
+		x0 -= 45;
+		x1 -= 45;
+		x0 /= (pa_porkchop_screen->width-45);
+		x1 /= (pa_porkchop_screen->width-45);
+		y0 /= (pa_porkchop_screen->height-40);
+		y1 /= (pa_porkchop_screen->height-40);
 
-		printf("%f  %f   |   %f  %f\n", x0, y0, x1, y1);
+		double dv, date, dur;
+
+		int first_show_ind = 0;
+		while(!pa_porkchop_points[first_show_ind].inside_filter) first_show_ind++;
+
+		struct PorkchopPoint pp = pa_porkchop_points[first_show_ind].data;
+		double dv_sat = pp.dv_dsm;
+		if(pa_last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
+		if(pa_last_transfer_type == TF_CIRC)		dv_sat += pp.dv_arr_circ;
+
+		double min_date = pp.dep_date, max_date = pp.dep_date;
+		double min_dur = pp.dur, max_dur = pp.dur;
+		double min_dv = pp.dv_dep + dv_sat;
+		double max_dv = pp.dv_dep + dv_sat;
+
+		// find min and max
+		for(int i = 1; i < pa_num_itins; i++) {
+			if(!pa_porkchop_points[i].inside_filter) continue;
+			pp = pa_porkchop_points[i].data;
+
+			dv_sat = pp.dv_dsm;
+			if(pa_last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
+			if(pa_last_transfer_type == TF_CIRC)		dv_sat += pp.dv_arr_circ;
+
+			dv = pp.dv_dep + dv_sat;
+			date = pp.dep_date;
+			dur = pp.dur;
+
+			if(dv < min_dv) min_dv = dv;
+			else if(dv > max_dv) max_dv = dv;
+			if(date < min_date) min_date = date;
+			else if(date > max_date) max_date = date;
+			if(dur < min_dur) min_dur = dur;
+			else if(dur > max_dur) max_dur = dur;
+		}
+
+
+		double ddate = max_date-min_date;
+		double ddur = max_dur - min_dur;
+
+		double margin = 0.05;
+
+		min_date = min_date-ddate*margin;
+		max_date = max_date+ddate*margin;
+		min_dur = min_dur - ddur * margin;
+		max_dur = max_dur + ddur * margin;
+
+		x0 = x0*(max_date-min_date)+min_date;
+		x1 = x1*(max_date-min_date)+min_date;
+		y0 = (1-y0)*(max_dur-min_dur)+min_dur;
+		y1 = (1-y1)*(max_dur-min_dur)+min_dur;
+
+		char string[20];
+		date_to_string(convert_JD_date(x0, get_settings_datetime_type()), string, 0);
+		gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[0]), string);
+		sprintf(string, "%.0f", get_settings_datetime_type() == DATE_KERBAL ? y0*4 : y0);
+		gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[1]), string);
+
+		date_to_string(convert_JD_date(x1, get_settings_datetime_type()), string, 0);
+		gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[0]), string);
+		sprintf(string, "%.0f", get_settings_datetime_type() == DATE_KERBAL ? y1*4 : y1);
+		gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[1]), string);
+
+		on_apply_filter(NULL, NULL);
 
 		draw_screen(pa_porkchop_screen);
 	}
