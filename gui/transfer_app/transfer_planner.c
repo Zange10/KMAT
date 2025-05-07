@@ -17,7 +17,7 @@ struct ItinStep *curr_transfer_tp;
 
 struct System *tp_system;
 
-Camera tp_system_camera;
+Camera *tp_system_camera;
 
 GObject *da_tp;
 GObject *cb_tp_system;
@@ -69,19 +69,19 @@ void init_transfer_planner(GtkBuilder *builder) {
 	da_tp = gtk_builder_get_object(builder, "da_tp");
 	vp_tp_bodies = gtk_builder_get_object(builder, "vp_tp_bodies");
 
-	tp_system_camera = new_camera(GTK_WIDGET(da_tp));
+	tp_system_camera = new_camera(GTK_WIDGET(da_tp), &on_tp_screen_resize, &on_enable_camera_rotation, &on_disable_camera_rotation, &on_tp_screen_mouse_move, &on_tp_screen_scroll);
 
-	gtk_widget_add_events(GTK_WIDGET(da_tp),
-						  GDK_BUTTON_PRESS_MASK |
-						  GDK_BUTTON_RELEASE_MASK |
-						  GDK_POINTER_MOTION_MASK |
-						  GDK_SCROLL_MASK);
-	g_signal_connect(da_tp, "draw", G_CALLBACK(on_draw_screen), &tp_system_camera.screen);
-	g_signal_connect(da_tp, "button-press-event", G_CALLBACK(on_enable_camera_rotation), &tp_system_camera);
-	g_signal_connect(da_tp, "button-release-event", G_CALLBACK(on_disable_camera_rotation), &tp_system_camera);
-	g_signal_connect(da_tp, "motion-notify-event", G_CALLBACK(on_tp_screen_mouse_move), &tp_system_camera);
-	g_signal_connect(da_tp, "scroll-event", G_CALLBACK(on_tp_screen_scroll), &tp_system_camera);
-	g_signal_connect(da_tp, "size-allocate", G_CALLBACK(on_tp_screen_resize), &tp_system_camera);
+//	gtk_widget_add_events(GTK_WIDGET(da_tp),
+//						  GDK_BUTTON_PRESS_MASK |
+//						  GDK_BUTTON_RELEASE_MASK |
+//						  GDK_POINTER_MOTION_MASK |
+//						  GDK_SCROLL_MASK);
+//	g_signal_connect(da_tp, "draw", G_CALLBACK(on_draw_screen), tp_system_camera->screen);
+//	g_signal_connect(da_tp, "button-press-event", G_CALLBACK(on_enable_camera_rotation), tp_system_camera);
+//	g_signal_connect(da_tp, "button-release-event", G_CALLBACK(on_disable_camera_rotation), tp_system_camera);
+//	g_signal_connect(da_tp, "motion-notify-event", G_CALLBACK(on_tp_screen_mouse_move), tp_system_camera);
+//	g_signal_connect(da_tp, "scroll-event", G_CALLBACK(on_tp_screen_scroll), tp_system_camera);
+//	g_signal_connect(da_tp, "size-allocate", G_CALLBACK(on_tp_screen_resize), tp_system_camera);
 
 	tp_system = NULL;
 	curr_transfer_tp = NULL;
@@ -97,7 +97,7 @@ void init_transfer_planner(GtkBuilder *builder) {
 		update_central_body_dropdown(GTK_COMBO_BOX(cb_tp_central_body), tp_system);
 		tp_update_bodies();
 
-		update_camera_to_celestial_system(&tp_system_camera, tp_system, deg2rad(90), 0);
+		update_camera_to_celestial_system(tp_system_camera, tp_system, deg2rad(90), 0);
 	}
 
 	update_date_label();
@@ -107,7 +107,7 @@ void init_transfer_planner(GtkBuilder *builder) {
 
 // TRANSFER PLANNER SYSTEM VIEW CALLBACKS -----------------------------------------------
 void update_tp_system_view() {
-	clear_camera_screen(&tp_system_camera);
+	clear_camera_screen(tp_system_camera);
 	if(tp_system == NULL) return;
 
 	draw_body(tp_system_camera, tp_system, tp_system->cb, current_date_tp);
@@ -125,22 +125,22 @@ void update_tp_system_view() {
 
 	draw_itinerary(tp_system_camera, tp_system, curr_transfer_tp, current_date_tp);
 
-	draw_camera_image(&tp_system_camera);
+	draw_camera_image(tp_system_camera);
 }
 
 void on_tp_screen_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer *ptr) {
-	on_camera_zoom(widget, event, &tp_system_camera);
+	on_camera_zoom(widget, event, tp_system_camera);
 	update_tp_system_view();
 }
 
 void on_tp_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr) {
-	resize_camera_screen(&tp_system_camera);
+	resize_camera_screen(tp_system_camera);
 	update_tp_system_view();
 }
 
 void on_tp_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer *ptr) {
-	if (tp_system_camera.rotation_sensitive) {
-		on_camera_rotate(&tp_system_camera, event);
+	if (tp_system_camera->rotation_sensitive) {
+		on_camera_rotate(tp_system_camera, event);
 		update_tp_system_view();
 	}
 }
@@ -175,7 +175,7 @@ G_MODULE_EXPORT void on_tp_system_change() {
 
 	tp_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system))];
 	update_central_body_dropdown(GTK_COMBO_BOX(cb_tp_central_body), tp_system);
-	update_camera_to_celestial_system(&tp_system_camera, tp_system, deg2rad(90), 0);
+	update_camera_to_celestial_system(tp_system_camera, tp_system, deg2rad(90), 0);
 	remove_all_transfers();
 	tp_update_bodies();
 	update();
@@ -606,8 +606,8 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
 	tp_update_bodies();
 	update_itinerary();
-	update_camera_to_celestial_system(&tp_system_camera, tp_system, deg2rad(90), 0);
-	camera_zoom_to_fit_itinerary(&tp_system_camera, curr_transfer_tp);
+	update_camera_to_celestial_system(tp_system_camera, tp_system, deg2rad(90), 0);
+	camera_zoom_to_fit_itinerary(tp_system_camera, curr_transfer_tp);
 	update_tp_system_view();
 	char system_name[50];
 	sprintf(system_name, "- %s -", tp_system->name);
@@ -714,5 +714,5 @@ G_MODULE_EXPORT void on_create_gmat_script() {
 void end_transfer_planner() {
 	remove_all_transfers();
 	if(body_show_status_tp != NULL) free(body_show_status_tp);
-	destroy_camera(&tp_system_camera);
+	destroy_camera(tp_system_camera);
 }

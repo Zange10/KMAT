@@ -14,16 +14,24 @@ typedef struct {
 } PixelColor ;
 
 typedef struct {
-	int width, height;
 	PixelBuffer pixel_data;
 	cairo_t *cr;
 	cairo_surface_t *image_surface;
+	gboolean transparent;
+} ScreenLayer;
+
+typedef struct {
+	int width, height;
+	ScreenLayer static_layer;
+	ScreenLayer dynamic_layer;
 	GtkWidget *drawing_area;
 	struct Vector2D last_mouse_pos;
+	struct Vector2D mouse_pos_on_press;
 	PixelColor background_color;
+	gboolean dragging;
 } Screen;
 
-Screen new_screen(GtkWidget *drawing_area);
+Screen * new_screen(GtkWidget *drawing_area, void (*resize_func)(), void (*button_press_func)(), void (*button_release_func)(), void (*mouse_motion_func)(), void (*scroll_func)());
 void draw_screen(Screen *screen);
 void set_screen_background_color(Screen *screen, double red, double green, double blue);
 void clear_screen(Screen *screen);

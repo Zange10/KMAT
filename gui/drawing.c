@@ -5,18 +5,18 @@
 #include "math.h"
 
 
-void draw_body(Camera camera, struct System *system, struct Body *body, double jd_date) {
-	set_cairo_body_color(get_camera_screen_cairo(&camera), body);
+void draw_body(Camera *camera, struct System *system, struct Body *body, double jd_date) {
+	set_cairo_body_color(get_camera_screen_cairo(camera), body);
 	struct OSV osv_body = {.r = vec(0,0,0)};
 	if(body != system->cb) osv_body = system->calc_method == ORB_ELEMENTS ?
 										osv_from_elements(body->orbit, jd_date, system) :
 									  	osv_from_ephem(body->ephem, jd_date, system->cb);
 	struct Vector2D p2d_body = p3d_to_p2d(camera, osv_body.r);
-	cairo_arc(get_camera_screen_cairo(&camera), p2d_body.x, p2d_body.y, 5, 0, 2 * M_PI);
-	cairo_fill(get_camera_screen_cairo(&camera));
+	cairo_arc(get_camera_screen_cairo(camera), p2d_body.x, p2d_body.y, 5, 0, 2 * M_PI);
+	cairo_fill(get_camera_screen_cairo(camera));
 }
 
-void draw_orbit(Camera camera, struct Orbit orbit) {
+void draw_orbit(Camera *camera, struct Orbit orbit) {
 	struct OSV osv = propagate_orbit_theta(orbit, 0, orbit.body);
 	struct Vector2D p2d = p3d_to_p2d(camera, osv.r);
 
@@ -26,12 +26,12 @@ void draw_orbit(Camera camera, struct Orbit orbit) {
 	for(double dtheta = 0; dtheta < M_PI*2 + dtheta_step; dtheta += dtheta_step) {
 		osv = propagate_orbit_theta(orbit, dtheta, orbit.body);
 		p2d = p3d_to_p2d(camera, osv.r);
-		draw_stroke(get_camera_screen_cairo(&camera), last_p2d, p2d);
+		draw_stroke(get_camera_screen_cairo(camera), last_p2d, p2d);
 		last_p2d = p2d;
 	}
 }
 
-void draw_celestial_system(Camera camera, struct System *system, double jd_date) {
+void draw_celestial_system(Camera *camera, struct System *system, double jd_date) {
 	draw_body(camera, system, system->cb, jd_date);
 
 	for(int i = 0; i < system->num_bodies; i++) {
@@ -40,7 +40,7 @@ void draw_celestial_system(Camera camera, struct System *system, double jd_date)
 	}
 }
 
-void draw_trajectory(Camera camera, struct OSV osv0, double dt, struct Body *attractor) {
+void draw_trajectory(Camera *camera, struct OSV osv0, double dt, struct Body *attractor) {
 	if(dt <= 1.0/86400) return;
 	struct Orbit orbit = constr_orbit_from_osv(osv0.r, osv0.v, attractor);
 
@@ -62,26 +62,26 @@ void draw_trajectory(Camera camera, struct OSV osv0, double dt, struct Body *att
 	for(double dtheta = 0; dtheta <= (theta1-theta0); dtheta += theta_step) {
 		osv = propagate_orbit_theta(orbit, dtheta, orbit.body);
 		p2d = p3d_to_p2d(camera, osv.r);
-		draw_stroke(get_camera_screen_cairo(&camera), last_p2d, p2d);
+		draw_stroke(get_camera_screen_cairo(camera), last_p2d, p2d);
 		last_p2d = p2d;
 	}
 }
 
-void draw_itinerary_spacecraft(Camera camera, struct Vector r) {
-	cairo_set_source_rgb(get_camera_screen_cairo(&camera), 1, 0.4, 0.1);
+void draw_itinerary_spacecraft(Camera *camera, struct Vector r) {
+	cairo_set_source_rgb(get_camera_screen_cairo(camera), 1, 0.4, 0.1);
 	struct Vector2D p2d = p3d_to_p2d(camera, r);
-	cairo_arc(get_camera_screen_cairo(&camera), p2d.x, p2d.y, 3, 0, 2 * M_PI);
-	cairo_fill(get_camera_screen_cairo(&camera));
+	cairo_arc(get_camera_screen_cairo(camera), p2d.x, p2d.y, 3, 0, 2 * M_PI);
+	cairo_fill(get_camera_screen_cairo(camera));
 }
 
-void draw_itinerary_step_point(Camera camera, struct Vector r) {
+void draw_itinerary_step_point(Camera *camera, struct Vector r) {
 	int cross_length = 4;
-	cairo_set_source_rgb(get_camera_screen_cairo(&camera), 1, 0, 0);
+	cairo_set_source_rgb(get_camera_screen_cairo(camera), 1, 0, 0);
 	struct Vector2D p2d = p3d_to_p2d(camera, r);
 	for(int i = -1; i<=1; i+=2) {
 		struct Vector2D p1 = {p2d.x - cross_length, p2d.y + cross_length*i};
 		struct Vector2D p2 = {p2d.x + cross_length, p2d.y - cross_length*i};
-		draw_stroke(get_camera_screen_cairo(&camera), p1, p2);
+		draw_stroke(get_camera_screen_cairo(camera), p1, p2);
 	}
 }
 
@@ -95,7 +95,7 @@ void set_trajectory_color(cairo_t *cr, int trajectory_is_in_the_past, int trajec
 	}
 }
 
-void draw_itinerary(Camera camera, struct System *system, struct ItinStep *tf, double current_time) {
+void draw_itinerary(Camera *camera, struct System *system, struct ItinStep *tf, double current_time) {
 	if(tf == NULL) return;
 
 	// draw trajectories
@@ -116,19 +116,19 @@ void draw_itinerary(Camera camera, struct System *system, struct ItinStep *tf, d
 		}
 
 		if(current_time >= tf->date && current_time < tf->next[0]->date) {
-			set_trajectory_color(get_camera_screen_cairo(&camera), 1, trajectory_is_viable);
+			set_trajectory_color(get_camera_screen_cairo(camera), 1, trajectory_is_viable);
 			dt = current_time - tf->date;
 			draw_trajectory(camera, tf_osv0, dt, system->cb);
 
 			struct OSV current_osv = dt != 0 ? propagate_orbit_time(constr_orbit_from_osv(tf_osv0.r, tf_osv0.v, system->cb), dt*86400, system->cb) : tf_osv0;
 
-			set_trajectory_color(get_camera_screen_cairo(&camera), 0, trajectory_is_viable);
+			set_trajectory_color(get_camera_screen_cairo(camera), 0, trajectory_is_viable);
 			dt = tf->next[0]->date - current_time;
 			draw_trajectory(camera, current_osv, dt, system->cb);
 
 			draw_itinerary_spacecraft(camera, current_osv.r);
 		} else {
-			set_trajectory_color(get_camera_screen_cairo(&camera), current_time > tf->date, trajectory_is_viable);
+			set_trajectory_color(get_camera_screen_cairo(camera), current_time > tf->date, trajectory_is_viable);
 			draw_trajectory(camera, tf_osv0, dt, system->cb);
 		}
 		tf = tf->next[0];

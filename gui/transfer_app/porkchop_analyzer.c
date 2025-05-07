@@ -22,8 +22,8 @@ struct PorkchopAnalyzerPoint *pa_porkchop_points;
 
 struct System *pa_system;
 
-Screen pa_porkchop_screen;
-Camera pa_itin_preview_camera;
+Screen *pa_porkchop_screen;
+Camera *pa_itin_preview_camera;
 
 gboolean *body_show_status_pa;
 GObject *tf_pa_min_feedback[5];
@@ -71,33 +71,33 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 	vp_pa_groups = gtk_builder_get_object(builder, "vp_pa_groups");
 
 
-	pa_porkchop_screen = new_screen(GTK_WIDGET(da_pa_porkchop));
-	set_screen_background_color(&pa_porkchop_screen, 0.15, 0.15, 0.15);
-	pa_itin_preview_camera = new_camera(GTK_WIDGET(da_pa_preview));
+	pa_porkchop_screen = new_screen(GTK_WIDGET(da_pa_porkchop), &on_pa_screen_resize, NULL, NULL, NULL, &on_pa_screen_mouse_move);
+	set_screen_background_color(pa_porkchop_screen, 0.15, 0.15, 0.15);
+	pa_itin_preview_camera = new_camera(GTK_WIDGET(da_pa_preview), &on_pa_screen_resize, &on_enable_camera_rotation, &on_disable_camera_rotation, &on_pa_screen_mouse_move, &on_pa_screen_scroll);
 
-	gtk_widget_add_events(GTK_WIDGET(da_pa_porkchop),
-						  GDK_BUTTON_PRESS_MASK |
-						  GDK_BUTTON_RELEASE_MASK |
-						  GDK_POINTER_MOTION_MASK |
-						  GDK_SCROLL_MASK);
-	g_signal_connect(da_pa_porkchop, "draw", G_CALLBACK(on_draw_screen), &pa_porkchop_screen);
-	g_signal_connect(da_pa_porkchop, "button-press-event", G_CALLBACK(on_enable_camera_rotation), &pa_porkchop_screen);
-	g_signal_connect(da_pa_porkchop, "button-release-event", G_CALLBACK(on_disable_camera_rotation), &pa_porkchop_screen);
-	g_signal_connect(da_pa_porkchop, "motion-notify-event", G_CALLBACK(on_pa_screen_mouse_move), &pa_porkchop_screen);
-	g_signal_connect(da_pa_porkchop, "scroll-event", G_CALLBACK(on_pa_screen_scroll), &pa_porkchop_screen);
-	g_signal_connect(da_pa_porkchop, "size-allocate", G_CALLBACK(on_pa_screen_resize), &pa_porkchop_screen);
+//	gtk_widget_add_events(GTK_WIDGET(da_pa_porkchop),
+//						  GDK_BUTTON_PRESS_MASK |
+//						  GDK_BUTTON_RELEASE_MASK |
+//						  GDK_POINTER_MOTION_MASK |
+//						  GDK_SCROLL_MASK);
+//	g_signal_connect(da_pa_porkchop, "draw", G_CALLBACK(on_draw_screen), &pa_porkchop_screen);
+//	g_signal_connect(da_pa_porkchop, "button-press-event", G_CALLBACK(on_enable_camera_rotation), &pa_porkchop_screen);
+//	g_signal_connect(da_pa_porkchop, "button-release-event", G_CALLBACK(on_disable_camera_rotation), &pa_porkchop_screen);
+//	g_signal_connect(da_pa_porkchop, "motion-notify-event", G_CALLBACK(on_pa_screen_mouse_move), &pa_porkchop_screen);
+//	g_signal_connect(da_pa_porkchop, "scroll-event", G_CALLBACK(on_pa_screen_scroll), &pa_porkchop_screen);
+//	g_signal_connect(da_pa_porkchop, "size-allocate", G_CALLBACK(on_pa_screen_resize), &pa_porkchop_screen);
 
-	gtk_widget_add_events(GTK_WIDGET(da_pa_preview),
-						  GDK_BUTTON_PRESS_MASK |
-						  GDK_BUTTON_RELEASE_MASK |
-						  GDK_POINTER_MOTION_MASK |
-						  GDK_SCROLL_MASK);
-	g_signal_connect(da_pa_preview, "draw", G_CALLBACK(on_draw_screen), &pa_itin_preview_camera.screen);
-	g_signal_connect(da_pa_preview, "button-press-event", G_CALLBACK(on_enable_camera_rotation), &pa_itin_preview_camera);
-	g_signal_connect(da_pa_preview, "button-release-event", G_CALLBACK(on_disable_camera_rotation), &pa_itin_preview_camera);
-	g_signal_connect(da_pa_preview, "motion-notify-event", G_CALLBACK(on_pa_screen_mouse_move), &pa_itin_preview_camera);
-	g_signal_connect(da_pa_preview, "scroll-event", G_CALLBACK(on_pa_screen_scroll), &pa_itin_preview_camera);
-	g_signal_connect(da_pa_preview, "size-allocate", G_CALLBACK(on_pa_screen_resize), &pa_itin_preview_camera);
+//	gtk_widget_add_events(GTK_WIDGET(da_pa_preview),
+//						  GDK_BUTTON_PRESS_MASK |
+//						  GDK_BUTTON_RELEASE_MASK |
+//						  GDK_POINTER_MOTION_MASK |
+//						  GDK_SCROLL_MASK);
+//	g_signal_connect(da_pa_preview, "draw", G_CALLBACK(on_draw_screen), pa_itin_preview_camera->screen);
+//	g_signal_connect(da_pa_preview, "button-press-event", G_CALLBACK(on_enable_camera_rotation), pa_itin_preview_camera);
+//	g_signal_connect(da_pa_preview, "button-release-event", G_CALLBACK(on_disable_camera_rotation), pa_itin_preview_camera);
+//	g_signal_connect(da_pa_preview, "motion-notify-event", G_CALLBACK(on_pa_screen_mouse_move), pa_itin_preview_camera);
+//	g_signal_connect(da_pa_preview, "scroll-event", G_CALLBACK(on_pa_screen_scroll), pa_itin_preview_camera);
+//	g_signal_connect(da_pa_preview, "size-allocate", G_CALLBACK(on_pa_screen_resize), pa_itin_preview_camera);
 
 	pa_system = NULL;
 }
@@ -105,14 +105,14 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 
 // ITINERARY PREVIEW AND PORKCHOP CALLBACKS -----------------------------------------------
 void update_pa_porkchop_diagram() {
-	clear_screen(&pa_porkchop_screen);
+	clear_screen(pa_porkchop_screen);
 
-	if(pa_porkchop_points != NULL) draw_porkchop(pa_porkchop_screen.cr, pa_porkchop_screen.width, pa_porkchop_screen.height, pa_porkchop_points, pa_num_itins, pa_last_transfer_type);
-	draw_screen(&pa_porkchop_screen);
+	if(pa_porkchop_points != NULL) draw_porkchop(pa_porkchop_screen->static_layer.cr, pa_porkchop_screen->width, pa_porkchop_screen->height, pa_porkchop_points, pa_num_itins, pa_last_transfer_type);
+	draw_screen(pa_porkchop_screen);
 }
 
 void update_pa_itinerary_preview() {
-	clear_camera_screen(&pa_itin_preview_camera);
+	clear_camera_screen(pa_itin_preview_camera);
 
 	if(pa_system == NULL) return;
 
@@ -132,31 +132,31 @@ void update_pa_itinerary_preview() {
 	// Transfers
 	if(curr_transfer_pa != NULL) draw_itinerary(pa_itin_preview_camera, pa_system, curr_transfer_pa, current_date_pa);
 
-	draw_camera_image(&pa_itin_preview_camera);
+	draw_camera_image(pa_itin_preview_camera);
 }
 
 void on_pa_screen_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer *ptr) {
-	if((Camera*)ptr == &pa_itin_preview_camera) {
-		on_camera_zoom(widget, event, &pa_itin_preview_camera);
+	if((Camera*)ptr == pa_itin_preview_camera) {
+		on_camera_zoom(widget, event, pa_itin_preview_camera);
 		update_pa_itinerary_preview();
 	}
 }
 
 void on_pa_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr) {
-	if((Screen*)ptr == &pa_porkchop_screen) {
-		resize_screen(&pa_porkchop_screen);
+	if((Screen*)ptr == pa_porkchop_screen) {
+		resize_screen(pa_porkchop_screen);
 		update_pa_porkchop_diagram();
 	}
-	if((Camera*)ptr == &pa_itin_preview_camera) {
-		resize_camera_screen(&pa_itin_preview_camera);
+	if((Camera*)ptr == pa_itin_preview_camera) {
+		resize_camera_screen(pa_itin_preview_camera);
 		update_pa_itinerary_preview();
 	}
 }
 
 void on_pa_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer *ptr) {
-	if((Camera*)ptr == &pa_itin_preview_camera && pa_itin_preview_camera.rotation_sensitive) {
-		on_camera_rotate(&pa_itin_preview_camera, event);
-		resize_camera_screen(&pa_itin_preview_camera);
+	if((Camera*)ptr == pa_itin_preview_camera && pa_itin_preview_camera->rotation_sensitive) {
+		on_camera_rotate(pa_itin_preview_camera, event);
+		resize_camera_screen(pa_itin_preview_camera);
 		update_pa_itinerary_preview();
 	}
 }
@@ -535,7 +535,7 @@ void update_best_itin() {
 	if(curr_transfer_pa != NULL) free_itinerary(get_first(curr_transfer_pa));
 	curr_transfer_pa = create_itin_copy_from_arrival(pa_porkchop_points[best_show_ind].data.arrival);
 	current_date_pa = get_last(curr_transfer_pa)->date;
-	camera_zoom_to_fit_itinerary(&pa_itin_preview_camera, curr_transfer_pa);
+	camera_zoom_to_fit_itinerary(pa_itin_preview_camera, curr_transfer_pa);
 }
 
 void analyze_departure_itins() {
@@ -572,7 +572,7 @@ G_MODULE_EXPORT void on_load_itineraries(GtkWidget* widget, gpointer data) {
 	pa_num_deps = load_results.num_deps;
 	pa_departures = load_results.departures;
 	pa_system = load_results.system;
-	update_camera_to_celestial_system(&pa_itin_preview_camera, pa_system, deg2rad(90), 0);
+	update_camera_to_celestial_system(pa_itin_preview_camera, pa_system, deg2rad(90), 0);
 	if(body_show_status_pa != NULL) free(body_show_status_pa);
 	body_show_status_pa = (int*) calloc(pa_system->num_bodies, sizeof(int));
 	analyze_departure_itins();
@@ -710,6 +710,6 @@ G_MODULE_EXPORT void on_switch_steps_groups(GtkWidget* widget, gpointer data) {
 
 void end_porkchop_analyzer() {
 	free_all_porkchop_analyzer_itins();
-	destroy_camera(&pa_itin_preview_camera);
-	destroy_screen(&pa_porkchop_screen);
+	destroy_camera(pa_itin_preview_camera);
+	destroy_screen(pa_porkchop_screen);
 }
