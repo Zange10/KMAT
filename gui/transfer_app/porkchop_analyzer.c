@@ -41,6 +41,7 @@ void update_pa();
 void on_pa_screen_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer *ptr);
 void on_pa_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr);
 void on_pa_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer *ptr);
+void on_pa_screen_button_release(GtkWidget *widget, GdkEventButton *event, gpointer *ptr);
 
 
 void init_porkchop_analyzer(GtkBuilder *builder) {
@@ -71,33 +72,9 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 	vp_pa_groups = gtk_builder_get_object(builder, "vp_pa_groups");
 
 
-	pa_porkchop_screen = new_screen(GTK_WIDGET(da_pa_porkchop), &on_pa_screen_resize, NULL, NULL, NULL, &on_pa_screen_mouse_move);
+	pa_porkchop_screen = new_screen(GTK_WIDGET(da_pa_porkchop), &on_pa_screen_resize, &on_screen_button_press, &on_pa_screen_button_release, &on_pa_screen_mouse_move, NULL);
 	set_screen_background_color(pa_porkchop_screen, 0.15, 0.15, 0.15);
 	pa_itin_preview_camera = new_camera(GTK_WIDGET(da_pa_preview), &on_pa_screen_resize, &on_enable_camera_rotation, &on_disable_camera_rotation, &on_pa_screen_mouse_move, &on_pa_screen_scroll);
-
-//	gtk_widget_add_events(GTK_WIDGET(da_pa_porkchop),
-//						  GDK_BUTTON_PRESS_MASK |
-//						  GDK_BUTTON_RELEASE_MASK |
-//						  GDK_POINTER_MOTION_MASK |
-//						  GDK_SCROLL_MASK);
-//	g_signal_connect(da_pa_porkchop, "draw", G_CALLBACK(on_draw_screen), &pa_porkchop_screen);
-//	g_signal_connect(da_pa_porkchop, "button-press-event", G_CALLBACK(on_enable_camera_rotation), &pa_porkchop_screen);
-//	g_signal_connect(da_pa_porkchop, "button-release-event", G_CALLBACK(on_disable_camera_rotation), &pa_porkchop_screen);
-//	g_signal_connect(da_pa_porkchop, "motion-notify-event", G_CALLBACK(on_pa_screen_mouse_move), &pa_porkchop_screen);
-//	g_signal_connect(da_pa_porkchop, "scroll-event", G_CALLBACK(on_pa_screen_scroll), &pa_porkchop_screen);
-//	g_signal_connect(da_pa_porkchop, "size-allocate", G_CALLBACK(on_pa_screen_resize), &pa_porkchop_screen);
-
-//	gtk_widget_add_events(GTK_WIDGET(da_pa_preview),
-//						  GDK_BUTTON_PRESS_MASK |
-//						  GDK_BUTTON_RELEASE_MASK |
-//						  GDK_POINTER_MOTION_MASK |
-//						  GDK_SCROLL_MASK);
-//	g_signal_connect(da_pa_preview, "draw", G_CALLBACK(on_draw_screen), pa_itin_preview_camera->screen);
-//	g_signal_connect(da_pa_preview, "button-press-event", G_CALLBACK(on_enable_camera_rotation), pa_itin_preview_camera);
-//	g_signal_connect(da_pa_preview, "button-release-event", G_CALLBACK(on_disable_camera_rotation), pa_itin_preview_camera);
-//	g_signal_connect(da_pa_preview, "motion-notify-event", G_CALLBACK(on_pa_screen_mouse_move), pa_itin_preview_camera);
-//	g_signal_connect(da_pa_preview, "scroll-event", G_CALLBACK(on_pa_screen_scroll), pa_itin_preview_camera);
-//	g_signal_connect(da_pa_preview, "size-allocate", G_CALLBACK(on_pa_screen_resize), pa_itin_preview_camera);
 
 	pa_system = NULL;
 }
@@ -154,10 +131,55 @@ void on_pa_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr) {
 }
 
 void on_pa_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer *ptr) {
+	if((Screen*)ptr == pa_porkchop_screen) {
+		if(pa_porkchop_screen->dragging) {
+			double x = pa_porkchop_screen->mouse_pos_on_press.x;
+			double y = pa_porkchop_screen->mouse_pos_on_press.y;
+			double width = event->x-pa_porkchop_screen->mouse_pos_on_press.x;
+			double height = event->y-pa_porkchop_screen->mouse_pos_on_press.y;
+			if(x < 45 || y > pa_porkchop_screen->height-40) return;
+			if(x+width < 45) width = 45-x;
+			if(y+height < 0) height = -y;
+			if(x+width > pa_porkchop_screen->width) width = pa_porkchop_screen->width-x;
+			if(y+height > pa_porkchop_screen->height-40) height = (pa_porkchop_screen->height-40)-y;
+			clear_dynamic_screen_layer(pa_porkchop_screen);
+			cairo_rectangle(pa_porkchop_screen->dynamic_layer.cr, x, y, width, height);
+			cairo_set_source_rgba(pa_porkchop_screen->dynamic_layer.cr, 1, 0, 0, 1);
+			cairo_stroke(pa_porkchop_screen->dynamic_layer.cr);
+			draw_screen(pa_porkchop_screen);
+		}
+	}
 	if((Camera*)ptr == pa_itin_preview_camera && pa_itin_preview_camera->rotation_sensitive) {
 		on_camera_rotate(pa_itin_preview_camera, event);
 		resize_camera_screen(pa_itin_preview_camera);
 		update_pa_itinerary_preview();
+	}
+}
+
+void on_pa_screen_button_release(GtkWidget *widget, GdkEventButton *event, gpointer *ptr) {
+	if((Screen*)ptr == pa_porkchop_screen) {
+		pa_porkchop_screen->dragging = FALSE;
+
+		clear_dynamic_screen_layer(pa_porkchop_screen);
+		double x0 = pa_porkchop_screen->mouse_pos_on_press.x;
+		double y0 = pa_porkchop_screen->mouse_pos_on_press.y;
+		double x1 = event->x;
+		double y1 = event->y;
+
+		if(x0 > x1) {
+			double temp = x0;
+			x0 = x1;
+			x1 = temp;
+		}
+		if(y0 > y1) {
+			double temp = y0;
+			y0 = y1;
+			y1 = temp;
+		}
+
+		printf("%f  %f   |   %f  %f\n", x0, y0, x1, y1);
+
+		draw_screen(pa_porkchop_screen);
 	}
 }
 

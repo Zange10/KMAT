@@ -29,6 +29,7 @@ Screen * new_screen(GtkWidget *drawing_area, void (*resize_func)(), void (*butto
 	new_screen->last_mouse_pos = vec2D(0,0);
 	new_screen->mouse_pos_on_press = vec2D(0,0);
 	new_screen->background_color = (PixelColor) {0,0,0};
+	new_screen->dragging = FALSE;
 
 	g_signal_connect(drawing_area, "draw", G_CALLBACK(on_draw_screen), new_screen);
 	gtk_widget_add_events(drawing_area, GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK);
@@ -44,14 +45,19 @@ void draw_screen(Screen *screen) {
 	gtk_widget_queue_draw(screen->drawing_area);
 }
 
-void clear_screen(Screen *screen) {
+void clear_static_screen_layer(Screen *screen) {
 	cairo_rectangle(screen->static_layer.cr, 0, 0, screen->width, screen->height);
 	cairo_set_source_rgb(screen->static_layer.cr, screen->background_color.r, screen->background_color.g, screen->background_color.b);
 	cairo_fill(screen->static_layer.cr);
+}
 
-	cairo_rectangle(screen->dynamic_layer.cr, 0, 0, screen->width, screen->height);
-	cairo_set_source_rgba(screen->dynamic_layer.cr, 0, 0, 0, 0);
-	cairo_fill(screen->dynamic_layer.cr);
+void clear_dynamic_screen_layer(Screen *screen) {
+	memset(screen->dynamic_layer.pixel_data, 0, screen->width*screen->height*sizeof(ScreenPixel));
+}
+
+void clear_screen(Screen *screen) {
+	clear_static_screen_layer(screen);
+	clear_dynamic_screen_layer(screen);
 }
 
 void set_screen_background_color(Screen *screen, double red, double green, double blue) {
@@ -106,4 +112,14 @@ G_MODULE_EXPORT void on_draw_screen(GtkWidget *drawing_area, cairo_t *cr_drawing
 	cairo_paint(cr_drawing_area);
 	cairo_set_source_surface(cr_drawing_area, screen->dynamic_layer.image_surface, 0, 0);
 	cairo_paint(cr_drawing_area);
+}
+
+void on_screen_button_press(GtkWidget *widget, GdkEventButton *event, Screen *screen) {
+	screen->dragging = TRUE;
+	screen->last_mouse_pos = (struct Vector2D) {event->x, event->y};
+	screen->mouse_pos_on_press = (struct Vector2D) {event->x, event->y};
+}
+
+void on_screen_button_release(GtkWidget *widget, GdkEventButton *event, Screen *screen) {
+	screen->dragging = FALSE;
 }

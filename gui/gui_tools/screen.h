@@ -34,11 +34,15 @@ typedef struct {
 Screen * new_screen(GtkWidget *drawing_area, void (*resize_func)(), void (*button_press_func)(), void (*button_release_func)(), void (*mouse_motion_func)(), void (*scroll_func)());
 void draw_screen(Screen *screen);
 void set_screen_background_color(Screen *screen, double red, double green, double blue);
+void clear_static_screen_layer(Screen *screen);
+void clear_dynamic_screen_layer(Screen *screen);
 void clear_screen(Screen *screen);
 void resize_screen(Screen *screen);
 void destroy_screen(Screen *screen);
 
 // GTK Callback functions --------------------------
 G_MODULE_EXPORT void on_draw_screen(GtkWidget *drawing_area, cairo_t *cr, Screen *screen);
+void on_screen_button_press(GtkWidget *widget, GdkEventButton *event, Screen *screen);
+void on_screen_button_release(GtkWidget *widget, GdkEventButton *event, Screen *screen);
 
 #endif //KSP_SCREEN_H
