@@ -720,6 +720,30 @@ void update_pa() {
 	reset_min_max_feedback(1);
 }
 
+gboolean are_any_porkchop_points_in_filter(const double min[5], const double max[5]) {
+	// show only groups inside filter in gui (setting visible below)
+	for(int group_idx = 0; group_idx < pa_num_groups; group_idx++) pa_groups[group_idx].has_itin_inside_filter = 0;
+
+	int init_num_itins = 0;
+
+	struct PorkchopPoint pp;
+	for(int i = 0; i < pa_num_itins; i++) {
+		if(pa_porkchop_points[i].inside_filter && pa_porkchop_points[i].group->show_group) init_num_itins++;
+		pp = pa_porkchop_points[i].data;
+
+		double dv_sat = pp.dv_dsm;
+		if(pa_last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
+		if(pa_last_transfer_type == TF_CIRC)	dv_sat += pp.dv_arr_circ;
+
+		if(	!(pp.dep_date 		< min[0] || pp.dep_date 		> max[0] ||
+			   pp.dur 				< min[1] || pp.dur 				> max[1] ||
+			   pp.dv_dep + dv_sat	< min[2] || pp.dv_dep + dv_sat	> max[2] ||
+			   pp.dv_dep 			< min[3] || pp.dv_dep 			> max[3] ||
+			   dv_sat 				< min[4] || dv_sat 				> max[4])) return TRUE;
+	}
+	return FALSE;
+}
+
 void apply_filter() {
 	if(pa_porkchop_points == NULL) return;
 	double min[5], max[5];
@@ -743,6 +767,8 @@ void apply_filter() {
 			max[i] = temp;
 		}
 	}
+
+	if(!are_any_porkchop_points_in_filter(min, max)) return;
 
 	// show only groups inside filter in gui (setting visible below)
 	for(int group_idx = 0; group_idx < pa_num_groups; group_idx++) pa_groups[group_idx].has_itin_inside_filter = 0;
