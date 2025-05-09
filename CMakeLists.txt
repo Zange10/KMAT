@@ -98,8 +98,6 @@ add_executable(KSP-Tools
         00_Testing/testing.h
         00_Testing/testing_algorithms.c
         00_Testing/testing_algorithms.h
-        projection_test/projection_test.c
-        projection_test/projection_test.h
         gui/gui_tools/camera.c
         gui/gui_tools/camera.h
         gui/gui_tools/screen.c
