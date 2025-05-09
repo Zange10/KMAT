@@ -22,6 +22,10 @@ struct PorkchopAnalyzerPoint *pa_porkchop_points;
 
 struct System *pa_system;
 
+double pa_min_vals[5], pa_max_vals[5];
+
+enum PaMinMaxType {PA_DEP, PA_DUR, PA_TOTDV, PA_DEPDV, PA_SATDV};
+
 Screen *pa_porkchop_screen;
 Camera *pa_itin_preview_camera;
 
@@ -181,16 +185,9 @@ void on_pa_screen_button_release(GtkWidget *widget, GdkEventButton *event, gpoin
 		if(y0 > pa_porkchop_screen->height-40) y0 = pa_porkchop_screen->height-40;
 		if(y1 > pa_porkchop_screen->height-40) y1 = pa_porkchop_screen->height-40;
 
-		if(x0 > x1) {
-			double temp = x0;
-			x0 = x1;
-			x1 = temp;
-		}
-		if(y0 > y1) {
-			double temp = y0;
-			y0 = y1;
-			y1 = temp;
-		}
+		if(x0 > x1) { double temp = x0; x0 = x1; x1 = temp;	}
+		if(y0 > y1) { double temp = y0; y0 = y1; y1 = temp; }
+
 		x0 -= 45;
 		x1 -= 45;
 		x0 /= (pa_porkchop_screen->width-45);
@@ -198,45 +195,12 @@ void on_pa_screen_button_release(GtkWidget *widget, GdkEventButton *event, gpoin
 		y0 /= (pa_porkchop_screen->height-40);
 		y1 /= (pa_porkchop_screen->height-40);
 
-		double dv, date, dur;
-
-		int first_show_ind = 0;
-		while(!pa_porkchop_points[first_show_ind].inside_filter) first_show_ind++;
-
-		struct PorkchopPoint pp = pa_porkchop_points[first_show_ind].data;
-		double dv_sat = pp.dv_dsm;
-		if(pa_last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
-		if(pa_last_transfer_type == TF_CIRC)		dv_sat += pp.dv_arr_circ;
-
-		double min_date = pp.dep_date, max_date = pp.dep_date;
-		double min_dur = pp.dur, max_dur = pp.dur;
-		double min_dv = pp.dv_dep + dv_sat;
-		double max_dv = pp.dv_dep + dv_sat;
-
-		// find min and max
-		for(int i = 1; i < pa_num_itins; i++) {
-			if(!pa_porkchop_points[i].inside_filter) continue;
-			pp = pa_porkchop_points[i].data;
-
-			dv_sat = pp.dv_dsm;
-			if(pa_last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
-			if(pa_last_transfer_type == TF_CIRC)		dv_sat += pp.dv_arr_circ;
-
-			dv = pp.dv_dep + dv_sat;
-			date = pp.dep_date;
-			dur = pp.dur;
-
-			if(dv < min_dv) min_dv = dv;
-			else if(dv > max_dv) max_dv = dv;
-			if(date < min_date) min_date = date;
-			else if(date > max_date) max_date = date;
-			if(dur < min_dur) min_dur = dur;
-			else if(dur > max_dur) max_dur = dur;
-		}
-
-
+		double max_date = pa_max_vals[PA_DEP], min_date = pa_min_vals[PA_DEP];
+		double max_dur = pa_max_vals[PA_DUR], min_dur = pa_min_vals[PA_DUR];
 		double ddate = max_date-min_date;
-		double ddur = max_dur - min_dur;
+		double ddur = max_dur-min_dur;
+
+		// below from porkchop drawing...
 
 		double margin = 0.05;
 
@@ -439,6 +403,9 @@ void reset_min_max_feedback(int take_hidden_group_into_account) {
 		sprintf(string, "%.2f", max[i]);
 		gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[i]), string);
 	}
+
+	for(int i = 0; i < 5; i++) pa_min_vals[i] = min[i];
+	for(int i = 0; i < 5; i++) pa_max_vals[i] = max[i];
 }
 
 G_MODULE_EXPORT void on_change_itin_group_visibility(GtkWidget* widget, gpointer data) {
