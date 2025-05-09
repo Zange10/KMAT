@@ -992,7 +992,6 @@
                     <property name="can-focus">False</property>
                     <property name="hexpand">True</property>
                     <property name="vexpand">True</property>
-                    <signal name="draw" handler="on_porkchop_draw" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -1005,7 +1004,6 @@
                     <property name="can-focus">False</property>
                     <property name="hexpand">True</property>
                     <property name="vexpand">True</property>
-                    <signal name="draw" handler="on_preview_draw" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -1722,7 +1720,6 @@
                     <property name="can-focus">False</property>
                     <property name="hexpand">True</property>
                     <property name="vexpand">True</property>
-                    <signal name="draw" handler="on_transfer_planner_draw" swapped="no"/>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>

@@ -6,7 +6,7 @@
 
 void init_porkchop_analyzer(GtkBuilder *builder);
 void pa_change_date_type(enum DateType old_date_type, enum DateType new_date_type);
-void free_all_porkchop_analyzer_itins();
+void end_porkchop_analyzer();
 
 
 // Handler -----------------------

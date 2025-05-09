@@ -52,10 +52,9 @@ void start_gui(const char* gui_filepath) {
 	// gui runs...
 
 	// reset transfer gui
-	remove_all_transfers();
-	free_all_porkchop_analyzer_itins();
 	reset_ic();
 	reset_sc();
+	end_porkchop_analyzer();
 	end_transfer_planner();
 	// reset launch gui
 	close_launch_analyzer();

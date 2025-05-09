@@ -17,6 +17,8 @@ struct ItinStep *curr_transfer_tp;
 
 struct System *tp_system;
 
+Camera *tp_system_camera;
+
 GObject *da_tp;
 GObject *cb_tp_system;
 GObject *cb_tp_central_body;
@@ -38,6 +40,13 @@ double current_date_tp;
 enum LastTransferType tp_last_transfer_type;
 
 void tp_update_bodies();
+void remove_all_transfers();
+
+void update_tp_system_view();
+void on_tp_screen_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer *ptr);
+void on_tp_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr);
+void on_tp_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer *ptr);
+
 
 void init_transfer_planner(GtkBuilder *builder) {
 	struct Date date = {1950, 1, 1, 0, 0, 0};
@@ -60,6 +69,20 @@ void init_transfer_planner(GtkBuilder *builder) {
 	da_tp = gtk_builder_get_object(builder, "da_tp");
 	vp_tp_bodies = gtk_builder_get_object(builder, "vp_tp_bodies");
 
+	tp_system_camera = new_camera(GTK_WIDGET(da_tp), &on_tp_screen_resize, &on_enable_camera_rotation, &on_disable_camera_rotation, &on_tp_screen_mouse_move, &on_tp_screen_scroll);
+
+//	gtk_widget_add_events(GTK_WIDGET(da_tp),
+//						  GDK_BUTTON_PRESS_MASK |
+//						  GDK_BUTTON_RELEASE_MASK |
+//						  GDK_POINTER_MOTION_MASK |
+//						  GDK_SCROLL_MASK);
+//	g_signal_connect(da_tp, "draw", G_CALLBACK(on_draw_screen), tp_system_camera->screen);
+//	g_signal_connect(da_tp, "button-press-event", G_CALLBACK(on_enable_camera_rotation), tp_system_camera);
+//	g_signal_connect(da_tp, "button-release-event", G_CALLBACK(on_disable_camera_rotation), tp_system_camera);
+//	g_signal_connect(da_tp, "motion-notify-event", G_CALLBACK(on_tp_screen_mouse_move), tp_system_camera);
+//	g_signal_connect(da_tp, "scroll-event", G_CALLBACK(on_tp_screen_scroll), tp_system_camera);
+//	g_signal_connect(da_tp, "size-allocate", G_CALLBACK(on_tp_screen_resize), tp_system_camera);
+
 	tp_system = NULL;
 	curr_transfer_tp = NULL;
 
@@ -73,11 +96,58 @@ void init_transfer_planner(GtkBuilder *builder) {
 		tp_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system))];
 		update_central_body_dropdown(GTK_COMBO_BOX(cb_tp_central_body), tp_system);
 		tp_update_bodies();
+
+		update_camera_to_celestial_system(tp_system_camera, tp_system, deg2rad(90), 0);
 	}
 
 	update_date_label();
 	update_transfer_panel();
 }
+
+
+// TRANSFER PLANNER SYSTEM VIEW CALLBACKS -----------------------------------------------
+void update_tp_system_view() {
+	clear_camera_screen(tp_system_camera);
+	if(tp_system == NULL) return;
+
+	draw_body(tp_system_camera, tp_system, tp_system->cb, current_date_tp);
+
+	for(int i = 0; i < tp_system->num_bodies; i++) {
+		if(!body_show_status_tp[i]) continue;
+		draw_body(tp_system_camera, tp_system, tp_system->bodies[i], current_date_tp);
+		struct Orbit orbit = tp_system->bodies[i]->orbit;
+		if(tp_system->calc_method == EPHEMS) {
+			struct OSV body_osv = osv_from_ephem(tp_system->bodies[i]->ephem, current_date_tp, tp_system->cb);
+			orbit = constr_orbit_from_osv(body_osv.r, body_osv.v, tp_system->cb);
+		}
+		draw_orbit(tp_system_camera, orbit);
+	}
+
+	draw_itinerary(tp_system_camera, tp_system, curr_transfer_tp, current_date_tp);
+
+	draw_camera_image(tp_system_camera);
+}
+
+void on_tp_screen_scroll(GtkWidget *widget, GdkEventScroll *event, gpointer *ptr) {
+	on_camera_zoom(widget, event, tp_system_camera);
+	update_tp_system_view();
+}
+
+void on_tp_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr) {
+	resize_camera_screen(tp_system_camera);
+	update_tp_system_view();
+}
+
+void on_tp_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer *ptr) {
+	if (tp_system_camera->rotation_sensitive) {
+		on_camera_rotate(tp_system_camera, event);
+		update_tp_system_view();
+	}
+}
+
+// -------------------------------------------------------------------------------------
+
+
 
 void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
 	change_label_date_type(lb_tp_date, old_date_type, new_date_type);
@@ -105,6 +175,7 @@ G_MODULE_EXPORT void on_tp_system_change() {
 
 	tp_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system))];
 	update_central_body_dropdown(GTK_COMBO_BOX(cb_tp_central_body), tp_system);
+	update_camera_to_celestial_system(tp_system_camera, tp_system, deg2rad(90), 0);
 	remove_all_transfers();
 	tp_update_bodies();
 	update();
@@ -122,62 +193,6 @@ G_MODULE_EXPORT void on_tp_central_body_change() {
 	remove_all_transfers();
 	tp_update_bodies();
 	update();
-}
-
-
-G_MODULE_EXPORT void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data) {
-	GtkAllocation allocation;
-	gtk_widget_get_allocation(widget, &allocation);
-	int area_width = allocation.width;
-	int area_height = allocation.height;
-	struct Vector2D center = {(double) area_width/2, (double) area_height/2};
-
-	// reset drawing area
-	cairo_rectangle(cr, 0, 0, area_width, area_height);
-	cairo_set_source_rgb(cr, 0,0,0);
-	cairo_fill(cr);
-
-	if(tp_system == NULL) return;
-
-	// Scale
-	struct Body *farthest_body = NULL;
-	double max_apoapsis = 0;
-	for(int i = 0; i < tp_system->num_bodies; i++) {
-		if(body_show_status_tp[i] && tp_system->bodies[i]->orbit.apoapsis > max_apoapsis) {farthest_body = tp_system->bodies[i]; max_apoapsis = tp_system->bodies[i]->orbit.apoapsis;}
-	}
-	double scale = calc_scale(area_width, area_height, farthest_body);
-
-	// Sun
-	set_cairo_body_color(cr, tp_system->cb);
-	draw_body(cr, center, 0, vec(0,0,0));
-	cairo_fill(cr);
-
-	// Planets
-	for(int i = 0; i < tp_system->num_bodies; i++) {
-		if(body_show_status_tp[i]) {
-			set_cairo_body_color(cr, tp_system->bodies[i]);
-			struct OSV osv = tp_system->calc_method == ORB_ELEMENTS ?
-					osv_from_elements(tp_system->bodies[i]->orbit, current_date_tp, tp_system) :
-					osv_from_ephem(tp_system->bodies[i]->ephem, current_date_tp, tp_system->cb);
-			draw_body(cr, center, scale, osv.r);
-			draw_orbit(cr, center, scale, osv.r, osv.v, tp_system->cb);
-		}
-	}
-
-	// Transfers
-	if(curr_transfer_tp != NULL) {
-		struct ItinStep *temp_transfer = get_first(curr_transfer_tp);
-		while(temp_transfer != NULL) {
-			if(temp_transfer->body != NULL) {
-				set_cairo_body_color(cr, temp_transfer->body);
-				draw_transfer_point(cr, center, scale, temp_transfer->r);
-				// skip not working or draw working double swing-by
-			} else if(temp_transfer->body == NULL && temp_transfer->v_body.x == 1)
-				draw_transfer_point(cr, center, scale, temp_transfer->r);
-			if(temp_transfer->prev != NULL) draw_trajectory(cr, center, scale, temp_transfer, tp_system->cb);
-			temp_transfer = temp_transfer->next != NULL ? temp_transfer->next[0] : NULL;
-		}
-	}
 }
 
 double calc_step_dv(struct ItinStep *step) {
@@ -241,7 +256,7 @@ void remove_all_transfers() {
 void update() {
 	update_date_label();
 	update_transfer_panel();
-	gtk_widget_queue_draw(GTK_WIDGET(da_tp));
+	update_tp_system_view();
 }
 
 void update_date_label() {
@@ -339,7 +354,7 @@ void tp_update_bodies() {
 G_MODULE_EXPORT void on_body_toggle(GtkWidget* widget, gpointer data) {
 	gboolean *show_body = (gboolean *) data;  // Cast data back to group struct
 	*show_body = !*show_body;
-	gtk_widget_queue_draw(GTK_WIDGET(da_tp));
+	update_tp_system_view();
 }
 
 
@@ -591,6 +606,9 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
 	tp_update_bodies();
 	update_itinerary();
+	update_camera_to_celestial_system(tp_system_camera, tp_system, deg2rad(90), 0);
+	camera_zoom_to_fit_itinerary(tp_system_camera, curr_transfer_tp);
+	update_tp_system_view();
 	char system_name[50];
 	sprintf(system_name, "- %s -", tp_system->name);
 	append_combobox_entry(GTK_COMBO_BOX(cb_tp_system), system_name);
@@ -694,5 +712,7 @@ G_MODULE_EXPORT void on_create_gmat_script() {
 }
 
 void end_transfer_planner() {
+	remove_all_transfers();
 	if(body_show_status_tp != NULL) free(body_show_status_tp);
+	destroy_camera(tp_system_camera);
 }
