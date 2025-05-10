@@ -105,6 +105,8 @@ enum TestResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test test_d
 			.max_depdv = test_data.max_depdv,
 			.max_satdv = test_data.max_satdv,
 			.max_totdv = test_data.max_totdv,
+			.dep_periapsis = get_body_by_name(test_data.dep_body_name, system)->atmo_alt+50e3,
+			.arr_periapsis = get_body_by_name(test_data.arr_body_name, system)->atmo_alt+50e3,
 			.last_transfer_type = test_data.last_transfer_type
 	};
 
@@ -151,7 +153,7 @@ enum TestResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test test_d
 	for(int i = 0; i < results.num_deps; i++) num_itins += get_number_of_itineraries(results.departures[i]);
 
 	enum TestResult test_result = TEST_PASSED;
-	struct PorkchopPoint *porkchop_points = create_porkchop_array_from_departures(results.departures, results.num_deps);
+	struct PorkchopPoint *porkchop_points = create_porkchop_array_from_departures(results.departures, results.num_deps, dv_filter.dep_periapsis, dv_filter.arr_periapsis);
 	for(int i = 0; i < num_itins; i++) {
 		if(!has_porkchop_point_valid_dep_arr_flyby_bodies(porkchop_points[i], seq_info_to_target)) {test_result = TEST_FAIL_ITINERARY_HAS_INVALID_CELESTIAL_BODY; break;}
 		if(!is_porkchop_point_inside_time_constraints(porkchop_points[i], itin_calc_data)) {test_result = TEST_FAIL_ITINERARY_OUTSIDE_TIME_CONSTRAINTS; break;}
@@ -189,6 +191,8 @@ enum TestResult test_sequence_calculator(struct Itin_Spec_Seq_Calc_Test test_dat
 			.max_depdv = test_data.max_depdv,
 			.max_satdv = test_data.max_satdv,
 			.max_totdv = test_data.max_totdv,
+			.dep_periapsis = get_body_by_name(test_data.body_names[0], system)->atmo_alt+50e3,
+			.arr_periapsis = get_body_by_name(test_data.body_names[test_data.num_steps-1], system)->atmo_alt+50e3,
 			.last_transfer_type = test_data.last_transfer_type
 	};
 
@@ -231,7 +235,7 @@ enum TestResult test_sequence_calculator(struct Itin_Spec_Seq_Calc_Test test_dat
 	for(int i = 0; i < results.num_deps; i++) num_itins += get_number_of_itineraries(results.departures[i]);
 
 	enum TestResult test_result = TEST_PASSED;
-	struct PorkchopPoint *porkchop_points = create_porkchop_array_from_departures(results.departures, results.num_deps);
+	struct PorkchopPoint *porkchop_points = create_porkchop_array_from_departures(results.departures, results.num_deps, dv_filter.dep_periapsis, dv_filter.arr_periapsis);
 	for(int i = 0; i < num_itins; i++) {
 		if(!has_porkchop_point_valid_itinerary_sequence(porkchop_points[i], seq_info_spec_seq)) {test_result = TEST_FAIL_ITINERARY_HAS_INVALID_CELESTIAL_BODY; break;}
 		if(!is_porkchop_point_inside_time_constraints(porkchop_points[i], itin_calc_data)) {test_result = TEST_FAIL_ITINERARY_OUTSIDE_TIME_CONSTRAINTS; break;}
@@ -272,7 +276,7 @@ enum TestResult test_itins_file(char *filepath) {
 	printf("Number of Itineraries: %d\n", num_itins);
 
 	enum TestResult test_result = TEST_PASSED;
-	struct PorkchopPoint *porkchop_points = create_porkchop_array_from_departures(departures, num_deps);
+	struct PorkchopPoint *porkchop_points = create_porkchop_array_from_departures(departures, num_deps, get_first(departures[0])->body->atmo_alt+50e3, get_last(departures[0])->body->atmo_alt+50e3);
 	for(int i = 0; i < num_itins; i++) {
 		if(!has_porkchop_point_valid_itinerary(porkchop_points[i])) {test_result = TEST_FAIL_INVALID_ITINERARY; break;}
 	}
@@ -310,7 +314,7 @@ enum TestResult test_itin_file(char *filepath) {
 	printf("\n");
 
 	enum TestResult test_result = TEST_PASSED;
-	struct PorkchopPoint porkchop_point = create_porkchop_point(arrival);
+	struct PorkchopPoint porkchop_point = create_porkchop_point(arrival, get_first(ptr)->body->atmo_alt+50e3, get_last(ptr)->body->atmo_alt+50e3);
 
 	printf("DV: (%f | %f | %f | %f)\nDeparture date: ", porkchop_point.dv_dep, porkchop_point.dv_dsm, porkchop_point.dv_arr_cap, porkchop_point.dv_arr_circ);
 	print_date(convert_JD_date(porkchop_point.dep_date, DATE_ISO), 0); printf("  |  "); print_date(convert_JD_date(porkchop_point.dep_date, DATE_KERBAL), 1);

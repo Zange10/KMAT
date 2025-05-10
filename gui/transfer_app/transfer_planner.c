@@ -39,6 +39,9 @@ double current_date_tp;
 
 enum LastTransferType tp_last_transfer_type;
 
+double tp_dep_periapsis = 50e3;
+double tp_arr_periapsis = 50e3;
+
 void tp_update_bodies();
 void remove_all_transfers();
 
@@ -71,17 +74,6 @@ void init_transfer_planner(GtkBuilder *builder) {
 
 	tp_system_camera = new_camera(GTK_WIDGET(da_tp), &on_tp_screen_resize, &on_enable_camera_rotation, &on_disable_camera_rotation, &on_tp_screen_mouse_move, &on_tp_screen_scroll);
 
-//	gtk_widget_add_events(GTK_WIDGET(da_tp),
-//						  GDK_BUTTON_PRESS_MASK |
-//						  GDK_BUTTON_RELEASE_MASK |
-//						  GDK_POINTER_MOTION_MASK |
-//						  GDK_SCROLL_MASK);
-//	g_signal_connect(da_tp, "draw", G_CALLBACK(on_draw_screen), tp_system_camera->screen);
-//	g_signal_connect(da_tp, "button-press-event", G_CALLBACK(on_enable_camera_rotation), tp_system_camera);
-//	g_signal_connect(da_tp, "button-release-event", G_CALLBACK(on_disable_camera_rotation), tp_system_camera);
-//	g_signal_connect(da_tp, "motion-notify-event", G_CALLBACK(on_tp_screen_mouse_move), tp_system_camera);
-//	g_signal_connect(da_tp, "scroll-event", G_CALLBACK(on_tp_screen_scroll), tp_system_camera);
-//	g_signal_connect(da_tp, "size-allocate", G_CALLBACK(on_tp_screen_resize), tp_system_camera);
 
 	tp_system = NULL;
 	curr_transfer_tp = NULL;
@@ -204,12 +196,12 @@ double calc_step_dv(struct ItinStep *step) {
 		return vector_mag(subtract_vectors(step->v_arr, step->next[0]->v_dep));
 	} else if(step->prev == NULL) {
 		double vinf = vector_mag(subtract_vectors(step->next[0]->v_dep, step->v_body));
-		return dv_circ(step->body, step->body->atmo_alt+50e3, vinf);
+		return dv_circ(step->body, step->body->atmo_alt+tp_dep_periapsis, vinf);
 	} else if(step->next == NULL) {
 		if(tp_last_transfer_type == TF_FLYBY) return 0;
 		double vinf = vector_mag(subtract_vectors(step->v_arr, step->v_body));
-		if(tp_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + 50e3, vinf);
-		else if(tp_last_transfer_type == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + 50e3, vinf);
+		if(tp_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + tp_arr_periapsis, vinf);
+		else if(tp_last_transfer_type == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + tp_arr_periapsis, vinf);
 	}
 	return 0;
 }

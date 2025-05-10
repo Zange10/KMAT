@@ -125,7 +125,7 @@ void *calc_itins_from_departure(void *args) {
 				double data[3];
 
 				struct Transfer tf = calc_transfer(tt, dep_body, next_step_body, osv_body0.r, osv_body0.v,
-												   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, system->cb, data);
+												   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, system->cb, data, dv_filter.dep_periapsis, dv_filter.arr_periapsis);
 
 
 				if(data[1] > dv_filter.max_totdv || data[1] > dv_filter.max_depdv) continue;

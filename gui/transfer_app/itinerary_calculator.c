@@ -26,6 +26,9 @@ GtkWidget *grid_ic_fbbodies;
 
 struct System *ic_system;
 
+double ic_dep_periapsis = 50e3;
+double ic_arr_periapsis = 50e3;
+
 GtkWidget * ic_update_seq_body_grid(GObject *viewport, GtkWidget *grid);
 
 void init_itinerary_calculator(GtkBuilder *builder) {
@@ -160,6 +163,9 @@ void ic_calc_thread() {
 	string = (char*) gtk_combo_box_get_active_id(GTK_COMBO_BOX(cb_ic_transfertype));
 	calc_data.dv_filter.last_transfer_type = (int) strtol(string, NULL, 10);
 
+	calc_data.dv_filter.dep_periapsis = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_depbody))]->atmo_alt + ic_dep_periapsis;
+	calc_data.dv_filter.arr_periapsis = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))]->atmo_alt + ic_arr_periapsis;
+
 	// Make sure arrival body is a fly-by body
 	struct Body *arr_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))];
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_grid_get_child_at(GTK_GRID(grid_ic_fbbodies), 0, get_body_system_id(arr_body, ic_system))), 1);
@@ -221,7 +227,7 @@ G_MODULE_EXPORT void on_get_ic_ref_values() {
 
 	if(dep_body == arr_body) return;
 
-	calc_interplanetary_hohmann_transfer(dep_body, arr_body, ic_system->cb, &dur, &dv_dep, &dv_arr_cap, &dv_arr_circ);
+	calc_interplanetary_hohmann_transfer(dep_body, arr_body, ic_system->cb, &dur, &dv_dep, &dv_arr_cap, &dv_arr_circ, dep_body->atmo_alt+ic_dep_periapsis, arr_body->atmo_alt+ic_arr_periapsis);
 
 	dur /= get_settings_datetime_type() != DATE_KERBAL ? (24*60*60) : (6*60*60);
 

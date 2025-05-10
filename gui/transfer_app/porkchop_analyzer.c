@@ -26,6 +26,9 @@ double pa_min_vals[5], pa_max_vals[5];
 
 enum PaMinMaxType {PA_DEP, PA_DUR, PA_TOTDV, PA_DEPDV, PA_SATDV};
 
+double pa_dep_periapsis = 50e3;
+double pa_arr_periapsis = 50e3;
+
 Screen *pa_porkchop_screen;
 Camera *pa_itin_preview_camera;
 
@@ -175,44 +178,7 @@ void on_pa_screen_button_release(GtkWidget *widget, GdkEventButton *event, gpoin
 		double y1 = event->y;
 
 		if(x0 < 45 || y0 > pa_porkchop_screen->height-40) return;
-		if(x0 < 45) x0 = 45;
-		if(x1 < 45) x1 = 45;
-		if(x0 > pa_porkchop_screen->width) x0 = pa_porkchop_screen->width;
-		if(x1 > pa_porkchop_screen->width) x1 = pa_porkchop_screen->width;
-
-		if(y0 < 0) y0 = 0;
-		if(y1 < 0) y1 = 0;
-		if(y0 > pa_porkchop_screen->height-40) y0 = pa_porkchop_screen->height-40;
-		if(y1 > pa_porkchop_screen->height-40) y1 = pa_porkchop_screen->height-40;
-
-		if(x0 > x1) { double temp = x0; x0 = x1; x1 = temp;	}
-		if(y0 > y1) { double temp = y0; y0 = y1; y1 = temp; }
-
-		x0 -= 45;
-		x1 -= 45;
-		x0 /= (pa_porkchop_screen->width-45);
-		x1 /= (pa_porkchop_screen->width-45);
-		y0 /= (pa_porkchop_screen->height-40);
-		y1 /= (pa_porkchop_screen->height-40);
-
-		double max_date = pa_max_vals[PA_DEP], min_date = pa_min_vals[PA_DEP];
-		double max_dur = pa_max_vals[PA_DUR], min_dur = pa_min_vals[PA_DUR];
-		double ddate = max_date-min_date;
-		double ddur = max_dur-min_dur;
-
-		// below from porkchop drawing...
-
-		double margin = 0.05;
-
-		min_date = min_date-ddate*margin;
-		max_date = max_date+ddate*margin;
-		min_dur = min_dur - ddur * margin;
-		max_dur = max_dur + ddur * margin;
-
-		x0 = x0*(max_date-min_date)+min_date;
-		x1 = x1*(max_date-min_date)+min_date;
-		y0 = (1-y0)*(max_dur-min_dur)+min_dur;
-		y1 = (1-y1)*(max_dur-min_dur)+min_dur;
+		get_min_max_dep_dur_range_from_mouse_rect(&x0, &x1, &y0, &y1, pa_min_vals[PA_DEP], pa_max_vals[PA_DEP], pa_min_vals[PA_DUR], pa_max_vals[PA_DUR], pa_porkchop_screen->width, pa_porkchop_screen->height);
 
 		char string[20];
 		date_to_string(convert_JD_date(x0, get_settings_datetime_type()), string, 0);
@@ -251,12 +217,12 @@ double calc_step_dv_pa(struct ItinStep *step) {
 		return vector_mag(subtract_vectors(step->v_arr, step->next[0]->v_dep));
 	} else if(step->prev == NULL) {
 		double vinf = vector_mag(subtract_vectors(step->next[0]->v_dep, step->v_body));
-		return dv_circ(step->body, step->body->atmo_alt+50e3, vinf);
+		return dv_circ(step->body, step->body->atmo_alt+pa_dep_periapsis, vinf);
 	} else if(step->next == NULL) {
 		if(pa_last_transfer_type == TF_FLYBY) return 0;
 		double vinf = vector_mag(subtract_vectors(step->v_arr, step->v_body));
-		if(pa_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + 50e3, vinf);
-		else if(pa_last_transfer_type == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + 50e3, vinf);
+		if(pa_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + pa_arr_periapsis, vinf);
+		else if(pa_last_transfer_type == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + pa_arr_periapsis, vinf);
 	}
 	return 0;
 }
@@ -623,7 +589,7 @@ void analyze_departure_itins() {
 	for(int i = 0; i < pa_num_deps; i++) store_itineraries_in_array(pa_departures[i], arrivals, &index);
 	pa_porkchop_points = malloc(num_itins * sizeof(struct PorkchopAnalyzerPoint));
 	for(int i = 0; i < num_itins; i++) {
-		pa_porkchop_points[i].data = create_porkchop_point(arrivals[i]);
+		pa_porkchop_points[i].data = create_porkchop_point(arrivals[i], get_first(arrivals[0])->body->atmo_alt + pa_dep_periapsis, arrivals[0]->body->atmo_alt + pa_arr_periapsis);
 		pa_porkchop_points[i].inside_filter = 1;
 		pa_porkchop_points[i].group = NULL;
 	}

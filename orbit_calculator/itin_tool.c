@@ -78,7 +78,7 @@ void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body 
 					osv_from_ephem(next_body->ephem, t1, system->cb);
 
 			struct Transfer new_transfer = calc_transfer(circfb, tf->body, next_body, osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, dt,
-														 system->cb, NULL);
+														 system->cb, NULL, 0, 0);
 
 			struct Vector v_dep = subtract_vectors(new_transfer.v0, tf->v_body);
 
@@ -170,7 +170,7 @@ void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct B
 			jd_arr = jd_sb2 + dt1;
 
 			struct OSV osv_arr = osv_from_ephem(ephems[1], jd_arr, SUN());
-			struct Transfer transfer_after_dsb = calc_transfer(circfb, body0, body1, osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, SUN(), NULL);
+			struct Transfer transfer_after_dsb = calc_transfer(circfb, body0, body1, osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, SUN(), NULL, 0, 0);
 
 			s1.r = transfer_after_dsb.r0;
 			s1.v = transfer_after_dsb.v0;
@@ -286,7 +286,7 @@ double get_itinerary_duration(struct ItinStep *itin) {
 	return jd1-jd0;
 }
 
-struct PorkchopPoint *create_porkchop_array_from_departures(struct ItinStep **departures, int num_deps) {
+struct PorkchopPoint *create_porkchop_array_from_departures(struct ItinStep **departures, int num_deps, double dep_periapsis, double arr_periapsis) {
 	int num_itins = 0;
 	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(departures[i]);
 
@@ -295,21 +295,21 @@ struct PorkchopPoint *create_porkchop_array_from_departures(struct ItinStep **de
 	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(departures[i], arrivals, &index);
 	struct PorkchopPoint *porkchop_points = malloc(num_itins * sizeof(struct PorkchopPoint));
 	for(int i = 0; i < num_itins; i++) {
-		porkchop_points[i] = create_porkchop_point(arrivals[i]);
+		porkchop_points[i] = create_porkchop_point(arrivals[i], dep_periapsis, arr_periapsis);
 	}
 	free(arrivals);
 
 	return porkchop_points;
 }
 
-struct PorkchopPoint create_porkchop_point(struct ItinStep *itin) {
+struct PorkchopPoint create_porkchop_point(struct ItinStep *itin, double dep_periapsis, double arr_periapsis) {
 	struct PorkchopPoint pp;
 	pp.arrival = itin;
 	pp.dur = get_itinerary_duration(itin);
 
 	double vinf = vector_mag(subtract_vectors(itin->v_arr, itin->v_body));
-	pp.dv_arr_cap = dv_capture(itin->body, itin->body->atmo_alt + 50e3, vinf);
-	pp.dv_arr_circ = dv_circ(itin->body, itin->body->atmo_alt + 50e3, vinf);
+	pp.dv_arr_cap = dv_capture(itin->body, arr_periapsis, vinf);
+	pp.dv_arr_circ = dv_circ(itin->body, arr_periapsis, vinf);
 
 	pp.dv_dsm = 0;
 	while(itin->prev->prev != NULL) {
@@ -321,11 +321,11 @@ struct PorkchopPoint create_porkchop_point(struct ItinStep *itin) {
 
 	pp.dep_date = itin->prev->date;
 	vinf = vector_mag(subtract_vectors(itin->v_dep, itin->prev->v_body));
-	pp.dv_dep = dv_circ(itin->prev->body, itin->prev->body->atmo_alt + 50e3, vinf);
+	pp.dv_dep = dv_circ(itin->prev->body, dep_periapsis, vinf);
 	return pp;
 }
 
-int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step) {
+int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step) {
 	double max_duration = jd_max_arr-curr_step->date;
 	double min_duration = MIN_TRANSFER_DURATION;
 	if(max_duration > min_duration && get_thread_counter(3) == 0) {
@@ -339,7 +339,7 @@ int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, 
 		for(int i = 0; i < curr_step->num_next_nodes; i++) {
 			struct ItinStep *next = bodies[step] != bodies[step - 1] ? curr_step->next[i] : curr_step->next[i]->next[0]->next[0];
 			if(step == num_steps - 1) {
-				struct PorkchopPoint porkchop_point = create_porkchop_point(next);
+				struct PorkchopPoint porkchop_point = create_porkchop_point(next, dv_filter->dep_periapsis, dv_filter->arr_periapsis);
 				double dv_sat = porkchop_point.dv_dsm;
 				if(dv_filter->last_transfer_type == 1) dv_sat += porkchop_point.dv_arr_cap;
 				if(dv_filter->last_transfer_type == 2) dv_sat += porkchop_point.dv_arr_circ;
@@ -467,7 +467,7 @@ int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_b
 int remove_end_nodes_that_do_not_satisfy_dv_requirements(struct ItinStep *curr_step, int num_of_end_nodes, struct Dv_Filter *dv_filter) {
 	for(int i = curr_step->num_next_nodes-num_of_end_nodes; i < curr_step->num_next_nodes; i++) {
 		struct ItinStep *next = curr_step->next[i];
-		struct PorkchopPoint porkchop_point = create_porkchop_point(next);
+		struct PorkchopPoint porkchop_point = create_porkchop_point(next, dv_filter->dep_periapsis, dv_filter->arr_periapsis);
 		double dv_sat = porkchop_point.dv_dsm;
 		if(dv_filter->last_transfer_type == 1) dv_sat += porkchop_point.dv_arr_cap;
 		if(dv_filter->last_transfer_type == 2) dv_sat += porkchop_point.dv_arr_circ;
@@ -523,7 +523,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *
 				next = next->next[0];
 				double dt = (next->date - step->date) * 86400;
 				struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-														 next->v_body, dt, system->cb, NULL);
+														 next->v_body, dt, system->cb, NULL, 0, 0);
 				next->v_dep = transfer.v0;
 				next->v_arr = transfer.v1;
 			} else {
@@ -533,7 +533,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *
 				struct OSV osv_arr = {next->next[0]->next[0]->r, next->next[0]->next[0]->v_body};
 				struct Transfer transfer_after_dsb = calc_transfer(circfb, sb2->body, arr->body, osv_sb2.r, osv_sb2.v,
 																   osv_arr.r, osv_arr.v,
-																   (arr->date - sb2->date) * 86400, system->cb, NULL);
+																   (arr->date - sb2->date) * 86400, system->cb, NULL, 0, 0);
 
 				struct OSV s0 = {step->r, step->v_arr};
 				struct OSV p0 = {step->r, step->v_body};
@@ -551,7 +551,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *
 					next = next->next[0];
 					dt = (next->date - step->date) * 86400;
 					struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-															 next->v_body, dt, system->cb, NULL);
+															 next->v_body, dt, system->cb, NULL, 0, 0);
 					next->v_dep = transfer.v0;
 					next->v_arr = transfer.v1;
 				}
@@ -559,7 +559,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *
 		} else {
 			double dt = (next->date - step->date) * 86400;
 			struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-													 next->v_body, dt, system->cb, NULL);
+													 next->v_body, dt, system->cb, NULL, 0, 0);
 			next->v_dep = transfer.v0;
 			next->v_arr = transfer.v1;
 		}
