@@ -30,7 +30,7 @@ void *calc_itins_from_departure(void *args) {
 	struct Dv_Filter dv_filter = calc_data->dv_filter;
 	double jd_min_dep = calc_data->jd_min_dep;
 	double jd_max_dep = calc_data->jd_max_dep;
-	int max_total_duration = calc_data->max_duration;
+	double max_total_duration = calc_data->max_duration;
 
 	enum ItinSequenceInfoType itin_seq_type = calc_data->seq_info.to_target.type;
 

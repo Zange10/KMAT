@@ -8,7 +8,7 @@
 #include "file_io.h"
 #include "orbit_calculator/transfer_tools.h"
 
-const int current_bin_file_type = 2;
+const int current_bin_file_type = 3;
 
 int get_current_bin_file_type() {
 	return current_bin_file_type;
@@ -320,7 +320,7 @@ union CelestialBodyBin {
 
 union CelestialSystemBin convert_celestial_system_bin(struct System *system, int file_type) {
 	union CelestialSystemBin bin_system;
-	if(file_type == 2) {
+	if(file_type == 2 || file_type == 3) {
 		sprintf(bin_system.t2.name, "%s", system->name);
 		bin_system.t2.num_bodies = system->num_bodies;
 		bin_system.t2.calc_method = system->calc_method;
@@ -331,7 +331,7 @@ union CelestialSystemBin convert_celestial_system_bin(struct System *system, int
 
 struct System * convert_bin_celestial_system(union CelestialSystemBin bin_system, int file_type) {
 	struct System *system = new_system();
-	if(file_type == 2) {
+	if(file_type == 2 || file_type == 3) {
 		sprintf(system->name, "%s", bin_system.t2.name);
 		system->num_bodies = bin_system.t2.num_bodies;
 		if(system->num_bodies > 1e3) {free(system); return NULL;}	// avoid overflows
@@ -344,7 +344,7 @@ struct System * convert_bin_celestial_system(union CelestialSystemBin bin_system
 
 union CelestialBodyBin convert_celestial_body_bin(struct Body *body, int file_type) {
 	union CelestialBodyBin bin_body;
-	if(file_type == 2) {
+	if(file_type == 2 || file_type == 3) {
 		sprintf(bin_body.t2.name, "%s", body->name);
 		bin_body.t2.color[0] = body->color[0];
 		bin_body.t2.color[1] = body->color[1];
@@ -365,7 +365,7 @@ union CelestialBodyBin convert_celestial_body_bin(struct Body *body, int file_ty
 
 struct Body * convert_bin_celestial_body(union CelestialBodyBin bin_body, struct Body *attractor, int file_type) {
 	struct Body *body = new_body();
-	if(file_type == 2) {
+	if(file_type == 2 || file_type == 3) {
 		sprintf(body->name, "%s", bin_body.t2.name);
 		body->color[0] = bin_body.t2.color[0];
 		body->color[1] = bin_body.t2.color[1];
@@ -388,7 +388,7 @@ struct Body * convert_bin_celestial_body(union CelestialBodyBin bin_body, struct
 }
 
 void store_celestial_system_in_bfile(struct System *system, FILE *file, int file_type) {
-	if(file_type == 2) {
+	if(file_type == 2 || file_type == 3) {
 		union CelestialSystemBin system_bin = convert_celestial_system_bin(system, file_type);
 		fwrite(&system_bin.t2, sizeof(struct CelestialSystemBinT2), 1, file);
 
@@ -403,8 +403,8 @@ void store_celestial_system_in_bfile(struct System *system, FILE *file, int file
 }
 
 struct System * load_celestial_system_from_bfile(FILE *file, int file_type) {
-	struct System *system;
-	if(file_type == 2) {
+	struct System *system = 0;
+	if(file_type == 2 || file_type == 3) {
 		union CelestialSystemBin system_bin;
 		fread(&system_bin.t2, sizeof(struct CelestialSystemBinT2), 1, file);
 		system = convert_bin_celestial_system(system_bin, file_type);
@@ -418,15 +418,15 @@ struct System * load_celestial_system_from_bfile(FILE *file, int file_type) {
 			fread(&body_bin.t2, sizeof(struct CelestialBodyBinT2), 1, file);
 			system->bodies[i] = convert_bin_celestial_body(body_bin, system->cb, file_type);
 		}
-	}
 
-	if(system->calc_method == EPHEMS) {
-		for(int i = 0; i < system->num_bodies; i++) {
-			get_body_ephems(system->bodies[i], system->cb);
+		if(system->calc_method == EPHEMS) {
+			for(int i = 0; i < system->num_bodies; i++) {
+				get_body_ephems(system->bodies[i], system->cb);
+			}
 		}
+
+		parse_and_sort_into_celestial_subsystems(system);
 	}
-	
-	parse_and_sort_into_celestial_subsystems(system);
 
 	return system;
 }
@@ -435,6 +435,17 @@ struct System * load_celestial_system_from_bfile(FILE *file, int file_type) {
 /*********************************************************************
  *                 Multi-Itinerary Binary Storing
  *********************************************************************/
+
+typedef struct {
+	double jd_min_dep;
+	double jd_max_dep;
+	double jd_max_arr;
+	double max_duration;
+	double step_dep_date;
+	int num_deps_per_date;
+	int max_num_waiting_orbits;
+	struct Dv_Filter dv_filter;
+} CalcDataBin;
 
 
 union ItinStepBinHeader {
@@ -445,6 +456,11 @@ union ItinStepBinHeader {
 	struct ItinStepBinHeaderT2 {
 		int num_nodes, num_deps;
 	} t2;
+
+	struct ItinStepBinHeaderT3 {
+		int num_nodes, num_deps;
+		CalcDataBin calc_data;
+	} t3;
 };
 
 union ItinStepBin {
@@ -477,7 +493,7 @@ union ItinStepBin convert_ItinStep_bin(struct ItinStep *step, struct System *sys
 		bin_step.t0.v_body = step->v_body;
 		bin_step.t0.date = step->date;
 		bin_step.t0.num_next_nodes = step->num_next_nodes;
-	} else if(file_type == 2) {
+	} else if(file_type == 2 || file_type == 3) {
 		bin_step.t2.r = step->r;
 		bin_step.t2.v_dep = step->v_dep;
 		bin_step.t2.v_arr = step->v_arr;
@@ -494,7 +510,7 @@ void store_step_in_bfile(struct ItinStep *step, struct System *system, FILE *fil
 	if(file_type == 0) {
 		union ItinStepBin bin_step = convert_ItinStep_bin(step, system, file_type);
 		fwrite(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
-	} else if(file_type == 2) {
+	} else if(file_type == 2 || file_type == 3) {
 		union ItinStepBin bin_step = convert_ItinStep_bin(step, system, file_type);
 		fwrite(&bin_step.t2, sizeof(struct ItinStepBinT2), 1, file);
 	}
@@ -503,7 +519,7 @@ void store_step_in_bfile(struct ItinStep *step, struct System *system, FILE *fil
 	}
 }
 
-void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, struct System *system, char *filepath, int file_type) {
+void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, Itin_Calc_Data calc_data, struct System *system, char *filepath, int file_type) {
 	// Check if the string ends with ".itins"
 	if (strlen(filepath) >= 6 && strcmp(filepath + strlen(filepath) - 6, ".itins") != 0) {
 		// If not, append ".itins" to the string
@@ -511,7 +527,7 @@ void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int
 	}
 
 	union ItinStepBinHeader bin_header;
-	int end_of_bodies_designator = -1;
+	int end_of_header_designator = -1;
 	FILE *file = fopen(filepath, "wb");
 	fwrite(&file_type, sizeof(int), 1, file);
 
@@ -526,10 +542,67 @@ void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int
 		
 		fwrite(&bin_header.t2, sizeof(struct ItinStepBinHeaderT2), 1, file);
 		
-		fwrite(&end_of_bodies_designator, sizeof(int), 1, file);
+		fwrite(&end_of_header_designator, sizeof(int), 1, file);
 		
 		store_celestial_system_in_bfile(system, file, file_type);
 		
+		for(int i = 0; i < num_deps; i++) {
+			store_step_in_bfile(departures[i], system, file, file_type);
+		}
+	} else if(file_type == 3) {
+		bin_header.t3.num_nodes = num_nodes;
+		bin_header.t3.num_deps = num_deps;
+
+		bin_header.t3.calc_data = (CalcDataBin) {
+			.jd_min_dep = calc_data.jd_min_dep,
+			.jd_max_dep = calc_data.jd_max_dep,
+			.jd_max_arr = calc_data.jd_max_arr,
+			.max_duration = calc_data.max_duration,
+			.step_dep_date = calc_data.step_dep_date,
+			.num_deps_per_date = calc_data.num_deps_per_date,
+			.max_num_waiting_orbits = calc_data.max_num_waiting_orbits,
+			.dv_filter = calc_data.dv_filter
+		};
+
+		printf("Filesize: ~%.3f MB\n", (double) num_nodes*sizeof(struct ItinStepBinT2)/1e6);
+
+		printf("Number of stored nodes: %d\n", bin_header.t3.num_nodes);
+		printf("Number of Departures: %d\n", num_deps);
+		printf("Min departure date: "); print_date(convert_JD_date(calc_data.jd_min_dep, DATE_ISO), 1);
+		printf("Max departure date: "); print_date(convert_JD_date(calc_data.jd_max_dep, DATE_ISO), 1);
+		printf("Max arrival date: "); print_date(convert_JD_date(calc_data.jd_max_arr, DATE_ISO), 1);
+		printf("Max duration: %f\n", calc_data.max_duration);
+		printf("Dep date step: %f\n", calc_data.step_dep_date);
+		printf("# of deps per date: %d\n", calc_data.num_deps_per_date);
+		printf("Max # waiting orbits: %d\n", calc_data.max_num_waiting_orbits);
+		printf("dv-filter: (%.2f | %.2f | %.2f)\n", calc_data.dv_filter.max_totdv, calc_data.dv_filter.max_depdv, calc_data.dv_filter.max_satdv);
+		printf("Periapsides: (%.2fkm | %.2fkm)\n", calc_data.dv_filter.dep_periapsis/1e3, calc_data.dv_filter.arr_periapsis/1e3);
+		printf("Last transfer type: %d\n", calc_data.dv_filter.last_transfer_type);
+
+
+		fwrite(&bin_header.t3, sizeof(struct ItinStepBinHeaderT3), 1, file);
+
+		store_celestial_system_in_bfile(system, file, file_type);
+		if(calc_data.seq_info.to_target.type == ITIN_SEQ_INFO_TO_TARGET) {
+			fwrite(&calc_data.seq_info.to_target.type, sizeof(int), 1, file);
+			fwrite(&calc_data.seq_info.to_target.num_flyby_bodies, sizeof(int), 1, file);
+			int *body_ids = malloc((calc_data.seq_info.to_target.num_flyby_bodies + 2) * sizeof(int));
+			body_ids[0] = get_body_system_id(calc_data.seq_info.to_target.dep_body, system);
+			body_ids[1] = get_body_system_id(calc_data.seq_info.to_target.arr_body, system);
+			for(int i = 0; i < calc_data.seq_info.to_target.num_flyby_bodies; i++) body_ids[i+2] = get_body_system_id(calc_data.seq_info.to_target.flyby_bodies[i], system);
+			fwrite(body_ids, sizeof(int), calc_data.seq_info.to_target.num_flyby_bodies + 2, file);
+			free(body_ids);
+		} else {
+			fwrite(&calc_data.seq_info.spec_seq.type, sizeof(int), 1, file);
+			fwrite(&calc_data.seq_info.spec_seq.num_steps, sizeof(int), 1, file);
+			int *body_ids = malloc((calc_data.seq_info.spec_seq.num_steps) * sizeof(int));
+			for(int i = 0; i < calc_data.seq_info.spec_seq.num_steps; i++) body_ids[i] = get_body_system_id(calc_data.seq_info.spec_seq.bodies[i], system);
+			fwrite(body_ids, sizeof(int), calc_data.seq_info.spec_seq.num_steps, file);
+			free(body_ids);
+		}
+
+		fwrite(&end_of_header_designator, sizeof(int), 1, file);
+
 		for(int i = 0; i < num_deps; i++) {
 			store_step_in_bfile(departures[i], system, file, file_type);
 		}
@@ -555,7 +628,7 @@ void convert_bin_ItinStep(union ItinStepBin bin_step, struct ItinStep *step, str
 		step->v_dep = bin_step.t0.v_dep;
 		step->date = bin_step.t0.date;
 		step->num_next_nodes = bin_step.t0.num_next_nodes;
-	} else if(file_type == 2) {
+	} else if(file_type == 2 || file_type == 3) {
 		step->body = system->bodies[bin_step.t2.body_id];
 		step->r = bin_step.t2.r;
 		step->v_arr = bin_step.t2.v_arr;
@@ -572,7 +645,7 @@ void load_step_from_bfile(struct ItinStep *step, FILE *file, struct Body **body,
 	if(file_type == 0) {
 		fread(&bin_step.t0, sizeof(struct ItinStepBinT0), 1, file);
 		convert_bin_ItinStep(bin_step, step, body[0], system, file_type);
-	} else if(file_type == 2) {
+	} else if(file_type == 2 || file_type == 3) {
 		fread(&bin_step.t2, sizeof(struct ItinStepBinT2), 1, file);
 		convert_bin_ItinStep(bin_step, step, NULL, system, file_type);
 	} else return;
@@ -623,6 +696,70 @@ struct ItinsLoadFileResults load_itineraries_from_bfile(char *filepath) {
 		departures = (struct ItinStep **) malloc(bin_header.t2.num_deps * sizeof(struct ItinStep *));
 
 		for(int i = 0; i < bin_header.t2.num_deps; i++) {
+			departures[i] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
+			departures[i]->prev = NULL;
+			load_step_from_bfile(departures[i], file, NULL, system, type);
+		}
+	} else if(type == 3) {
+		fread(&bin_header.t3, sizeof(struct ItinStepBinHeaderT3), 1, file);
+		num_deps = bin_header.t3.num_deps;
+		// avoid overflows
+		if(num_deps > 1e10) return (struct ItinsLoadFileResults){NULL, NULL, 0};
+
+		printf("Number of stored nodes: %d\n", bin_header.t3.num_nodes);
+		printf("Number of Departures: %d\n", num_deps);
+		printf("Min departure date: "); print_date(convert_JD_date(bin_header.t3.calc_data.jd_min_dep, DATE_ISO), 1);
+		printf("Max departure date: "); print_date(convert_JD_date(bin_header.t3.calc_data.jd_max_dep, DATE_ISO), 1);
+		printf("Max arrival date: "); print_date(convert_JD_date(bin_header.t3.calc_data.jd_max_arr, DATE_ISO), 1);
+		printf("Max duration: %f\n", bin_header.t3.calc_data.max_duration);
+		printf("Dep date step: %f\n", bin_header.t3.calc_data.step_dep_date);
+		printf("# of deps per date: %d\n", bin_header.t3.calc_data.num_deps_per_date);
+		printf("Max # waiting orbits: %d\n", bin_header.t3.calc_data.max_num_waiting_orbits);
+		printf("dv-filter: (%.2f | %.2f | %.2f)\n", bin_header.t3.calc_data.dv_filter.max_totdv, bin_header.t3.calc_data.dv_filter.max_depdv, bin_header.t3.calc_data.dv_filter.max_satdv);
+		printf("Periapsides: (%.2fkm | %.2fkm)\n", bin_header.t3.calc_data.dv_filter.dep_periapsis/1e3, bin_header.t3.calc_data.dv_filter.arr_periapsis/1e3);
+		printf("Last transfer type: %d\n", bin_header.t3.calc_data.dv_filter.last_transfer_type);
+
+		system = load_celestial_system_from_bfile(file, type);
+
+		int calc_type;
+		fread(&calc_type, sizeof(int), 1, file);
+
+		if(calc_type == ITIN_SEQ_INFO_TO_TARGET) {
+			printf("Itinierary Calculator Analysis\n");
+			int num_flyby_bodies;
+			fread(&num_flyby_bodies, sizeof(int), 1, file);
+			int *body_ids = malloc((num_flyby_bodies + 2) * sizeof(int));
+			fread(body_ids, sizeof(int), num_flyby_bodies + 2, file);
+			printf("Dep Body: %s\n", system->bodies[body_ids[0]]->name);
+			printf("Arr Body: %s\n", system->bodies[body_ids[1]]->name);
+			for(int i = 0; i < num_flyby_bodies; i++) printf("%s\n", system->bodies[body_ids[i+2]]->name);
+			free(body_ids);
+		} else if(calc_type == ITIN_SEQ_INFO_SPEC_SEQ){
+			printf("Sequence Calculator Analysis\n");
+			int num_steps;
+			fread(&num_steps, sizeof(int), 1, file);
+			int *body_ids = malloc(num_steps * sizeof(int));
+			fread(body_ids, sizeof(int), num_steps, file);
+			for(int i = 0; i < num_steps; i++) printf("%s\n", system->bodies[body_ids[i]]->name);
+			free(body_ids);
+		} else {
+			free_system(system);
+			return (struct ItinsLoadFileResults){NULL, NULL, 0};
+		}
+
+		int buf;
+		fread(&buf, sizeof(int), 1, file);
+
+		if(buf != -1) {
+			printf("Problems reading itinerary file (Body list or header wrong)\n");
+			fclose(file);
+			free_system(system);
+			return (struct ItinsLoadFileResults){NULL, NULL, 0};
+		}
+
+		departures = (struct ItinStep **) malloc(bin_header.t3.num_deps * sizeof(struct ItinStep *));
+
+		for(int i = 0; i < bin_header.t3.num_deps; i++) {
 			departures[i] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
 			departures[i]->prev = NULL;
 			load_step_from_bfile(departures[i], file, NULL, system, type);

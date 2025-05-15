@@ -44,7 +44,7 @@ void store_system_in_config_file(struct System *system);
 struct System * load_system_from_config_file(char *filepath);
 
 // store itineraries in binary file from multiple departures (pre-order storing)
-void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, struct System *system, char *filepath, int file_type);
+void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, Itin_Calc_Data calc_data, struct System *system, char *filepath, int file_type);
 
 // load itineraries from binary file for multiple departures (from pre-order storing)
 struct ItinsLoadFileResults load_itineraries_from_bfile(char *filepath);

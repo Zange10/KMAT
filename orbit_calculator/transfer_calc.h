@@ -10,9 +10,12 @@ typedef struct Itin_Calc_Data {
 	double jd_min_dep;
 	double jd_max_dep;
 	double jd_max_arr;
-	int max_duration;
-	ItinSequenceInfo seq_info;
+	double max_duration;
+	double step_dep_date;
+	int num_deps_per_date;
+	int max_num_waiting_orbits;
 	struct Dv_Filter dv_filter;
+	ItinSequenceInfo seq_info;
 } Itin_Calc_Data;
 
 typedef struct Itin_Calc_Results {
