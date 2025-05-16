@@ -608,9 +608,14 @@ G_MODULE_EXPORT void on_load_itineraries(GtkWidget* widget, gpointer data) {
 
 	free_all_porkchop_analyzer_itins();
 	struct ItinsLoadFileResults load_results = load_itineraries_from_bfile(filepath);
-	pa_num_deps = load_results.num_deps;
+	if(load_results.departures == NULL) return;
+	pa_num_deps = load_results.header.num_deps;
 	pa_departures = load_results.departures;
-	pa_system = load_results.system;
+	pa_system = load_results.header.system;
+	if(load_results.header.file_type > 2) {
+		if(load_results.header.calc_data.seq_info.to_target.type == ITIN_SEQ_INFO_TO_TARGET) free(load_results.header.calc_data.seq_info.to_target.flyby_bodies);
+		if(load_results.header.calc_data.seq_info.spec_seq.type == ITIN_SEQ_INFO_SPEC_SEQ) free(load_results.header.calc_data.seq_info.spec_seq.bodies);
+	}
 	update_camera_to_celestial_system(pa_itin_preview_camera, pa_system, deg2rad(90), 0);
 	if(body_show_status_pa != NULL) free(body_show_status_pa);
 	body_show_status_pa = (int*) calloc(pa_system->num_bodies, sizeof(int));

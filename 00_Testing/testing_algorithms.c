@@ -264,9 +264,14 @@ enum TestResult test_itins_file(char *filepath) {
 	printf("Loading : %s\n", filepath);
 	struct ItinsLoadFileResults file_results = load_itineraries_from_bfile(filepath);
 
-	struct System *system = file_results.system;
+	struct System *system = file_results.header.system;
 	struct ItinStep **departures = file_results.departures;
-	int num_deps = file_results.num_deps;
+	int num_deps = file_results.header.num_deps;
+
+	if(file_results.header.file_type > 2) {
+		if(file_results.header.calc_data.seq_info.to_target.type == ITIN_SEQ_INFO_TO_TARGET) free(file_results.header.calc_data.seq_info.to_target.flyby_bodies);
+		if(file_results.header.calc_data.seq_info.spec_seq.type == ITIN_SEQ_INFO_SPEC_SEQ) free(file_results.header.calc_data.seq_info.spec_seq.bodies);
+	}
 
 	printf("System: %s\nNumber of Departures: %d\n", system->name, num_deps);
 

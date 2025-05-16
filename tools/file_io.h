@@ -28,10 +28,16 @@ void write_csv(char fields[], double data[]);
 int amt_of_fields(char fields[]);
 
 
-struct ItinsLoadFileResults {
-	struct ItinStep **departures;
+typedef struct {
+	int file_type;
+	int num_nodes, num_deps;
 	struct System *system;
-	int num_deps;
+	Itin_Calc_Data calc_data;
+} ItinStepBinHeaderData;
+
+struct ItinsLoadFileResults {
+	ItinStepBinHeaderData header;
+	struct ItinStep **departures;
 };
 
 struct ItinLoadFileResults {
@@ -54,5 +60,9 @@ void store_single_itinerary_in_bfile(struct ItinStep *itin, struct System *syste
 
 // loads single itinerary (first branches in tree) (departure first)
 struct ItinLoadFileResults load_single_itinerary_from_bfile(char *filepath);
+
+// returns calc parameters used to create .itins-file
+ItinStepBinHeaderData get_itins_bfile_header(FILE *file);
+
 
 #endif

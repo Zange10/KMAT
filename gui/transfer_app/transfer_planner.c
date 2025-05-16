@@ -337,8 +337,12 @@ void show_bodies_of_itinerary(struct ItinStep *step) {
 void tp_update_bodies() {
 	if(body_show_status_tp != NULL) free(body_show_status_tp);
 	body_show_status_tp = (gboolean*) malloc(tp_system->num_bodies*sizeof(gboolean));
-	for(int i = 0; i < tp_system->num_bodies; i++) body_show_status_tp[i] = 0;
-	if(curr_transfer_tp != NULL) show_bodies_of_itinerary(get_first(curr_transfer_tp));
+	if(curr_transfer_tp != NULL) {
+		for(int i = 0; i < tp_system->num_bodies; i++) body_show_status_tp[i] = 0;
+		show_bodies_of_itinerary(get_first(curr_transfer_tp));
+	} else {
+		for(int i = 0; i < tp_system->num_bodies; i++) body_show_status_tp[i] = 1;
+	}
 	tp_update_show_body_list();
 }
 
