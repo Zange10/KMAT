@@ -52,6 +52,7 @@
             <property name="margin-top">10</property>
             <property name="margin-bottom">10</property>
             <property name="label" translatable="yes">Message</property>
+            <property name="selectable">True</property>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -2229,12 +2230,12 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tp_viable_itin">
-                            <property name="label" translatable="yes">Find Itinerary</property>
+                          <object class="GtkButton" id="bt_tp_show_itin_overview">
+                            <property name="label" translatable="yes">Itinerary Details</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
                             <property name="receives-default">True</property>
-                            <signal name="clicked" handler="on_find_itinerary" swapped="no"/>
+                            <signal name="clicked" handler="on_show_itin_overview" swapped="no"/>
                           </object>
                           <packing>
                             <property name="left-attach">2</property>

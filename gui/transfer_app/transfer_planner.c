@@ -6,6 +6,7 @@
 #include "tools/gmat_interface.h"
 #include "gui/css_loader.h"
 #include "tools/file_io.h"
+#include "gui/info_win_manager.h"
 
 #include <string.h>
 #include <gtk/gtk.h>
@@ -39,8 +40,8 @@ double current_date_tp;
 
 enum LastTransferType tp_last_transfer_type;
 
-double tp_dep_periapsis = 50e3;
-double tp_arr_periapsis = 50e3;
+double tp_dep_periapsis = 100e3;
+double tp_arr_periapsis = 100e3;
 
 void tp_update_bodies();
 void remove_all_transfers();
@@ -196,12 +197,12 @@ double calc_step_dv(struct ItinStep *step) {
 		return vector_mag(subtract_vectors(step->v_arr, step->next[0]->v_dep));
 	} else if(step->prev == NULL) {
 		double vinf = vector_mag(subtract_vectors(step->next[0]->v_dep, step->v_body));
-		return dv_circ(step->body, step->body->atmo_alt+tp_dep_periapsis, vinf);
+		return dv_circ(step->body, tp_dep_periapsis, vinf);
 	} else if(step->next == NULL) {
 		if(tp_last_transfer_type == TF_FLYBY) return 0;
 		double vinf = vector_mag(subtract_vectors(step->v_arr, step->v_body));
-		if(tp_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + tp_arr_periapsis, vinf);
-		else if(tp_last_transfer_type == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + tp_arr_periapsis, vinf);
+		if(tp_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, tp_arr_periapsis, vinf);
+		else if(tp_last_transfer_type == TF_CIRC) return dv_circ(step->body, tp_arr_periapsis, vinf);
 	}
 	return 0;
 }
@@ -225,6 +226,8 @@ double calc_periapsis_height_tp() {
 }
 
 void update_itinerary() {
+	tp_dep_periapsis = get_first(curr_transfer_tp)->body->atmo_alt+50e3;
+	tp_arr_periapsis = get_last(curr_transfer_tp)->body->atmo_alt+50e3;
 	update_itin_body_osvs(get_first(curr_transfer_tp), tp_system);
 	calc_itin_v_vectors_from_dates_and_r(get_first(curr_transfer_tp), tp_system);
 	update();
@@ -277,7 +280,7 @@ void update_transfer_panel() {
 		gtk_label_set_label(GTK_LABEL(lb_tp_total_dv), s_dv);
 		if(curr_transfer_tp->prev != NULL || curr_transfer_tp->num_next_nodes > 0) {
 			char s_tfprop_labels[200], s_tfprop_values[100];
-			itinerary_step_parameters_to_string(s_tfprop_labels, s_tfprop_values, get_settings_datetime_type(), curr_transfer_tp);
+			itinerary_step_parameters_to_string(s_tfprop_labels, s_tfprop_values, get_settings_datetime_type(), tp_dep_periapsis, tp_arr_periapsis, curr_transfer_tp);
 			gtk_label_set_label(GTK_LABEL(lb_tp_param_labels), s_tfprop_labels);
 			gtk_label_set_label(GTK_LABEL(lb_tp_param_values), s_tfprop_values);
 		} else {
@@ -534,42 +537,50 @@ G_MODULE_EXPORT void on_find_closest_transfer(GtkWidget* widget, gpointer data) 
 	if(success) update_itinerary();
 }
 
-G_MODULE_EXPORT void on_find_itinerary(GtkWidget* widget, gpointer data) {
-	if(tp_system == NULL || curr_transfer_tp == NULL) return;
-	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
-	struct ItinStep *itin_copy = create_itin_copy(get_first(curr_transfer_tp));
-	while(itin_copy->prev != NULL) {
-		if(itin_copy->prev->body == NULL) return;	// double swing-by not implemented
-		itin_copy = itin_copy->prev;
-	}
-	if(itin_copy == NULL || itin_copy->next == NULL || itin_copy->next[0]->next == NULL) return;
-
-	itin_copy = itin_copy->next[0];
-	int status = 1;
-
-	while(itin_copy->next != NULL) {
-		itin_copy = itin_copy->next[0];
-		status = find_closest_transfer(itin_copy);
-		if(!status) break;
-	}
-
-	if(status) {
-		while(itin_copy->prev != NULL) itin_copy = itin_copy->prev;
-		struct ItinStep *itin = get_first(curr_transfer_tp);
-		while(itin != NULL) {
-			copy_step_body_vectors_and_date(itin_copy, itin);
-			if(itin->next != NULL) {
-				itin = itin->next[0];
-				itin_copy = itin_copy->next[0];
-			} else {
-				itin = NULL;
-			}
-		}
-		update_itinerary();
-	}
-
-	free_itinerary(itin_copy);
+G_MODULE_EXPORT void on_show_itin_overview() {
+	if(curr_transfer_tp == NULL) return;
+	char text[10000];
+	itinerary_short_overview_to_string(curr_transfer_tp, get_settings_datetime_type(), tp_dep_periapsis, tp_arr_periapsis, text);
+//	itinerary_detailed_overview_to_string(curr_transfer_tp, get_settings_datetime_type(), tp_dep_periapsis, tp_arr_periapsis, text);
+	show_msg_window(text);
 }
+
+//G_MODULE_EXPORT void on_find_itinerary(GtkWidget* widget, gpointer data) {
+//	if(tp_system == NULL || curr_transfer_tp == NULL) return;
+//	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
+//	struct ItinStep *itin_copy = create_itin_copy(get_first(curr_transfer_tp));
+//	while(itin_copy->prev != NULL) {
+//		if(itin_copy->prev->body == NULL) return;	// double swing-by not implemented
+//		itin_copy = itin_copy->prev;
+//	}
+//	if(itin_copy == NULL || itin_copy->next == NULL || itin_copy->next[0]->next == NULL) return;
+//
+//	itin_copy = itin_copy->next[0];
+//	int status = 1;
+//
+//	while(itin_copy->next != NULL) {
+//		itin_copy = itin_copy->next[0];
+//		status = find_closest_transfer(itin_copy);
+//		if(!status) break;
+//	}
+//
+//	if(status) {
+//		while(itin_copy->prev != NULL) itin_copy = itin_copy->prev;
+//		struct ItinStep *itin = get_first(curr_transfer_tp);
+//		while(itin != NULL) {
+//			copy_step_body_vectors_and_date(itin_copy, itin);
+//			if(itin->next != NULL) {
+//				itin = itin->next[0];
+//				itin_copy = itin_copy->next[0];
+//			} else {
+//				itin = NULL;
+//			}
+//		}
+//		update_itinerary();
+//	}
+//
+//	free_itinerary(itin_copy);
+//}
 
 G_MODULE_EXPORT void on_save_itinerary(GtkWidget* widget, gpointer data) {
 	if(tp_system == NULL) return;
