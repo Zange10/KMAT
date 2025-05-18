@@ -446,7 +446,7 @@ union ItinStepBinHeader {
 	} t2;
 
 	struct ItinStepBinHeaderT3 {
-		int num_nodes, num_deps;
+		int num_nodes, num_deps, num_itins;
 		CalcDataBin calc_data;
 	} t3;
 };
@@ -507,7 +507,7 @@ void store_step_in_bfile(struct ItinStep *step, struct System *system, FILE *fil
 	}
 }
 
-void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, Itin_Calc_Data calc_data, struct System *system, char *filepath, int file_type) {
+void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, int num_itins, Itin_Calc_Data calc_data, struct System *system, char *filepath, int file_type) {
 	// Check if the string ends with ".itins"
 	if (strlen(filepath) >= 6 && strcmp(filepath + strlen(filepath) - 6, ".itins") != 0) {
 		// If not, append ".itins" to the string
@@ -540,6 +540,7 @@ void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int
 	} else if(file_type == 3) {
 		bin_header.t3.num_nodes = num_nodes;
 		bin_header.t3.num_deps = num_deps;
+		bin_header.t3.num_itins = num_itins;
 
 		bin_header.t3.calc_data = (CalcDataBin) {
 			.jd_min_dep = calc_data.jd_min_dep,
@@ -669,6 +670,7 @@ ItinStepBinHeaderData get_itins_bfile_header(FILE *file) {
 		if(bin_header.t3.num_deps > 1e10)  return header_data;
 		header_data.num_deps = bin_header.t3.num_deps;
 		header_data.num_nodes = bin_header.t3.num_nodes;
+		header_data.num_itins = bin_header.t3.num_itins;
 		header_data.calc_data.jd_min_dep = bin_header.t3.calc_data.jd_min_dep;
 		header_data.calc_data.jd_max_dep = bin_header.t3.calc_data.jd_max_dep;
 		header_data.calc_data.jd_max_arr = bin_header.t3.calc_data.jd_max_arr;
@@ -731,6 +733,7 @@ ItinStepBinHeaderData get_itins_bfile_header(FILE *file) {
 void print_header_data_to_string(ItinStepBinHeaderData header, char *string, enum DateType date_format) {
 	sprintf(string, "Number of stored nodes: %d\n", header.num_nodes);
 	sprintf(string, "%sNumber of Departures: %d\n", string, header.num_deps);
+	sprintf(string, "%sNumber of Itineraries: %d\n", string, header.num_itins);
 	if(header.file_type > 2) {
 		char date_string[32];
 		date_to_string(convert_JD_date(header.calc_data.jd_min_dep, date_format), date_string, 1);
@@ -748,7 +751,12 @@ void print_header_data_to_string(ItinStepBinHeaderData header, char *string, enu
 		sprintf(string, "%sMax sat dv: %.0f m/s\n", string, header.calc_data.dv_filter.max_satdv);
 		sprintf(string, "%sDeparture Periapsis: %.0fkm\n", string, header.calc_data.dv_filter.dep_periapsis / 1e3);
 		sprintf(string, "%sArrival Periapsis: %.0fkm\n", string, header.calc_data.dv_filter.arr_periapsis / 1e3);
-		sprintf(string, "%sLast transfer type: %d\n", string, header.calc_data.dv_filter.last_transfer_type);
+		if(header.calc_data.dv_filter.last_transfer_type == TF_FLYBY)
+			sprintf(string, "%sLast transfer type: Fly-By\n", string);
+		if(header.calc_data.dv_filter.last_transfer_type == TF_CAPTURE)
+			sprintf(string, "%sLast transfer type: Capture\n", string);
+		if(header.calc_data.dv_filter.last_transfer_type == TF_CIRC)
+			sprintf(string, "%sLast transfer type: Circularization\n", string);
 
 		if(header.calc_data.seq_info.to_target.type == ITIN_SEQ_INFO_TO_TARGET) {
 			sprintf(string, "%sDeparture body: %s\n", string, header.calc_data.seq_info.to_target.dep_body->name);

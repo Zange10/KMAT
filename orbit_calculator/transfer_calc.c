@@ -235,6 +235,7 @@ struct Itin_Calc_Results search_for_itineraries(Itin_Calc_Data calc_data) {
 	results.departures = departures;
 	results.num_deps = num_deps;
 	results.num_nodes = num_nodes;
+	results.num_itins = num_itins;
 
 	return results;
 }

@@ -30,7 +30,7 @@ int amt_of_fields(char fields[]);
 
 typedef struct {
 	int file_type;
-	int num_nodes, num_deps;
+	int num_nodes, num_deps, num_itins;
 	struct System *system;
 	Itin_Calc_Data calc_data;
 } ItinStepBinHeaderData;
@@ -50,7 +50,9 @@ void store_system_in_config_file(struct System *system);
 struct System * load_system_from_config_file(char *filepath);
 
 // store itineraries in binary file from multiple departures (pre-order storing)
-void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, Itin_Calc_Data calc_data, struct System *system, char *filepath, int file_type);
+void store_itineraries_in_bfile(struct ItinStep **departures, int num_nodes, int num_deps, int num_itins, Itin_Calc_Data calc_data, struct System *system, char *filepath, int file_type);
+
+void print_header_data_to_string(ItinStepBinHeaderData header, char *string, enum DateType date_format);
 
 // load itineraries from binary file for multiple departures (from pre-order storing)
 struct ItinsLoadFileResults load_itineraries_from_bfile(char *filepath);

@@ -5,6 +5,7 @@
 #include "gui/css_loader.h"
 #include "gui/settings.h"
 #include "tools/file_io.h"
+#include "gui/info_win_manager.h"
 
 #include <string.h>
 #include <locale.h>
@@ -19,6 +20,8 @@ double current_date_pa;
 int pa_num_groups = 0;
 struct PorkchopGroup *pa_groups;
 struct PorkchopAnalyzerPoint *pa_porkchop_points;
+
+ItinStepBinHeaderData pa_analysis_params;
 
 struct System *pa_system;
 
@@ -52,6 +55,7 @@ void on_pa_screen_button_release(GtkWidget *widget, GdkEventButton *event, gpoin
 
 
 void init_porkchop_analyzer(GtkBuilder *builder) {
+	pa_analysis_params.num_deps = 0;
 	pa_num_deps = 0;
 	pa_num_itins = 0;
 	pa_departures = NULL;
@@ -262,6 +266,12 @@ void free_all_porkchop_analyzer_itins() {
 	pa_groups = NULL;
 	if(!is_available_system(pa_system)) free_system(pa_system);
 	pa_system = NULL;
+	
+	if(pa_analysis_params.num_deps > 0 && pa_analysis_params.file_type > 2) {
+		if(pa_analysis_params.calc_data.seq_info.to_target.type == ITIN_SEQ_INFO_TO_TARGET) free(pa_analysis_params.calc_data.seq_info.to_target.flyby_bodies);
+		if(pa_analysis_params.calc_data.seq_info.spec_seq.type == ITIN_SEQ_INFO_SPEC_SEQ) free(pa_analysis_params.calc_data.seq_info.spec_seq.bodies);
+	}
+	pa_analysis_params.num_deps = 0;
 }
 
 void pa_update_body_show_status() {
@@ -609,13 +619,15 @@ G_MODULE_EXPORT void on_load_itineraries(GtkWidget* widget, gpointer data) {
 	free_all_porkchop_analyzer_itins();
 	struct ItinsLoadFileResults load_results = load_itineraries_from_bfile(filepath);
 	if(load_results.departures == NULL) return;
+	
+	if(pa_analysis_params.num_deps > 0 && pa_analysis_params.file_type > 2) {
+		if(pa_analysis_params.calc_data.seq_info.to_target.type == ITIN_SEQ_INFO_TO_TARGET) free(pa_analysis_params.calc_data.seq_info.to_target.flyby_bodies);
+		if(pa_analysis_params.calc_data.seq_info.spec_seq.type == ITIN_SEQ_INFO_SPEC_SEQ) free(pa_analysis_params.calc_data.seq_info.spec_seq.bodies);
+	}
+	pa_analysis_params = load_results.header;
 	pa_num_deps = load_results.header.num_deps;
 	pa_departures = load_results.departures;
 	pa_system = load_results.header.system;
-	if(load_results.header.file_type > 2) {
-		if(load_results.header.calc_data.seq_info.to_target.type == ITIN_SEQ_INFO_TO_TARGET) free(load_results.header.calc_data.seq_info.to_target.flyby_bodies);
-		if(load_results.header.calc_data.seq_info.spec_seq.type == ITIN_SEQ_INFO_SPEC_SEQ) free(load_results.header.calc_data.seq_info.spec_seq.bodies);
-	}
 	update_camera_to_celestial_system(pa_itin_preview_camera, pa_system, deg2rad(90), 0);
 	if(body_show_status_pa != NULL) free(body_show_status_pa);
 	body_show_status_pa = (int*) calloc(pa_system->num_bodies, sizeof(int));
@@ -632,6 +644,13 @@ G_MODULE_EXPORT void on_save_best_itinerary(GtkWidget* widget, gpointer data) {
 	char filepath[255];
 	if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_SAVE, "")) return;
 	store_single_itinerary_in_bfile(first, pa_system, filepath);
+}
+
+G_MODULE_EXPORT void show_pa_analysis_parameters() {
+	if(pa_analysis_params.num_deps == 0) return;
+	char param_string[1000];
+	print_header_data_to_string(pa_analysis_params, param_string, get_settings_datetime_type());
+	show_msg_window(param_string);
 }
 
 G_MODULE_EXPORT void on_last_transfer_type_changed_pa(GtkWidget* widget, gpointer data) {

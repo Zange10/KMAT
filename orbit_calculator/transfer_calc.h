@@ -20,7 +20,7 @@ typedef struct Itin_Calc_Data {
 
 typedef struct Itin_Calc_Results {
 	struct ItinStep **departures;
-	int num_deps, num_nodes;
+	int num_deps, num_nodes, num_itins;
 } Itin_Calc_Results;
 
 typedef struct Transfer_Calc_Status {

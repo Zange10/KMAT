@@ -122,18 +122,18 @@ struct Body ** get_bodies_from_grid(GtkWidget *grid, int num_bodies) {
 struct Itin_Calc_Data ic_calc_data;
 struct Itin_Calc_Results ic_results;
 
-void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nodes) {
+void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nodes, int num_itins) {
 	if(departures == NULL || num_deps == 0) return;
 	char filepath[255];
 	if(!get_path_from_file_chooser(filepath,  ".itins", GTK_FILE_CHOOSER_ACTION_SAVE, "")) return;
-	store_itineraries_in_bfile(departures, num_nodes, num_deps, ic_calc_data, ic_system, filepath, get_current_bin_file_type());
+	store_itineraries_in_bfile(departures, num_nodes, num_deps, num_itins, ic_calc_data, ic_system, filepath, get_current_bin_file_type());
 }
 
 gboolean end_ic_calc_thread() {
 	end_sc_ic_progress_window();
 	gtk_widget_set_sensitive(GTK_WIDGET(tf_ic_window), 1);
 
-	save_itineraries_ic(ic_results.departures, ic_results.num_deps, ic_results.num_nodes);
+	save_itineraries_ic(ic_results.departures, ic_results.num_deps, ic_results.num_nodes, ic_results.num_itins);
 	for(int i = 0; i < ic_results.num_deps; i++) free_itinerary(ic_results.departures[i]);
 	free(ic_results.departures);
 	free(ic_calc_data.seq_info.to_target.flyby_bodies);

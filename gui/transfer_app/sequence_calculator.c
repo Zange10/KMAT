@@ -157,18 +157,18 @@ void update_sc_preview() {
 Itin_Calc_Data sc_calc_data;
 struct Itin_Calc_Results sc_results;
 
-void save_itineraries_sc(struct ItinStep **departures, int num_deps, int num_nodes) {
+void save_itineraries_sc(struct ItinStep **departures, int num_deps, int num_nodes, int num_itins) {
 	if(departures == NULL || num_deps == 0) return;
 	char filepath[255];
 	if(!get_path_from_file_chooser(filepath,  ".itins", GTK_FILE_CHOOSER_ACTION_SAVE, "")) return;
-	store_itineraries_in_bfile(departures, num_nodes, num_deps, sc_calc_data, sc_system, filepath, get_current_bin_file_type());
+	store_itineraries_in_bfile(departures, num_nodes, num_deps, num_itins, sc_calc_data, sc_system, filepath, get_current_bin_file_type());
 }
 
 gboolean end_sc_calc_thread() {
 	end_sc_ic_progress_window();
 	gtk_widget_set_sensitive(GTK_WIDGET(tf_sc_window), 1);
 
-	save_itineraries_sc(sc_results.departures, sc_results.num_deps, sc_results.num_nodes);
+	save_itineraries_sc(sc_results.departures, sc_results.num_deps, sc_results.num_nodes, sc_results.num_itins);
 	for(int i = 0; i < sc_results.num_deps; i++) free_itinerary(sc_results.departures[i]);
 	free(sc_results.departures);
 	free(sc_calc_data.seq_info.spec_seq.bodies);
