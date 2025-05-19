@@ -226,8 +226,10 @@ double calc_periapsis_height_tp() {
 }
 
 void update_itinerary() {
-	tp_dep_periapsis = get_first(curr_transfer_tp)->body->atmo_alt+50e3;
-	tp_arr_periapsis = get_last(curr_transfer_tp)->body->atmo_alt+50e3;
+	if(curr_transfer_tp != NULL) {
+		tp_dep_periapsis = get_first(curr_transfer_tp)->body->atmo_alt + 50e3;
+		tp_arr_periapsis = get_last(curr_transfer_tp)->body->atmo_alt + 50e3;
+	}
 	update_itin_body_osvs(get_first(curr_transfer_tp), tp_system);
 	calc_itin_v_vectors_from_dates_and_r(get_first(curr_transfer_tp), tp_system);
 	update();

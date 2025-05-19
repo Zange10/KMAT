@@ -733,8 +733,8 @@ ItinStepBinHeaderData get_itins_bfile_header(FILE *file) {
 void print_header_data_to_string(ItinStepBinHeaderData header, char *string, enum DateType date_format) {
 	sprintf(string, "Number of stored nodes: %d\n", header.num_nodes);
 	sprintf(string, "%sNumber of Departures: %d\n", string, header.num_deps);
-	sprintf(string, "%sNumber of Itineraries: %d\n", string, header.num_itins);
 	if(header.file_type > 2) {
+		sprintf(string, "%sNumber of Itineraries: %d\n", string, header.num_itins);
 		char date_string[32];
 		date_to_string(convert_JD_date(header.calc_data.jd_min_dep, date_format), date_string, 1);
 		sprintf(string, "%sMin departure date: %s\n", string, date_string);
@@ -742,10 +742,10 @@ void print_header_data_to_string(ItinStepBinHeaderData header, char *string, enu
 		sprintf(string, "%sMax departure date: %s\n", string, date_string);
 		date_to_string(convert_JD_date(header.calc_data.jd_max_arr, date_format), date_string, 1);
 		sprintf(string, "%sMax arrival date: %s\n", string, date_string);
-		sprintf(string, "%sMax duration: %f\n", string, header.calc_data.max_duration);
-		sprintf(string, "%sDep date step: %f\n", string, header.calc_data.step_dep_date);
-		sprintf(string, "%s# of deps per date: %d\n", string, header.calc_data.num_deps_per_date);
-		sprintf(string, "%sMax # waiting orbits: %d\n", string, header.calc_data.max_num_waiting_orbits);
+		sprintf(string, "%sMax duration: %.2f days\n", string, header.calc_data.max_duration);
+		sprintf(string, "%sDep date step: %.4f days\n", string, header.calc_data.step_dep_date);
+		sprintf(string, "%sNum of deps per date: %d\n", string, header.calc_data.num_deps_per_date);
+		sprintf(string, "%sMax num of waiting orbits: %d\n", string, header.calc_data.max_num_waiting_orbits);
 		sprintf(string, "%sMax tot dv: %.0f m/s\n", string, header.calc_data.dv_filter.max_totdv);
 		sprintf(string, "%sMax dep dv: %.0f m/s\n", string, header.calc_data.dv_filter.max_depdv);
 		sprintf(string, "%sMax sat dv: %.0f m/s\n", string, header.calc_data.dv_filter.max_satdv);
@@ -767,6 +767,8 @@ void print_header_data_to_string(ItinStepBinHeaderData header, char *string, enu
 			sprintf(string, "%sSequence:\n", string);
 			for(int i = 0; i < header.calc_data.seq_info.spec_seq.num_steps; i++) sprintf(string, "%s  %d. %s\n", string, i+1, header.calc_data.seq_info.spec_seq.bodies[i]->name);
 		}
+	} else {
+		sprintf(string, "%s\nCan't find further analysis parameters because the analysis file\nwas created in version 1.2.2 or before\n", string);
 	}
 }
 
