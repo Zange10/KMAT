@@ -21,10 +21,10 @@ The interplanetary transfer planner was validated against the mission trajectori
 ## Usage
 ### Installation
 * **Windows:**\
-Download the .zip-file from the [latest release](https://github.com/Zange10/ksp-ro-tools/releases) and extract it (to a location of your choice). Now you can run the application using the `KMAT.exe` inside the `bin/` folder. On initial startup you might need to tell windows that this application is save to run.
+Download the .zip-file from the [latest release](https://github.com/Zange10/ksp-ro-tools/releases) and extract it (to a location of your choice). Now you can run the application using the `Launch_KMAT.exe`. On initial startup you might need to tell windows that this application is safe to run.
 
 * **Linux:**\
-Download the .tar.gz-file from the [latest release](https://github.com/Zange10/ksp-ro-tools/releases) and extract it (to a location of your choice). To be able to run, the packages for [GTK3](https://www.gtk.org/docs/installations/linux/) and [SQLite3](https://www.sqlite.org/index.html) need to be installed. You can run the application using the `KMAT` executable inside the `bin/` directory.
+Download the .tar.gz-file from the [latest release](https://github.com/Zange10/ksp-ro-tools/releases) and extract it (to a location of your choice). To be able to run, the packages for [GTK3](https://www.gtk.org/docs/installations/linux/) and [SQLite3](https://www.sqlite.org/index.html) need to be installed. You can run the application using the `Launch_KMAT` executable.
 
 ### Solar System using Ephemeris Data
 If you would like to use the solar system's ephemeris data (this might be recommended if you use Principia), download `solar_system_ephem.cfg` and move it to the `Celestial_Systems` folder. On initial startup, the ephemeris data will be retrieved from [JPL's Horizon API](https://ssd.jpl.nasa.gov/horizons/app.html#/) and stored in the `Ephemerides` folder (created automatically).
