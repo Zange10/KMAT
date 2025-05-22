@@ -15,6 +15,9 @@
 #include "launch_calculator/lv_profile.h"
 #include "gui/database_app/mission_db.h"
 #include "tools/file_io.h"
+#include "tools/version_tool.h"
+
+
 #ifdef _WIN32
 #include <windows.h>
 #include <commdlg.h>
@@ -75,6 +78,9 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 	/* Connect signal handlers to the constructed widgets. */
 	GObject *window = gtk_builder_get_object (builder, "window");
 	gtk_window_set_application(GTK_WINDOW (window), app);
+	char version_string[16];
+	get_current_version_string_incl_tool_name(version_string);
+	gtk_window_set_title(GTK_WINDOW(window), version_string);
 	gtk_widget_set_visible(GTK_WIDGET (window), TRUE);
 
 	#ifdef _WIN32
@@ -97,6 +103,18 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 //	init_mission_db(builder);
 	// init progress window
 	init_info_windows(builder);
+
+	if(!is_latest_version()) {
+		char msg[100];
+		char current_version_string[16];
+		char latest_release_version_string[16];
+		get_current_version_string(current_version_string);
+		get_latest_release_version_string(latest_release_version_string);
+		sprintf(msg, "A new version of KMAT is available!\n"
+				"Current version: %s\n"
+				"Latest version: %s", current_version_string, latest_release_version_string);
+		show_msg_window(msg);
+	}
 
 	/* We do not need the builder anymore */
 	g_object_unref(builder);

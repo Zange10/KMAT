@@ -102,6 +102,8 @@ add_executable(KMAT
         gui/gui_tools/camera.h
         gui/gui_tools/screen.c
         gui/gui_tools/screen.h
+        tools/version_tool.c
+        tools/version_tool.h
 )
 
 # Platform-specific setup
