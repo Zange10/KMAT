@@ -37,6 +37,7 @@ typedef union ItinSequenceInfo {
 
 struct Dv_Filter {
 	double max_totdv, max_depdv, max_satdv;
+	double dep_periapsis, arr_periapsis;
 	int last_transfer_type;
 };
 
@@ -77,13 +78,13 @@ void store_itineraries_in_array(struct ItinStep *itin, struct ItinStep **array, 
 double get_itinerary_duration(struct ItinStep *itin);
 
 // returns an array of porkchop points analyzed from the given departures (allocates porkchop array memory --> needs to be freed)
-struct PorkchopPoint *create_porkchop_array_from_departures(struct ItinStep **departures, int num_deps);
+struct PorkchopPoint *create_porkchop_array_from_departures(struct ItinStep **departures, int num_deps, double dep_periapsis, double arr_periapsis);
 
 // add itinerary departure date, duration, departure dv, deep-space maneuvre dv and arrival dv in porkchop array
-struct PorkchopPoint create_porkchop_point(struct ItinStep *itin);
+struct PorkchopPoint create_porkchop_point(struct ItinStep *itin, double dep_periapsis, double arr_periapsis);
 
 // from current step and given information, initiate calculation of next steps
-int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step);
+int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step);
 
 // from current step and given information, initiate calculation of next steps
 int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct ItinSequenceInfoToTarget *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
@@ -121,7 +122,11 @@ int is_valid_itinerary(struct ItinStep *step);
 // store itineraries in text file from multiple departures (pre-order storing)
 void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int num_deps);
 
-void itinerary_step_parameters_to_string(char *s_label, char *s_values, enum DateType date, struct ItinStep *step);
+void itinerary_short_overview_to_string(struct ItinStep *step, enum DateType date_type, double dep_periapsis, double arr_periapsis, char *string);
+
+void itinerary_detailed_overview_to_string(struct ItinStep *step, enum DateType date_type, double dep_periapsis, double arr_periapsis, char *string);
+
+void itinerary_step_parameters_to_string(char *s_label, char *s_values, enum DateType date, double dep_periapsis, double arr_periapsis, struct ItinStep *step);
 
 // removes this and all now unneeded steps from itineraries (no next node before arrival)
 void remove_step_from_itinerary(struct ItinStep *step);

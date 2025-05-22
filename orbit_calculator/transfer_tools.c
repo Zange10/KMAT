@@ -180,7 +180,7 @@ struct Transfer2D calc_2d_transfer_orbit(double r0, double r1, double target_dt,
     return transfer;
 }
 
-struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, struct Body *attractor, double *data) {
+struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, struct Body *arr_body, struct Vector r1, struct Vector v1, struct Vector r2, struct Vector v2, double dt, struct Body *attractor, double *data, double dep_periapsis, double arr_periapsis) {
     double dtheta = angle_vec_vec(r1, r2);
     if (cross_product(r1, r2).z < 0) dtheta = 2 * M_PI - dtheta;
 
@@ -192,13 +192,13 @@ struct Transfer calc_transfer(enum Transfer_Type tt, struct Body *dep_body, stru
 		double dv1, dv2;
 		if(dep_body != NULL) {
 			double v_t1_inf = fabs(vector_mag(subtract_vectors(transfer.v0, v1)));
-			dv1 = tt % 2 == 0 ? dv_capture(dep_body, dep_body->atmo_alt + 50e3, v_t1_inf) : dv_circ(dep_body,dep_body->atmo_alt + 50e3,v_t1_inf);
+			dv1 = tt % 2 == 0 ? dv_capture(dep_body, dep_periapsis, v_t1_inf) : dv_circ(dep_body,dep_periapsis,v_t1_inf);
 		} else dv1 = vector_mag(v1);
 
 		if(arr_body != NULL) {
 			double v_t2_inf = fabs(vector_mag(subtract_vectors(transfer.v1, v2)));
-			if(tt < 2) dv2 = dv_capture(arr_body, arr_body->atmo_alt + 50e3, v_t2_inf);
-			else if(tt < 4) dv2 = dv_circ(arr_body, arr_body->atmo_alt + 50e3, v_t2_inf);
+			if(tt < 2) dv2 = dv_capture(arr_body, arr_periapsis, v_t2_inf);
+			else if(tt < 4) dv2 = dv_circ(arr_body, arr_periapsis, v_t2_inf);
 			else dv2 = 0;
 		} else {
 			dv2 = vector_mag(v2);
@@ -238,14 +238,14 @@ struct Vector heliocentric_rot(struct Vector2D v, double RAAN, double w, double 
     return result_v;
 }
 
-double dv_circ(struct Body *body, double rp, double vinf) {
-    rp += body->radius;
-    return sqrt(2*body->mu/rp+vinf*vinf) - sqrt(body->mu/rp);
+double dv_circ(struct Body *body, double periapsis_altitude, double vinf) {
+	periapsis_altitude += body->radius;
+    return sqrt(2 * body->mu / periapsis_altitude + vinf * vinf) - sqrt(body->mu / periapsis_altitude);
 }
 
-double dv_capture(struct Body *body, double rp, double vinf) {
-    rp += body->radius;
-    return sqrt(2*body->mu/rp+vinf*vinf) - sqrt(2*body->mu/rp);
+double dv_capture(struct Body *body, double periapsis_altitude, double vinf) {
+	periapsis_altitude += body->radius;
+    return sqrt(2 * body->mu / periapsis_altitude + vinf * vinf) - sqrt(2 * body->mu / periapsis_altitude);
 }
 
 struct Transfer calc_transfer_dv(struct Transfer2D transfer2d, struct Vector r1, struct Vector r2) {
@@ -304,7 +304,7 @@ void calc_hohmann_transfer_dv(double r0, double r1, struct Body *attractor, doub
 	*dv_arr = calc_maneuver_dV(r1, r0, r1, attractor);
 }
 
-void calc_interplanetary_hohmann_transfer(struct Body *dep_body, struct Body *arr_body, struct Body *attractor, double *dur, double *dv_dep, double *dv_arr_cap, double *dv_arr_circ) {
+void calc_interplanetary_hohmann_transfer(struct Body *dep_body, struct Body *arr_body, struct Body *attractor, double *dur, double *dv_dep, double *dv_arr_cap, double *dv_arr_circ, double dep_periapsis, double arr_periapsis) {
 	double r0 = dep_body->orbit.a;
 	double r1 = arr_body->orbit.a;
 
@@ -312,19 +312,19 @@ void calc_interplanetary_hohmann_transfer(struct Body *dep_body, struct Body *ar
 	calc_hohmann_transfer_dv(r0, r1, attractor, dv_dep, dv_arr_cap);
 	*dv_arr_circ = *dv_arr_cap;
 
-	*dv_dep = dv_circ(dep_body, dep_body->atmo_alt + 50e3, *dv_dep);
-	*dv_arr_circ = dv_circ(arr_body, dep_body->atmo_alt + 50e3, *dv_arr_circ);
-	*dv_arr_cap = dv_capture(arr_body, dep_body->atmo_alt + 50e3, *dv_arr_cap);
+	*dv_dep = dv_circ(dep_body, dep_periapsis, *dv_dep);
+	*dv_arr_circ = dv_circ(arr_body, arr_periapsis, *dv_arr_circ);
+	*dv_arr_cap = dv_capture(arr_body, arr_periapsis, *dv_arr_cap);
 }
 
 
 int is_flyby_viable(const double *t, struct OSV *osv, struct Body **body, struct Body *attractor) {
 	double data[3];
 	struct Transfer transfer1 = calc_transfer(circcirc, body[0], body[1], osv[0].r, osv[0].v, osv[1].r,
-											  osv[1].v, (t[1] - t[0]) * (24 * 60 * 60), attractor, data);
+											  osv[1].v, (t[1] - t[0]) * (24 * 60 * 60), attractor, data, body[0]->atmo_alt, body[1]->atmo_alt);
 	double arr_v = data[2];
 	struct Transfer transfer2 = calc_transfer(circcirc, body[1], body[2], osv[1].r, osv[1].v, osv[2].r,
-											  osv[2].v, (t[2] - t[1]) * (24 * 60 * 60), attractor, data);
+											  osv[2].v, (t[2] - t[1]) * (24 * 60 * 60), attractor, data, body[1]->atmo_alt, body[2]->atmo_alt);
 	double dep_v = data[1];
 	if (fabs(arr_v - dep_v) > 10) return 0;
 

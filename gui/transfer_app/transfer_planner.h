@@ -11,7 +11,6 @@ void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_typ
 void update();
 void update_date_label();
 void update_transfer_panel();
-void remove_all_transfers();
 
 void end_transfer_planner();
 
@@ -34,7 +33,8 @@ G_MODULE_EXPORT void on_transfer_body_select(GtkWidget* widget, gpointer data);
 G_MODULE_EXPORT void on_add_transfer(GtkWidget* widget, gpointer data);
 G_MODULE_EXPORT void on_remove_transfer(GtkWidget* widget, gpointer data);
 G_MODULE_EXPORT void on_find_closest_transfer(GtkWidget* widget, gpointer data);
-G_MODULE_EXPORT void on_find_itinerary(GtkWidget* widget, gpointer data);
+//G_MODULE_EXPORT void on_find_itinerary(GtkWidget* widget, gpointer data);
+G_MODULE_EXPORT void on_show_itin_overview();
 G_MODULE_EXPORT void on_save_itinerary(GtkWidget* widget, gpointer data);
 G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data);
 G_MODULE_EXPORT void on_create_gmat_script();

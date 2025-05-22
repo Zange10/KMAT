@@ -28,7 +28,7 @@ void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body 
 
 	int counter = 0;
 
-	struct OSV osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb), -theta_conj_opp, SUN());
+	struct OSV osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb), -theta_conj_opp, system->cb);
 	struct Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
 	struct Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, system->cb);
 	double dt0 = arr1.t-arr0.t;
@@ -78,7 +78,7 @@ void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body 
 					osv_from_ephem(next_body->ephem, t1, system->cb);
 
 			struct Transfer new_transfer = calc_transfer(circfb, tf->body, next_body, osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, dt,
-														 system->cb, NULL);
+														 system->cb, NULL, 0, 0);
 
 			struct Vector v_dep = subtract_vectors(new_transfer.v0, tf->v_body);
 
@@ -170,7 +170,7 @@ void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct B
 			jd_arr = jd_sb2 + dt1;
 
 			struct OSV osv_arr = osv_from_ephem(ephems[1], jd_arr, SUN());
-			struct Transfer transfer_after_dsb = calc_transfer(circfb, body0, body1, osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, SUN(), NULL);
+			struct Transfer transfer_after_dsb = calc_transfer(circfb, body0, body1, osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, SUN(), NULL, 0, 0);
 
 			s1.r = transfer_after_dsb.r0;
 			s1.v = transfer_after_dsb.v0;
@@ -286,7 +286,7 @@ double get_itinerary_duration(struct ItinStep *itin) {
 	return jd1-jd0;
 }
 
-struct PorkchopPoint *create_porkchop_array_from_departures(struct ItinStep **departures, int num_deps) {
+struct PorkchopPoint *create_porkchop_array_from_departures(struct ItinStep **departures, int num_deps, double dep_periapsis, double arr_periapsis) {
 	int num_itins = 0;
 	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(departures[i]);
 
@@ -295,21 +295,21 @@ struct PorkchopPoint *create_porkchop_array_from_departures(struct ItinStep **de
 	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(departures[i], arrivals, &index);
 	struct PorkchopPoint *porkchop_points = malloc(num_itins * sizeof(struct PorkchopPoint));
 	for(int i = 0; i < num_itins; i++) {
-		porkchop_points[i] = create_porkchop_point(arrivals[i]);
+		porkchop_points[i] = create_porkchop_point(arrivals[i], dep_periapsis, arr_periapsis);
 	}
 	free(arrivals);
 
 	return porkchop_points;
 }
 
-struct PorkchopPoint create_porkchop_point(struct ItinStep *itin) {
+struct PorkchopPoint create_porkchop_point(struct ItinStep *itin, double dep_periapsis, double arr_periapsis) {
 	struct PorkchopPoint pp;
 	pp.arrival = itin;
 	pp.dur = get_itinerary_duration(itin);
 
 	double vinf = vector_mag(subtract_vectors(itin->v_arr, itin->v_body));
-	pp.dv_arr_cap = dv_capture(itin->body, itin->body->atmo_alt + 50e3, vinf);
-	pp.dv_arr_circ = dv_circ(itin->body, itin->body->atmo_alt + 50e3, vinf);
+	pp.dv_arr_cap = dv_capture(itin->body, arr_periapsis, vinf);
+	pp.dv_arr_circ = dv_circ(itin->body, arr_periapsis, vinf);
 
 	pp.dv_dsm = 0;
 	while(itin->prev->prev != NULL) {
@@ -321,11 +321,11 @@ struct PorkchopPoint create_porkchop_point(struct ItinStep *itin) {
 
 	pp.dep_date = itin->prev->date;
 	vinf = vector_mag(subtract_vectors(itin->v_dep, itin->prev->v_body));
-	pp.dv_dep = dv_circ(itin->prev->body, itin->prev->body->atmo_alt + 50e3, vinf);
+	pp.dv_dep = dv_circ(itin->prev->body, dep_periapsis, vinf);
 	return pp;
 }
 
-int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, const double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step) {
+int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step) {
 	double max_duration = jd_max_arr-curr_step->date;
 	double min_duration = MIN_TRANSFER_DURATION;
 	if(max_duration > min_duration && get_thread_counter(3) == 0) {
@@ -339,7 +339,7 @@ int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, 
 		for(int i = 0; i < curr_step->num_next_nodes; i++) {
 			struct ItinStep *next = bodies[step] != bodies[step - 1] ? curr_step->next[i] : curr_step->next[i]->next[0]->next[0];
 			if(step == num_steps - 1) {
-				struct PorkchopPoint porkchop_point = create_porkchop_point(next);
+				struct PorkchopPoint porkchop_point = create_porkchop_point(next, dv_filter->dep_periapsis, dv_filter->arr_periapsis);
 				double dv_sat = porkchop_point.dv_dsm;
 				if(dv_filter->last_transfer_type == 1) dv_sat += porkchop_point.dv_arr_cap;
 				if(dv_filter->last_transfer_type == 2) dv_sat += porkchop_point.dv_arr_circ;
@@ -467,7 +467,7 @@ int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_b
 int remove_end_nodes_that_do_not_satisfy_dv_requirements(struct ItinStep *curr_step, int num_of_end_nodes, struct Dv_Filter *dv_filter) {
 	for(int i = curr_step->num_next_nodes-num_of_end_nodes; i < curr_step->num_next_nodes; i++) {
 		struct ItinStep *next = curr_step->next[i];
-		struct PorkchopPoint porkchop_point = create_porkchop_point(next);
+		struct PorkchopPoint porkchop_point = create_porkchop_point(next, dv_filter->dep_periapsis, dv_filter->arr_periapsis);
 		double dv_sat = porkchop_point.dv_dsm;
 		if(dv_filter->last_transfer_type == 1) dv_sat += porkchop_point.dv_arr_cap;
 		if(dv_filter->last_transfer_type == 2) dv_sat += porkchop_point.dv_arr_circ;
@@ -523,7 +523,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *
 				next = next->next[0];
 				double dt = (next->date - step->date) * 86400;
 				struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-														 next->v_body, dt, system->cb, NULL);
+														 next->v_body, dt, system->cb, NULL, 0, 0);
 				next->v_dep = transfer.v0;
 				next->v_arr = transfer.v1;
 			} else {
@@ -533,7 +533,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *
 				struct OSV osv_arr = {next->next[0]->next[0]->r, next->next[0]->next[0]->v_body};
 				struct Transfer transfer_after_dsb = calc_transfer(circfb, sb2->body, arr->body, osv_sb2.r, osv_sb2.v,
 																   osv_arr.r, osv_arr.v,
-																   (arr->date - sb2->date) * 86400, system->cb, NULL);
+																   (arr->date - sb2->date) * 86400, system->cb, NULL, 0, 0);
 
 				struct OSV s0 = {step->r, step->v_arr};
 				struct OSV p0 = {step->r, step->v_body};
@@ -551,7 +551,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *
 					next = next->next[0];
 					dt = (next->date - step->date) * 86400;
 					struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-															 next->v_body, dt, system->cb, NULL);
+															 next->v_body, dt, system->cb, NULL, 0, 0);
 					next->v_dep = transfer.v0;
 					next->v_arr = transfer.v1;
 				}
@@ -559,7 +559,7 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *
 		} else {
 			double dt = (next->date - step->date) * 86400;
 			struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-													 next->v_body, dt, system->cb, NULL);
+													 next->v_body, dt, system->cb, NULL, 0, 0);
 			next->v_dep = transfer.v0;
 			next->v_arr = transfer.v1;
 		}
@@ -671,16 +671,118 @@ void store_itineraries_in_file(struct ItinStep **departures, int num_nodes, int 
 	fclose(file);
 }
 
+void itinerary_short_overview_to_string(struct ItinStep *step, enum DateType date_type, double dep_periapsis, double arr_periapsis, char *string) {
+	sprintf(string, "");
+	if(step == NULL) return;
+	step = get_first(step);
+	char date_string[32];
+	while(step != NULL) {
+		if(step->prev != NULL) sprintf(string, "%s - ", string);
+		sprintf(string, "%s%s", string, step->body->name);
+		if(step->next != NULL) step = step->next[0];
+		else break;
+	}
+	
+	date_to_string(convert_JD_date(get_first(step)->date, date_type), date_string, 1);
+	sprintf(string, "%s\nDeparture: %s\n", string, date_string);
+	date_to_string(convert_JD_date(get_last(step)->date, date_type), date_string, 1);
+	double dt = get_last(step)->date-get_first(step)->date;
+	if(date_type == DATE_KERBAL) dt *= 4;
+	sprintf(string, "%sArrival: %s\nDuration: %.2f days\n", string, date_string, dt);
+	
+	struct PorkchopPoint pp = create_porkchop_point(get_last(step), dep_periapsis, arr_periapsis);
+	
+	sprintf(string, "%s\nDeparture dv: %.2f m/s (Periapsis: %.2fkm)\n", string, pp.dv_dep, dep_periapsis/1e3);
+	sprintf(string, "%sArrival dv: %.2f m/s  (Capture; Periapsis: %.2fkm)\n", string, pp.dv_arr_cap, arr_periapsis/1e3);
+	sprintf(string, "%sArrival dv: %.2f m/s  (Circularization; Periapsis: %.2fkm)\n\n--\n", string, pp.dv_arr_circ, arr_periapsis/1e3);
+	
+	step = get_first(step);
+	int step_id = 0;
+	
+	while(step != NULL) {
+		date_to_string(convert_JD_date(step->date, date_type), date_string, 1);
+		if(step_id == 0) sprintf(string, "%sDeparture", string);
+		else if(step->next == NULL) sprintf(string, "%sArrival", string);
+		else sprintf(string, "%sFly-By %d", string, step_id);
+		sprintf(string, "%s (%s): | %s", string, step->body->name, date_string);
+		if(step_id == 0) {
+//			sprintf(string, "%sPeriapsis: %.2fkm\n", string, dep_periapsis/1e3);
+			sprintf(string, "%s\n", string);
+		} else if(step->next == NULL) {
+//			sprintf(string, "%sPeriapsis: %.2fkm\n", string, arr_periapsis/1e3);
+			sprintf(string, "%s\n", string);
+		} else {
+			struct Vector v_arr = step->v_arr;
+			struct Vector v_dep = step->next[0]->v_dep;
+			struct Vector v_body = step->v_body;
+			double rp = get_flyby_periapsis(v_arr, v_dep, v_body, step->body);
+			sprintf(string, "%s |  Periapsis: %.2fkm\n", string, (rp-step->body->radius)/1e3);
+		}
+		if(step->next != NULL) step = step->next[0];
+		else step = NULL;
+		step_id++;
+	}
+}
 
+void itinerary_detailed_overview_to_string(struct ItinStep *step, enum DateType date_type, double dep_periapsis, double arr_periapsis, char *string) {
+	sprintf(string, "");
+	if(step == NULL) return;
+	step = get_first(step);
+	char date_string[32];
+	while(step != NULL) {
+		if(step->prev != NULL) sprintf(string, "%s - ", string);
+		sprintf(string, "%s%s", string, step->body->name);
+		if(step->next != NULL) step = step->next[0];
+		else break;
+	}
+	
+	date_to_string(convert_JD_date(get_first(step)->date, date_type), date_string, 1);
+	sprintf(string, "%s\nDeparture: %s\n", string, date_string);
+	date_to_string(convert_JD_date(get_last(step)->date, date_type), date_string, 1);
+	double dt = get_last(step)->date-get_first(step)->date;
+	if(date_type == DATE_KERBAL) dt *= 4;
+	sprintf(string, "%sArrival: %s\nDuration: %.2f days\n", string, date_string, dt);
+	
+	struct PorkchopPoint pp = create_porkchop_point(get_last(step), dep_periapsis, arr_periapsis);
+	
+	sprintf(string, "%s\nDeparture dv: %.2f m/s\n", string, pp.dv_dep);
+	sprintf(string, "%sArrival dv: %.2f m/s  (Capture)\n", string, pp.dv_arr_cap);
+	sprintf(string, "%sArrival dv: %.2f m/s  (Circularization)\n\n--\n", string, pp.dv_arr_circ);
+	
+	step = get_first(step);
+	int step_id = 0;
+	
+	while(step != NULL) {
+		date_to_string(convert_JD_date(step->date, date_type), date_string, 1);
+		if(step_id == 0) sprintf(string, "%s\nDeparture", string);
+		else if(step->next == NULL) sprintf(string, "%s\nArrival", string);
+		else sprintf(string, "%s\nFly-By %d", string, step_id);
+		sprintf(string, "%s (%s):\nDate: %s  (T+%.2f days)\n", string, step->body->name, date_string, step->date-get_first(step)->date);
+		if(step_id == 0) {
+			sprintf(string, "%sPeriapsis: %.2fkm\n", string, dep_periapsis/1e3);
+		} else if(step->next == NULL) {
+			sprintf(string, "%sPeriapsis: %.2fkm\n", string, arr_periapsis/1e3);
+		} else {
+			struct Vector v_arr = step->v_arr;
+			struct Vector v_dep = step->next[0]->v_dep;
+			struct Vector v_body = step->v_body;
+			double rp = get_flyby_periapsis(v_arr, v_dep, v_body, step->body);
+			double incl = get_flyby_inclination(v_arr, v_dep, v_body);
+			sprintf(string, "%sPeriapsis: %.2fkm\nInclination: %.2f°\n", string, (rp-step->body->radius)/1e3, rad2deg(incl));
+		}
+		if(step->next != NULL) step = step->next[0];
+		else step = NULL;
+		step_id++;
+	}
+}
 
-void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum DateType date_type, struct ItinStep *step) {
+void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum DateType date_type, double dep_periapsis, double arr_periapsis, struct ItinStep *step) {
 	if(step == NULL) {sprintf(s_labels,""); sprintf(s_values,""); return;}
 	struct DepArrHyperbolaParams dep_hyp_params;
 
 	// is departure step
 	if(step->prev == NULL) {
-		dep_hyp_params = get_dep_hyperbola_params(step->next[0]->v_dep, step->v_body, step->body,
-												  50e3 + step->body->atmo_alt);
+		dep_hyp_params = get_dep_hyperbola_params(step->next[0]->v_dep, step->v_body, step->body, dep_periapsis);
 		sprintf(s_labels, "Departure\n"
 						  "T+:\n"
 						  "RadPer:\n"
@@ -701,14 +803,15 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 				rad2deg(dep_hyp_params.bplane_angle), rad2deg(dep_hyp_params.decl));
 
 	} else if(step->num_next_nodes == 0) {
-		double rp = 100000e3;
 		double dt_in_days = step->date - get_first(step)->date;
 		if(date_type == DATE_KERBAL) dt_in_days *= 4;
-		struct DepArrHyperbolaParams arr_hyp_params = get_dep_hyperbola_params(step->v_arr, step->v_body, step->body, rp - step->body->radius);
+		struct DepArrHyperbolaParams arr_hyp_params = get_dep_hyperbola_params(step->v_arr, step->v_body, step->body, arr_periapsis);
 		arr_hyp_params.decl *= -1;
 		arr_hyp_params.bplane_angle = pi_norm(M_PI + arr_hyp_params.bplane_angle);
 		sprintf(s_labels, "Arrival\n"
 						  "T+:\n"
+						  "RadPer:\n"
+						  "AltPer:\n"
 						  "Min Incl:\n"
 						  "Max Incl:\n\n"
 						  "C3Energy:\n"
@@ -716,12 +819,14 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 						  "DHA (in):");
 
 		sprintf(s_values, "\n%.2f days\n"
+						  "%.0f km\n"
+						  "%.0f km\n"
 						  "%.2f°\n"
 						  "%.2f°\n\n"
 						  "%.2f km²/s²\n"
 						  "%.2f°\n"
 						  "%.2f°",
-				dt_in_days, fabs(rad2deg(arr_hyp_params.decl)), 180.0 - fabs(rad2deg(arr_hyp_params.decl)), arr_hyp_params.c3_energy / 1e6,
+				dt_in_days, arr_hyp_params.r_pe / 1000, (arr_hyp_params.r_pe-step->body->radius) / 1000, fabs(rad2deg(arr_hyp_params.decl)), 180.0 - fabs(rad2deg(arr_hyp_params.decl)), arr_hyp_params.c3_energy / 1e6,
 				rad2deg(arr_hyp_params.bplane_angle), rad2deg(arr_hyp_params.decl));
 
 	} else {

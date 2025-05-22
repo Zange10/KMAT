@@ -26,6 +26,9 @@ GtkWidget *grid_ic_fbbodies;
 
 struct System *ic_system;
 
+double ic_dep_periapsis = 50e3;
+double ic_arr_periapsis = 50e3;
+
 GtkWidget * ic_update_seq_body_grid(GObject *viewport, GtkWidget *grid);
 
 void init_itinerary_calculator(GtkBuilder *builder) {
@@ -115,50 +118,57 @@ struct Body ** get_bodies_from_grid(GtkWidget *grid, int num_bodies) {
 }
 
 
-void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nodes) {
+
+struct Itin_Calc_Data ic_calc_data;
+struct Itin_Calc_Results ic_results;
+
+void save_itineraries_ic(struct ItinStep **departures, int num_deps, int num_nodes, int num_itins) {
 	if(departures == NULL || num_deps == 0) return;
 	char filepath[255];
 	if(!get_path_from_file_chooser(filepath,  ".itins", GTK_FILE_CHOOSER_ACTION_SAVE, "")) return;
-	store_itineraries_in_bfile(departures, num_nodes, num_deps, ic_system, filepath, get_current_bin_file_type());
+	store_itineraries_in_bfile(departures, num_nodes, num_deps, num_itins, ic_calc_data, ic_system, filepath, get_current_bin_file_type());
 }
-
-
-
-struct Itin_Calc_Results ic_results;
 
 gboolean end_ic_calc_thread() {
 	end_sc_ic_progress_window();
 	gtk_widget_set_sensitive(GTK_WIDGET(tf_ic_window), 1);
 
-	save_itineraries_ic(ic_results.departures, ic_results.num_deps, ic_results.num_nodes);
+	save_itineraries_ic(ic_results.departures, ic_results.num_deps, ic_results.num_nodes, ic_results.num_itins);
 	for(int i = 0; i < ic_results.num_deps; i++) free_itinerary(ic_results.departures[i]);
 	free(ic_results.departures);
+	free(ic_calc_data.seq_info.to_target.flyby_bodies);
 	if(ic_results.num_deps == 0) show_msg_window("No itineraries found!");
 	return G_SOURCE_REMOVE;
 }
 
 void ic_calc_thread() {
 	char *string;
-	struct Itin_Calc_Data calc_data;
 
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_mindepdate));
-	calc_data.jd_min_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
+	ic_calc_data.jd_min_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_maxdepdate));
-	calc_data.jd_max_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
+	ic_calc_data.jd_max_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_maxarrdate));
-	calc_data.jd_max_arr = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
+	ic_calc_data.jd_max_arr = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_maxdur));
-	calc_data.max_duration = (int) strtol(string, NULL, 10);
-	if(get_settings_datetime_type() == DATE_KERBAL) calc_data.max_duration /= 4;	// kerbal day is 4 times shorter (24h/6h)
+	ic_calc_data.max_duration = strtod(string, NULL);
+	if(get_settings_datetime_type() == DATE_KERBAL) ic_calc_data.max_duration /= 4;	// kerbal day is 4 times shorter (24h/6h)
 
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_totdv));
-	calc_data.dv_filter.max_totdv = strtod(string, NULL);
+	ic_calc_data.dv_filter.max_totdv = strtod(string, NULL);
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_depdv));
-	calc_data.dv_filter.max_depdv = strtod(string, NULL);
+	ic_calc_data.dv_filter.max_depdv = strtod(string, NULL);
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ic_satdv));
-	calc_data.dv_filter.max_satdv = strtod(string, NULL);
+	ic_calc_data.dv_filter.max_satdv = strtod(string, NULL);
 	string = (char*) gtk_combo_box_get_active_id(GTK_COMBO_BOX(cb_ic_transfertype));
-	calc_data.dv_filter.last_transfer_type = (int) strtol(string, NULL, 10);
+	ic_calc_data.dv_filter.last_transfer_type = (int) strtol(string, NULL, 10);
+
+	ic_calc_data.dv_filter.dep_periapsis = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_depbody))]->atmo_alt + ic_dep_periapsis;
+	ic_calc_data.dv_filter.arr_periapsis = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))]->atmo_alt + ic_arr_periapsis;
+
+	ic_calc_data.num_deps_per_date = 500;
+	ic_calc_data.step_dep_date = 1;
+	ic_calc_data.max_num_waiting_orbits = 0;
 
 	// Make sure arrival body is a fly-by body
 	struct Body *arr_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))];
@@ -171,11 +181,9 @@ void ic_calc_thread() {
 			.num_flyby_bodies = get_num_selected_bodies_from_grid(grid_ic_fbbodies),
 	};
 	seq_info.flyby_bodies = get_bodies_from_grid(grid_ic_fbbodies, seq_info.num_flyby_bodies);
-	calc_data.seq_info.to_target = seq_info;
+	ic_calc_data.seq_info.to_target = seq_info;
 
-	ic_results = search_for_itineraries(calc_data);
-
-	free(seq_info.flyby_bodies);
+	ic_results = search_for_itineraries(ic_calc_data);
 
 	// GUI stuff needs to happen in main thread
 	g_idle_add((GSourceFunc)end_ic_calc_thread, NULL);
@@ -221,7 +229,7 @@ G_MODULE_EXPORT void on_get_ic_ref_values() {
 
 	if(dep_body == arr_body) return;
 
-	calc_interplanetary_hohmann_transfer(dep_body, arr_body, ic_system->cb, &dur, &dv_dep, &dv_arr_cap, &dv_arr_circ);
+	calc_interplanetary_hohmann_transfer(dep_body, arr_body, ic_system->cb, &dur, &dv_dep, &dv_arr_cap, &dv_arr_circ, dep_body->atmo_alt+ic_dep_periapsis, arr_body->atmo_alt+ic_arr_periapsis);
 
 	dur /= get_settings_datetime_type() != DATE_KERBAL ? (24*60*60) : (6*60*60);
 

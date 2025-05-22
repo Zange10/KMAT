@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.26)
-project(KSP C)
+project(KMAT C)
 
 set(CMAKE_C_STANDARD 11)
 
 include_directories(.)
 
-add_executable(KSP-Tools
+add_executable(KMAT
         celestial_bodies.c
         celestial_bodies.h
         tools/file_io.c
@@ -98,6 +98,12 @@ add_executable(KSP-Tools
         00_Testing/testing.h
         00_Testing/testing_algorithms.c
         00_Testing/testing_algorithms.h
+        gui/gui_tools/camera.c
+        gui/gui_tools/camera.h
+        gui/gui_tools/screen.c
+        gui/gui_tools/screen.h
+        tools/version_tool.c
+        tools/version_tool.h
 )
 
 # Platform-specific setup
@@ -137,7 +143,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             ${GTK3_ROOT}/lib/glib-2.0
     )
 
-    target_link_libraries(KSP-Tools
+    target_link_libraries(KMAT
             gtk-3
             gdk-3
             gobject-2.0
@@ -149,10 +155,11 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             gio-2.0
             urlmon
             sqlite3
+            wininet
     )
 
 
-    set_target_properties(KSP-Tools PROPERTIES WIN32_EXECUTABLE TRUE)
+    set_target_properties(KMAT PROPERTIES WIN32_EXECUTABLE TRUE)
 
 else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(STATUS "Configuring for Linux (GCC)")
@@ -163,7 +170,7 @@ else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     include_directories(${GTK3_INCLUDE_DIRS})
     link_directories(${GTK3_LIBRARY_DIRS})
     add_definitions(${GTK3_CFLAGS_OTHER})
-    target_link_libraries(KSP-Tools m ${GTK3_LIBRARIES} sqlite3)
+    target_link_libraries(KMAT m ${GTK3_LIBRARIES} sqlite3)
 
-    target_link_options(KSP-Tools PRIVATE -rdynamic)
+    target_link_options(KMAT PRIVATE -rdynamic)
 endif()

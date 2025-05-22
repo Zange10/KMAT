@@ -75,7 +75,7 @@ void find_double_swing_by_zero_sec_sb_diff(struct Swingby_Peak_Search_Params sps
 
 		gettimeofday(&start, NULL);  // Record the starting time
 		struct Transfer transfer = calc_transfer(capfb, body, body, osv_m0.r, osv_m0.v, dd.p1.r, dd.p1.v,
-												 dd.transfer_duration * 86400 - duration, SUN(), NULL);
+												 dd.transfer_duration * 86400 - duration, SUN(), NULL, 0, 0);
 		gettimeofday(&end, NULL);  // Record the ending time
 		elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
 		testvar[1] += elapsed_time;
