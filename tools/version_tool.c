@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-//#ifdef _WIN32
-//#include <windows.h>
-//#include <wininet.h>
-//#endif
+#ifdef _WIN32
+#include <windows.h>
+#include <wininet.h>
+#endif
 
 
 #define BUFFER_SIZE 8192
@@ -55,42 +55,42 @@ char *extract_tag_name(const char *json) {
 }
 
 void get_latest_release_version_from_github() {
-//	#ifdef _WIN32
-//		HINTERNET hInternet = InternetOpen("version-checker", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
-//		if (!hInternet) {
-//			fprintf(stderr, "InternetOpen failed.\n");
-//			return;
-//		}
-//
-//		HINTERNET hFile = InternetOpenUrl(hInternet, REPO_URL, NULL, 0, INTERNET_FLAG_RELOAD, 0);
-//		if (!hFile) {
-//			fprintf(stderr, "InternetOpenUrl failed.\n");
-//			InternetCloseHandle(hInternet);
-//			return;
-//		}
-//
-//		char buffer[BUFFER_SIZE];
-//		DWORD bytesRead;
-//		size_t total_read = 0;
-//
-//		while (InternetReadFile(hFile, buffer + total_read, BUFFER_SIZE - total_read - 1, &bytesRead) && bytesRead != 0) {
-//			total_read += bytesRead;
-//			if (total_read >= BUFFER_SIZE - 1) break;
-//		}
-//		buffer[total_read] = '\0';
-//
-//		InternetCloseHandle(hFile);
-//		InternetCloseHandle(hInternet);
-//
-//		char *tag = extract_tag_name(buffer);
-//		if (tag) {
-//			sscanf(tag, "v%d.%d.%d", &latest_release.major, &latest_release.minor, &latest_release.patch);
-//			free(tag);
-//		} else {
-//			fprintf(stderr, "Failed to parse version from server response.\n");
-//		}
-//
-//	#else
+	#ifdef _WIN32
+		HINTERNET hInternet = InternetOpen("version-checker", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
+		if (!hInternet) {
+			fprintf(stderr, "InternetOpen failed.\n");
+			return;
+		}
+
+		HINTERNET hFile = InternetOpenUrl(hInternet, REPO_URL, NULL, 0, INTERNET_FLAG_RELOAD, 0);
+		if (!hFile) {
+			fprintf(stderr, "InternetOpenUrl failed.\n");
+			InternetCloseHandle(hInternet);
+			return;
+		}
+
+		char buffer[BUFFER_SIZE];
+		DWORD bytesRead;
+		size_t total_read = 0;
+
+		while (InternetReadFile(hFile, buffer + total_read, BUFFER_SIZE - total_read - 1, &bytesRead) && bytesRead != 0) {
+			total_read += bytesRead;
+			if (total_read >= BUFFER_SIZE - 1) break;
+		}
+		buffer[total_read] = '\0';
+
+		InternetCloseHandle(hFile);
+		InternetCloseHandle(hInternet);
+
+		char *tag = extract_tag_name(buffer);
+		if (tag) {
+			sscanf(tag, "v%d.%d.%d", &latest_release.major, &latest_release.minor, &latest_release.patch);
+			free(tag);
+		} else {
+			fprintf(stderr, "Failed to parse version from server response.\n");
+		}
+
+	#else
 		char command[512];
 		snprintf(command, sizeof(command), "wget -qO- --header='User-Agent: version-checker' \"%s\"", REPO_URL);
 
@@ -112,7 +112,7 @@ void get_latest_release_version_from_github() {
 		} else {
 			fprintf(stderr, "Failed to parse version from github.\n");
 		}
-//	#endif
+	#endif
 }
 
 int is_latest_version() {

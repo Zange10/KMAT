@@ -155,6 +155,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             gio-2.0
             urlmon
             sqlite3
+            wininet
     )
 
 
