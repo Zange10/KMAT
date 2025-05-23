@@ -1,7 +1,7 @@
 # KMAT
 
 ***KMAT*** (**K**MAT's a **M**ission **A**nalysis **T**ool) is a C-based (because fast) tool for interplanetary transfer planning, mission planning, and launch simulations. This tool was mainly created as a fun learning experience for me and for supporting my Kerbal Space Program Career in Realism Overhaul in combination with its add-on Realistic Progression One (RP-1). 
-It has since become a tool that is not limit to RP-1 and should be able to be used by anyone who is somewhat familiar with basic concepts from orbital mechanics. The features this tool incorporates include:
+It has since become a tool that is not limited to Realism Overhaul and should be able to be used by anyone who is somewhat familiar with basic concepts from orbital mechanics. The features this tool incorporates include:
 - Interplanetary transfer planner for multi-swing by missions (released)
 - Rocket Launch simulator including launch profile optimization (calculations fully functional but needs database to work; inaccessible)
 - Mission planner to determine transfer parameters and transfer costs from an initial orbit to a defined final orbit (yet to be implemented)
@@ -21,22 +21,19 @@ The interplanetary transfer planner was validated against the mission trajectori
 ## Usage
 ### Installation
 * **Windows:**\
-Download the .zip-file from the [latest release](https://github.com/Zange10/ksp-ro-tools/releases) and extract it (to a location of your choice). Now you can run the application using the `Launch_KMAT.exe`. On initial startup you might need to tell windows that this application is safe to run.
+Download the kmat-win.zip-file from the [latest release](https://github.com/Zange10/ksp-ro-tools/releases) and extract it (to a location of your choice). Now you can run the application using the `Launch_KMAT.exe`. On initial startup you might need to tell windows that this application is safe to run.
 
 * **Linux:**\
-Download the .tar.gz-file from the [latest release](https://github.com/Zange10/ksp-ro-tools/releases) and extract it (to a location of your choice). To be able to run, the packages for [GTK3](https://www.gtk.org/docs/installations/linux/) and [SQLite3](https://www.sqlite.org/index.html) need to be installed. You can run the application using the `Launch_KMAT` executable.
+Download the kmat-linux.zip-file from the [latest release](https://github.com/Zange10/ksp-ro-tools/releases) and extract it (to a location of your choice). To be able to run, the packages for [GTK3](https://www.gtk.org/docs/installations/linux/) and [SQLite3](https://www.sqlite.org/index.html) need to be installed. You can run the application using the `Launch_KMAT` executable.
 
 ### Solar System using Ephemeris Data
 If you would like to use the solar system's ephemeris data (this might be recommended if you use Principia), download `solar_system_ephem.cfg` and move it to the `Celestial_Systems` folder. On initial startup, the ephemeris data will be retrieved from [JPL's Horizon API](https://ssd.jpl.nasa.gov/horizons/app.html#/) and stored in the `Ephemerides` folder (created automatically).
 
---
-
-If the tool is used for a "relevant" project (e.g. content creation or uni project), don't hesitate to reach out to me for a quick heads-up, so I know the tool is being used for something actually useful.
+### Usage of KMAT for "relevant" Projects
+If the tool is used for a "relevant" project (e.g. content creation or uni project), don't hesitate to reach out to me for a quick heads-up. That way I know the tool is being used for something actually useful.
 
 ## About this tool
 First and foremost, this tool is a fun learning experience for me, and it has been on and off for the past couple of years. I started developing this tool to make my life easier in KSP-RP1. Initially it started out as a rocket launch simulation program for analysis of launchers regarding their capabilities and optimal launch profiles and also included a small calculator for simple dv-transfer estimates (e.g. Hohmann).
-
-If the tool is used for a "relevant" project (e.g. content creation or uni project), don't hesitate to reach out to me for a quick heads-up, so I know the tool is being used for something actually useful.
 
 ## Documentation
 [Wiki](https://github.com/Zange10/ksp-ro-tools/wiki)
