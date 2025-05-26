@@ -98,6 +98,8 @@ add_executable(KSP-Tools
         00_Testing/testing.h
         00_Testing/testing_algorithms.c
         00_Testing/testing_algorithms.h
+        _System_Config_Creator/ksp_connector/ksp_connector.c
+        _System_Config_Creator/ksp_connector/ksp_connector.h
 )
 
 # Platform-specific setup
@@ -149,6 +151,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             gio-2.0
             urlmon
             sqlite3
+            -lws2_32
     )
 
 

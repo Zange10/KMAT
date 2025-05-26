@@ -4,6 +4,7 @@
 #include "tools/tool_funcs.h"
 #include "gui/gui_manager.h"
 #include "00_Testing/testing.h"
+#include "_System_Config_Creator/ksp_connector/ksp_connector.h"
 #include "orbit_calculator/transfer_tools.h"
 //#include "database/database.h"
 #ifdef _WIN32
@@ -34,6 +35,20 @@ int main() {
 
     init_celestial_bodies();
 	init_available_systems("../Celestial_Systems/");
+
+
+	if (!open_connection()) return 1;
+
+	// double vec[3];
+	// receive_data(vec);
+
+	close_connection();
+
+
+	for (int i = 0; i < 1e3; i++) {
+		printf("%d\n", i);
+	}
+
 //	init_db();
 
 
