@@ -24,6 +24,9 @@ struct PlannedScStep *sc_step;
 
 struct System *sc_system;
 
+double sc_dep_periapsis = 50e3;
+double sc_arr_periapsis = 50e3;
+
 void update_sc_preview();
 
 void init_sequence_calculator(GtkBuilder *builder) {
@@ -149,48 +152,58 @@ void update_sc_preview() {
 	gtk_widget_show_all(GTK_WIDGET(vp_sc_preview));
 }
 
-void save_itineraries_sc(struct ItinStep **departures, int num_deps, int num_nodes) {
+
+
+Itin_Calc_Data sc_calc_data;
+struct Itin_Calc_Results sc_results;
+
+void save_itineraries_sc(struct ItinStep **departures, int num_deps, int num_nodes, int num_itins) {
 	if(departures == NULL || num_deps == 0) return;
 	char filepath[255];
 	if(!get_path_from_file_chooser(filepath,  ".itins", GTK_FILE_CHOOSER_ACTION_SAVE, "")) return;
-	store_itineraries_in_bfile(departures, num_nodes, num_deps, sc_system, filepath, get_current_bin_file_type());
+	store_itineraries_in_bfile(departures, num_nodes, num_deps, num_itins, sc_calc_data, sc_system, filepath, get_current_bin_file_type());
 }
-
-struct Itin_Calc_Results sc_results;
 
 gboolean end_sc_calc_thread() {
 	end_sc_ic_progress_window();
 	gtk_widget_set_sensitive(GTK_WIDGET(tf_sc_window), 1);
 
-	save_itineraries_sc(sc_results.departures, sc_results.num_deps, sc_results.num_nodes);
+	save_itineraries_sc(sc_results.departures, sc_results.num_deps, sc_results.num_nodes, sc_results.num_itins);
 	for(int i = 0; i < sc_results.num_deps; i++) free_itinerary(sc_results.departures[i]);
 	free(sc_results.departures);
+	free(sc_calc_data.seq_info.spec_seq.bodies);
 	if(sc_results.num_deps == 0) show_msg_window("No itineraries found!");
 	return G_SOURCE_REMOVE;
 }
 
 void sc_calc_thread() {
 	char *string;
-	Itin_Calc_Data calc_data;
 
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_sc_mindepdate));
-	calc_data.jd_min_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
+	sc_calc_data.jd_min_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_sc_maxdepdate));
-	calc_data.jd_max_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
+	sc_calc_data.jd_max_dep = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_sc_maxarrdate));
-	calc_data.jd_max_arr = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
+	sc_calc_data.jd_max_arr = convert_date_JD(date_from_string(string, get_settings_datetime_type()));
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_sc_maxdur));
-	calc_data.max_duration = (int) strtol(string, NULL, 10);
-	if(get_settings_datetime_type() == DATE_KERBAL) calc_data.max_duration /= 4;	// kerbal day is 4 times shorter (24h/6h)
+	sc_calc_data.max_duration = strtod(string, NULL);
+	if(get_settings_datetime_type() == DATE_KERBAL) sc_calc_data.max_duration /= 4;	// kerbal day is 4 times shorter (24h/6h)
 
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_sc_totdv));
-	calc_data.dv_filter.max_totdv = strtod(string, NULL);
+	sc_calc_data.dv_filter.max_totdv = strtod(string, NULL);
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_sc_depdv));
-	calc_data.dv_filter.max_depdv = strtod(string, NULL);
+	sc_calc_data.dv_filter.max_depdv = strtod(string, NULL);
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_sc_satdv));
-	calc_data.dv_filter.max_satdv = strtod(string, NULL);
+	sc_calc_data.dv_filter.max_satdv = strtod(string, NULL);
 	string = (char*) gtk_combo_box_get_active_id(GTK_COMBO_BOX(cb_sc_transfertype));
-	calc_data.dv_filter.last_transfer_type = (int) strtol(string, NULL, 10);
+	sc_calc_data.dv_filter.last_transfer_type = (int) strtol(string, NULL, 10);
+
+	sc_calc_data.dv_filter.dep_periapsis = get_first_sc(sc_step)->body->atmo_alt + sc_dep_periapsis;
+	sc_calc_data.dv_filter.arr_periapsis = get_last_sc(sc_step)->body->atmo_alt + sc_arr_periapsis;
+
+	sc_calc_data.num_deps_per_date = 500;
+	sc_calc_data.step_dep_date = 1;
+	sc_calc_data.max_num_waiting_orbits = 0;
 
 	struct PlannedScStep *step = get_first_sc(sc_step);
 	struct ItinSequenceInfoSpecItin seq_info;
@@ -202,12 +215,11 @@ void sc_calc_thread() {
 		step = step->next;
 	}
 	seq_info.system = sc_system;
-	calc_data.seq_info.spec_seq = seq_info;
+	sc_calc_data.seq_info.spec_seq = seq_info;
 
-	sc_results = search_for_itineraries(calc_data);
+	sc_results = search_for_itineraries(sc_calc_data);
 
 	// GUI stuff needs to happen in main thread
-	free(seq_info.bodies);
 	g_idle_add((GSourceFunc)end_sc_calc_thread, NULL);
 }
 
@@ -242,7 +254,7 @@ G_MODULE_EXPORT void on_get_sc_ref_values() {
 
 	if(dep_body == arr_body) return;
 
-	calc_interplanetary_hohmann_transfer(dep_body, arr_body, sc_system->cb, &dur, &dv_dep, &dv_arr_cap, &dv_arr_circ);
+	calc_interplanetary_hohmann_transfer(dep_body, arr_body, sc_system->cb, &dur, &dv_dep, &dv_arr_cap, &dv_arr_circ, dep_body->atmo_alt+sc_dep_periapsis, arr_body->atmo_alt+sc_arr_periapsis);
 
 	dur /= get_settings_datetime_type() != DATE_KERBAL ? (24*60*60) : (6*60*60);
 

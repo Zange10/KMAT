@@ -35,6 +35,8 @@
 *.i*86
 *.x86_64
 *.hex
+/_Cross_Platform_Launcher/Launch_KMAT
+/_Cross_Platform_Launcher/Launch_KMAT.exe
 
 # Debug files
 *.dSYM/

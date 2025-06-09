@@ -30,7 +30,7 @@ void *calc_itins_from_departure(void *args) {
 	struct Dv_Filter dv_filter = calc_data->dv_filter;
 	double jd_min_dep = calc_data->jd_min_dep;
 	double jd_max_dep = calc_data->jd_max_dep;
-	int max_total_duration = calc_data->max_duration;
+	double max_total_duration = calc_data->max_duration;
 
 	enum ItinSequenceInfoType itin_seq_type = calc_data->seq_info.to_target.type;
 
@@ -125,7 +125,7 @@ void *calc_itins_from_departure(void *args) {
 				double data[3];
 
 				struct Transfer tf = calc_transfer(tt, dep_body, next_step_body, osv_body0.r, osv_body0.v,
-												   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, system->cb, data);
+												   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, system->cb, data, dv_filter.dep_periapsis, dv_filter.arr_periapsis);
 
 
 				if(data[1] > dv_filter.max_totdv || data[1] > dv_filter.max_depdv) continue;
@@ -235,6 +235,7 @@ struct Itin_Calc_Results search_for_itineraries(Itin_Calc_Data calc_data) {
 	results.departures = departures;
 	results.num_deps = num_deps;
 	results.num_nodes = num_nodes;
+	results.num_itins = num_itins;
 
 	return results;
 }

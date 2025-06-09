@@ -3,7 +3,6 @@
 #include "orbit_calculator/orbit_calculator.h"
 #include "tools/tool_funcs.h"
 #include "database/database.h"
-#include "projection_test/projection_test.h"
 #include "meshing_test/mesh_test.h"
 #include "gui/gui_manager.h"
 #include "00_Testing/testing.h"
@@ -40,6 +39,8 @@ int main() {
 
     init_celestial_bodies();
 	init_available_systems("../Celestial_Systems/");
+
+
 //	init_db();
 
 //	test();
