@@ -13,6 +13,7 @@
 GObject *mesh_drawing_area;
 PcMesh mesh;
 PcMeshGrid mesh_grid;
+PcMeshGroups pc_point_groups;
 
 double angle = 0;
 
@@ -155,9 +156,9 @@ void draw_points(cairo_t *cr) {
 	for(int c = 0; c < mesh.num_points; c++) {
 		PcMeshPoint point = *mesh.points[c];
 //		set_color_from_value(cr, triangle.points[i]->data.z);
-		cairo_set_source_rgb(cr, 0.5, 0.5, 0.5);
-		if(point.is_edge) cairo_set_source_rgb(cr, 0, 0.5, 1);
-		if(point.is_artificial) cairo_set_source_rgb(cr, 1, 0.2, 0);
+		cairo_set_source_rgb(cr, point.group->color[0], point.group->color[1], point.group->color[2]);
+//		if(point.is_edge) cairo_set_source_rgb(cr, 0, 0.5, 1);
+//		if(point.is_artificial) cairo_set_source_rgb(cr, 1, 0.2, 0);
 		cairo_arc(cr, point.data.x, point.data.y, 2, 0, 2*M_PI);
 		cairo_fill(cr);
 	}
@@ -312,9 +313,9 @@ void mesh_group_test(cairo_t *cr) {
 	cairo_set_source_rgb(cr, 0,0,0);
 	cairo_fill(cr);
 
-	double *x = malloc(10000*sizeof(double));
-	double *y = malloc(10000*sizeof(double));
-	double *z = malloc(10000*sizeof(double));
+	double *x = malloc(100000*sizeof(double));
+	double *y = malloc(100000*sizeof(double));
+	double *z = malloc(100000*sizeof(double));
 	int num_points = 0;
 
 	for(int i = i_idx; i < mesh_grid.num_cols; i++) {
@@ -377,21 +378,10 @@ void on_mesh_drawing_area_pressed() {
 
 
 void init_mesh_test() {
-	int test_number = 4;
+	int test_number = 2;
 
 	char filepath[100];
 	sprintf(filepath, "../Itineraries/mesh_test%d.itins", test_number);
-	double max_depdv;
-	switch(test_number) {
-		case 1: max_depdv = 4000; break;	// simple venus porkchop
-		case 2: max_depdv = 8000; break;	// small sample size
-		case 3: max_depdv = 5000; break;	// overlapping in total dur
-		case 4: max_depdv = 5000; break;	// multi intineraries with one departure
-		case 5: max_depdv = 3700; break;	// venus porkchop close-up
-		case 6: max_depdv = 8000; break;	// voyager 75-80
-	}
-	struct Dv_Filter dv_filter = (struct Dv_Filter) {.max_depdv = max_depdv, .max_satdv = 1e9, .max_totdv = 1e9, .last_transfer_type = TF_FLYBY};
-
 	int num_arr_per_dep_fb[10];
 
 
@@ -400,7 +390,8 @@ void init_mesh_test() {
 	}
 
 	struct ItinsLoadFileResults load_results = load_itineraries_from_bfile(filepath);
-	int num_deps = load_results.num_deps;
+	int num_deps = load_results.header.num_deps;
+	struct Dv_Filter dv_filter = load_results.header.calc_data.dv_filter;
 	struct ItinStep **departures = load_results.departures;
 
 	int num_itins = 0;
@@ -424,20 +415,19 @@ void init_mesh_test() {
 	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
 	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(departures[i], arrivals, &index);
 	struct PorkchopPoint *porkchop_points = malloc(num_itins * sizeof(struct PorkchopPoint));
-	for(int i = 0; i < num_itins; i++) porkchop_points[i] = create_porkchop_point(arrivals[i]);
+	for(int i = 0; i < num_itins; i++) porkchop_points[i] = create_porkchop_point(arrivals[i], dv_filter.dep_periapsis, dv_filter.arr_periapsis);
 
 
 	struct timeval start, end;
 	gettimeofday(&start, NULL);
 
-	PcMeshGroups pc_point_groups = create_pcmesh_groups_grom_porkchop(porkchop_points, num_deps, num_itins_per_dep);
+	pc_point_groups = create_pcmesh_groups_grom_porkchop(porkchop_points, num_deps, num_itins_per_dep, load_results.header.calc_data);
 	mesh_grid = create_pcmesh_grid_from_porkchop(porkchop_points, num_deps, num_itins_per_dep);
 
-	PcMeshGrid mesh_grid1 = create_pcmesh_grid_from_pcmesh_group(pc_point_groups.groups[0]);
-	PcMeshGrid mesh_grid2 = create_pcmesh_grid_from_pcmesh_group(pc_point_groups.groups[1]);
+	mesh_grid = create_pcmesh_grid_from_pcmesh_group(pc_point_groups.groups[0]);
 
-	mesh_grid = mesh_grid2;
-	mesh = create_pcmesh_from_grid(mesh_grid);
+	mesh = new_mesh();
+	for(int i = 0; i < pc_point_groups.num_groups; i++) append_grid_to_pcmesh(&mesh, create_pcmesh_grid_from_pcmesh_group(pc_point_groups.groups[i]), &load_results.header.calc_data);
 	printf("num groups: %d\n", pc_point_groups.num_groups);
 
 	gettimeofday(&end, NULL);
@@ -462,7 +452,7 @@ void init_mesh_test() {
 
 //	fine_mesh_around_edge(&mesh, 2, -0.5, dv_filter);
 
-//	convert_pcmesh_to_total_dur(mesh);
+	convert_pcmesh_to_total_dur(mesh);
 
 
 	gettimeofday(&end, NULL);

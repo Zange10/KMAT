@@ -545,8 +545,8 @@ void draw_scatter(cairo_t *cr, double width, double height, double *x, double *y
 
 	double min_x = x[0], max_x = x[0];
 	double min_y = y[0], max_y = y[0];
-	min_x = 100, max_x = 200;
-	min_y = 50, max_y = 300;
+//	min_x = 100, max_x = 200;
+//	min_y = 50, max_y = 300;
 
 	// find min and max
 	for(int i = 1; i < num_points; i++) {

@@ -3,6 +3,8 @@
 
 #include "tools/analytic_geometry.h"
 #include "orbit_calculator/itin_tool.h"
+#include "orbit_calculator/transfer_calc.h"
+#include "orbit_calculator/transfer_tools.h"
 #include <stdlib.h>
 
 struct PcMeshTriangle;
@@ -27,6 +29,7 @@ typedef struct PcMeshGroups {
 
 typedef struct PcMeshGroup {
 	int group_id;
+	double color[3];
 	PcMeshPoint *points;
 	size_t num_points;
 	size_t num_deps;
@@ -60,8 +63,10 @@ typedef struct PcMesh {
 
 int is_triangle_edge(PcMeshTriangle triangle);
 int is_triangle_big(PcMeshTriangle triangle);
-PcMesh create_pcmesh_from_grid(PcMeshGrid grid);
-PcMeshGroups create_pcmesh_groups_grom_porkchop(struct PorkchopPoint *porkchop_points, int num_deps, int *num_itins_per_dep);
+PcMesh new_mesh();
+PcMesh create_pcmesh_from_grid(PcMeshGrid grid, Itin_Calc_Data *calc_data);
+void append_grid_to_pcmesh(PcMesh *mesh, PcMeshGrid grid, Itin_Calc_Data *calc_data);
+PcMeshGroups create_pcmesh_groups_grom_porkchop(struct PorkchopPoint *porkchop_points, int num_deps, int *num_itins_per_dep, Itin_Calc_Data calc_data);
 PcMeshGrid create_pcmesh_grid_from_porkchop(struct PorkchopPoint *porkchop_points, int num_deps, int *num_itins_per_dep);
 PcMeshGrid create_pcmesh_grid_from_pcmesh_group(PcMeshGroup *group);
 PcMesh mesh_from_porkchop(struct PorkchopPoint *porkchop_points, int num_itins, int num_deps, int *num_itins_per_dep);

@@ -1,6 +1,4 @@
 #include "mesh_creator.h"
-#include "orbit_calculator/transfer_calc.h"
-#include "orbit_calculator/transfer_tools.h"
 #include <math.h>
 
 
@@ -192,7 +190,7 @@ struct ItinStep * calc_itinerary(double dep, double init_dur, struct Dv_Filter d
 
 	double data[3];
 	struct Transfer tf = calc_transfer(tt, step->body, body, step->r, step->v_body,
-									   osv_body.r, osv_body.v, init_dur * 86400, system->cb, data);
+									   osv_body.r, osv_body.v, init_dur * 86400, system->cb, data, dv_filter.dep_periapsis, dv_filter.arr_periapsis);
 
 	if(data[1] > dv_filter.max_totdv || data[1] > dv_filter.max_depdv) {free_itinerary(step); return NULL;}
 	if(template->next == NULL && (data[1] + data[2] > dv_filter.max_totdv || data[2] > dv_filter.max_satdv)) {free_itinerary(step); return NULL;}
@@ -554,7 +552,7 @@ void fine_mesh_around_edge(PcMesh *mesh, double max_dist, double min_dist, struc
 				new_point = malloc(sizeof(PcMeshPoint));
 				*new_point = (PcMeshPoint) {
 						.data = (struct Vector) {.x = step->date, .y = step->next[0]->date-step->date, dv_circ(get_first(step)->body, get_first(step)->body->atmo_alt+50e3, vinf)},
-						.porkchop_point = create_porkchop_point(get_last(step)),
+						.porkchop_point = create_porkchop_point(get_last(step), dv_filter.dep_periapsis, dv_filter.arr_periapsis),
 						.is_edge = 1,
 						.is_artificial = 1,
 						.triangles = malloc(10 * sizeof(PcMeshTriangle*)),
@@ -566,7 +564,7 @@ void fine_mesh_around_edge(PcMesh *mesh, double max_dist, double min_dist, struc
 
 				mesh->points[mesh->num_points] = new_point;
 				mesh->num_points++;
-				new_point->porkchop_point = create_porkchop_point(get_last(step));
+				new_point->porkchop_point = create_porkchop_point(get_last(step), dv_filter.dep_periapsis, dv_filter.arr_periapsis);
 //				printf("Found: %f %f %f\n", new_point->data.x, new_point->data.y, new_point->data.z);
 
 				mesh->triangles[mesh->num_triangles] = create_triangle_from_three_points(curr_point, next_point, new_point, vec2D(1e9, 1e9));
@@ -644,23 +642,27 @@ void reduce_pcmesh_big_triangles(PcMesh *mesh, struct Dv_Filter dv_filter) {
 	}
 }
 
-int is_point_part_of_group(PcMeshPoint point, PcMeshGroup *group) {
+int is_point_part_of_group(PcMeshPoint point, PcMeshGroup *group, Itin_Calc_Data calc_data) {
 	double min_dist = 1e9;
-	for(int i = 0; i < group->num_points; i++) {
-		double ddep_date = group->points[i].porkchop_point.dep_date - point.porkchop_point.dep_date;
-		double ddur = (group->points[i].porkchop_point.arrival->date - group->points[i].porkchop_point.dep_date) - (point.porkchop_point.arrival->date - point.porkchop_point.dep_date);
-		double dist = ddep_date*ddep_date + ddur*ddur;
-		if(dist < min_dist) {
-			min_dist = dist;
-		}
-	}
+	if(point.porkchop_point.dep_date - calc_data.step_dep_date*2 > group->points[group->num_points-1].porkchop_point.dep_date) return 0;
 
-	return min_dist < 50;
+//	for(int i = 0; i < group->num_points; i++) {
+//		double ddep_date = group->points[i].porkchop_point.dep_date - point.porkchop_point.dep_date;
+//		double ddur = (group->points[i].porkchop_point.arrival->date - group->points[i].porkchop_point.dep_date) - (point.porkchop_point.arrival->date - point.porkchop_point.dep_date);
+//		ddep_date /= calc_data.step_dep_date;
+//		ddur /= (group->points[i].porkchop_point.arrival->date - group->points[i].porkchop_point.dep_date);
+//		double dist = ddur*ddur;
+//		if(dist < min_dist) {
+//			min_dist = dist;
+//		}
+//	}
+
+	return 1;
 }
 
-PcMeshGroups create_pcmesh_groups_grom_porkchop(struct PorkchopPoint *porkchop_points, int num_deps, int *num_itins_per_dep) {
+PcMeshGroups create_pcmesh_groups_grom_porkchop(struct PorkchopPoint *porkchop_points, int num_deps, int *num_itins_per_dep, Itin_Calc_Data calc_data) {
 	PcMeshGroups groups = {.num_groups = 0};
-	groups.groups = malloc(10*sizeof(PcMeshGroup *));
+	groups.groups = malloc(10000*sizeof(PcMeshGroup *));
 
 	int idx = 0;
 	for(int i = 0; i < num_deps; i++) {
@@ -681,7 +683,7 @@ PcMeshGroups create_pcmesh_groups_grom_porkchop(struct PorkchopPoint *porkchop_p
 			int was_part_of_group = 0;
 			for(int g = 0; g < groups.num_groups; g++) {
 				PcMeshGroup *group = groups.groups[g];
-				if(is_point_part_of_group(new_point, group)) {
+				if(is_point_part_of_group(new_point, group, calc_data)) {
 					group->points[group->num_points] = new_point;
 					if(group->points[group->num_points-1].porkchop_point.dep_date == new_point.porkchop_point.dep_date) {
 						group->num_itins_per_dep[group->num_deps - 1]++;
@@ -689,6 +691,7 @@ PcMeshGroups create_pcmesh_groups_grom_porkchop(struct PorkchopPoint *porkchop_p
 						group->num_itins_per_dep[group->num_deps] = 1;
 						group->num_deps++;
 					}
+					group->points[group->num_points].group = group;
 					group->num_points++;
 					was_part_of_group = 1;
 				}
@@ -697,12 +700,16 @@ PcMeshGroups create_pcmesh_groups_grom_porkchop(struct PorkchopPoint *porkchop_p
 			if(!was_part_of_group) {
 				PcMeshGroup *new_group = malloc(sizeof(PcMeshGroup));
 				new_group->group_id = groups.num_groups;
-				new_group->points = malloc(10000*sizeof(PcMeshPoint));
+				new_group->color[0] = fmod(new_group->group_id*0.2, 1.0);
+				new_group->color[1] = fmod(new_group->group_id*0.5+0.8, 1.0);
+				new_group->color[2] = fmod(new_group->group_id*0.8, 1.0);
+				new_group->points = malloc(100000*sizeof(PcMeshPoint));
 				new_group->points[0] = new_point;
 				new_group->num_points = 1;
 				new_group->num_deps = 1;
 				new_group->num_itins_per_dep = malloc(1000 * sizeof(int));
 				new_group->num_itins_per_dep[0] = 1;
+				new_group->points[0].group = new_group;
 
 				groups.groups[groups.num_groups] = new_group;
 				groups.num_groups++;
@@ -725,19 +732,7 @@ PcMeshGrid create_pcmesh_grid_from_pcmesh_group(PcMeshGroup *group) {
 		grid.num_col_rows[i] = group->num_itins_per_dep[i];
 		grid.points[i] = malloc(sizeof(struct Vector) * group->num_itins_per_dep[i]);
 		for(int j = 0; j < group->num_itins_per_dep[i]; j++) {
-			struct ItinStep *step = group->points[idx].porkchop_point.arrival;
-			while(step->prev->prev !=  NULL) step = step->prev;
-
-			PcMeshPoint *new_point = malloc(sizeof(PcMeshPoint));
-			*new_point = (PcMeshPoint) {
-					.data = (struct Vector) {.x = group->points[idx].porkchop_point.dep_date, .y = step->date - step->prev->date, .z = group->points[idx].porkchop_point.dv_dep},
-					.porkchop_point = group->points[idx].porkchop_point,
-					.is_edge = i == 0 || i == group->num_deps - 1 || j == 0 || j == group->num_itins_per_dep[i] - 1,
-					.triangles = malloc(100 * sizeof(PcMeshTriangle *)),
-					.num_triangles = 0,
-					.max_num_triangles = 100
-			};
-			grid.points[i][j] = new_point;
+			grid.points[i][j] = &group->points[idx];
 			idx++;
 		}
 	}
@@ -820,7 +815,18 @@ void convert_pcmesh_to_total_dur(PcMesh mesh) {
 	}
 }
 
-PcMesh create_pcmesh_from_grid(PcMeshGrid grid) {
+PcMesh new_mesh() {
+	PcMesh mesh;
+	mesh.num_triangles = 0;
+	mesh.max_num_triangles = 1000000;
+	mesh.num_points = 0;
+	mesh.max_num_points = 1000000;
+	mesh.triangles = malloc(mesh.max_num_triangles*sizeof(PcMeshTriangle*));
+	mesh.points = malloc(mesh.max_num_points*sizeof(PcMeshPoint*));
+	return mesh;
+}
+
+PcMesh create_pcmesh_from_grid(PcMeshGrid grid, Itin_Calc_Data *calc_data) {
 	PcMesh mesh;
 	mesh.num_triangles = 0;
 	mesh.max_num_triangles = 1000000;
@@ -835,8 +841,48 @@ PcMesh create_pcmesh_from_grid(PcMeshGrid grid) {
 			mesh.num_points++;
 		}
 	}
+	struct Dv_Filter dv_filter = calc_data->dv_filter;
+	double jd_min_dep = calc_data->jd_min_dep;
+	double jd_max_dep = calc_data->jd_max_dep;
+	double max_total_duration = calc_data->max_duration;
 
-	struct Vector2D big_threshold = {1.5, 0.5};
+	enum ItinSequenceInfoType itin_seq_type = calc_data->seq_info.to_target.type;
+
+	struct System *system;
+	struct Body *dep_body,
+			*arr_body,			// only to_target: target body
+	**fly_by_bodies;	// to_target: allowed fly_by_bodies; spec_seq: bodies in sequence
+	int num_initial_transfers,
+			num_steps,			// only spec_seq: number of steps in sequence
+	num_flyby_bodies;	// only to_target: number of allowed fly_by_bodies
+
+	enum Transfer_Type tt = dv_filter.last_transfer_type == TF_CIRC ? circcirc : dv_filter.last_transfer_type == TF_CAPTURE ? circcap : circfb;
+
+	system = calc_data->seq_info.spec_seq.system;
+	dep_body = calc_data->seq_info.spec_seq.bodies[0];
+	fly_by_bodies = calc_data->seq_info.spec_seq.bodies;
+	num_steps = calc_data->seq_info.spec_seq.num_steps;
+	num_initial_transfers = calc_data->num_deps_per_date;
+
+	struct Body *next_step_body = fly_by_bodies[1];
+
+	struct OSV osv_body0 = system->calc_method == ORB_ELEMENTS ?
+				osv_from_elements(dep_body->orbit, jd_min_dep, system) :
+				osv_from_ephem(dep_body->ephem, jd_min_dep, system->cb);
+	struct OSV arr_body_temp_osv = system->calc_method == ORB_ELEMENTS ?
+								   osv_from_elements(next_step_body->orbit, jd_min_dep, system) :
+								   osv_from_ephem(next_step_body->ephem, jd_min_dep, system->cb);
+
+	double r0 = vector_mag(osv_body0.r), r1 = vector_mag(arr_body_temp_osv.r);
+	double r_ratio =  r1/r0;
+	double hohmann_dur = calc_hohmann_transfer_duration(r0, r1, system->cb)/86400;
+	double min_duration = 0.4 * hohmann_dur;
+	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+	double step_dur_fb1 = (max_duration - min_duration)/(calc_data->num_deps_per_date-1);
+
+	struct Vector2D big_threshold = {calc_data->step_dep_date*1.5, step_dur_fb1*1.5};
+
+	print_vector2d(big_threshold);
 
 	for(int x_idx = 0; x_idx < grid.num_cols-1; x_idx++) {
 		int y_idx0 = 0, y_idx1 = 0;
@@ -885,4 +931,101 @@ PcMesh create_pcmesh_from_grid(PcMeshGrid grid) {
 	}
 
 	return mesh;
+}
+
+void append_grid_to_pcmesh(PcMesh *mesh, PcMeshGrid grid, Itin_Calc_Data *calc_data) {
+	for(int i = 0; i < grid.num_cols; i++) {
+		for(int j = 0; j < grid.num_col_rows[i]; j++) {
+			mesh->points[mesh->num_points] = grid.points[i][j];
+			mesh->num_points++;
+		}
+	}
+	struct Dv_Filter dv_filter = calc_data->dv_filter;
+	double jd_min_dep = calc_data->jd_min_dep;
+	double jd_max_dep = calc_data->jd_max_dep;
+	double max_total_duration = calc_data->max_duration;
+
+	enum ItinSequenceInfoType itin_seq_type = calc_data->seq_info.to_target.type;
+
+	struct System *system;
+	struct Body *dep_body,
+			*arr_body,			// only to_target: target body
+	**fly_by_bodies;	// to_target: allowed fly_by_bodies; spec_seq: bodies in sequence
+	int num_initial_transfers,
+			num_steps,			// only spec_seq: number of steps in sequence
+	num_flyby_bodies;	// only to_target: number of allowed fly_by_bodies
+
+	enum Transfer_Type tt = dv_filter.last_transfer_type == TF_CIRC ? circcirc : dv_filter.last_transfer_type == TF_CAPTURE ? circcap : circfb;
+
+	system = calc_data->seq_info.spec_seq.system;
+	dep_body = calc_data->seq_info.spec_seq.bodies[0];
+	fly_by_bodies = calc_data->seq_info.spec_seq.bodies;
+	num_steps = calc_data->seq_info.spec_seq.num_steps;
+	num_initial_transfers = calc_data->num_deps_per_date;
+
+	struct Body *next_step_body = fly_by_bodies[1];
+
+	struct OSV osv_body0 = system->calc_method == ORB_ELEMENTS ?
+						   osv_from_elements(dep_body->orbit, jd_min_dep, system) :
+						   osv_from_ephem(dep_body->ephem, jd_min_dep, system->cb);
+	struct OSV arr_body_temp_osv = system->calc_method == ORB_ELEMENTS ?
+								   osv_from_elements(next_step_body->orbit, jd_min_dep, system) :
+								   osv_from_ephem(next_step_body->ephem, jd_min_dep, system->cb);
+
+	double r0 = vector_mag(osv_body0.r), r1 = vector_mag(arr_body_temp_osv.r);
+	double r_ratio =  r1/r0;
+	double hohmann_dur = calc_hohmann_transfer_duration(r0, r1, system->cb)/86400;
+	double min_duration = 0.4 * hohmann_dur;
+	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+	double step_dur_fb1 = (max_duration - min_duration)/(calc_data->num_deps_per_date-1);
+
+	struct Vector2D big_threshold = {calc_data->step_dep_date*1.5, step_dur_fb1*1.5};
+
+	print_vector2d(big_threshold);
+
+	for(int x_idx = 0; x_idx < grid.num_cols-1; x_idx++) {
+		int y_idx0 = 0, y_idx1 = 0;
+		while(y_idx0 < grid.num_col_rows[x_idx] - 1 && y_idx1 < grid.num_col_rows[x_idx + 1] - 1) {
+			PcMeshPoint *p0 = grid.points[x_idx][y_idx0];
+			PcMeshPoint *p1 = grid.points[1 + x_idx][y_idx1];
+			PcMeshPoint *p2 = grid.points[x_idx][1 + y_idx0];
+			PcMeshPoint *p3 = grid.points[1 + x_idx][1 + y_idx1];
+
+			double dist03 = vector_distance(vec2D(p0->data.x, p0->data.y), vec2D(p3->data.x, p3->data.y));
+			double dist12 = vector_distance(vec2D(p1->data.x, p1->data.y), vec2D(p2->data.x, p2->data.y));
+
+
+//			double dist01 = vector_distance(vec2D(p0->data.x, p0->data.y), vec2D(p1->data.x, p1->data.y));
+//			double dist02 = vector_distance(vec2D(p0->data.x, p0->data.y), vec2D(p2->data.x, p2->data.y));
+//			double dist13 = vector_distance(vec2D(p1->data.x, p1->data.y), vec2D(p3->data.x, p3->data.y));
+//			double dist23 = vector_distance(vec2D(p3->data.x, p3->data.y), vec2D(p2->data.x, p2->data.y));
+//			printf("%f   %f        %f  %f\n", dist01, dist23, dist02, dist13);
+
+			if(dist03 < dist12) {
+				mesh->triangles[mesh->num_triangles] = create_triangle_from_three_points(p0, p1, p3, big_threshold);
+				y_idx1++;
+			} else {
+				mesh->triangles[mesh->num_triangles] = create_triangle_from_three_points(p0, p1, p2, big_threshold);
+				y_idx0++;
+			}
+			mesh->num_triangles++;
+
+		}
+
+		if(y_idx0 == grid.num_col_rows[x_idx] - 1) {
+			while(y_idx1 < grid.num_col_rows[x_idx + 1] - 1) {
+				mesh->triangles[mesh->num_triangles] = create_triangle_from_three_points(grid.points[x_idx][y_idx0], grid.points[x_idx + 1][y_idx1], grid.points[x_idx + 1][y_idx1 + 1], big_threshold);
+				y_idx1++;
+				mesh->num_triangles++;
+			}
+		}
+
+		if(y_idx1 == grid.num_col_rows[x_idx + 1] - 1) {
+			while(y_idx0 < grid.num_col_rows[x_idx] - 1) {
+				mesh->triangles[mesh->num_triangles] = create_triangle_from_three_points(grid.points[x_idx][y_idx0], grid.points[x_idx][y_idx0 + 1], grid.points[x_idx + 1][y_idx1], big_threshold);
+				y_idx0++;
+				mesh->num_triangles++;
+			}
+		}
+	}
 }
