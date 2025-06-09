@@ -392,6 +392,68 @@ void draw_plot(cairo_t *cr, double width, double height, double *x, double *y, i
 	}
 }
 
+void draw_scatter(cairo_t *cr, double width, double height, double *x, double *y, double *z, int num_points) {
+	struct Vector2D origin = {60, height-30};
+
+	double min_x = x[0], max_x = x[0];
+	double min_y = y[0], max_y = y[0];
+	min_x = 100, max_x = 200;
+	min_y = 50, max_y = 300;
+
+	// find min and max
+	for(int i = 1; i < num_points; i++) {
+		if(x[i] < min_x) min_x = x[i];
+		else if(x[i] > max_x) max_x = x[i];
+		if(y[i] < min_y) min_y = y[i];
+		else if(y[i] > max_y) max_y = y[i];
+	}
+
+	double dx = max_x-min_x;
+	double dy = max_y-min_y;
+
+
+	double margin = 0.05;
+
+	//min_x = min_x != 0 ? min_x - dx * margin : 0;
+	//max_x = max_x != 0 ? max_x + dx * margin : 0;
+	//dx = max_x-min_x;
+	min_y = min_y != 0 ? min_y - dy * margin : 0;
+	max_y = max_y != 0 ? max_y + dy * margin : 0;
+	dy = max_y-min_y;
+
+	// gradients
+	double m_x, m_y;
+	m_x = (width-origin.x)/dx;
+	m_y = -origin.y/dy; // negative, because positive is down
+
+	double min_z, max_z;
+	if(z != NULL) {
+		for(int i = 1; i < num_points; i++) {
+			if(z[i] < min_z) min_z = z[i];
+			else if(z[i] > max_z) max_z = z[i];
+		}
+	}
+
+	draw_coordinate_system(cr, width, height, COORD_LABEL_NUMBER, COORD_LABEL_NUMBER, min_x, max_x, min_y, max_y, origin, 10, 15);
+
+	// data
+	cairo_set_source_rgb(cr, 0, 0.8, 0.8);
+	for(int i = 0; i < num_points; i++) {
+
+		if(z != NULL) {
+			// color coding
+			double color_bias = (z[i] - min_z) / (max_z - min_z);
+			double r = color_bias;
+			double g = 1-color_bias;
+			double b = 4*pow(color_bias-0.5,2);
+			cairo_set_source_rgb(cr, r,g,b);
+		}
+
+		cairo_arc(cr, origin.x + m_x*(x[i  ] - min_x), origin.y + m_y * (y[i  ] - min_y), 3, 0, 2*M_PI);
+		cairo_fill(cr);
+	}
+}
+
 void draw_multi_plot(cairo_t *cr, double width, double height, double *x, double **y, int num_plots, int num_points) {
 	struct Vector2D origin = {60, height-30};
 

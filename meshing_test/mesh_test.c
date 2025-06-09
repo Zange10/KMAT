@@ -282,6 +282,73 @@ void on_draw_mesh_test(GtkWidget *widget, cairo_t *cr, gpointer user_data) {
 //	printf("Drawing: %.6f seconds\n", duration);
 }
 
+//struct PcMeshGridGroup {
+//	PcMeshGrid grid;
+//};
+
+PcMeshPoint * find_prev_in_mesh_grid_group(PcMeshPoint *point) {
+	PcMeshPoint *point_prev = NULL;
+	double min_dist = 1e9;
+	for(int i = 0; i < mesh_grid.num_cols; i++) {
+		for(int j = 0; j < mesh_grid.num_col_rows[i]; j++) {
+			double ddep_date = mesh_grid.points[i][j]->porkchop_point.dep_date - point->porkchop_point.dep_date;
+			double dfb1_dur = (mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->date - mesh_grid.points[i][j]->porkchop_point.dep_date) - (point->porkchop_point.arrival->prev->prev->date - point->porkchop_point.dep_date);
+			double dist = ddep_date*ddep_date + dfb1_dur*dfb1_dur;
+			if(dist < 0.1) continue;
+			if(dist < min_dist) {
+				min_dist = dist;
+				point_prev = mesh_grid.points[i][j];
+			}
+		}
+	}
+
+	return point_prev;
+}
+
+int i_idx = 0;
+
+void mesh_group_test(cairo_t *cr) {
+	cairo_rectangle(cr, 0, 0, 2000, 2000);
+	cairo_set_source_rgb(cr, 0,0,0);
+	cairo_fill(cr);
+
+	double *x = malloc(10000*sizeof(double));
+	double *y = malloc(10000*sizeof(double));
+	double *z = malloc(10000*sizeof(double));
+	int num_points = 0;
+
+	for(int i = i_idx; i < mesh_grid.num_cols; i++) {
+		for(int j = 0; j < mesh_grid.num_col_rows[i]; j++) {
+//			x[num_points] = mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->date-mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->prev->date;
+//			y[num_points] = mesh_grid.points[i][j]->porkchop_point.arrival->date-mesh_grid.points[i][j]->porkchop_point.arrival->prev->date  -  (mesh_grid.points[i][j-1]->porkchop_point.arrival->date-mesh_grid.points[i][j-1]->porkchop_point.arrival->prev->date);
+//			x[num_points] = mesh_grid.points[i][j]->porkchop_point.dep_date;
+//			y[num_points] = mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->date-mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->prev->date;
+////			if(y[num_points] < 175 || y[num_points] > 180) continue;
+//			PcMeshPoint *point_prev = find_prev_in_mesh_grid_group(mesh_grid.points[i][j]);
+//			double ddep_date = mesh_grid.points[i][j]->porkchop_point.dep_date - point_prev->porkchop_point.dep_date;
+//			double dfb1_dur = (mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->date - mesh_grid.points[i][j]->porkchop_point.dep_date) - (point_prev->porkchop_point.arrival->prev->prev->date - point_prev->porkchop_point.dep_date);
+//			double dist = sqrt(ddep_date*ddep_date + dfb1_dur*dfb1_dur);
+//
+//			x[num_points] = y[num_points];
+//			y[num_points] = (mesh_grid.points[i][j]->porkchop_point.arrival->date - mesh_grid.points[i][j]->porkchop_point.dep_date) - (point_prev->porkchop_point.arrival->date - point_prev->porkchop_point.dep_date);
+////			if(fabs(y[num_points]) > 20) continue;
+//			y[num_points] /= fmin((mesh_grid.points[i][j]->porkchop_point.arrival->prev->date - mesh_grid.points[i][j]->porkchop_point.dep_date), (point_prev->porkchop_point.arrival->prev->date - point_prev->porkchop_point.dep_date));
+//			z[num_points] = fmin((mesh_grid.points[i][j]->porkchop_point.arrival->date - mesh_grid.points[i][j]->porkchop_point.dep_date), (point_prev->porkchop_point.arrival->date - point_prev->porkchop_point.dep_date));
+
+			x[num_points] = mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->date-mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->prev->date;
+			y[num_points] = mesh_grid.points[i][j]->porkchop_point.arrival->date-mesh_grid.points[i][j]->porkchop_point.arrival->prev->date;
+
+			num_points++;
+		}
+		if(i == i_idx) break;
+	}
+	i_idx++;
+
+	draw_scatter(cr, 2000, 2000, x, y, z, num_points);
+
+	free(x), free(y), free(z);
+}
+
 void on_mesh_drawing_area_pressed() {
 	image_surface = cairo_image_surface_create_for_data(
 			(unsigned char *)pixel_data,
@@ -302,13 +369,15 @@ void on_mesh_drawing_area_pressed() {
 //	draw_mesh(cr);
 	draw_points(cr);
 
+//	mesh_group_test(cr);
+
 
 	gtk_widget_queue_draw(GTK_WIDGET(mesh_drawing_area));
 }
 
 
 void init_mesh_test() {
-	int test_number = 6;
+	int test_number = 4;
 
 	char filepath[100];
 	sprintf(filepath, "../Itineraries/mesh_test%d.itins", test_number);
@@ -361,8 +430,15 @@ void init_mesh_test() {
 	struct timeval start, end;
 	gettimeofday(&start, NULL);
 
+	PcMeshGroups pc_point_groups = create_pcmesh_groups_grom_porkchop(porkchop_points, num_deps, num_itins_per_dep);
 	mesh_grid = create_pcmesh_grid_from_porkchop(porkchop_points, num_deps, num_itins_per_dep);
+
+	PcMeshGrid mesh_grid1 = create_pcmesh_grid_from_pcmesh_group(pc_point_groups.groups[0]);
+	PcMeshGrid mesh_grid2 = create_pcmesh_grid_from_pcmesh_group(pc_point_groups.groups[1]);
+
+	mesh_grid = mesh_grid2;
 	mesh = create_pcmesh_from_grid(mesh_grid);
+	printf("num groups: %d\n", pc_point_groups.num_groups);
 
 	gettimeofday(&end, NULL);
 	double duration = (end.tv_sec - start.tv_sec) +

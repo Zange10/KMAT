@@ -25,6 +25,7 @@ void draw_transfer_point(cairo_t *cr, struct Vector2D center, double scale, stru
 void draw_trajectory(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf, struct Body *attractor);
 void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnalyzerPoint *porkchop, int num_itins, enum LastTransferType last_transfer_type);
 void draw_plot(cairo_t *cr, double width, double height, double *x, double *y, int num_points);
+void draw_scatter(cairo_t *cr, double width, double height, double *x, double *y, double *z, int num_points);
 void draw_multi_plot(cairo_t *cr, double width, double height, double *x, double **y, int num_plots, int num_points);
 struct Vector2D p3d_to_p2d(Camera cam, struct Vector p3d, int width, int height);
 

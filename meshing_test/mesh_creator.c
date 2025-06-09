@@ -214,7 +214,7 @@ struct ItinStep * calc_itinerary(double dep, double init_dur, struct Dv_Filter d
 		template = template->next[0];
 		if(template->num_next_nodes > 1) printf("template: %d\n", template->prev->num_next_nodes);
 		double dt = template->date-template->prev->date;
-		find_viable_flybys(step, system, template->body, dt*0.01*86400, dt*2.17*86400);
+		find_viable_flybys(step, system, template->body, dt*0.01*86400, dt*5*86400);
 
 		if(step->num_next_nodes == 0) {free_itinerary(step); return NULL;}
 //		if(step->num_next_nodes > 1) printf("together: %d %d\n", template->prev->num_next_nodes, step->num_next_nodes);
@@ -644,6 +644,107 @@ void reduce_pcmesh_big_triangles(PcMesh *mesh, struct Dv_Filter dv_filter) {
 	}
 }
 
+int is_point_part_of_group(PcMeshPoint point, PcMeshGroup *group) {
+	double min_dist = 1e9;
+	for(int i = 0; i < group->num_points; i++) {
+		double ddep_date = group->points[i].porkchop_point.dep_date - point.porkchop_point.dep_date;
+		double ddur = (group->points[i].porkchop_point.arrival->date - group->points[i].porkchop_point.dep_date) - (point.porkchop_point.arrival->date - point.porkchop_point.dep_date);
+		double dist = ddep_date*ddep_date + ddur*ddur;
+		if(dist < min_dist) {
+			min_dist = dist;
+		}
+	}
+
+	return min_dist < 50;
+}
+
+PcMeshGroups create_pcmesh_groups_grom_porkchop(struct PorkchopPoint *porkchop_points, int num_deps, int *num_itins_per_dep) {
+	PcMeshGroups groups = {.num_groups = 0};
+	groups.groups = malloc(10*sizeof(PcMeshGroup *));
+
+	int idx = 0;
+	for(int i = 0; i < num_deps; i++) {
+		for(int j = 0; j < num_itins_per_dep[i]; j++) {
+			struct ItinStep *step = porkchop_points[idx].arrival;
+			while(step->prev->prev != NULL) step = step->prev;
+
+			PcMeshPoint new_point;
+			new_point = (PcMeshPoint) {
+					.data = (struct Vector) {.x = porkchop_points[idx].dep_date, .y = step->date-step->prev->date, .z = porkchop_points[idx].dv_dep},
+					.porkchop_point = porkchop_points[idx],
+					.is_edge = i == 0 || i == num_deps-1 || j == 0 || j == num_itins_per_dep[i]-1,
+					.triangles = malloc(100 * sizeof(PcMeshTriangle*)),
+					.num_triangles = 0,
+					.max_num_triangles = 100
+			};
+
+			int was_part_of_group = 0;
+			for(int g = 0; g < groups.num_groups; g++) {
+				PcMeshGroup *group = groups.groups[g];
+				if(is_point_part_of_group(new_point, group)) {
+					group->points[group->num_points] = new_point;
+					if(group->points[group->num_points-1].porkchop_point.dep_date == new_point.porkchop_point.dep_date) {
+						group->num_itins_per_dep[group->num_deps - 1]++;
+					} else {
+						group->num_itins_per_dep[group->num_deps] = 1;
+						group->num_deps++;
+					}
+					group->num_points++;
+					was_part_of_group = 1;
+				}
+			}
+
+			if(!was_part_of_group) {
+				PcMeshGroup *new_group = malloc(sizeof(PcMeshGroup));
+				new_group->group_id = groups.num_groups;
+				new_group->points = malloc(10000*sizeof(PcMeshPoint));
+				new_group->points[0] = new_point;
+				new_group->num_points = 1;
+				new_group->num_deps = 1;
+				new_group->num_itins_per_dep = malloc(1000 * sizeof(int));
+				new_group->num_itins_per_dep[0] = 1;
+
+				groups.groups[groups.num_groups] = new_group;
+				groups.num_groups++;
+			}
+
+			idx++;
+		}
+	}
+
+	return groups;
+}
+
+PcMeshGrid create_pcmesh_grid_from_pcmesh_group(PcMeshGroup *group) {
+	PcMeshGrid grid = {.num_cols = group->num_deps};
+	grid.num_col_rows = malloc(sizeof(size_t) * grid.num_cols);
+	grid.points = malloc(sizeof(struct Vector *) * grid.num_cols);
+
+	int idx = 0;
+	for(int i = 0; i < group->num_deps; i++) {
+		grid.num_col_rows[i] = group->num_itins_per_dep[i];
+		grid.points[i] = malloc(sizeof(struct Vector) * group->num_itins_per_dep[i]);
+		for(int j = 0; j < group->num_itins_per_dep[i]; j++) {
+			struct ItinStep *step = group->points[idx].porkchop_point.arrival;
+			while(step->prev->prev !=  NULL) step = step->prev;
+
+			PcMeshPoint *new_point = malloc(sizeof(PcMeshPoint));
+			*new_point = (PcMeshPoint) {
+					.data = (struct Vector) {.x = group->points[idx].porkchop_point.dep_date, .y = step->date - step->prev->date, .z = group->points[idx].porkchop_point.dv_dep},
+					.porkchop_point = group->points[idx].porkchop_point,
+					.is_edge = i == 0 || i == group->num_deps - 1 || j == 0 || j == group->num_itins_per_dep[i] - 1,
+					.triangles = malloc(100 * sizeof(PcMeshTriangle *)),
+					.num_triangles = 0,
+					.max_num_triangles = 100
+			};
+			grid.points[i][j] = new_point;
+			idx++;
+		}
+	}
+
+	return grid;
+}
+
 PcMeshGrid create_pcmesh_grid_from_porkchop(struct PorkchopPoint *porkchop_points, int num_deps, int *num_itins_per_dep) {
 	PcMeshGrid grid = {.num_cols = num_deps};
 	grid.num_col_rows = malloc(sizeof(size_t) * num_deps);
@@ -735,7 +836,7 @@ PcMesh create_pcmesh_from_grid(PcMeshGrid grid) {
 		}
 	}
 
-	struct Vector2D big_threshold = {1.5, 6};
+	struct Vector2D big_threshold = {1.5, 0.5};
 
 	for(int x_idx = 0; x_idx < grid.num_cols-1; x_idx++) {
 		int y_idx0 = 0, y_idx1 = 0;
