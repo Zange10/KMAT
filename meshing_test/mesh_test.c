@@ -381,7 +381,7 @@ void init_mesh_test() {
 	int test_number = 2;
 
 	char filepath[100];
-	sprintf(filepath, "../Itineraries/mesh_test%d.itins", test_number);
+	sprintf(filepath, "../meshing_test/test_itineraries/mesh_test%d.itins", test_number);
 	int num_arr_per_dep_fb[10];
 
 
