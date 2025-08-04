@@ -84,7 +84,16 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 	gtk_widget_set_visible(GTK_WIDGET (window), TRUE);
 
 	#ifdef _WIN32
-		set_window_style_css("../GUI/theme/breeze-dark-win.css");
+	char css_path[MAX_PATH] = {0};
+	char cache_path[MAX_PATH] = {0};
+
+	resolve_win_relative_path("../GUI/theme/share/themes/Breeze-Dark/gtk-3.0/gtk.css", css_path);
+	resolve_win_relative_path("../lib/gdk-pixbuf-2.0/2.10.0/loaders.cache", cache_path);
+
+	g_setenv("GDK_PIXBUF_MODULE_FILE", cache_path, TRUE);
+
+	// Load CSS manually if needed
+	set_window_style_css(css_path);
 	#endif
 	load_css("../GUI/theme/style.css");
 
