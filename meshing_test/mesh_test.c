@@ -306,47 +306,60 @@ PcMeshPoint * find_prev_in_mesh_grid_group(PcMeshPoint *point) {
 	return point_prev;
 }
 
-int i_idx = 0;
-
 void mesh_group_test(cairo_t *cr) {
 	cairo_rectangle(cr, 0, 0, 2000, 2000);
 	cairo_set_source_rgb(cr, 0,0,0);
 	cairo_fill(cr);
+
+	int num_steps = 0;
+	struct ItinStep *ptr = mesh_grid.points[0][0]->porkchop_point.arrival;
+	while(ptr != NULL) {
+		ptr = ptr->prev;
+		num_steps++;
+	}
+
+	printf("NUMSTEPS: %d\n", num_steps);
+
+	double *dep = malloc(100000*sizeof(double));
+	double **dur = malloc(100000*sizeof(double*));
+	for(int i = 0; i < 100000; i++) dur[i] = malloc((num_steps-1)*sizeof(double));
 
 	double *x = malloc(100000*sizeof(double));
 	double *y = malloc(100000*sizeof(double));
 	double *z = malloc(100000*sizeof(double));
 	int num_points = 0;
 
-	for(int i = i_idx; i < mesh_grid.num_cols; i++) {
-		for(int j = 0; j < mesh_grid.num_col_rows[i]; j++) {
-//			x[num_points] = mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->date-mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->prev->date;
-//			y[num_points] = mesh_grid.points[i][j]->porkchop_point.arrival->date-mesh_grid.points[i][j]->porkchop_point.arrival->prev->date  -  (mesh_grid.points[i][j-1]->porkchop_point.arrival->date-mesh_grid.points[i][j-1]->porkchop_point.arrival->prev->date);
-//			x[num_points] = mesh_grid.points[i][j]->porkchop_point.dep_date;
-//			y[num_points] = mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->date-mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->prev->date;
-////			if(y[num_points] < 175 || y[num_points] > 180) continue;
-//			PcMeshPoint *point_prev = find_prev_in_mesh_grid_group(mesh_grid.points[i][j]);
-//			double ddep_date = mesh_grid.points[i][j]->porkchop_point.dep_date - point_prev->porkchop_point.dep_date;
-//			double dfb1_dur = (mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->date - mesh_grid.points[i][j]->porkchop_point.dep_date) - (point_prev->porkchop_point.arrival->prev->prev->date - point_prev->porkchop_point.dep_date);
-//			double dist = sqrt(ddep_date*ddep_date + dfb1_dur*dfb1_dur);
-//
-//			x[num_points] = y[num_points];
-//			y[num_points] = (mesh_grid.points[i][j]->porkchop_point.arrival->date - mesh_grid.points[i][j]->porkchop_point.dep_date) - (point_prev->porkchop_point.arrival->date - point_prev->porkchop_point.dep_date);
-////			if(fabs(y[num_points]) > 20) continue;
-//			y[num_points] /= fmin((mesh_grid.points[i][j]->porkchop_point.arrival->prev->date - mesh_grid.points[i][j]->porkchop_point.dep_date), (point_prev->porkchop_point.arrival->prev->date - point_prev->porkchop_point.dep_date));
-//			z[num_points] = fmin((mesh_grid.points[i][j]->porkchop_point.arrival->date - mesh_grid.points[i][j]->porkchop_point.dep_date), (point_prev->porkchop_point.arrival->date - point_prev->porkchop_point.dep_date));
+	double *t = malloc(num_steps*sizeof(double));
 
-			x[num_points] = mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->date-mesh_grid.points[i][j]->porkchop_point.arrival->prev->prev->prev->date;
-			y[num_points] = mesh_grid.points[i][j]->porkchop_point.arrival->date-mesh_grid.points[i][j]->porkchop_point.arrival->prev->date;
+	for(int i = 0; i < mesh_grid.num_cols; i++) {
+		for(int j = 0; j < mesh_grid.num_col_rows[i]; j++) {
+			ptr = mesh_grid.points[i][j]->porkchop_point.arrival;
+			int c = 1;
+			while(ptr != NULL) {
+				t[num_steps-c] = ptr->date;
+				ptr = ptr->prev;
+				c++;
+			}
+
+			dep[num_points] = t[0];
+			for(int k = 0; k < num_steps-1; k++) {
+				dur[num_points][k] = t[k+1]-t[k];
+			}
+
+
+
+			x[num_points] = dep[num_points];
+			z[num_points] = dur[num_points][0];
+			y[num_points] = dur[num_points][1];
 
 			num_points++;
 		}
-		if(i == i_idx) break;
 	}
-	i_idx++;
 
 	draw_scatter(cr, 2000, 2000, x, y, z, num_points);
 
+	for(int i = 0; i < num_steps-1; i++) free(dur[i]);
+	free(dep), free(dur), free(t);
 	free(x), free(y), free(z);
 }
 
@@ -368,9 +381,9 @@ void on_mesh_drawing_area_pressed() {
 //	draw_mesh_interpolated_points(cr, 2000, 2000);
 //	draw_triangle_debug(cr);
 //	draw_mesh(cr);
-	draw_points(cr);
+//	draw_points(cr);
 
-//	mesh_group_test(cr);
+	mesh_group_test(cr);
 
 
 	gtk_widget_queue_draw(GTK_WIDGET(mesh_drawing_area));
