@@ -1773,11 +1773,10 @@
                       <object class="GtkGrid">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="margin-start">5</property>
-                        <property name="margin-end">5</property>
                         <property name="margin-top">10</property>
                         <property name="row-spacing">5</property>
                         <property name="column-spacing">10</property>
+                        <property name="column-homogeneous">True</property>
                         <child>
                           <object class="GtkComboBox" id="cb_tp_system">
                             <property name="name">cb_tp_system</property>
@@ -1793,9 +1792,10 @@
                         </child>
                         <child>
                           <object class="GtkScrolledWindow">
-                            <property name="width-request">125</property>
+                            <property name="width-request">100</property>
                             <property name="visible">True</property>
                             <property name="can-focus">True</property>
+                            <property name="margin-start">5</property>
                             <child>
                               <object class="GtkViewport" id="vp_tp_bodies">
                                 <property name="visible">True</property>

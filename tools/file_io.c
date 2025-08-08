@@ -125,8 +125,11 @@ int get_key_and_value_from_config(char *key, char *value, char *line) {
 
 		// remove line breaks
 		size_t len = strlen(value);
-		if (len > 0 && value[len - 1] == '\n') {
+		if (len > 0 && (value[len - 1] == '\n' || value[len - 1] == '\r')) {
 			value[len - 1] = '\0';  // Replace newline with null terminator
+		}
+		if (len > 0 && value[len - 2] == '\r') {
+			value[len - 2] = '\0';  // Replace newline with null terminator
 		}
 		return 1;
 	}
@@ -146,7 +149,7 @@ struct Body * load_body_from_config_file(FILE *file, struct System *system) {
 	while (fgets(line, sizeof(line), file)) {
 		if(strncmp(line, "[", 1) == 0) {
 			sscanf(line, "[%50[^]]]", body->name);
-		} else if(strcmp(line, "\n") == 0){
+		} else if(strcmp(line, "\n") == 0 || strcmp(line,"\r\n") == 0){
 			break;
 		} else {
 			char key[50], value[50];
@@ -161,20 +164,20 @@ struct Body * load_body_from_config_file(FILE *file, struct System *system) {
 					sscanf(value, "%lg", &g_asl); has_g_asl = 1;
 				} else if (strcmp(key, "radius") == 0) {
 					sscanf(value, "%lf", &body->radius);
-					body->radius *= 1e3;  // Convert from km to m
+//					body->radius *= 1e3;  // Convert from km to m
 				} else if (strcmp(key, "rotational_period") == 0) {
 					sscanf(value, "%lf", &body->rotation_period);
 				} else if (strcmp(key, "sea_level_pressure") == 0) {
 					sscanf(value, "%lf", &body->sl_atmo_p);
-					body->sl_atmo_p *= 1e3;  // Convert from kPa to Pa
+//					body->sl_atmo_p *= 1e3;  // Convert from kPa to Pa
 				} else if (strcmp(key, "scale_height") == 0) {
 					sscanf(value, "%lf", &body->scale_height);
 				} else if (strcmp(key, "atmosphere_altitude") == 0) {
 					sscanf(value, "%lf", &body->atmo_alt);
-					body->atmo_alt *= 1e3;  // Convert from km to m
+//					body->atmo_alt *= 1e3;  // Convert from km to m
 				} else if (strcmp(key, "semi_major_axis") == 0) {
 					sscanf(value, "%lf", &body->orbit.a);
-					body->orbit.a *= 1e3;  // Convert from km to m
+//					body->orbit.a *= 1e3;  // Convert from km to m
 				} else if (strcmp(key, "eccentricity") == 0) {
 					sscanf(value, "%lf", &body->orbit.e);
 				} else if (strcmp(key, "inclination") == 0) {
@@ -238,7 +241,7 @@ struct System * load_system_from_config_file(char *filename) {
 	while (fgets(line, sizeof(line), file)) {
 		if(strncmp(line, "[", 1) == 0) {
 			sscanf(line, "[%50[^]]]", system->name);
-		} else if(strcmp(line, "\n") == 0){
+		} else if(strcmp(line, "\n") == 0 || strcmp(line, "\r\n") == 0){
 			break;
 		} else {
 			char key[50], value[50];
