@@ -1,7 +1,7 @@
 #ifndef KSP_ITIN_TOOL_H
 #define KSP_ITIN_TOOL_H
 
-#include "celestial_bodies.h"
+#include "tools/celestial_systems.h"
 #include <stdio.h>
 
 struct ItinStep {

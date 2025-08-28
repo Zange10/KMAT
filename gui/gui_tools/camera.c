@@ -1,5 +1,5 @@
 #include "camera.h"
-#include "celestial_bodies.h"
+#include "tools/celestial_systems.h"
 #include <math.h>
 #include <gtk/gtk.h>
 #include "orbit_calculator/itin_tool.h"

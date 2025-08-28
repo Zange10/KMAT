@@ -2,7 +2,7 @@
 #define KSP_GUI_MANAGER_H
 
 #include <gtk/gtk.h>
-#include "celestial_bodies.h"
+#include "tools/celestial_systems.h"
 
 void start_gui(const char* gui_filepath);
 

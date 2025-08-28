@@ -90,7 +90,7 @@ add_executable(KMAT
         gui/gui_tools/screen.h
         tools/version_tool.c
         tools/version_tool.h
-        celestial_bodies.c
+        tools/celestial_systems.c
 )
 
 # Platform-specific setup

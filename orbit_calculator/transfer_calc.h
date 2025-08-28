@@ -2,7 +2,7 @@
 #define KSP_TRANSFER_CALC_H
 
 #include "itin_tool.h"
-#include "celestial_bodies.h"
+#include "tools/celestial_systems.h"
 
 
 typedef struct Itin_Calc_Data {

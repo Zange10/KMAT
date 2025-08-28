@@ -1,7 +1,7 @@
 #include "capability_calculator.h"
 #include "launch_sim.h"
 #include "orbitlib.h"
-#include "celestial_bodies.h"
+#include "tools/celestial_systems.h"
 
 double calc_max_payload_capability(struct LV lv, double launch_lat, double incl) {
 	double max_plmass;

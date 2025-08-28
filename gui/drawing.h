@@ -2,7 +2,7 @@
 #define KSP_DRAWING_H
 
 #include <cairo.h>
-#include "celestial_bodies.h"
+#include "tools/celestial_systems.h"
 #include "orbit_calculator/itin_tool.h"
 #include "transfer_app/porkchop_analyzer_tools.h"
 #include "gui/gui_tools/camera.h"

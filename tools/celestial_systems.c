@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <gtk/gtk.h>
-#include "celestial_bodies.h"
+#include "celestial_systems.h"
 #include "tools/file_io.h"
 
 Body *sun;
@@ -34,7 +34,7 @@ CelestSystem * get_subsystem_from_system_and_id_rec(CelestSystem *system, int *i
 	(*id)--;
 	for(int i = 0; i < system->num_bodies; i++) {
 		if(system->bodies[i]->system != NULL) {
-			struct System *subsystem = get_subsystem_from_system_and_id_rec(system->bodies[i]->system, id);
+			CelestSystem *subsystem = get_subsystem_from_system_and_id_rec(system->bodies[i]->system, id);
 			if(subsystem != NULL) return subsystem;
 		}
 	}

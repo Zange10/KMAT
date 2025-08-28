@@ -5,7 +5,7 @@
 #include "tools/file_io.h"
 #include "tools/tool_funcs.h"
 #include "lv_profile.h"
-#include "celestial_bodies.h"
+#include "tools/celestial_systems.h"
 #include "lp_parameters.h"
 
 

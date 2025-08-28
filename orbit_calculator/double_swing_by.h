@@ -1,7 +1,7 @@
 #ifndef KSP_DOUBLE_SWING_BY_H
 #define KSP_DOUBLE_SWING_BY_H
 
-#include "celestial_bodies.h"
+#include "tools/celestial_systems.h"
 
 
 struct DSB {
