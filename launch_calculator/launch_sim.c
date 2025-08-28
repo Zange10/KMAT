@@ -28,9 +28,9 @@ struct Vessel {
 double simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Body *body, double heading_at_launch, int stage_id, double step);
 void simulate_coast(struct LaunchState *state, struct Vessel vessel, struct Body *body, double dt, int stage_id, double step);
 void setup_initial_state(struct LaunchState *state, double lat, struct Body *body);
-struct Vector calc_surface_speed(struct Vector east_dir, struct Vector r, struct Vector v, struct Body *body);
-struct Vector calc_thrust_vector(struct Vector r, struct Vector u2, double pitch, double heading);
-double calc_heading_from_speed(struct Plane s, struct Vector v, double v_mag, double heading_at_launch);
+Vector3 calc_surface_speed(Vector3 east_dir, Vector3 r, Vector3 v, struct Body *body);
+Vector3 calc_thrust_vector(Vector3 r, Vector3 u2, double pitch, double heading);
+double calc_heading_from_speed(Plane3 s, Vector3 v, double v_mag, double heading_at_launch);
 double calc_atmo_press(double h, struct Body *body);
 double calc_thrust(double F_vac, double F_sl, double p);
 double calc_drag_force(double p, double v, double A, double c_d);
@@ -47,13 +47,13 @@ double pitch_program4(double h, const double lp_params[5]);
 
 
 void print_launch_state_info(struct LaunchState *launch_state, struct Vessel vessel, struct Body *body) {
-	struct Plane s = calc_plane_parallel_to_surf(launch_state->r);
+	Plane3 s = calc_plane_parallel_to_surf(launch_state->r);
 
-	double gamma = angle_plane_vec(s, launch_state->v);
-	double v_mag = vector_mag(launch_state->v);
+	double gamma = angle_plane3_vec3(s, launch_state->v);
+	double v_mag = mag_vec3(launch_state->v);
 	double vh = cos(gamma) * v_mag;
 	double vv = sin(gamma) * v_mag;
-	struct Vector vs = calc_surface_speed(s.u, launch_state->r, launch_state->v, body);
+	Vector3 vs = calc_surface_speed(s.u, launch_state->r, launch_state->v, body);
 
 	struct Orbit orbit = constr_orbit_from_osv(launch_state->r, launch_state->v, body);
 
@@ -62,17 +62,17 @@ void print_launch_state_info(struct LaunchState *launch_state, struct Vessel ves
 
 	printf("\n______________________________\nFLIGHT:\n\n");
 	printf("Time:\t\t\t% 10.3f s\n", launch_state->t);
-	printf("Altitude:\t\t% 10.3f km\n", (vector_mag(launch_state->r)-body->radius)/1000);
+	printf("Altitude:\t\t% 10.3f km\n", (mag_vec3(launch_state->r)-body->radius)/1000);
 	printf("Vertical v:\t\t% 10.3f m/s\n", vv);
-	printf("surfVelocity:\t% 10.3f m/s\n", vector_mag(vs));
+	printf("surfVelocity:\t% 10.3f m/s\n", mag_vec3(vs));
 	printf("Horizontal v:\t% 10.3f m/s\n", vh);
-	printf("Velocity:\t\t% 10.3f m/s\n", vector_mag(launch_state->v));
+	printf("Velocity:\t\t% 10.3f m/s\n", mag_vec3(launch_state->v));
 	printf("\n");
-	printf("Radius:\t\t\t% 10.3f km\n", vector_mag(scalar_multiply(launch_state->r, 1e-3)));
+	printf("Radius:\t\t\t% 10.3f km\n", mag_vec3(scale_vec3(launch_state->r, 1e-3)));
 	printf("Apoapsis:\t\t% 10.3f km\n", calc_orbit_apoapsis(orbit) / 1000);
 	printf("Periapsis:\t\t% 10.3f km\n", calc_orbit_periapsis(orbit) / 1000);
 	printf("Eccentricity:\t% 10.3f\n", orbit.e);
-	printf("Inclination:\t% 10.3f °\n", rad2deg(orbit.inclination));
+	printf("Inclination:\t% 10.3f °\n", rad2deg(orbit.i));
 	printf("\n");
 	printf("Spent dV:\t\t% 10.3f m/s\n", vessel.spent_dv);
 	printf("Rem dV:\t\t\t% 10.3f m/s\n", rem_dv);
@@ -166,10 +166,10 @@ struct Launch_Results run_launch_simulation(struct LV lv, double payload_mass, d
 }
 
 void setup_initial_state(struct LaunchState *state, double lat, struct Body *body) {
-	state->r = vec(body->radius*cos(lat), 0, body->radius*sin(lat));
-	struct Plane s = calc_plane_parallel_to_surf(state->r);
-	struct Vector vb = calc_surface_speed(s.u, state->r, vec(0,0,0), body);
-	state->v = scalar_multiply(vb, -1);
+	state->r = vec3(body->radius*cos(lat), 0, body->radius*sin(lat));
+	Plane3 s = calc_plane_parallel_to_surf(state->r);
+	Vector3 vb = calc_surface_speed(s.u, state->r, vec3(0,0,0), body);
+	state->v = scale_vec3(vb, -1);
 	state->pitch = deg2rad(90);
 	state->t = 0;
 }
@@ -179,18 +179,18 @@ double simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Bo
 	double r_mag;			// distance to center of earth [m]
 	double v_mag;			// orbital speed [m/s]
 	double h;				// altitude [m]
-	struct Vector a;		// acceleration acting on the vessel [m/s²]
-	struct Vector g;		// acceleration due to Gravity [m/s²]
-	struct Vector a_T;		// acceleration due to Thrust [m/s²]
-	struct Vector a_D;		// acceleration due to Drag [m/s²]
-	struct Vector dv;		// change in velocity due to acceleration a [m/s]
-	struct Vector dr;		// change in position due to velocity [m]
-	struct Plane s;			// Plane parallel to surface at vessel position (s.u: east, s.v: north)
-	struct Vector p;		// Thrust vector
+	Vector3 a;		// acceleration acting on the vessel [m/s²]
+	Vector3 g;		// acceleration due to Gravity [m/s²]
+	Vector3 a_T;		// acceleration due to Thrust [m/s²]
+	Vector3 a_D;		// acceleration due to Drag [m/s²]
+	Vector3 dv;		// change in velocity due to acceleration a [m/s]
+	Vector3 dr;		// change in position due to velocity [m]
+	Plane3 s;			// Plane parallel to surface at vessel position (s.u: east, s.v: north)
+	Vector3 p;		// Thrust vector
 	double F_T;				// Thrust of engines [N]
 	double pitch;			// pitch of vessel [rad]
 	double heading;			// heading of vessel [rad]
-	struct Vector vs;		// surface velocity [m/s]
+	Vector3 vs;		// surface velocity [m/s]
 	double vs_mag;			// surface speed [m/s]
 	double atmo_p;			// atmospheric pressure [Pa]
 	double ecc;				// eccentricity of orbit
@@ -202,43 +202,43 @@ double simulate_stage(struct LaunchState *state, struct Vessel vessel, struct Bo
 	struct Orbit orbit;		// current orbit
 
 	while(m-vessel.burn_rate * step > vessel.me) {
-		r_mag = vector_mag(state->r);
+		r_mag = mag_vec3(state->r);
 		h = r_mag-body->radius;
 		if(h < -100) return spent_dv; 	// below surface
 		s = calc_plane_parallel_to_surf(state->r);
 		vs = calc_surface_speed(s.u, state->r, state->v, body);
-		vs_mag = vector_mag(vs);
+		vs_mag = mag_vec3(vs);
 		atmo_p = calc_atmo_press(h, body);
 		F_T = calc_thrust(vessel.F_vac, vessel.F_sl, atmo_p);
 
 		heading = calc_heading_from_speed(s, vs, vs_mag, heading_at_launch);
 		if(vessel.get_pitch != NULL) pitch = vessel.get_pitch(h, vessel.lp_params);
 		else {
-			gamma = angle_plane_vec(s, state->v);
-			v_mag = vector_mag(state->v);
+			gamma = angle_plane3_vec3(s, state->v);
+			v_mag = mag_vec3(state->v);
 			vh = cos(gamma) * v_mag;
 			vv = sin(gamma) * v_mag;
 			pitch = circularization_pitch(F_T, m, vessel.burn_rate, vh, vv, r_mag, body->mu);
 		}
 		p = calc_thrust_vector(state->r, s.v, pitch, heading);
-		a_T = scalar_multiply(p, F_T/m);
+		a_T = scale_vec3(p, F_T/m);
 
-		g = scalar_multiply(state->r, body->mu/(r_mag*r_mag*r_mag));
-		a_D = (vs_mag != 0) ? scalar_multiply(norm_vector(vs), calc_drag_force(atmo_p, vs_mag, vessel.A, vessel.cd)/m) : vec(0,0,0);
+		g = scale_vec3(state->r, body->mu/(r_mag*r_mag*r_mag));
+		a_D = (vs_mag != 0) ? scale_vec3(norm_vec3(vs), calc_drag_force(atmo_p, vs_mag, vessel.A, vessel.cd)/m) : vec3(0,0,0);
 
-		a = subtract_vectors(a_T, add_vectors(g, a_D));
+		a = subtract_vec3(a_T, add_vec3(g, a_D));
 
 		state->next = append_launch_state(state);
 		state = state->next;
 		state->stage_id = stage_id;
 
 		state->t = state->prev->t + step;
-		dv = scalar_multiply(a, step);
-		dr = scalar_multiply(add_vectors(state->prev->v, scalar_multiply(dv, 0.5)), step);
-		state->v = add_vectors(state->prev->v, dv);
-		state->r = add_vectors(state->prev->r, dr);
+		dv = scale_vec3(a, step);
+		dr = scale_vec3(add_vec3(state->prev->v, scale_vec3(dv, 0.5)), step);
+		state->v = add_vec3(state->prev->v, dv);
+		state->r = add_vec3(state->prev->r, dr);
 
-		spent_dv += vector_mag(scalar_multiply(a_T, step));
+		spent_dv += mag_vec3(scale_vec3(a_T, step));
 		m -= vessel.burn_rate * step;
 		state->m = m;
 		state->pitch = pitch;
@@ -259,40 +259,40 @@ void simulate_coast(struct LaunchState *state, struct Vessel vessel, struct Body
 	double p = state->pitch;// pitch [rad]
 	double r_mag;			// distance to center of earth [m]
 	double h;				// altitude [m]
-	struct Vector a;		// acceleration acting on the vessel [m/s²]
-	struct Vector g;		// acceleration due to Gravity [m/s²]
-	struct Vector a_D;		// acceleration due to Drag [m/s²]
-	struct Vector dv;		// change in velocity due to acceleration a [m/s]
-	struct Vector dr;		// change in position due to velocity [m]
-	struct Plane s;			// Plane parallel to surface at vessel position (s.u: east, s.v: north)
-	struct Vector vs;		// surface velocity [m/s]
+	Vector3 a;		// acceleration acting on the vessel [m/s²]
+	Vector3 g;		// acceleration due to Gravity [m/s²]
+	Vector3 a_D;		// acceleration due to Drag [m/s²]
+	Vector3 dv;		// change in velocity due to acceleration a [m/s]
+	Vector3 dr;		// change in position due to velocity [m]
+	Plane3 s;			// Plane parallel to surface at vessel position (s.u: east, s.v: north)
+	Vector3 vs;		// surface velocity [m/s]
 	double vs_mag;			// surface speed [m/s]
 	double atmo_p;			// atmospheric pressure [Pa]
 	double t1 = state->t+dt;
 
 	while(state->t < t1) {
-		r_mag = vector_mag(state->r);
+		r_mag = mag_vec3(state->r);
 		h = r_mag-body->radius;
 		if(h<1) break;
 		s = calc_plane_parallel_to_surf(state->r);
 		vs = calc_surface_speed(s.u, state->r, state->v, body);
-		vs_mag = vector_mag(vs);
+		vs_mag = mag_vec3(vs);
 		atmo_p = calc_atmo_press(h, body);
 
-		g = scalar_multiply(state->r, body->mu/(r_mag*r_mag*r_mag));
-		a_D = scalar_multiply(norm_vector(vs), calc_drag_force(atmo_p, vs_mag, vessel.A, vessel.cd)/m);
+		g = scale_vec3(state->r, body->mu/(r_mag*r_mag*r_mag));
+		a_D = scale_vec3(norm_vec3(vs), calc_drag_force(atmo_p, vs_mag, vessel.A, vessel.cd)/m);
 
-		a = subtract_vectors(vec(0,0,0), add_vectors(g, a_D));
+		a = subtract_vec3(vec3(0,0,0), add_vec3(g, a_D));
 
 		state->next = append_launch_state(state);
 		state = state->next;
 		state->stage_id = -stage_id;
 
 		state->t = state->prev->t + step;
-		dv = scalar_multiply(a, step);
-		dr = scalar_multiply(add_vectors(state->prev->v, scalar_multiply(dv, 0.5)), step);
-		state->v = add_vectors(state->prev->v, dv);
-		state->r = add_vectors(state->prev->r, dr);
+		dv = scale_vec3(a, step);
+		dr = scale_vec3(add_vec3(state->prev->v, scale_vec3(dv, 0.5)), step);
+		state->v = add_vec3(state->prev->v, dv);
+		state->r = add_vec3(state->prev->r, dr);
 		state->m = m;
 		state->pitch = p;
 	}
@@ -326,29 +326,29 @@ double pitch_program4(double h, const double lp_params[5]) {
 	return deg2rad(pitch_deg);
 }
 
-struct Vector calc_surface_speed(struct Vector east_dir, struct Vector r, struct Vector v, struct Body *body) {
-	struct Plane eq = constr_plane(vec(0,0,0), vec(1,0,0), vec(0,1,0));
-	double lat = angle_plane_vec(eq, r);
-	double v_b = 2*M_PI*vector_mag(r) / body->rotation_period * cos(lat);
-	struct Vector v_b_vec = scalar_multiply(east_dir, v_b);
-	return subtract_vectors(v, v_b_vec);
+Vector3 calc_surface_speed(Vector3 east_dir, Vector3 r, Vector3 v, struct Body *body) {
+	Plane3 eq = constr_plane3(vec3(0,0,0), vec3(1,0,0), vec3(0,1,0));
+	double lat = angle_plane3_vec3(eq, r);
+	double v_b = 2*M_PI*mag_vec3(r) / body->rotation_period * cos(lat);
+	Vector3 v_b_vec = scale_vec3(east_dir, v_b);
+	return subtract_vec3(v, v_b_vec);
 }
 
-struct Vector calc_thrust_vector(struct Vector r, struct Vector u2, double pitch, double heading) {
-	struct Vector p = rotate_vector_around_axis(u2, r, -heading);
-	struct Vector n = cross_product(p, r);
+Vector3 calc_thrust_vector(Vector3 r, Vector3 u2, double pitch, double heading) {
+	Vector3 p = rotate_vector_around_axis(u2, r, -heading);
+	Vector3 n = cross_vec3(p, r);
 
 	p = rotate_vector_around_axis(p, n, pitch);
 	return p;
 }
 
-double calc_heading_from_speed(struct Plane s, struct Vector v, double v_mag, double heading_at_launch) {
+double calc_heading_from_speed(Plane3 s, Vector3 v, double v_mag, double heading_at_launch) {
 	if(v_mag < 1000) {
-		if(v_mag < 10 || fabs(angle_plane_vec(s, v)) > deg2rad(60)) return heading_at_launch;
+		if(v_mag < 10 || fabs(angle_plane3_vec3(s, v)) > deg2rad(60)) return heading_at_launch;
 	}
-	struct Vector proj_vs = proj_vec_plane(v, s);
-	double heading = angle_vec_vec(proj_vs, s.v);
-	if(angle_vec_vec(v, s.u) > M_PI/2) heading = 2* M_PI - heading;	// if retrograde (i.e. SSO or polar)
+	Vector3 proj_vs = proj_vec3_plane3(v, s);
+	double heading = angle_vec3_vec3(proj_vs, s.v);
+	if(angle_vec3_vec3(v, s.u) > M_PI/2) heading = 2* M_PI - heading;	// if retrograde (i.e. SSO or polar)
 	return heading;
 }
 
@@ -377,9 +377,9 @@ double calc_launch_azi(struct Body *body, double latitude, double inclination, i
 
 	double azi1 = asin(cos(inclination)/cos(latitude));
 
-	struct Vector2D azi1_v = {sin(azi1)*end_speed, cos(azi1)*end_speed};
-	struct Vector2D azi2_v = {surf_speed, 0};
-	struct Vector2D azi_v = add_vectors2d(azi1_v, scalar_multipl2d(azi2_v,-1));
+	Vector2 azi1_v = {sin(azi1)*end_speed, cos(azi1)*end_speed};
+	Vector2 azi2_v = {surf_speed, 0};
+	Vector2 azi_v = add_vec2(azi1_v, scale_vec2(azi2_v,-1));
 	
 	double azimuth = atan(azi_v.x / azi_v.y);
 	if(north0_south1) azimuth = M_PI - azimuth;

@@ -5,33 +5,34 @@
 #include "math.h"
 
 
-void draw_body(Camera *camera, struct System *system, struct Body *body, double jd_date) {
+void draw_body(Camera *camera, CelestSystem *system, Body *body, double jd_date) {
 	set_cairo_body_color(get_camera_screen_cairo(camera), body);
-	struct OSV osv_body = {.r = vec(0,0,0)};
-	if(body != system->cb) osv_body = system->calc_method == ORB_ELEMENTS ?
-										osv_from_elements(body->orbit, jd_date, system) :
-									  	osv_from_ephem(body->ephem, jd_date, system->cb);
-	struct Vector2D p2d_body = p3d_to_p2d(camera, osv_body.r);
+	OSV osv_body = {.r = vec3(0,0,0)};
+	if(body != system->cb) osv_body = system->prop_method == ORB_ELEMENTS ?
+										osv_from_elements(body->orbit, jd_date) :
+									  	osv_from_ephem(body->ephem, body->num_ephems, jd_date, system->cb);
+	Vector2 p2d_body = p3d_to_p2d(camera, osv_body.r);
 	cairo_arc(get_camera_screen_cairo(camera), p2d_body.x, p2d_body.y, 5, 0, 2 * M_PI);
 	cairo_fill(get_camera_screen_cairo(camera));
 }
 
-void draw_orbit(Camera *camera, struct Orbit orbit) {
-	struct OSV osv = propagate_orbit_theta(orbit, 0, orbit.body);
-	struct Vector2D p2d = p3d_to_p2d(camera, osv.r);
+void draw_orbit(Camera *camera, Orbit orbit) {
+	OSV osv = osv_from_orbit(orbit);
+	Vector2 p2d = p3d_to_p2d(camera, osv.r);
 
-	struct Vector2D last_p2d = p2d;
-	double dtheta_step = deg2rad(0.5);
+	Vector2 last_p2d = p2d;
+	double ta_step = deg2rad(0.5);
 
-	for(double dtheta = 0; dtheta < M_PI*2 + dtheta_step; dtheta += dtheta_step) {
-		osv = propagate_orbit_theta(orbit, dtheta, orbit.body);
+	for(double dta = 0; dta < M_PI*2 + ta_step; dta += ta_step) {
+		orbit.ta += ta_step;
+		osv = osv_from_orbit(orbit);
 		p2d = p3d_to_p2d(camera, osv.r);
 		draw_stroke(get_camera_screen_cairo(camera), last_p2d, p2d);
 		last_p2d = p2d;
 	}
 }
 
-void draw_celestial_system(Camera *camera, struct System *system, double jd_date) {
+void draw_celestial_system(Camera *camera, CelestSystem *system, double jd_date) {
 	draw_body(camera, system, system->cb, jd_date);
 
 	for(int i = 0; i < system->num_bodies; i++) {
@@ -42,45 +43,45 @@ void draw_celestial_system(Camera *camera, struct System *system, double jd_date
 
 void draw_trajectory(Camera *camera, struct OSV osv0, double dt, struct Body *attractor) {
 	if(dt <= 1.0/86400) return;
-	struct Orbit orbit = constr_orbit_from_osv(osv0.r, osv0.v, attractor);
+	Orbit orbit = constr_orbit_from_osv(osv0.r, osv0.v, attractor);
 
-	if(orbit.period < dt*86400 && orbit.e < 1) {
+	if(calc_orbital_period(orbit) < dt*86400 && orbit.e < 1) {
 		draw_orbit(camera, orbit);
 	}
 
-	struct OSV osv1 = propagate_orbit_time(orbit, dt*86400, attractor);
-	double theta0 = orbit.theta;
-	double theta1 = constr_orbit_from_osv(osv1.r, osv1.v, attractor).theta;
+	double ta0 = orbit.ta;
+	double ta1 = propagate_orbit_time(orbit, dt*86400).ta;
 
-	if(theta1 < theta0) theta1 += 2*M_PI;
+	if(ta1 < ta0) ta1 += 2*M_PI;
 
-	struct OSV osv = osv0;
-	struct Vector2D p2d = p3d_to_p2d(camera, osv.r);
-	struct Vector2D last_p2d = p2d;
-	double theta_step = (theta1-theta0)/1000;
+	OSV osv = osv0;
+	Vector2 p2d = p3d_to_p2d(camera, osv.r);
+	Vector2 last_p2d = p2d;
+	double ta_step = (ta1 - ta0)/1000;
 
-	for(double dtheta = 0; dtheta <= (theta1-theta0); dtheta += theta_step) {
-		osv = propagate_orbit_theta(orbit, dtheta, orbit.body);
+	for(double dta = 0; dta <= (ta1 - ta0); dta += ta_step) {
+		orbit.ta += ta_step;
+		osv = osv_from_orbit(orbit);
 		p2d = p3d_to_p2d(camera, osv.r);
 		draw_stroke(get_camera_screen_cairo(camera), last_p2d, p2d);
 		last_p2d = p2d;
 	}
 }
 
-void draw_itinerary_spacecraft(Camera *camera, struct Vector r) {
+void draw_itinerary_spacecraft(Camera *camera, Vector3 r) {
 	cairo_set_source_rgb(get_camera_screen_cairo(camera), 1, 0.4, 0.1);
-	struct Vector2D p2d = p3d_to_p2d(camera, r);
+	Vector2 p2d = p3d_to_p2d(camera, r);
 	cairo_arc(get_camera_screen_cairo(camera), p2d.x, p2d.y, 3, 0, 2 * M_PI);
 	cairo_fill(get_camera_screen_cairo(camera));
 }
 
-void draw_itinerary_step_point(Camera *camera, struct Vector r) {
+void draw_itinerary_step_point(Camera *camera, Vector3 r) {
 	int cross_length = 4;
 	cairo_set_source_rgb(get_camera_screen_cairo(camera), 1, 0, 0);
-	struct Vector2D p2d = p3d_to_p2d(camera, r);
+	Vector2 p2d = p3d_to_p2d(camera, r);
 	for(int i = -1; i<=1; i+=2) {
-		struct Vector2D p1 = {p2d.x - cross_length, p2d.y + cross_length*i};
-		struct Vector2D p2 = {p2d.x + cross_length, p2d.y - cross_length*i};
+		Vector2 p1 = {p2d.x - cross_length, p2d.y + cross_length*i};
+		Vector2 p2 = {p2d.x + cross_length, p2d.y - cross_length*i};
 		draw_stroke(get_camera_screen_cairo(camera), p1, p2);
 	}
 }
@@ -95,24 +96,18 @@ void set_trajectory_color(cairo_t *cr, int trajectory_is_in_the_past, int trajec
 	}
 }
 
-void draw_itinerary(Camera *camera, struct System *system, struct ItinStep *tf, double current_time) {
+void draw_itinerary(Camera *camera, CelestSystem *system, struct ItinStep *tf, double current_time) {
 	if(tf == NULL) return;
 
 	// draw trajectories
 	tf = get_first(tf);
 	while(tf->next != NULL) {
-		struct OSV tf_osv0 = {tf->r, tf->next[0]->v_dep};
+		OSV tf_osv0 = {tf->r, tf->next[0]->v_dep};
 		int trajectory_is_viable = 1;
 		double dt = tf->next[0]->date - tf->date;
 
 		if(tf->prev != NULL) {
-			double t[3] = {tf->prev->date, tf->date, tf->next[0]->date};
-			struct OSV osv0 = {tf->prev->r, tf->prev->v_body};
-			struct OSV osv1 = {tf->r, tf->v_body};
-			struct OSV osv2 = {tf->next[0]->r, tf->next[0]->v_body};
-			struct OSV osvs[3] = {osv0, osv1, osv2};
-			struct Body *bodies[3] = {tf->prev->body, tf->body, tf->next[0]->body};
-			trajectory_is_viable = is_flyby_viable(t, osvs, bodies, system->cb);
+			trajectory_is_viable = is_flyby_viable(tf->prev->v_arr, tf->v_dep, tf->v_body, tf->body, 10);
 		}
 
 		if(current_time >= tf->date && current_time < tf->next[0]->date) {
@@ -120,7 +115,7 @@ void draw_itinerary(Camera *camera, struct System *system, struct ItinStep *tf, 
 			dt = current_time - tf->date;
 			draw_trajectory(camera, tf_osv0, dt, system->cb);
 
-			struct OSV current_osv = dt != 0 ? propagate_orbit_time(constr_orbit_from_osv(tf_osv0.r, tf_osv0.v, system->cb), dt*86400, system->cb) : tf_osv0;
+			OSV current_osv = dt != 0 ? propagate_osv_time(tf_osv0, system->cb, dt*86400) : tf_osv0;
 
 			set_trajectory_color(get_camera_screen_cairo(camera), 0, trajectory_is_viable);
 			dt = tf->next[0]->date - current_time;
@@ -135,14 +130,14 @@ void draw_itinerary(Camera *camera, struct System *system, struct ItinStep *tf, 
 	}
 
 	if(current_time <= get_first(tf)->date) {
-		struct OSV osv_body = system->calc_method == ORB_ELEMENTS ?
-				   osv_from_elements(get_first(tf)->body->orbit, current_time, system) :
-				   osv_from_ephem(get_first(tf)->body->ephem, current_time, system->cb);
+		OSV osv_body = system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(get_first(tf)->body->orbit, current_time) :
+				   osv_from_ephem(get_first(tf)->body->ephem, get_first(tf)->body->num_ephems, current_time, system->cb);
 		draw_itinerary_spacecraft(camera, osv_body.r);
 	} else if(current_time >= tf->date) {
-		struct OSV osv_body = system->calc_method == ORB_ELEMENTS ?
-							  osv_from_elements(tf->body->orbit, current_time, system) :
-							  osv_from_ephem(tf->body->ephem, current_time, system->cb);
+		OSV osv_body = system->prop_method == ORB_ELEMENTS ?
+							  osv_from_elements(tf->body->orbit, current_time) :
+							  osv_from_ephem(tf->body->ephem, tf->body->num_ephems, current_time, system->cb);
 		draw_itinerary_spacecraft(camera, osv_body.r);
 	}
 
@@ -153,44 +148,44 @@ void draw_itinerary(Camera *camera, struct System *system, struct ItinStep *tf, 
 	}
 }
 
-void draw_orbit_2d(cairo_t *cr, struct Vector2D center, double scale, struct Vector r, struct Vector v, struct Body *attractor) {
+void draw_orbit_2d(cairo_t *cr, Vector2 center, double scale, Vector3 r, Vector3 v, struct Body *attractor) {
 	int steps = 100;
 	struct OSV last_osv = {r,v};
 	
 	for(int i = 1; i <= steps; i++) {
-		double theta = 2*M_PI/steps * i;
-		struct OSV osv = propagate_orbit_theta(constr_orbit_from_osv(r,v,attractor),theta,attractor);
+		double ta = 2*M_PI/steps * i;
+		struct OSV osv = propagate_osv_ta((OSV){r,v},attractor,ta);
 		// y negative, because in GUI y gets bigger downwards
-		struct Vector2D p1 = {last_osv.r.x, -last_osv.r.y};
-		struct Vector2D p2 = {osv.r.x, -osv.r.y};
+		Vector2 p1 = {last_osv.r.x, -last_osv.r.y};
+		Vector2 p2 = {osv.r.x, -osv.r.y};
 		
-		p1 = scalar_multipl2d(p1,scale);
-		p2 = scalar_multipl2d(p2,scale);
+		p1 = scale_vec2(p1,scale);
+		p2 = scale_vec2(p2,scale);
 		
-		draw_stroke(cr, add_vectors2d(p1,center), add_vectors2d(p2,center));
+		draw_stroke(cr, add_vec2(p1,center), add_vec2(p2,center));
 		last_osv = osv;
 	}
 }
 
-void draw_body_2d(cairo_t *cr, struct Vector2D center, double scale, struct Vector r) {
+void draw_body_2d(cairo_t *cr, Vector2 center, double scale, Vector3 r) {
 	int body_radius = 5;
-	r = scalar_multiply(r, scale);
+	r = scale_vec3(r, scale);
 	// y negative, because in GUI y gets bigger downwards
 	r.y *= -1;
 	cairo_arc(cr, center.x+r.x, center.y+r.y,body_radius,0,M_PI*2);
 	cairo_fill(cr);
 }
 
-void draw_transfer_point_2d(cairo_t *cr, struct Vector2D center, double scale, struct Vector r) {
+void draw_transfer_point_2d(cairo_t *cr, Vector2 center, double scale, Vector3 r) {
 	int cross_length = 4;
 	cairo_set_source_rgb(cr, 1, 0, 0);
-	r = scalar_multiply(r, scale);
+	r = scale_vec3(r, scale);
 	// y negative, because in GUI y gets bigger downwards
 	r.y *= -1;
 	for(int i = -1; i<=1; i+=2) {
-		struct Vector2D p1 = {r.x - cross_length, r.y + cross_length*i};
-		struct Vector2D p2 = {r.x + cross_length, r.y - cross_length*i};
-		draw_stroke(cr, add_vectors2d(center, p1), add_vectors2d(center, p2));
+		Vector2 p1 = {r.x - cross_length, r.y + cross_length*i};
+		Vector2 p2 = {r.x + cross_length, r.y - cross_length*i};
+		draw_stroke(cr, add_vec2(center, p1), add_vec2(center, p2));
 	}
 }
 
@@ -198,7 +193,7 @@ void draw_transfer_point_2d(cairo_t *cr, struct Vector2D center, double scale, s
 
 
 // Rework trajectory drawing -> OSV + dt   ----------------------------------------------
-void draw_trajectory_2d(cairo_t *cr, struct Vector2D center, double scale, struct ItinStep *tf, struct Body *attractor) {
+void draw_trajectory_2d(cairo_t *cr, Vector2 center, double scale, struct ItinStep *tf, struct Body *attractor) {
 	// if double swing-by is not worth drawing
 	if(tf->body == NULL && tf->v_body.x == 0) return;
 
@@ -209,37 +204,31 @@ void draw_trajectory_2d(cairo_t *cr, struct Vector2D center, double scale, struc
 	double dt = (tf->date-prev->date)*24*60*60;
 
 	if(prev->prev != NULL && prev->body != NULL) {
-		double t[3] = {prev->prev->date, prev->date, tf->date};
-		struct OSV osv0 = {prev->prev->r, prev->prev->v_body};
-		struct OSV osv1 = {prev->r, prev->v_body};
-		struct OSV osv2 = {tf->r, tf->v_body};
-		struct OSV osvs[3] = {osv0, osv1, osv2};
-		struct Body *bodies[3] = {prev->prev->body, prev->body, tf->body};
-		if(!is_flyby_viable(t, osvs, bodies, attractor)) cairo_set_source_rgb(cr, 1, 0, 0);
+		if(!is_flyby_viable(tf->prev->v_arr, tf->v_dep, tf->v_body, tf->body, 10)) cairo_set_source_rgb(cr, 1, 0, 0);
 	}
 
 	int steps = 1000;
-	struct Vector r = prev->r;
-	struct Vector v = tf->v_dep;
+	Vector3 r = prev->r;
+	Vector3 v = tf->v_dep;
 	struct OSV last_osv = {r,v};
 
 	for(int i = 1; i <= steps; i++) {
 		double time = dt/steps * i;
-		struct OSV osv = propagate_orbit_time(constr_orbit_from_osv(r,v,attractor),time, attractor);
+		struct OSV osv = propagate_osv_time((OSV){r,v},attractor,time);
 		// y negative, because in GUI y gets bigger downwards
-		struct Vector2D p1 = {last_osv.r.x, -last_osv.r.y};
-		struct Vector2D p2 = {osv.r.x, -osv.r.y};
+		Vector2 p1 = {last_osv.r.x, -last_osv.r.y};
+		Vector2 p2 = {osv.r.x, -osv.r.y};
 		
-		p1 = scalar_multipl2d(p1,scale);
-		p2 = scalar_multipl2d(p2,scale);
+		p1 = scale_vec2(p1,scale);
+		p2 = scale_vec2(p2,scale);
 		
-		draw_stroke(cr, add_vectors2d(p1,center), add_vectors2d(p2,center));
+		draw_stroke(cr, add_vec2(p1,center), add_vec2(p2,center));
 		last_osv = osv;
 	}
 }
 
 
-void draw_stroke(cairo_t *cr, struct Vector2D p1, struct Vector2D p2) {
+void draw_stroke(cairo_t *cr, Vector2 p1, Vector2 p2) {
 	cairo_set_line_width(cr, 1);
 	cairo_move_to(cr, p1.x, p1.y);
 	cairo_line_to(cr, p2.x, p2.y);
@@ -248,7 +237,7 @@ void draw_stroke(cairo_t *cr, struct Vector2D p1, struct Vector2D p2) {
 
 double calc_scale(int area_width, int area_height, struct Body *farthest_body) {
 	if(farthest_body == NULL) return 1e-9;
-	double apoapsis = farthest_body->orbit.apoapsis;
+	double apoapsis = calc_orbit_apoapsis(farthest_body->orbit);
 	int wh = area_width < area_height ? area_width : area_height;
 	return 1/apoapsis*wh/2.2;	// divided by 2.2 because apoapsis is only one side and buffer
 }
@@ -282,7 +271,7 @@ void draw_right_aligned_text(cairo_t *cr, double x, double y, char *text) {
 }
 
 void draw_coordinate_system(cairo_t *cr, double width, double height, enum CoordAxisLabelType x_axis_label_type, enum CoordAxisLabelType y_axis_label_type,
-		double min_x, double max_x, double min_y, double max_y, struct Vector2D origin, int num_x_labels, int num_y_labels) {
+		double min_x, double max_x, double min_y, double max_y, Vector2 origin, int num_x_labels, int num_y_labels) {
 	// Set text color
 	cairo_set_source_rgb(cr, 1, 1, 1);
 
@@ -292,8 +281,8 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 	int half_font_size = 5;
 
 	// axes
-	draw_stroke(cr, vec2D(origin.x, 0), vec2D(origin.x, origin.y));
-	draw_stroke(cr, vec2D(origin.x, origin.y), vec2D(width, origin.y));
+	draw_stroke(cr, vec2(origin.x, 0), vec2(origin.x, origin.y));
+	draw_stroke(cr, vec2(origin.x, origin.y), vec2(width, origin.y));
 
 	const double tick_units[] = {1,2,5};
 	double y_label_tick = tick_units[0];
@@ -357,7 +346,7 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 			date_to_string(convert_JD_date(label, get_settings_datetime_type()), string, 0);
 		draw_center_aligned_text(cr, x, x_label_y, string);
 		cairo_set_source_rgb(cr, 0, 0, 0);
-		draw_stroke(cr, vec2D(x, origin.y), vec2D(x, 0));
+		draw_stroke(cr, vec2(x, origin.y), vec2(x, 0));
 	}
 
 	// y-labels and y grid
@@ -373,7 +362,7 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 			date_to_string(convert_JD_date(label, get_settings_datetime_type()), string, 0);
 		draw_right_aligned_text(cr, y_label_x, y+half_font_size, string);
 		cairo_set_source_rgb(cr, 0, 0, 0);
-		draw_stroke(cr, vec2D(origin.x, y), vec2D(width, y));
+		draw_stroke(cr, vec2(origin.x, y), vec2(width, y));
 	}
 }
 
@@ -390,7 +379,7 @@ void draw_data_point(cairo_t *cr, double x, double y, double radius) {
 void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnalyzerPoint *porkchop, int num_itins, enum LastTransferType last_transfer_type) {
 	double dv, date, dur;
 
-	struct Vector2D origin = {45, height-40};
+	Vector2 origin = {45, height-40};
 
 	int first_show_ind = 0;
 	while(!porkchop[first_show_ind].inside_filter) first_show_ind++;
@@ -479,7 +468,7 @@ void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnal
 		double b = i == 0 ? 0 : 4*pow(color_bias-0.5,2);
 		cairo_set_source_rgb(buffer_cr, r,g,b);
 
-		struct Vector2D data_point = vec2D(origin.x + m_date*(date - min_date), origin.y + m_dur * (dur - min_dur));
+		Vector2 data_point = vec2(origin.x + m_date*(date - min_date), origin.y + m_dur * (dur - min_dur));
 		int radius = i > 0 ? 2 : 5;
 		if(num_draw_itins < 10000) radius += 2;
 		draw_data_point(buffer_cr, data_point.x, data_point.y, radius);
@@ -497,7 +486,7 @@ void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnal
 }
 
 void draw_plot(cairo_t *cr, double width, double height, double *x, double *y, int num_points) {
-	struct Vector2D origin = {60, height-30};
+	Vector2 origin = {60, height-30};
 
 	double min_x = x[0], max_x = x[0];
 	double min_y = y[0], max_y = y[0];
@@ -534,18 +523,18 @@ void draw_plot(cairo_t *cr, double width, double height, double *x, double *y, i
 	// data
 	cairo_set_source_rgb(cr, 0, 0.8, 0.8);
 	for(int i = 1; i < num_points; i++) {
-		struct Vector2D point0 = vec2D(origin.x + m_x*(x[i-1] - min_x), origin.y + m_y * (y[i-1] - min_y));
-		struct Vector2D point1 = vec2D(origin.x + m_x*(x[i  ] - min_x), origin.y + m_y * (y[i  ] - min_y));
+		Vector2 point0 = vec2(origin.x + m_x*(x[i-1] - min_x), origin.y + m_y * (y[i-1] - min_y));
+		Vector2 point1 = vec2(origin.x + m_x*(x[i  ] - min_x), origin.y + m_y * (y[i  ] - min_y));
 		draw_stroke(cr, point0, point1);
 	}
 }
 
 void draw_multi_plot(cairo_t *cr, double width, double height, double *x, double **y, int num_plots, int num_points) {
-	struct Vector2D origin = {60, height-30};
+	Vector2 origin = {60, height-30};
 
-	struct Vector colors[2] = {
-			vec(0, 0.8, 0.8),
-			vec(0.8, 0, 0.4),
+	Vector3 colors[2] = {
+			vec3(0, 0.8, 0.8),
+			vec3(0.8, 0, 0.4),
 	};
 
 	double min_x = x[0], max_x = x[0];
@@ -589,8 +578,8 @@ void draw_multi_plot(cairo_t *cr, double width, double height, double *x, double
 	for(int p = 0; p < num_plots; p++) {
 		cairo_set_source_rgb(cr, colors[p].x, colors[p].y, colors[p].z);
 		for(int i = 1; i < num_points; i++) {
-			struct Vector2D point0 = vec2D(origin.x + m_x * (x[i - 1] - min_x), origin.y + m_y * (y[p][i - 1] - min_y));
-			struct Vector2D point1 = vec2D(origin.x + m_x * (x[i] - min_x), origin.y + m_y * (y[p][i] - min_y));
+			Vector2 point0 = vec2(origin.x + m_x * (x[i - 1] - min_x), origin.y + m_y * (y[p][i - 1] - min_y));
+			Vector2 point1 = vec2(origin.x + m_x * (x[i] - min_x), origin.y + m_y * (y[p][i] - min_y));
 			draw_stroke(cr, point0, point1);
 		}
 	}

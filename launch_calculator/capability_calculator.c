@@ -1,7 +1,7 @@
 #include "capability_calculator.h"
-#include "tools/analytic_geometry.h"
 #include "launch_sim.h"
-#include "orbit_calculator/orbit.h"
+#include "orbitlib.h"
+#include "celestial_bodies.h"
 
 double calc_max_payload_capability(struct LV lv, double launch_lat, double incl) {
 	double max_plmass;
@@ -35,7 +35,7 @@ void calc_capability_for_inclination(struct LV lv, double launch_lat, double inc
 	pl_mass[num_data_points-1] = 0;
 
 	struct Launch_Results lr;
-	struct Orbit orbit;
+	Orbit orbit;
 	for(int i = 0; i < num_data_points; i++) {
 		lr = run_launch_simulation(lv, pl_mass[i], launch_lat, incl, 0.01, 0, 1, 0);
 		rem_dv[i] = lr.rem_dv;
@@ -45,7 +45,7 @@ void calc_capability_for_inclination(struct LV lv, double launch_lat, double inc
 		periapsis[i] = calc_orbit_periapsis(orbit);
 
 		// apply rem dv manouvre
-		orbit = constr_orbit_from_osv(lr.state->r, scalar_multiply(norm_vector(lr.state->v), vector_mag(lr.state->v) + lr.rem_dv), EARTH());
+		orbit = constr_orbit_from_osv(lr.state->r, scale_vec3(norm_vec3(lr.state->v), mag_vec3(lr.state->v) + lr.rem_dv), EARTH());
 		poss_apo[i] = calc_orbit_apoapsis(orbit);
 
 		free_launch_states(lr.state);

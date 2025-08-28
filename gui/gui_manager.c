@@ -255,7 +255,7 @@ void change_text_field_date_type(GObject *text_field, enum DateType old_date_typ
 	char *old_string, new_string[32];
 	old_string = (char*) gtk_entry_get_text(GTK_ENTRY(text_field));
 	if(!is_string_valid_date_format(old_string, old_date_type)) return;
-	struct Date date = date_from_string(old_string, old_date_type);
+	struct Datetime date = date_from_string(old_string, old_date_type);
 	date = change_date_type(date, new_date_type);
 	date_to_string(date, new_string, 0);
 	gtk_entry_set_text(GTK_ENTRY(text_field), new_string);
@@ -265,7 +265,7 @@ void change_label_date_type(GObject *label, enum DateType old_date_type, enum Da
 	char *old_string, new_string[32];
 	old_string = (char*) gtk_label_get_text(GTK_LABEL(label));
 	if(!is_string_valid_date_format(old_string, old_date_type)) return;
-	struct Date date = date_from_string(old_string, old_date_type);
+	struct Datetime date = date_from_string(old_string, old_date_type);
 	date = change_date_type(date, new_date_type);
 	date_to_string(date, new_string, 0);
 	gtk_label_set_text(GTK_LABEL(label), new_string);
@@ -275,7 +275,7 @@ void change_button_date_type(GObject *button, enum DateType old_date_type, enum 
 	char *old_string, new_string[32];
 	old_string = (char*) gtk_button_get_label(GTK_BUTTON(button));
 	if(!is_string_valid_date_format(old_string, old_date_type)) return;
-	struct Date date = date_from_string(old_string, old_date_type);
+	struct Datetime date = date_from_string(old_string, old_date_type);
 	date = change_date_type(date, new_date_type);
 	date_to_string(date, new_string, 0);
 	gtk_button_set_label(GTK_BUTTON(button), new_string);
@@ -314,7 +314,7 @@ void update_system_dropdown(GtkComboBox *cb_sel_system) {
 	g_object_unref(store);
 }
 
-void update_central_body_dropdown(GtkComboBox *cb_sel_central_body, struct System *system) {
+void update_central_body_dropdown(GtkComboBox *cb_sel_central_body, CelestSystem *system) {
 	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
 	GtkTreeIter iter;
 	// Add items to the list store
@@ -332,7 +332,7 @@ void update_central_body_dropdown(GtkComboBox *cb_sel_central_body, struct Syste
 }
 
 
-void update_body_dropdown(GtkComboBox *cb_sel_body, struct System *system) {
+void update_body_dropdown(GtkComboBox *cb_sel_body, CelestSystem *system) {
 	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
 	if(system != NULL) {
 		GtkTreeIter iter;

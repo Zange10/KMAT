@@ -1,11 +1,9 @@
-#include "celestial_bodies.h"
 #include "launch_calculator/launch_calculator.h"
-#include "orbit_calculator/orbit_calculator.h"
 #include "tools/tool_funcs.h"
 #include "database/database.h"
 #include "gui/gui_manager.h"
 #include "00_Testing/testing.h"
-//#include "database/database.h"
+
 #ifdef _WIN32
 #include <windows.h>  // for SetPriorityClass(), SetThreadPriority()
 #endif
@@ -34,7 +32,22 @@ int main() {
 
 	init_celestial_bodies();
 	init_available_systems("../Celestial_Systems/");
-
+	
+//	struct System *system = get_system_by_name("Solar System (Ephemerides)");
+//	struct OSV osv0 = {
+//			vec(150e9, 20e9, 70e9),
+//			vec(2e3, 30e3, -6e3),
+//	};
+//	struct OSV osv1 = {
+//			vec(-10e9, 100e9, 10e9),
+//			vec(-40e3, -3e3, -2e3),
+//	};
+//	struct Transfer transfer = calc_transfer(circcirc, system->bodies[2], system->bodies[3], osv0.r, osv0.v, osv1.r, osv1.v, 90*86400, system->cb, NULL, 0, 0);
+//	print_vector(transfer.r0);
+//	print_vector(transfer.v0);
+//	print_vector(transfer.r1);
+//	print_vector(transfer.v1);
+//	return 0;
 
 //	init_db();
 

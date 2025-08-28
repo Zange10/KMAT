@@ -23,7 +23,7 @@ struct PorkchopAnalyzerPoint *pa_porkchop_points;
 
 ItinStepBinHeaderData pa_analysis_params;
 
-struct System *pa_system;
+CelestSystem *pa_system;
 
 double pa_min_vals[5], pa_max_vals[5];
 
@@ -111,8 +111,8 @@ void update_pa_itinerary_preview() {
 		if(!body_show_status_pa[i]) continue;
 		draw_body(pa_itin_preview_camera, pa_system, pa_system->bodies[i], current_date_pa);
 		struct Orbit orbit = pa_system->bodies[i]->orbit;
-		if(pa_system->calc_method == EPHEMS) {
-			struct OSV body_osv = osv_from_ephem(pa_system->bodies[i]->ephem, current_date_pa, pa_system->cb);
+		if(pa_system->prop_method == EPHEMS) {
+			struct OSV body_osv = osv_from_ephem(pa_system->bodies[i]->ephem, pa_system->bodies[i]->num_ephems, current_date_pa, pa_system->cb);
 			orbit = constr_orbit_from_osv(body_osv.r, body_osv.v, pa_system->cb);
 		}
 		draw_orbit(pa_itin_preview_camera, orbit);
@@ -218,13 +218,13 @@ double calc_step_dv_pa(struct ItinStep *step) {
 	if(step->body == NULL) {
 		if(step->next == NULL || step->next[0]->next == NULL || step->prev == NULL)
 			return 0;
-		return vector_mag(subtract_vectors(step->v_arr, step->next[0]->v_dep));
+		return mag_vec3(subtract_vec3(step->v_arr, step->next[0]->v_dep));
 	} else if(step->prev == NULL) {
-		double vinf = vector_mag(subtract_vectors(step->next[0]->v_dep, step->v_body));
+		double vinf = mag_vec3(subtract_vec3(step->next[0]->v_dep, step->v_body));
 		return dv_circ(step->body, step->body->atmo_alt+pa_dep_periapsis, vinf);
 	} else if(step->next == NULL) {
 		if(pa_last_transfer_type == TF_FLYBY) return 0;
-		double vinf = vector_mag(subtract_vectors(step->v_arr, step->v_body));
+		double vinf = mag_vec3(subtract_vec3(step->v_arr, step->v_body));
 		if(pa_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + pa_arr_periapsis, vinf);
 		else if(pa_last_transfer_type == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + pa_arr_periapsis, vinf);
 	}
@@ -245,10 +245,7 @@ double calc_total_dv_pa() {
 double calc_periapsis_height_pa() {
 	if(curr_transfer_pa->body == NULL) return -1e20;
 	if(curr_transfer_pa->next == NULL || curr_transfer_pa->prev == NULL) return -1e20;
-	struct Vector v_arr = subtract_vectors(curr_transfer_pa->v_arr, curr_transfer_pa->v_body);
-	struct Vector v_dep = subtract_vectors(curr_transfer_pa->next[0]->v_dep, curr_transfer_pa->v_body);
-	double beta = (M_PI - angle_vec_vec(v_arr, v_dep))/2;
-	double rp = (1 / cos(beta) - 1) * (curr_transfer_pa->body->mu / (pow(vector_mag(v_arr), 2)));
+	double rp = get_flyby_periapsis(curr_transfer_pa->v_arr, curr_transfer_pa->next[0]->v_dep, curr_transfer_pa->v_body, curr_transfer_pa->body);
 	return (rp-curr_transfer_pa->body->radius)*1e-3;
 }
 
@@ -264,7 +261,7 @@ void free_all_porkchop_analyzer_itins() {
 	curr_transfer_pa = NULL;
 	free(pa_groups);
 	pa_groups = NULL;
-	if(!is_available_system(pa_system)) free_system(pa_system);
+	if(!is_available_system(pa_system)) free_celestial_system(pa_system);
 	pa_system = NULL;
 	
 	if(pa_analysis_params.num_deps > 0 && pa_analysis_params.file_type > 2) {
@@ -291,11 +288,11 @@ void pa_update_preview() {
 
 	if(curr_transfer_pa == NULL) {
 		char date0_string[10];
-		date_to_string((struct Date) {.date_type=get_settings_datetime_type()}, date0_string, 0);
+		date_to_string((Datetime) {.date_type=get_settings_datetime_type()}, date0_string, 0);
 		gtk_label_set_label(GTK_LABEL(lb_pa_tfdate), date0_string);
 		gtk_label_set_label(GTK_LABEL(lb_pa_tfbody), "Planet");
 	} else {
-		struct Date date = convert_JD_date(curr_transfer_pa->date, get_settings_datetime_type());
+		Datetime date = convert_JD_date(curr_transfer_pa->date, get_settings_datetime_type());
 		char date_string[10];
 		date_to_string(date, date_string, 0);
 		gtk_label_set_label(GTK_LABEL(lb_pa_tfdate), date_string);

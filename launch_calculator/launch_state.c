@@ -5,8 +5,8 @@ struct LaunchState * new_launch_state() {
 	struct LaunchState *new_state = (struct LaunchState*) malloc(sizeof(struct LaunchState));
 	new_state->next = NULL;
 	new_state->prev = NULL;
-	new_state->r = vec(0,0,0);
-	new_state->v = vec(0,0,0);
+	new_state->r = vec3(0,0,0);
+	new_state->v = vec3(0,0,0);
 	new_state->t = 0;
 
 	return new_state;

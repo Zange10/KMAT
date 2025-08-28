@@ -1,7 +1,6 @@
 #include "testing_algorithms.h"
 #include "tools/tool_funcs.h"
 #include "orbit_calculator/transfer_calc.h"
-#include "orbit_calculator/transfer_tools.h"
 #include "tools/file_io.h"
 #include <string.h>
 #include <stdlib.h>
@@ -64,12 +63,12 @@ int has_porkchop_point_valid_itinerary(struct PorkchopPoint porkchop_point) {
 
 	while(prev->prev != NULL && prev->body != NULL) {
 		double t[3] = {prev->prev->date, prev->date, step_ptr->date};
-		struct OSV osv0 = {prev->prev->r, prev->prev->v_body};
-		struct OSV osv1 = {prev->r, prev->v_body};
-		struct OSV osv2 = {step_ptr->r, step_ptr->v_body};
-		struct OSV osvs[3] = {osv0, osv1, osv2};
-		struct Body *bodies[3] = {prev->prev->body, prev->body, step_ptr->body};
-		if(!is_flyby_viable(t, osvs, bodies, bodies[0]->orbit.body)) {
+		OSV osv0 = {prev->prev->r, prev->prev->v_body};
+		OSV osv1 = {prev->r, prev->v_body};
+		OSV osv2 = {step_ptr->r, step_ptr->v_body};
+		OSV osvs[3] = {osv0, osv1, osv2};
+		Body *bodies[3] = {prev->prev->body, prev->body, step_ptr->body};
+		if(!is_flyby_viable(prev->prev->v_arr, prev->v_dep, prev->v_body, prev->body, 10)) {
 			is_valid_itinerary = 0;
 			printf("Invalid Itinerary:\n%f - %s\n%f - %s\n%f - %s\n", t[0], bodies[0]->name, t[1], bodies[1]->name, t[2], bodies[2]->name);
 			for(int i = 0; i < 3; i++) {
@@ -93,7 +92,7 @@ int has_porkchop_point_valid_itinerary(struct PorkchopPoint porkchop_point) {
 
 
 enum TestResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test test_data) {
-	struct System *system = get_system_by_name(test_data.system_name);
+	CelestSystem *system = get_system_by_name(test_data.system_name);
 	if(system == NULL) {
 		printf("Celestial System not found: %s\n", test_data.system_name);
 		return TEST_FAIL_CELESTIAL_SYSTEM_NOT_FOUND;
@@ -124,7 +123,7 @@ enum TestResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test test_d
 		return TEST_FAIL_CELESTIAL_BODY_NOT_FOUND;
 	}
 	if(test_data.num_flyby_bodies > 0) {
-		seq_info_to_target.flyby_bodies = malloc(test_data.num_flyby_bodies * sizeof(struct Body*));
+		seq_info_to_target.flyby_bodies = malloc(test_data.num_flyby_bodies * sizeof(Body*));
 		for(int i = 0; i < test_data.num_flyby_bodies; i++) {
 			seq_info_to_target.flyby_bodies[i] = get_body_by_name(test_data.flyby_bodies_names[i], system);
 			if(seq_info_to_target.flyby_bodies[i] == NULL) {
@@ -179,7 +178,7 @@ enum TestResult test_itinerary_calculator(struct Itin_To_Target_Calc_Test test_d
 }
 
 enum TestResult test_sequence_calculator(struct Itin_Spec_Seq_Calc_Test test_data) {
-	struct System *system = get_system_by_name(test_data.system_name);
+	CelestSystem *system = get_system_by_name(test_data.system_name);
 	if(system == NULL) {
 		printf("Celestial System not found: %s\n", test_data.system_name);
 		return TEST_FAIL_CELESTIAL_SYSTEM_NOT_FOUND;
@@ -199,7 +198,7 @@ enum TestResult test_sequence_calculator(struct Itin_Spec_Seq_Calc_Test test_dat
 	struct ItinSequenceInfoSpecItin seq_info_spec_seq = {
 			.type = ITIN_SEQ_INFO_SPEC_SEQ,
 			.system = system,
-			.bodies = malloc(test_data.num_steps * sizeof(struct Body*)),
+			.bodies = malloc(test_data.num_steps * sizeof(Body*)),
 			.num_steps = test_data.num_steps
 	};
 
@@ -264,7 +263,7 @@ enum TestResult test_itins_file(char *filepath) {
 	printf("Loading : %s\n", filepath);
 	struct ItinsLoadFileResults file_results = load_itineraries_from_bfile(filepath);
 
-	struct System *system = file_results.header.system;
+	CelestSystem *system = file_results.header.system;
 	struct ItinStep **departures = file_results.departures;
 	int num_deps = file_results.header.num_deps;
 
@@ -291,7 +290,7 @@ enum TestResult test_itins_file(char *filepath) {
 	free(porkchop_points);
 	for(int i = 0; i < num_deps; i++) free_itinerary(departures[i]);
 	free(departures);
-	free_system(system);
+	free_celestial_system(system);
 
 	if(test_result == TEST_PASSED) printf("SUCCESS\n");
 
@@ -303,7 +302,7 @@ enum TestResult test_itin_file(char *filepath) {
 	printf("Loading : %s\n", filepath);
 	struct ItinLoadFileResults file_results = load_single_itinerary_from_bfile(filepath);
 
-	struct System *system = file_results.system;
+	CelestSystem *system = file_results.system;
 	struct ItinStep *arrival = file_results.itin;
 
 	printf("System: %s\n", system->name);
@@ -329,7 +328,7 @@ enum TestResult test_itin_file(char *filepath) {
 
 	// FREE
 	free_itinerary(arrival);
-	free_system(system);
+	free_celestial_system(system);
 
 	if(test_result == TEST_PASSED) printf("SUCCESS\n");
 

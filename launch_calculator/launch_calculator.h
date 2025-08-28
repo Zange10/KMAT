@@ -12,14 +12,14 @@
 // start launch calculator menu
 void launch_calculator();
 
-struct Plane calc_plane_parallel_to_surf(struct Vector r);
+Plane3 calc_plane_parallel_to_surf(Vector3 r);
 
-struct Vector calc_surface_velocity_from_osv(struct Vector r, struct Vector v, struct Body *body);
+Vector3 calc_surface_velocity_from_osv(Vector3 r, Vector3 v, struct Body *body);
 
-double calc_vertical_speed_from_osv(struct Vector r, struct Vector v);
+double calc_vertical_speed_from_osv(Vector3 r, Vector3 v);
 
-double calc_horizontal_orbspeed_from_osv(struct Vector r, struct Vector v);
+double calc_horizontal_orbspeed_from_osv(Vector3 r, Vector3 v);
 
-double calc_downrange_distance(struct Vector r, double time, double launch_latitude, struct Body *body);
+double calc_downrange_distance(Vector3 r, double time, double launch_latitude, struct Body *body);
 
 #endif

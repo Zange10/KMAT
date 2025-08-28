@@ -1,7 +1,6 @@
 #ifndef KSP_TRANSFER_CALC_H
 #define KSP_TRANSFER_CALC_H
 
-#include "tools/analytic_geometry.h"
 #include "itin_tool.h"
 #include "celestial_bodies.h"
 

@@ -1,23 +1,23 @@
 #ifndef KSP_CAMERA_H
 #define KSP_CAMERA_H
 
-#include "tools/analytic_geometry.h"
+#include "geometrylib.h"
 #include "screen.h"
 #include <gtk/gtk.h>
 
 typedef struct {
-	struct Vector pos, looking, right;
+	Vector3 pos, looking, right;
 	double max_pos_dist, min_pos_dist;
 	gboolean rotation_sensitive;
 	Screen *screen;
 } Camera;
 
-struct System;
+typedef struct CelestSystem CelestSystem;
 struct ItinStep;
 
 Camera * new_camera(GtkWidget *drawing_area, void (*resize_func)(), void (*button_press_func)(), void (*button_release_func)(), void (*mouse_motion_func)(), void (*scroll_func)());
-struct Vector2D p3d_to_p2d(Camera *camera, struct Vector p3d);
-void update_camera_to_celestial_system(Camera *camera, struct System *system, double initial_pos_pitch, double initial_pos_yaw);
+Vector2 p3d_to_p2d(Camera *camera, Vector3 p3d);
+void update_camera_to_celestial_system(Camera *camera, CelestSystem *system, double initial_pos_pitch, double initial_pos_yaw);
 void update_camera_position_from_angles(Camera *camera, double pos_pitch, double pos_yaw, double dist);
 void camera_look_to_center(Camera *camera);
 void update_camera_distance_to_center(Camera *camera, double new_distance);

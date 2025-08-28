@@ -2,7 +2,7 @@
 #define KSP_PORKCHOP_ANALYZER_H
 
 #include <gtk/gtk.h>
-#include "tools/datetime.h"
+#include "orbitlib.h"
 
 void init_porkchop_analyzer(GtkBuilder *builder);
 void pa_change_date_type(enum DateType old_date_type, enum DateType new_date_type);

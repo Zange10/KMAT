@@ -1,5 +1,4 @@
 #include "transfer_planner.h"
-#include "orbit_calculator/transfer_tools.h"
 #include "gui/drawing.h"
 #include "gui/gui_manager.h"
 #include "gui/settings.h"
@@ -16,7 +15,7 @@
 
 struct ItinStep *curr_transfer_tp;
 
-struct System *tp_system;
+CelestSystem *tp_system;
 
 Camera *tp_system_camera;
 
@@ -53,7 +52,7 @@ void on_tp_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer 
 
 
 void init_transfer_planner(GtkBuilder *builder) {
-	struct Date date = {1950, 1, 1, 0, 0, 0};
+	struct Datetime date = {1950, 1, 1, 0, 0, 0};
 	current_date_tp = convert_date_JD(date);
 
 	remove_all_transfers();
@@ -109,8 +108,8 @@ void update_tp_system_view() {
 		if(!body_show_status_tp[i]) continue;
 		draw_body(tp_system_camera, tp_system, tp_system->bodies[i], current_date_tp);
 		struct Orbit orbit = tp_system->bodies[i]->orbit;
-		if(tp_system->calc_method == EPHEMS) {
-			struct OSV body_osv = osv_from_ephem(tp_system->bodies[i]->ephem, current_date_tp, tp_system->cb);
+		if(tp_system->prop_method == EPHEMS) {
+			struct OSV body_osv = osv_from_ephem(tp_system->bodies[i]->ephem, tp_system->bodies[i]->num_ephems, current_date_tp, tp_system->cb);
 			orbit = constr_orbit_from_osv(body_osv.r, body_osv.v, tp_system->cb);
 		}
 		draw_orbit(tp_system_camera, orbit);
@@ -161,7 +160,7 @@ G_MODULE_EXPORT void on_tp_system_change() {
 			gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system)) == -1) return;
 	
 	if(!is_available_system(get_top_level_system(tp_system)) && tp_system != NULL) {
-		free_system(get_top_level_system(tp_system));
+		free_celestial_system(get_top_level_system(tp_system));
 		tp_system = NULL;
 		remove_combobox_last_entry(GTK_COMBO_BOX(cb_tp_system));
 	}
@@ -195,13 +194,13 @@ double calc_step_dv(struct ItinStep *step) {
 		if(step->next == NULL || step->next[0]->next == NULL || step->prev == NULL)
 			return 0;
 		if(step->v_body.x == 0) return 0;
-		return vector_mag(subtract_vectors(step->v_arr, step->next[0]->v_dep));
+		return mag_vec3(subtract_vec3(step->v_arr, step->next[0]->v_dep));
 	} else if(step->prev == NULL) {
-		double vinf = vector_mag(subtract_vectors(step->next[0]->v_dep, step->v_body));
+		double vinf = mag_vec3(subtract_vec3(step->next[0]->v_dep, step->v_body));
 		return dv_circ(step->body, tp_dep_periapsis, vinf);
 	} else if(step->next == NULL) {
 		if(tp_last_transfer_type == TF_FLYBY) return 0;
-		double vinf = vector_mag(subtract_vectors(step->v_arr, step->v_body));
+		double vinf = mag_vec3(subtract_vec3(step->v_arr, step->v_body));
 		if(tp_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, tp_arr_periapsis, vinf);
 		else if(tp_last_transfer_type == TF_CIRC) return dv_circ(step->body, tp_arr_periapsis, vinf);
 	}
@@ -269,7 +268,7 @@ void update_transfer_panel() {
 		update_body_dropdown(GTK_COMBO_BOX(cb_tp_tfbody), NULL);
 		fix_tfbody = TRUE;
 	} else {
-		struct Date date = convert_JD_date(curr_transfer_tp->date, get_settings_datetime_type());
+		struct Datetime date = convert_JD_date(curr_transfer_tp->date, get_settings_datetime_type());
 		char date_string[10];
 		date_to_string(date, date_string, 0);
 		gtk_button_set_label(GTK_BUTTON(tb_tp_tfdate), date_string);
@@ -604,7 +603,7 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 		update_body_dropdown(GTK_COMBO_BOX(cb_tp_tfbody), NULL);
 		free_itinerary(get_first(curr_transfer_tp));
 	}
-	if(!is_available_system(tp_system) && tp_system != NULL) free_system(tp_system);
+	if(!is_available_system(tp_system) && tp_system != NULL) free_celestial_system(tp_system);
 	curr_transfer_tp = NULL;
 	tp_system = NULL;
 	if(gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system)) == get_num_available_systems()) remove_combobox_last_entry(GTK_COMBO_BOX(cb_tp_system));
@@ -625,8 +624,8 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 	update_central_body_dropdown(GTK_COMBO_BOX(cb_tp_central_body), tp_system);
 
 	struct ItinStep *step2pr = get_first(curr_transfer_tp);
-	struct DepArrHyperbolaParams dep_hyp_params = get_dep_hyperbola_params(step2pr->next[0]->v_dep, step2pr->v_body,
-																		   step2pr->body, 200e3);
+	HyperbolaParams hyp_params = get_hyperbola_params(vec3(0,0,0), step2pr->next[0]->v_dep, step2pr->v_body,
+																		   step2pr->body, 200e3, HYP_DEPARTURE);
 	printf("\nDeparture Hyperbola %s\n"
 		   "Date: %f\n"
 		   "OutgoingRadPer: %f km\n"
@@ -635,21 +634,18 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 		   "OutgoingDHA: %f°\n"
 		   "OutgoingBVAZI: -°\n"
 		   "TA: 0.0°\n",
-		   step2pr->body->name, step2pr->date, dep_hyp_params.r_pe/1000, dep_hyp_params.c3_energy/1e6,
-		   rad2deg(dep_hyp_params.bplane_angle), rad2deg(dep_hyp_params.decl));
+		   step2pr->body->name, step2pr->date, hyp_params.rp/1000, hyp_params.c3_energy/1e6,
+		   rad2deg(hyp_params.outgoing.bplane_angle), rad2deg(hyp_params.outgoing.decl));
 	
 	step2pr = step2pr->next[0];
 	while(step2pr->num_next_nodes != 0) {
 		if(step2pr->body != NULL) {
-			struct Vector v_arr = step2pr->v_arr;
-			struct Vector v_dep = step2pr->next[0]->v_dep;
-			struct Vector v_body = step2pr->v_body;
-			double rp = get_flyby_periapsis(v_arr, v_dep, v_body, step2pr->body);
+			Vector3 v_arr = step2pr->v_arr;
+			Vector3 v_dep = step2pr->next[0]->v_dep;
+			Vector3 v_body = step2pr->v_body;
 			double incl = get_flyby_inclination(v_arr, v_dep, v_body);
 
-			struct FlybyHyperbolaParams hyp_params = get_hyperbola_params(step2pr->v_arr, step2pr->next[0]->v_dep,
-																		  step2pr->v_body, step2pr->body,
-																		  rp - step2pr->body->radius);
+			hyp_params = get_hyperbola_params(step2pr->v_arr, step2pr->next[0]->v_dep, step2pr->v_body, step2pr->body, 0, HYP_FLYBY);
 			double dt_in_days = step2pr->date - step2pr->prev->date;
 
 			printf("\nFly-by Hyperbola %s (Travel Time: %.2f days)\n"
@@ -664,27 +660,27 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 				   "OutgoingDHA: %f°\n"
 				   "OutgoingBVAZI: %f°\n"
 				   "TA: 0.0°\n",
-				   step2pr->body->name, dt_in_days, step2pr->date, hyp_params.dep_hyp.r_pe / 1000, rad2deg(incl),
-				   hyp_params.dep_hyp.c3_energy / 1e6,
-				   rad2deg(hyp_params.arr_hyp.bplane_angle), rad2deg(hyp_params.arr_hyp.decl),
-				   rad2deg(hyp_params.arr_hyp.bvazi),
-				   rad2deg(hyp_params.dep_hyp.bplane_angle), rad2deg(hyp_params.dep_hyp.decl),
-				   rad2deg(hyp_params.dep_hyp.bvazi));
+				   step2pr->body->name, dt_in_days, step2pr->date, hyp_params.rp / 1000, rad2deg(incl),
+				   hyp_params.c3_energy / 1e6,
+				   rad2deg(hyp_params.incoming.bplane_angle), rad2deg(hyp_params.incoming.decl),
+				   rad2deg(hyp_params.incoming.bvazi),
+				   rad2deg(hyp_params.outgoing.bplane_angle), rad2deg(hyp_params.outgoing.decl),
+				   rad2deg(hyp_params.outgoing.bvazi));
 			step2pr = step2pr->next[0];
 		} else {
 			double dt_in_days = step2pr->date - step2pr->prev->date;
-			double dist_to_sun = vector_mag(step2pr->r);
+			double dist_to_sun = mag_vec3(step2pr->r);
 
-			struct Vector orbit_prograde = step2pr->v_arr;
-			struct Vector orbit_normal = cross_product(step2pr->r, step2pr->v_arr);
-			struct Vector orbit_radialin = cross_product(orbit_normal, step2pr->v_arr);
-			struct Vector dv_vec = subtract_vectors(step2pr->next[0]->v_dep, step2pr->v_arr);
+			Vector3 orbit_prograde = step2pr->v_arr;
+			Vector3 orbit_normal = cross_vec3(step2pr->r, step2pr->v_arr);
+			Vector3 orbit_radialin = cross_vec3(orbit_normal, step2pr->v_arr);
+			Vector3 dv_vec = subtract_vec3(step2pr->next[0]->v_dep, step2pr->v_arr);
 
 			// dv vector in S/C coordinate system (prograde, radial in, normal) (sign it if projected vector more than 90° from target vector / pointing in opposite direction)
-			struct Vector dv_vec_sc = {
-					vector_mag(proj_vec_vec(dv_vec, orbit_prograde)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_prograde), orbit_prograde) < M_PI/2 ? 1 : -1),
-					vector_mag(proj_vec_vec(dv_vec, orbit_radialin)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_radialin), orbit_radialin) < M_PI/2 ? 1 : -1),
-					vector_mag(proj_vec_vec(dv_vec, orbit_normal)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_normal), orbit_normal) < M_PI/2 ? 1 : -1)
+			Vector3 dv_vec_sc = {
+					mag_vec3(proj_vec3_vec3(dv_vec, orbit_prograde)) * (angle_vec3_vec3(proj_vec3_vec3(dv_vec, orbit_prograde), orbit_prograde) < M_PI/2 ? 1 : -1),
+					mag_vec3(proj_vec3_vec3(dv_vec, orbit_radialin)) * (angle_vec3_vec3(proj_vec3_vec3(dv_vec, orbit_radialin), orbit_radialin) < M_PI/2 ? 1 : -1),
+					mag_vec3(proj_vec3_vec3(dv_vec, orbit_normal)) * (angle_vec3_vec3(proj_vec3_vec3(dv_vec, orbit_normal), orbit_normal) < M_PI/2 ? 1 : -1)
 			};
 
 			printf("\nDeep Space Maneuver (Travel Time: %.2f days)\n"
@@ -694,16 +690,13 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 				   "Dv Radial: %f m/s\n"
 				   "Dv Normal: %f m/s\n"
 				   "Total: %f m/s\n",
-				   dt_in_days, step2pr->date, dist_to_sun / 1.495978707e11, dv_vec_sc.x, dv_vec_sc.y, dv_vec_sc.z, vector_mag(dv_vec_sc));
+				   dt_in_days, step2pr->date, dist_to_sun / 1.495978707e11, dv_vec_sc.x, dv_vec_sc.y, dv_vec_sc.z, mag_vec3(dv_vec_sc));
 			step2pr = step2pr->next[0];
 		}
 	}
 	
-	double rp = 100000e3;
 	double dt_in_days = step2pr->date - step2pr->prev->date;
-	struct DepArrHyperbolaParams arr_hyp_params = get_dep_hyperbola_params(step2pr->v_arr, step2pr->v_body, step2pr->body, rp - step2pr->body->radius);
-	arr_hyp_params.decl *= -1;
-	arr_hyp_params.bplane_angle = pi_norm(M_PI + arr_hyp_params.bplane_angle);
+	hyp_params = get_hyperbola_params(step2pr->v_arr, vec3(0,0,0), step2pr->v_body, step2pr->body, 200e3, HYP_ARRIVAL);
 	printf("\nArrival Hyperbola %s (Travel Time: %.2f days)\n"
 		   "Date: %f\n"
 		   "IncomingRadPer: %f km\n"
@@ -712,8 +705,8 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 		   "IncomingDHA: %f°\n"
 		   "IncomingBVAZI: -°\n"
 		   "TA: 0.0°\n",
-		   step2pr->body->name, dt_in_days, step2pr->date, arr_hyp_params.r_pe/1000, arr_hyp_params.c3_energy/1e6,
-		   rad2deg(arr_hyp_params.bplane_angle), rad2deg(arr_hyp_params.decl));
+		   step2pr->body->name, dt_in_days, step2pr->date, hyp_params.rp/1000, hyp_params.c3_energy/1e6,
+		   rad2deg(hyp_params.incoming.bplane_angle), rad2deg(hyp_params.incoming.decl));
 }
 
 

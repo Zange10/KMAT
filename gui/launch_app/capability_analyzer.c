@@ -2,7 +2,6 @@
 #include "launch_calculator/lv_profile.h"
 #include "gui/gui_manager.h"
 #include "database/lv_database.h"
-#include "tools/analytic_geometry.h"
 #include "launch_calculator/capability_calculator.h"
 #include "gui/drawing.h"
 

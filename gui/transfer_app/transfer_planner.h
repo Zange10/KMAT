@@ -3,8 +3,7 @@
 
 
 #include <gtk/gtk.h>
-#include "tools/ephem.h"
-#include "tools/datetime.h"
+#include "orbitlib.h"
 
 void init_transfer_planner(GtkBuilder *builder);
 void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_type);

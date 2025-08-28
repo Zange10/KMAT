@@ -1,7 +1,4 @@
 #include "itin_tool.h"
-#include "orbit.h"
-#include "transfer_tools.h"
-#include "tools/data_tool.h"
 #include "double_swing_by.h"
 #include "tools/thread_pool.h"
 #include <math.h>
@@ -12,15 +9,15 @@
 const int MIN_TRANSFER_DURATION = 10;	// days
 
 
-void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body *next_body, double min_dt, double max_dt) {
-	struct OSV osv_dep = {tf->r, tf->v_body};
-	struct OSV osv_arr0 = system->calc_method == ORB_ELEMENTS ?
-			osv_from_elements(next_body->orbit, tf->date, system) :
-			osv_from_ephem(next_body->ephem, tf->date, system->cb);
+void find_viable_flybys(struct ItinStep *tf, CelestSystem *system, Body *next_body, double min_dt, double max_dt) {
+	OSV osv_dep = {tf->r, tf->v_body};
+	OSV osv_arr0 = system->prop_method == ORB_ELEMENTS ?
+			osv_from_elements(next_body->orbit, tf->date) :
+			osv_from_ephem(next_body->ephem, next_body->num_ephems, tf->date, system->cb);
 
-	struct Vector proj_vec = proj_vec_plane(osv_dep.r, constr_plane(vec(0,0,0), osv_arr0.r, osv_arr0.v));
-	double theta_conj_opp = angle_vec_vec(proj_vec, osv_arr0.r);
-	if(cross_product(proj_vec, osv_arr0.r).z < 0) theta_conj_opp *= -1;
+	Vector3 proj_vec = proj_vec3_plane3(osv_dep.r, constr_plane3(vec3(0,0,0), osv_arr0.r, osv_arr0.v));
+	double theta_conj_opp = angle_vec3_vec3(proj_vec, osv_arr0.r);
+	if(cross_vec3(proj_vec, osv_arr0.r).z < 0) theta_conj_opp *= -1;
 	else theta_conj_opp -= M_PI;
 
 	int max_new_steps = 100;
@@ -28,42 +25,44 @@ void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body 
 
 	int counter = 0;
 
-	struct OSV osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb), -theta_conj_opp, system->cb);
-	struct Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
-	struct Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, system->cb);
-	double dt0 = arr1.t-arr0.t;
+	OSV osv_arr1 = propagate_osv_ta(osv_arr0, system->cb, -theta_conj_opp);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
+	Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, system->cb);
+	double dt0 = calc_orbit_time_since_periapsis(arr1)-calc_orbit_time_since_periapsis(arr1);
 
-	osv_arr1 = propagate_orbit_theta(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb), -theta_conj_opp+M_PI, system->cb);
+	osv_arr1 = propagate_osv_ta(osv_arr0, system->cb, -theta_conj_opp+M_PI);
 	arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
 	arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, system->cb);
-	double dt1 = arr1.t-arr0.t;
-
-	while(dt0 < 0) dt0 += arr0.period;
-	while(dt1 < 0) dt1 += arr0.period;
+	double dt1 = calc_orbit_time_since_periapsis(arr1)-calc_orbit_time_since_periapsis(arr1);
+	
+	double period_arr0 = calc_orbital_period(arr0);
+	
+	while(dt0 < 0) dt0 += period_arr0;
+	while(dt1 < 0) dt1 += period_arr0;
 	if(dt0 < dt1) {
 		double temp = dt0;
-		dt0 = dt1-arr0.period;
+		dt0 = dt1-period_arr0;
 		dt1 = temp;
 	} else {
-		dt0 -= arr0.period;
+		dt0 -= period_arr0;
 	}
 
 	while(dt1 < min_dt) {
 		double temp = dt1;
-		dt1 = dt0 + arr0.period;
+		dt1 = dt0 + period_arr0;
 		dt0 = temp;
 	}
 
-	// x: dt, y: diff_vinf (data[0].x: number of data points beginning at index 1)
-	struct Vector2D data[101];
+	// x: dt, y: diff_vinf
+	DataArray2 *data = data_array2_create();
 
 	double t0 = tf->date;
 	double last_dt, dt, t1, diff_vinf;
 
-	struct Vector v_init = subtract_vectors(tf->v_arr, tf->v_body);
+	Vector3 v_init = subtract_vec3(tf->v_arr, tf->v_body);
 
 	while(dt0 < max_dt && counter < max_new_steps) {
-		data[0].x = 0;
+		data_array2_clear(data);
 		int right_side = 0;	// 0 = left, 1 = right
 
 		for(int i = 0; i < 100; i++) {
@@ -73,22 +72,18 @@ void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body 
 
 			t1 = t0 + dt / 86400;
 
-			struct OSV osv_arr = system->calc_method == ORB_ELEMENTS ?
-					osv_from_elements(next_body->orbit, t1, system) :
-					osv_from_ephem(next_body->ephem, t1, system->cb);
+			struct OSV osv_arr = system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(next_body->orbit, t1) :
+					osv_from_ephem(next_body->ephem, next_body->num_ephems, t1, system->cb);
 
-			struct Transfer new_transfer = calc_transfer(circfb, tf->body, next_body, osv_dep.r, osv_dep.v, osv_arr.r, osv_arr.v, dt,
-														 system->cb, NULL, 0, 0);
+			Lambert3 new_transfer = calc_lambert3(osv_dep.r, osv_arr.r, dt, system->cb);
 
-			struct Vector v_dep = subtract_vectors(new_transfer.v0, tf->v_body);
+			Vector3 v_dep = subtract_vec3(new_transfer.v0, tf->v_body);
 
-			diff_vinf = vector_mag(v_dep) - vector_mag(v_init);
+			diff_vinf = mag_vec3(v_dep) - mag_vec3(v_init);
 
 			if (fabs(diff_vinf) < 1) {
-				double beta = (M_PI - angle_vec_vec(v_dep, v_init)) / 2;
-				double rp = (1 / cos(beta) - 1) * (tf->body->mu / (pow(vector_mag(v_dep), 2)));
-
-				if (rp > tf->body->radius + tf->body->atmo_alt + 10e3) {	// +10e3 to avoid precision errors when checking for fly-by viability later on
+				if (get_flyby_periapsis(tf->v_arr, v_dep, tf->v_body, tf->body) > altatmo2radius(tf->body, 10e3)) {	// +10e3 to avoid precision errors when checking for fly-by viability later on
 					new_steps[counter] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 					new_steps[counter]->body = next_body;
 					new_steps[counter]->date = t1;
@@ -107,26 +102,24 @@ void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body 
 			}
 
 
-			insert_new_data_point(data, dt, diff_vinf);
+			data_array2_insert_new(data, dt, diff_vinf);
 
 			if(!can_be_negative_monot_deriv(data)) break;
 			last_dt = dt;
 			if(i == 0) dt = dt1;
 			else dt = root_finder_monot_deriv_next_x(data, right_side ? 1 : 0);
-			if(i > 3) {
-				if(dt == last_dt) break;
-				if(dt >= dt1) dt = (dt1+data[(int) data[0].x-1].x)/2;
-				if(dt < dt0) dt = (dt0+data[2].x)/2;
-			}
+			if(i > 3 && dt == last_dt) break;	// step size 0 (imprecision)
 			if(isnan(dt) || isinf(dt)) break;
 		}
 
 
 
 		double temp = dt1;
-		dt1 = dt0 + arr0.period;
+		dt1 = dt0 + calc_orbital_period(arr0);
 		dt0 = temp;
 	}
+	
+	data_array2_free(data);
 
 	if(counter > 0) {
 		if(tf->num_next_nodes == 0) tf->next = (struct ItinStep **) malloc(counter * sizeof(struct ItinStep *));
@@ -145,85 +138,85 @@ void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body 
 }
 
 
-void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *body1, double min_dt0, double max_dt0, double min_dt1, double max_dt1) {
-	int max_new_steps0 = (int) (max_dt0/86400-min_dt0/86400+1);
-	int max_new_steps1 = (int) (max_dt1/86400-min_dt1/86400+1);
-	struct ItinStep *new_steps[max_new_steps0*max_new_steps1];
-	struct Body *body0 = tf->body;
-
-	int counter = 0;
-
-	struct OSV s0 = {tf->r, tf->v_arr};
-	struct OSV p0 = {tf->r, tf->v_body};
-	struct OSV s1;
-	double dt0, dt1, jd_sb2, jd_arr;
-
-
-	for(int i = 0; i <= max_dt0/86400-min_dt0/86400; i++) {
-
-		dt0 = min_dt0/86400 + i;
-		jd_sb2 = tf->date+dt0;
-		struct OSV osv_sb2 = osv_from_ephem(ephems[0], jd_sb2, SUN());
-
-		for(int j = 0; j <= max_dt1/86400-min_dt1/86400; j++) {
-			dt1 = min_dt1/86400 + j;
-			jd_arr = jd_sb2 + dt1;
-
-			struct OSV osv_arr = osv_from_ephem(ephems[1], jd_arr, SUN());
-			struct Transfer transfer_after_dsb = calc_transfer(circfb, body0, body1, osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, SUN(), NULL, 0, 0);
-
-			s1.r = transfer_after_dsb.r0;
-			s1.v = transfer_after_dsb.v0;
-
-			struct DSB dsb = calc_double_swing_by(s0, p0, s1, osv_sb2, dt0, body0);
-
-			if(dsb.dv < 10000) {
-				new_steps[counter] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
-				new_steps[counter]->body = NULL;
-				new_steps[counter]->date = tf->date + dsb.man_time/86400;
-				new_steps[counter]->r = dsb.osv[1].r;
-				new_steps[counter]->v_dep = dsb.osv[0].v;
-				new_steps[counter]->v_arr = dsb.osv[1].v;
-				new_steps[counter]->v_body = vec(0,0,0);
-				new_steps[counter]->num_next_nodes = 1;
-				new_steps[counter]->prev = tf;
-				new_steps[counter]->next = (struct ItinStep**) malloc(sizeof(struct ItinStep*));
-				new_steps[counter]->next[0] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
-				new_steps[counter]->next[0]->prev = new_steps[counter];
-
-				struct ItinStep *curr = new_steps[counter]->next[0];
-				curr->body = body0;
-				curr->date = jd_sb2;
-				curr->r = osv_sb2.r;
-				curr->v_dep = dsb.osv[2].v;
-				curr->v_arr = dsb.osv[3].v;
-				curr->v_body = osv_sb2.v;
-				curr->num_next_nodes = 1;
-				curr->next = (struct ItinStep**) malloc(sizeof(struct ItinStep*));
-				curr->next[0] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
-				curr->next[0]->prev = curr;
-
-				curr = curr->next[0];
-				curr->body = body1;
-				curr->date = jd_arr;
-				curr->r = osv_arr.r;
-				curr->v_dep = transfer_after_dsb.v0;
-				curr->v_arr = transfer_after_dsb.v1;
-				curr->v_body = osv_arr.v;
-				curr->num_next_nodes = 0;
-				curr->next = NULL;
-				counter++;
-			}
-		}
-	}
-
-	// if there were next nodes found, store them
-	if(counter > 0) {
-		tf->next = (struct ItinStep **) malloc(counter * sizeof(struct ItinStep *));
-		for(int i = 0; i < counter; i++) tf->next[i] = new_steps[i];
-		tf->num_next_nodes = counter;
-	}
-}
+//void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *body1, double min_dt0, double max_dt0, double min_dt1, double max_dt1) {
+//	int max_new_steps0 = (int) (max_dt0/86400-min_dt0/86400+1);
+//	int max_new_steps1 = (int) (max_dt1/86400-min_dt1/86400+1);
+//	struct ItinStep *new_steps[max_new_steps0*max_new_steps1];
+//	struct Body *body0 = tf->body;
+//
+//	int counter = 0;
+//
+//	struct OSV s0 = {tf->r, tf->v_arr};
+//	struct OSV p0 = {tf->r, tf->v_body};
+//	struct OSV s1;
+//	double dt0, dt1, jd_sb2, jd_arr;
+//
+//
+//	for(int i = 0; i <= max_dt0/86400-min_dt0/86400; i++) {
+//
+//		dt0 = min_dt0/86400 + i;
+//		jd_sb2 = tf->date+dt0;
+//		struct OSV osv_sb2 = osv_from_ephem(ephems[0], jd_sb2, SUN());
+//
+//		for(int j = 0; j <= max_dt1/86400-min_dt1/86400; j++) {
+//			dt1 = min_dt1/86400 + j;
+//			jd_arr = jd_sb2 + dt1;
+//
+//			struct OSV osv_arr = osv_from_ephem(ephems[1], jd_arr, SUN());
+//			struct Transfer transfer_after_dsb = calc_transfer(circfb, body0, body1, osv_sb2.r, osv_sb2.v, osv_arr.r, osv_arr.v, (jd_arr-jd_sb2)*86400, SUN(), NULL, 0, 0);
+//
+//			s1.r = transfer_after_dsb.r0;
+//			s1.v = transfer_after_dsb.v0;
+//
+//			struct DSB dsb = calc_double_swing_by(s0, p0, s1, osv_sb2, dt0, body0);
+//
+//			if(dsb.dv < 10000) {
+//				new_steps[counter] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+//				new_steps[counter]->body = NULL;
+//				new_steps[counter]->date = tf->date + dsb.man_time/86400;
+//				new_steps[counter]->r = dsb.osv[1].r;
+//				new_steps[counter]->v_dep = dsb.osv[0].v;
+//				new_steps[counter]->v_arr = dsb.osv[1].v;
+//				new_steps[counter]->v_body = vec(0,0,0);
+//				new_steps[counter]->num_next_nodes = 1;
+//				new_steps[counter]->prev = tf;
+//				new_steps[counter]->next = (struct ItinStep**) malloc(sizeof(struct ItinStep*));
+//				new_steps[counter]->next[0] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+//				new_steps[counter]->next[0]->prev = new_steps[counter];
+//
+//				struct ItinStep *curr = new_steps[counter]->next[0];
+//				curr->body = body0;
+//				curr->date = jd_sb2;
+//				curr->r = osv_sb2.r;
+//				curr->v_dep = dsb.osv[2].v;
+//				curr->v_arr = dsb.osv[3].v;
+//				curr->v_body = osv_sb2.v;
+//				curr->num_next_nodes = 1;
+//				curr->next = (struct ItinStep**) malloc(sizeof(struct ItinStep*));
+//				curr->next[0] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+//				curr->next[0]->prev = curr;
+//
+//				curr = curr->next[0];
+//				curr->body = body1;
+//				curr->date = jd_arr;
+//				curr->r = osv_arr.r;
+//				curr->v_dep = transfer_after_dsb.v0;
+//				curr->v_arr = transfer_after_dsb.v1;
+//				curr->v_body = osv_arr.v;
+//				curr->num_next_nodes = 0;
+//				curr->next = NULL;
+//				counter++;
+//			}
+//		}
+//	}
+//
+//	// if there were next nodes found, store them
+//	if(counter > 0) {
+//		tf->next = (struct ItinStep **) malloc(counter * sizeof(struct ItinStep *));
+//		for(int i = 0; i < counter; i++) tf->next[i] = new_steps[i];
+//		tf->num_next_nodes = counter;
+//	}
+//}
 
 
 
@@ -307,25 +300,25 @@ struct PorkchopPoint create_porkchop_point(struct ItinStep *itin, double dep_per
 	pp.arrival = itin;
 	pp.dur = get_itinerary_duration(itin);
 
-	double vinf = vector_mag(subtract_vectors(itin->v_arr, itin->v_body));
+	double vinf = mag_vec3(subtract_vec3(itin->v_arr, itin->v_body));
 	pp.dv_arr_cap = dv_capture(itin->body, arr_periapsis, vinf);
 	pp.dv_arr_circ = dv_circ(itin->body, arr_periapsis, vinf);
 
 	pp.dv_dsm = 0;
 	while(itin->prev->prev != NULL) {
 		if(itin->body == NULL) {
-			pp.dv_dsm += vector_mag(subtract_vectors(itin->next[0]->v_dep, itin->v_arr));
+			pp.dv_dsm += mag_vec3(subtract_vec3(itin->next[0]->v_dep, itin->v_arr));
 		}
 		itin = itin->prev;
 	}
 
 	pp.dep_date = itin->prev->date;
-	vinf = vector_mag(subtract_vectors(itin->v_dep, itin->prev->v_body));
+	vinf = mag_vec3(subtract_vec3(itin->v_dep, itin->prev->v_body));
 	pp.dv_dep = dv_circ(itin->prev->body, dep_periapsis, vinf);
 	return pp;
 }
 
-int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step) {
+int calc_next_spec_itin_step(struct ItinStep *curr_step, CelestSystem *system, Body **bodies, double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step) {
 	double max_duration = jd_max_arr-curr_step->date;
 	double min_duration = MIN_TRANSFER_DURATION;
 	if(max_duration > min_duration && get_thread_counter(3) == 0) {
@@ -495,21 +488,21 @@ int get_num_of_itin_layers(struct ItinStep *step) {
 	return counter;
 }
 
-void update_itin_body_osvs(struct ItinStep *step, struct System *system) {
-	struct OSV body_osv;
+void update_itin_body_osvs(struct ItinStep *step, CelestSystem *system) {
+	OSV body_osv;
 	while(step != NULL) {
 		if(step->body != NULL) {
-			body_osv = system->calc_method == ORB_ELEMENTS ?
-					osv_from_elements(step->body->orbit, step->date, system) :
-					osv_from_ephem(step->body->ephem, step->date, system->cb);
+			body_osv = system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(step->body->orbit, step->date) :
+					osv_from_ephem(step->body->ephem, step->body->num_ephems, step->date, system->cb);
 			step->r = body_osv.r;
 			step->v_body = body_osv.v;
-		} else step->v_body = vec(0, 0, 0);	// don't draw the trajectory (except changed in later calc)
+		} else step->v_body = vec3(0, 0, 0);	// don't draw the trajectory (except changed in later calc)
 		step = step->next != NULL ? step->next[0] : NULL;
 	}
 }
 
-void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *system) {
+void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, CelestSystem *system) {
 	if(step == NULL) return;
 	struct ItinStep *next;
 	while(step->next != NULL) {
@@ -522,22 +515,19 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *
 			} else if(next->next[0]->next == NULL) {
 				next = next->next[0];
 				double dt = (next->date - step->date) * 86400;
-				struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-														 next->v_body, dt, system->cb, NULL, 0, 0);
+				Lambert3 transfer = calc_lambert3(step->r, next->r, dt, system->cb);
 				next->v_dep = transfer.v0;
 				next->v_arr = transfer.v1;
 			} else {
 				struct ItinStep *sb2 = next->next[0];
 				struct ItinStep *arr = next->next[0]->next[0];
-				struct OSV osv_sb2 = {next->next[0]->r, next->next[0]->v_body};
-				struct OSV osv_arr = {next->next[0]->next[0]->r, next->next[0]->next[0]->v_body};
-				struct Transfer transfer_after_dsb = calc_transfer(circfb, sb2->body, arr->body, osv_sb2.r, osv_sb2.v,
-																   osv_arr.r, osv_arr.v,
-																   (arr->date - sb2->date) * 86400, system->cb, NULL, 0, 0);
+				OSV osv_sb2 = {next->next[0]->r, next->next[0]->v_body};
+				OSV osv_arr = {next->next[0]->next[0]->r, next->next[0]->next[0]->v_body};
+				Lambert3 transfer_after_dsb = calc_lambert3(osv_sb2.r, osv_arr.r, (arr->date - sb2->date) * 86400, system->cb);
 
-				struct OSV s0 = {step->r, step->v_arr};
-				struct OSV p0 = {step->r, step->v_body};
-				struct OSV s1 = {transfer_after_dsb.r0, transfer_after_dsb.v0};
+				OSV s0 = {step->r, step->v_arr};
+				OSV p0 = {step->r, step->v_body};
+				OSV s1 = {transfer_after_dsb.r0, transfer_after_dsb.v0};
 
 				double dt = sb2->date - step->date;
 				struct DSB dsb = calc_double_swing_by(s0, p0, s1, osv_sb2, dt, sb2->body);
@@ -546,20 +536,18 @@ void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *
 					next->v_dep = dsb.osv[0].v;
 					next->v_arr = dsb.osv[1].v;
 					next->date = step->date + dsb.man_time / 86400;
-					next->v_body = vec(1, 0, 0);    // draw the trajectory
+					next->v_body = vec3(1, 0, 0);    // draw the trajectory
 				} else {
 					next = next->next[0];
 					dt = (next->date - step->date) * 86400;
-					struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-															 next->v_body, dt, system->cb, NULL, 0, 0);
+					Lambert3 transfer= calc_lambert3(step->r, next->r, dt, system->cb);
 					next->v_dep = transfer.v0;
 					next->v_arr = transfer.v1;
 				}
 			}
 		} else {
 			double dt = (next->date - step->date) * 86400;
-			struct Transfer transfer = calc_transfer(circcap, step->body, next->body, step->r, step->v_body, next->r,
-													 next->v_body, dt, system->cb, NULL, 0, 0);
+			Lambert3 transfer = calc_lambert3(step->r, next->r, dt, system->cb);
 			next->v_dep = transfer.v0;
 			next->v_arr = transfer.v1;
 		}
@@ -712,9 +700,9 @@ void itinerary_short_overview_to_string(struct ItinStep *step, enum DateType dat
 //			sprintf(string, "%sPeriapsis: %.2fkm\n", string, arr_periapsis/1e3);
 			sprintf(string, "%s\n", string);
 		} else {
-			struct Vector v_arr = step->v_arr;
-			struct Vector v_dep = step->next[0]->v_dep;
-			struct Vector v_body = step->v_body;
+			Vector3 v_arr = step->v_arr;
+			Vector3 v_dep = step->next[0]->v_dep;
+			Vector3 v_body = step->v_body;
 			double rp = get_flyby_periapsis(v_arr, v_dep, v_body, step->body);
 			sprintf(string, "%s |  Periapsis: %.2fkm\n", string, (rp-step->body->radius)/1e3);
 		}
@@ -763,9 +751,9 @@ void itinerary_detailed_overview_to_string(struct ItinStep *step, enum DateType 
 		} else if(step->next == NULL) {
 			sprintf(string, "%sPeriapsis: %.2fkm\n", string, arr_periapsis/1e3);
 		} else {
-			struct Vector v_arr = step->v_arr;
-			struct Vector v_dep = step->next[0]->v_dep;
-			struct Vector v_body = step->v_body;
+			Vector3 v_arr = step->v_arr;
+			Vector3 v_dep = step->next[0]->v_dep;
+			Vector3 v_body = step->v_body;
 			double rp = get_flyby_periapsis(v_arr, v_dep, v_body, step->body);
 			double incl = get_flyby_inclination(v_arr, v_dep, v_body);
 			sprintf(string, "%sPeriapsis: %.2fkm\nInclination: %.2f°\n", string, (rp-step->body->radius)/1e3, rad2deg(incl));
@@ -778,11 +766,11 @@ void itinerary_detailed_overview_to_string(struct ItinStep *step, enum DateType 
 
 void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum DateType date_type, double dep_periapsis, double arr_periapsis, struct ItinStep *step) {
 	if(step == NULL) {sprintf(s_labels,""); sprintf(s_values,""); return;}
-	struct DepArrHyperbolaParams dep_hyp_params;
+	HyperbolaParams hyp_params;
 
 	// is departure step
 	if(step->prev == NULL) {
-		dep_hyp_params = get_dep_hyperbola_params(step->next[0]->v_dep, step->v_body, step->body, dep_periapsis);
+		hyp_params = get_hyperbola_params(vec3(0,0,0), step->next[0]->v_dep, step->v_body, step->body, dep_periapsis, HYP_DEPARTURE);
 		sprintf(s_labels, "Departure\n"
 						  "T+:\n"
 						  "RadPer:\n"
@@ -799,15 +787,13 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 						  "%.2f km²/s²\n"
 						  "%.2f°\n"
 						  "%.2f°",
-				dep_hyp_params.r_pe / 1000, (dep_hyp_params.r_pe-step->body->radius) / 1000, fabs(rad2deg(dep_hyp_params.decl)), dep_hyp_params.c3_energy / 1e6,
-				rad2deg(dep_hyp_params.bplane_angle), rad2deg(dep_hyp_params.decl));
+				hyp_params.rp / 1000, (hyp_params.rp-step->body->radius) / 1000, fabs(rad2deg(hyp_params.outgoing.decl)), hyp_params.c3_energy / 1e6,
+				rad2deg(hyp_params.outgoing.bplane_angle), rad2deg(hyp_params.outgoing.decl));
 
 	} else if(step->num_next_nodes == 0) {
 		double dt_in_days = step->date - get_first(step)->date;
 		if(date_type == DATE_KERBAL) dt_in_days *= 4;
-		struct DepArrHyperbolaParams arr_hyp_params = get_dep_hyperbola_params(step->v_arr, step->v_body, step->body, arr_periapsis);
-		arr_hyp_params.decl *= -1;
-		arr_hyp_params.bplane_angle = pi_norm(M_PI + arr_hyp_params.bplane_angle);
+		hyp_params = get_hyperbola_params(step->v_arr, vec3(0,0,0), step->v_body, step->body, arr_periapsis, HYP_ARRIVAL);
 		sprintf(s_labels, "Arrival\n"
 						  "T+:\n"
 						  "RadPer:\n"
@@ -826,20 +812,18 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 						  "%.2f km²/s²\n"
 						  "%.2f°\n"
 						  "%.2f°",
-				dt_in_days, arr_hyp_params.r_pe / 1000, (arr_hyp_params.r_pe-step->body->radius) / 1000, fabs(rad2deg(arr_hyp_params.decl)), 180.0 - fabs(rad2deg(arr_hyp_params.decl)), arr_hyp_params.c3_energy / 1e6,
-				rad2deg(arr_hyp_params.bplane_angle), rad2deg(arr_hyp_params.decl));
+				dt_in_days, hyp_params.rp / 1000, (hyp_params.rp-step->body->radius) / 1000, fabs(rad2deg(hyp_params.incoming.decl)), 180.0 - fabs(rad2deg(hyp_params.incoming.decl)), hyp_params.c3_energy / 1e6,
+				rad2deg(hyp_params.incoming.bplane_angle), rad2deg(hyp_params.incoming.decl));
 
 	} else {
 		if(step->body != NULL) {
-			struct Vector v_arr = step->v_arr;
-			struct Vector v_dep = step->next[0]->v_dep;
-			struct Vector v_body = step->v_body;
-			double rp = get_flyby_periapsis(v_arr, v_dep, v_body, step->body);
+			Vector3 v_arr = step->v_arr;
+			Vector3 v_dep = step->next[0]->v_dep;
+			Vector3 v_body = step->v_body;
 			double incl = get_flyby_inclination(v_arr, v_dep, v_body);
 
-			struct FlybyHyperbolaParams hyp_params = get_hyperbola_params(step->v_arr, step->next[0]->v_dep,
-																		  step->v_body, step->body,
-																		  rp - step->body->radius);
+			hyp_params = get_hyperbola_params(step->v_arr, step->next[0]->v_dep,
+											  step->v_body, step->body, 0, HYP_FLYBY);
 			double dt_in_days = step->date - get_first(step)->date;
 			if(date_type == DATE_KERBAL) dt_in_days *= 4;
 
@@ -867,27 +851,27 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 							  "%.2f°\n"
 							  "%.2f°\n"
 							  "%.2f°",
-					dt_in_days, hyp_params.dep_hyp.r_pe / 1000, (hyp_params.dep_hyp.r_pe-step->body->radius) / 1000, rad2deg(incl),
-					hyp_params.dep_hyp.c3_energy / 1e6,
-					rad2deg(hyp_params.arr_hyp.bplane_angle), rad2deg(hyp_params.arr_hyp.decl),
-					rad2deg(hyp_params.arr_hyp.bvazi),
-					rad2deg(hyp_params.dep_hyp.bplane_angle), rad2deg(hyp_params.dep_hyp.decl),
-					rad2deg(hyp_params.dep_hyp.bvazi));
+					dt_in_days, hyp_params.rp / 1000, (hyp_params.rp-step->body->radius) / 1000, rad2deg(incl),
+					hyp_params.c3_energy / 1e6,
+					rad2deg(hyp_params.incoming.bplane_angle), rad2deg(hyp_params.incoming.decl),
+					rad2deg(hyp_params.incoming.bvazi),
+					rad2deg(hyp_params.outgoing.bplane_angle), rad2deg(hyp_params.outgoing.decl),
+					rad2deg(hyp_params.outgoing.bvazi));
 		} else {
 			double dt_in_days = step->date - get_first(step)->date;
 			if(date_type == DATE_KERBAL) dt_in_days *= 4;
-			double dist_to_sun = vector_mag(step->r);
+			double dist_to_sun = mag_vec3(step->r);
 
-			struct Vector orbit_prograde = step->v_arr;
-			struct Vector orbit_normal = cross_product(step->r, step->v_arr);
-			struct Vector orbit_radialin = cross_product(orbit_normal, step->v_arr);
-			struct Vector dv_vec = subtract_vectors(step->next[0]->v_dep, step->v_arr);
+			Vector3 orbit_prograde = step->v_arr;
+			Vector3 orbit_normal = cross_vec3(step->r, step->v_arr);
+			Vector3 orbit_radialin = cross_vec3(orbit_normal, step->v_arr);
+			Vector3 dv_vec = subtract_vec3(step->next[0]->v_dep, step->v_arr);
 
 			// dv vector in S/C coordinate system (prograde, radial in, normal) (sign it if projected vector more than 90° from target vector / pointing in opposite direction)
-			struct Vector dv_vec_sc = {
-					vector_mag(proj_vec_vec(dv_vec, orbit_prograde)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_prograde), orbit_prograde) < M_PI/2 ? 1 : -1),
-					vector_mag(proj_vec_vec(dv_vec, orbit_radialin)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_radialin), orbit_radialin) < M_PI/2 ? 1 : -1),
-					vector_mag(proj_vec_vec(dv_vec, orbit_normal)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_normal), orbit_normal) < M_PI/2 ? 1 : -1)
+			Vector3 dv_vec_sc = {
+					mag_vec3(proj_vec3_vec3(dv_vec, orbit_prograde)) * (angle_vec3_vec3(proj_vec3_vec3(dv_vec, orbit_prograde), orbit_prograde) < M_PI/2 ? 1 : -1),
+					mag_vec3(proj_vec3_vec3(dv_vec, orbit_radialin)) * (angle_vec3_vec3(proj_vec3_vec3(dv_vec, orbit_radialin), orbit_radialin) < M_PI/2 ? 1 : -1),
+					mag_vec3(proj_vec3_vec3(dv_vec, orbit_normal)) * (angle_vec3_vec3(proj_vec3_vec3(dv_vec, orbit_normal), orbit_normal) < M_PI/2 ? 1 : -1)
 			};
 
 			sprintf(s_labels, "DSM\n"
@@ -904,7 +888,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 							  "%.3f m/s\n"
 							  "%.3f m/s\n"
 							  "%.3f m/s",
-					dt_in_days, dist_to_sun / 1.495978707e11, dv_vec_sc.x, dv_vec_sc.y, dv_vec_sc.z, vector_mag(dv_vec_sc));
+					dt_in_days, dist_to_sun / 1.495978707e11, dv_vec_sc.x, dv_vec_sc.y, dv_vec_sc.z, mag_vec3(dv_vec_sc));
 		}
 	}
 }

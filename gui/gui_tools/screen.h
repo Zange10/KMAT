@@ -2,7 +2,7 @@
 #define KSP_SCREEN_H
 
 #include "gtk/gtk.h"
-#include "tools/analytic_geometry.h"
+#include "geometrylib.h"
 
 // 4 bytes -> 3 color channels and 1 alpha channel
 typedef uint32_t ScreenPixel;
@@ -25,8 +25,8 @@ typedef struct {
 	ScreenLayer static_layer;
 	ScreenLayer dynamic_layer;
 	GtkWidget *drawing_area;
-	struct Vector2D last_mouse_pos;
-	struct Vector2D mouse_pos_on_press;
+	Vector2 last_mouse_pos;
+	Vector2 mouse_pos_on_press;
 	PixelColor background_color;
 	gboolean dragging;
 } Screen;
