@@ -63,12 +63,8 @@ int has_porkchop_point_valid_itinerary(struct PorkchopPoint porkchop_point) {
 
 	while(prev->prev != NULL && prev->body != NULL) {
 		double t[3] = {prev->prev->date, prev->date, step_ptr->date};
-		OSV osv0 = {prev->prev->r, prev->prev->v_body};
-		OSV osv1 = {prev->r, prev->v_body};
-		OSV osv2 = {step_ptr->r, step_ptr->v_body};
-		OSV osvs[3] = {osv0, osv1, osv2};
 		Body *bodies[3] = {prev->prev->body, prev->body, step_ptr->body};
-		if(!is_flyby_viable(prev->prev->v_arr, prev->v_dep, prev->v_body, prev->body, 10)) {
+		if(!is_flyby_viable(prev->v_arr, step_ptr->v_dep, prev->v_body, prev->body, 10)) {
 			is_valid_itinerary = 0;
 			printf("Invalid Itinerary:\n%f - %s\n%f - %s\n%f - %s\n", t[0], bodies[0]->name, t[1], bodies[1]->name, t[2], bodies[2]->name);
 			for(int i = 0; i < 3; i++) {

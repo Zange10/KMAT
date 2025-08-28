@@ -28,12 +28,12 @@ void find_viable_flybys(struct ItinStep *tf, CelestSystem *system, Body *next_bo
 	OSV osv_arr1 = propagate_osv_ta(osv_arr0, system->cb, -theta_conj_opp);
 	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
 	Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, system->cb);
-	double dt0 = calc_orbit_time_since_periapsis(arr1)-calc_orbit_time_since_periapsis(arr1);
+	double dt0 = calc_orbit_time_since_periapsis(arr1)-calc_orbit_time_since_periapsis(arr0);
 
 	osv_arr1 = propagate_osv_ta(osv_arr0, system->cb, -theta_conj_opp+M_PI);
 	arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
 	arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, system->cb);
-	double dt1 = calc_orbit_time_since_periapsis(arr1)-calc_orbit_time_since_periapsis(arr1);
+	double dt1 = calc_orbit_time_since_periapsis(arr1)-calc_orbit_time_since_periapsis(arr0);
 	
 	double period_arr0 = calc_orbital_period(arr0);
 	
@@ -62,7 +62,6 @@ void find_viable_flybys(struct ItinStep *tf, CelestSystem *system, Body *next_bo
 	Vector3 v_init = subtract_vec3(tf->v_arr, tf->v_body);
 
 	while(dt0 < max_dt && counter < max_new_steps) {
-		data_array2_clear(data);
 		int right_side = 0;	// 0 = left, 1 = right
 
 		for(int i = 0; i < 100; i++) {
@@ -83,7 +82,7 @@ void find_viable_flybys(struct ItinStep *tf, CelestSystem *system, Body *next_bo
 			diff_vinf = mag_vec3(v_dep) - mag_vec3(v_init);
 
 			if (fabs(diff_vinf) < 1) {
-				if (get_flyby_periapsis(tf->v_arr, v_dep, tf->v_body, tf->body) > altatmo2radius(tf->body, 10e3)) {	// +10e3 to avoid precision errors when checking for fly-by viability later on
+				if (get_flyby_periapsis(tf->v_arr, new_transfer.v0, tf->v_body, tf->body) > altatmo2radius(tf->body, 10e3)) {	// +10e3 to avoid precision errors when checking for fly-by viability later on
 					new_steps[counter] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 					new_steps[counter]->body = next_body;
 					new_steps[counter]->date = t1;
@@ -112,10 +111,10 @@ void find_viable_flybys(struct ItinStep *tf, CelestSystem *system, Body *next_bo
 			if(isnan(dt) || isinf(dt)) break;
 		}
 
-
+		data_array2_clear(data);
 
 		double temp = dt1;
-		dt1 = dt0 + calc_orbital_period(arr0);
+		dt1 = dt0 + period_arr0;
 		dt0 = temp;
 	}
 	
@@ -301,8 +300,8 @@ struct PorkchopPoint create_porkchop_point(struct ItinStep *itin, double dep_per
 	pp.dur = get_itinerary_duration(itin);
 
 	double vinf = mag_vec3(subtract_vec3(itin->v_arr, itin->v_body));
-	pp.dv_arr_cap = dv_capture(itin->body, arr_periapsis, vinf);
-	pp.dv_arr_circ = dv_circ(itin->body, arr_periapsis, vinf);
+	pp.dv_arr_cap = dv_capture(itin->body, alt2radius(itin->body, arr_periapsis), vinf);
+	pp.dv_arr_circ = dv_circ(itin->body, alt2radius(itin->body, arr_periapsis), vinf);
 
 	pp.dv_dsm = 0;
 	while(itin->prev->prev != NULL) {
@@ -314,7 +313,7 @@ struct PorkchopPoint create_porkchop_point(struct ItinStep *itin, double dep_per
 
 	pp.dep_date = itin->prev->date;
 	vinf = mag_vec3(subtract_vec3(itin->v_dep, itin->prev->v_body));
-	pp.dv_dep = dv_circ(itin->prev->body, dep_periapsis, vinf);
+	pp.dv_dep = dv_circ(itin->prev->body, alt2radius(itin->prev->body, dep_periapsis), vinf);
 	return pp;
 }
 

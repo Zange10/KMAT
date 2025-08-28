@@ -221,12 +221,12 @@ double calc_step_dv_pa(struct ItinStep *step) {
 		return mag_vec3(subtract_vec3(step->v_arr, step->next[0]->v_dep));
 	} else if(step->prev == NULL) {
 		double vinf = mag_vec3(subtract_vec3(step->next[0]->v_dep, step->v_body));
-		return dv_circ(step->body, step->body->atmo_alt+pa_dep_periapsis, vinf);
+		return dv_circ(step->body, altatmo2radius(step->body, pa_dep_periapsis), vinf);
 	} else if(step->next == NULL) {
 		if(pa_last_transfer_type == TF_FLYBY) return 0;
 		double vinf = mag_vec3(subtract_vec3(step->v_arr, step->v_body));
-		if(pa_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + pa_arr_periapsis, vinf);
-		else if(pa_last_transfer_type == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + pa_arr_periapsis, vinf);
+		if(pa_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, altatmo2radius(step->body, pa_arr_periapsis), vinf);
+		else if(pa_last_transfer_type == TF_CIRC) return dv_circ(step->body, altatmo2radius(step->body, pa_arr_periapsis), vinf);
 	}
 	return 0;
 }

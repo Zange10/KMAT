@@ -127,14 +127,14 @@ void *calc_itins_from_departure(void *args) {
 				
 				double dv_dep, dv_arr;
 				if(dep_body != NULL) {
-					double v_t1_inf = fabs(mag_vec3(subtract_vec3(tf.v0, osv_body0.v)));
-					dv_dep = tt % 2 == 0 ? dv_capture(dep_body, alt2radius(dep_body, dv_filter.dep_periapsis), v_t1_inf) : dv_circ(dep_body,alt2radius(dep_body, dv_filter.dep_periapsis),v_t1_inf);
+					double vinf = fabs(mag_vec3(subtract_vec3(tf.v0, osv_body0.v)));
+					dv_dep = tt % 2 == 0 ? dv_capture(dep_body, alt2radius(dep_body, dv_filter.dep_periapsis), vinf) : dv_circ(dep_body,alt2radius(dep_body, dv_filter.dep_periapsis),vinf);
 				} else dv_dep = mag_vec3(osv_body0.v);
 				
 				if(arr_body != NULL) {
-					double v_t2_inf = fabs(mag_vec3(subtract_vec3(tf.v1, osv_body1.v)));
-					if(tt < 2) dv_arr = dv_capture(arr_body, alt2radius(arr_body, dv_filter.arr_periapsis), v_t2_inf);
-					else if(tt < 4) dv_arr = dv_circ(arr_body, alt2radius(arr_body, dv_filter.arr_periapsis), v_t2_inf);
+					double vinf = fabs(mag_vec3(subtract_vec3(tf.v1, osv_body1.v)));
+					if(tt < 2) dv_arr = dv_capture(arr_body, alt2radius(arr_body, dv_filter.arr_periapsis), vinf);
+					else if(tt < 4) dv_arr = dv_circ(arr_body, alt2radius(arr_body, dv_filter.arr_periapsis), vinf);
 					else dv_arr = 0;
 				} else {
 					dv_arr = mag_vec3(osv_body1.v);
