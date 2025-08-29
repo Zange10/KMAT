@@ -8,53 +8,52 @@
 
 const int MIN_TRANSFER_DURATION = 10;	// days
 
+void calc_time_to_next_conjunction_and_opposition(Vector3 r0, OSV osv0_next, Body *cb, double *next_conjunction_dt, double *next_opposition_dt) {
+	Vector3 proj_vec = proj_vec3_plane3(r0, constr_plane3(vec3(0,0,0), osv0_next.r, osv0_next.v));
+	double dta_conj = angle_vec3_vec3(proj_vec, osv0_next.r);
+	if(cross_vec3(osv0_next.r, proj_vec).z < 0) dta_conj = 2*M_PI-dta_conj;
+	double dta_opp = dta_conj > M_PI ? dta_conj-M_PI : dta_conj+M_PI;
+	
+	Orbit arr0 = constr_orbit_from_osv(osv0_next.r, osv0_next.v, cb);
+	double period_arr0 = calc_orbital_period(arr0);
+	double tpe_arr0 = calc_orbit_time_since_periapsis(arr0);
+	
+	Orbit arr_conj = arr0; arr_conj.ta = pi_norm(arr_conj.ta+dta_conj);
+	Orbit arr_opp = arr0; arr_opp.ta = pi_norm(arr_opp.ta+dta_opp);
+	double dt_conj = calc_orbit_time_since_periapsis(arr_conj)-tpe_arr0;
+	double dt_opp = calc_orbit_time_since_periapsis(arr_opp)-tpe_arr0;
+	
+	if(dt_conj < 0) dt_conj += period_arr0;
+	if(dt_opp < 0)	dt_opp += period_arr0;
+	
+	*next_conjunction_dt = dt_conj;
+	*next_opposition_dt = dt_opp;
+}
 
 void find_viable_flybys(struct ItinStep *tf, CelestSystem *system, Body *next_body, double min_dt, double max_dt) {
 	OSV osv_dep = {tf->r, tf->v_body};
 	OSV osv_arr0 = system->prop_method == ORB_ELEMENTS ?
-			osv_from_elements(next_body->orbit, tf->date) :
-			osv_from_ephem(next_body->ephem, next_body->num_ephems, tf->date, system->cb);
-
-	Vector3 proj_vec = proj_vec3_plane3(osv_dep.r, constr_plane3(vec3(0,0,0), osv_arr0.r, osv_arr0.v));
-	double theta_conj_opp = angle_vec3_vec3(proj_vec, osv_arr0.r);
-	if(cross_vec3(proj_vec, osv_arr0.r).z < 0) theta_conj_opp *= -1;
-	else theta_conj_opp -= M_PI;
-
-	int max_new_steps = 100;
-	struct ItinStep *new_steps[max_new_steps];
-
-	int counter = 0;
-
-	OSV osv_arr1 = propagate_osv_ta(osv_arr0, system->cb, -theta_conj_opp);
+				   osv_from_elements(next_body->orbit, tf->date) :
+				   osv_from_ephem(next_body->ephem, next_body->num_ephems, tf->date, system->cb);
+	double next_conjunction_dt, next_opposition_dt;
+	calc_time_to_next_conjunction_and_opposition(osv_dep.r, osv_arr0, system->cb, &next_conjunction_dt, &next_opposition_dt);
 	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
-	Orbit arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, system->cb);
-	double dt0 = calc_orbit_time_since_periapsis(arr1)-calc_orbit_time_since_periapsis(arr0);
-
-	osv_arr1 = propagate_osv_ta(osv_arr0, system->cb, -theta_conj_opp+M_PI);
-	arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
-	arr1 = constr_orbit_from_osv(osv_arr1.r, osv_arr1.v, system->cb);
-	double dt1 = calc_orbit_time_since_periapsis(arr1)-calc_orbit_time_since_periapsis(arr0);
-	
 	double period_arr0 = calc_orbital_period(arr0);
 	
-	while(dt0 < 0) dt0 += period_arr0;
-	while(dt1 < 0) dt1 += period_arr0;
-	if(dt0 < dt1) {
-		double temp = dt0;
-		dt0 = dt1-period_arr0;
-		dt1 = temp;
+	double dt0, dt1;
+	if(next_conjunction_dt < next_opposition_dt) {
+		dt0 = next_opposition_dt - period_arr0;
+		dt1 = next_conjunction_dt;
 	} else {
-		dt0 -= period_arr0;
+		dt0 = next_conjunction_dt - period_arr0;
+		dt1 = next_opposition_dt;
 	}
-
-	while(dt1 < min_dt) {
-		double temp = dt1;
-		dt1 = dt0 + period_arr0;
-		dt0 = temp;
-	}
-
+	
 	// x: dt, y: diff_vinf
 	DataArray2 *data = data_array2_create();
+	int max_new_steps = 100;
+	struct ItinStep *new_steps[max_new_steps];
+	int counter = 0;
 
 	double t0 = tf->date;
 	double last_dt, dt, t1, diff_vinf;
@@ -76,13 +75,11 @@ void find_viable_flybys(struct ItinStep *tf, CelestSystem *system, Body *next_bo
 					osv_from_ephem(next_body->ephem, next_body->num_ephems, t1, system->cb);
 
 			Lambert3 new_transfer = calc_lambert3(osv_dep.r, osv_arr.r, dt, system->cb);
-
 			Vector3 v_dep = subtract_vec3(new_transfer.v0, tf->v_body);
-
 			diff_vinf = mag_vec3(v_dep) - mag_vec3(v_init);
 
-			if (fabs(diff_vinf) < 1) {
-				if (get_flyby_periapsis(tf->v_arr, new_transfer.v0, tf->v_body, tf->body) > altatmo2radius(tf->body, 10e3)) {	// +10e3 to avoid precision errors when checking for fly-by viability later on
+			if(fabs(diff_vinf) < 1) {
+				if(get_flyby_periapsis(tf->v_arr, new_transfer.v0, tf->v_body, tf->body) > altatmo2radius(tf->body, 10e3)) {	// +10e3 to avoid precision errors when checking for fly-by viability later on
 					new_steps[counter] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 					new_steps[counter]->body = next_body;
 					new_steps[counter]->date = t1;
