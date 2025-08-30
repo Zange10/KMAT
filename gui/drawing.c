@@ -289,6 +289,7 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 	double y_label_tick = tick_units[0];
 	double x_label_tick = tick_units[0];
 	double min_x_label, min_y_label;
+	Datetime x_date_label_tick = {0,0,1}, y_date_label_tick = {0,0,1};
 	double tick_scale = 1e-9;
 
 	// x tick size and min label
@@ -305,8 +306,49 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 		tick_scale = 1e-9;
 		min_x_label = (min_x == 0) ? x_label_tick : ceil(min_x/x_label_tick)*x_label_tick;
 	} else if(x_axis_label_type == COORD_LABEL_DATE) {
-		min_x_label = floor(min_x+2.0/3*(max_x-min_x)/num_x_labels);
-		x_label_tick = ceil((max_x-min_x)/num_x_labels);
+		for(int i = 0; i < 3; i++) {
+			if(get_settings_datetime_type() != DATE_ISO && i == 1) continue; // kerbal date doesn't have months
+			x_date_label_tick = i == 0 ? (Datetime){0,0,1} : i == 1 ? (Datetime) {0,1,0} : (Datetime) {1,0,0};
+			int tick_scale = 0;
+			bool found_valid_tick = false;
+			do {
+				switch(tick_scale) {
+					case 0: tick_scale = 1; break;
+					case 1: tick_scale = 2; break;
+					case 2: tick_scale = i!=1 ? 5 : 6; break;
+					case 5: tick_scale = 10; break;
+					case 10: tick_scale = 20; break;
+					case 20: tick_scale = 50; break;
+					case 50: tick_scale = 100; break;
+					default: tick_scale *= 2;
+				}
+				x_date_label_tick = (Datetime) {(x_date_label_tick.y!=0) * tick_scale, (x_date_label_tick.m!=0) * tick_scale, (x_date_label_tick.d!=0) * tick_scale};
+				Datetime min_date = convert_JD_date(min_x, get_settings_datetime_type());
+				Datetime min_x_date_label = (Datetime) {
+						min_date.y,
+						x_date_label_tick.y == 0 && x_date_label_tick.m < 6 ? min_date.m : 1,
+						(x_date_label_tick.y == 0 && x_date_label_tick.m == 0) ? min_date.d : 1,
+						.date_type = get_settings_datetime_type()
+				};
+				min_x_label = convert_date_JD(min_x_date_label);
+				min_x_label = jd_change_date(
+						min_x_label,
+						x_date_label_tick.y,
+						x_date_label_tick.m,
+						x_date_label_tick.d,
+						get_settings_datetime_type()
+				);
+				double max_x_label = jd_change_date(
+						min_x_label,
+						x_date_label_tick.y*num_x_labels,
+						x_date_label_tick.m*num_x_labels,
+						x_date_label_tick.d*num_x_labels,
+						get_settings_datetime_type()
+				);
+				if(max_x_label > max_x) {found_valid_tick = true; break;}
+			} while((x_date_label_tick.d < 10 || get_settings_datetime_type() != DATE_ISO) && x_date_label_tick.d < 100 && x_date_label_tick.m < 6);
+			if(found_valid_tick) break;
+		}
 	}
 
 	// x tick size and min label
@@ -322,8 +364,49 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 		} while(num_y_labels * y_label_tick < (max_y - min_y));
 		min_y_label = (min_y == 0) ? y_label_tick : ceil(min_y/y_label_tick)*y_label_tick;
 	} else if(y_axis_label_type == COORD_LABEL_DATE) {
-		min_y_label = floor(min_y+2.0/3*(max_y-min_y)/num_y_labels);
-		y_label_tick = ceil((max_y-min_y)/num_y_labels);
+		for(int i = 0; i < 3; i++) {
+			if(get_settings_datetime_type() != DATE_ISO && i == 1) continue; // kerbal date doesn't have months
+			y_date_label_tick = i == 0 ? (Datetime){0,0,1} : i == 1 ? (Datetime) {0,1,0} : (Datetime) {1,0,0};
+			int tick_scale = 0;
+			bool found_valid_tick = false;
+			do {
+				switch(tick_scale) {
+					case 0: tick_scale = 1; break;
+					case 1: tick_scale = 2; break;
+					case 2: tick_scale = i!=1 ? 5 : 6; break;
+					case 5: tick_scale = 10; break;
+					case 10: tick_scale = 20; break;
+					case 20: tick_scale = 50; break;
+					case 50: tick_scale = 100; break;
+					default: tick_scale *= 2;
+				}
+				y_date_label_tick = (Datetime) {(y_date_label_tick.y!=0) * tick_scale, (y_date_label_tick.m!=0) * tick_scale, (y_date_label_tick.d!=0) * tick_scale};
+				Datetime min_date = convert_JD_date(min_y, get_settings_datetime_type());
+				Datetime min_y_date_label = (Datetime) {
+						min_date.y,
+						y_date_label_tick.y == 0 && y_date_label_tick.m < 6 ? min_date.m : 1,
+										(y_date_label_tick.y == 0 && y_date_label_tick.m == 0) ? min_date.d : 1,
+								.date_type = get_settings_datetime_type()
+				};
+				min_y_label = convert_date_JD(min_y_date_label);
+				min_y_label = jd_change_date(
+						min_y_label,
+						y_date_label_tick.y,
+						y_date_label_tick.m,
+						y_date_label_tick.d,
+						get_settings_datetime_type()
+				);
+				double max_y_label = jd_change_date(
+						min_y_label,
+						y_date_label_tick.y*num_y_labels,
+						y_date_label_tick.m*num_y_labels,
+						y_date_label_tick.d*num_y_labels,
+						get_settings_datetime_type()
+				);
+				if(max_y_label > max_y) {found_valid_tick = true; break;}
+			} while((y_date_label_tick.d < 10 || get_settings_datetime_type() != DATE_ISO) && y_date_label_tick.d < 100 && y_date_label_tick.m < 6);
+			if(found_valid_tick) break;
+		}
 	}
 
 	// gradients
@@ -336,7 +419,10 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 	// x-labels and x grid
 	char string[32];
 	for(int i = 0; i < num_x_labels; i++) {
-		double label = min_x_label + i * x_label_tick;
+		double label = x_axis_label_type != COORD_LABEL_DATE ?
+				min_x_label + i * x_label_tick :
+				jd_change_date(min_x_label, i*x_date_label_tick.y, i*x_date_label_tick.m, i*x_date_label_tick.d, get_settings_datetime_type());
+		if(label < min_x) continue;
 		double x = (label-min_x)*m_x + origin.x;
 		cairo_set_source_rgb(cr, 1, 1, 1);
 		if(x_axis_label_type == COORD_LABEL_NUMBER)
@@ -352,7 +438,10 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 
 	// y-labels and y grid
 	for(int i = 0; i < num_y_labels; i++) {
-		double label = min_y_label + i * y_label_tick;
+		double label = y_axis_label_type != COORD_LABEL_DATE ?
+					   min_y_label + i * y_label_tick :
+					   jd_change_date(min_y_label, i*y_date_label_tick.y, i*y_date_label_tick.m, i*y_date_label_tick.d, get_settings_datetime_type());
+		if(label < min_y) continue;
 		double y = (label-min_y)*m_y + origin.y;
 		cairo_set_source_rgb(cr, 1, 1, 1);
 		if(y_axis_label_type == COORD_LABEL_NUMBER)
@@ -449,8 +538,8 @@ void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnal
 	m_arrdate = -origin.y/(max_arrdate - min_arrdate); // negative, because positive is down
 	m_dur = -origin.y/(max_dur - min_dur); // negative, because positive is down
 
-	if(dur0arrdate1) draw_coordinate_system(cr, width, height, COORD_LABEL_DATE, COORD_LABEL_DATE, min_depdate, max_depdate, min_arrdate, max_arrdate, origin, 5, 10);
-	else draw_coordinate_system(cr, width, height, COORD_LABEL_DATE, COORD_LABEL_DURATION, min_depdate, max_depdate, min_dur, max_dur, origin, 5, 10);
+	if(dur0arrdate1) draw_coordinate_system(cr, width, height, COORD_LABEL_DATE, COORD_LABEL_DATE, min_depdate, max_depdate, min_arrdate, max_arrdate, origin, 8, 10);
+	else draw_coordinate_system(cr, width, height, COORD_LABEL_DATE, COORD_LABEL_DURATION, min_depdate, max_depdate, min_dur, max_dur, origin, 8, 10);
 
 	// find points to draw
 	int *draw_idx = calloc(sizeof(int), num_itins);
