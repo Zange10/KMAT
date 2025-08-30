@@ -259,22 +259,23 @@ void draw_center_aligned_text(cairo_t *cr, double x, double y, char *text) {
 	cairo_show_text(cr, text);
 }
 
-void draw_right_aligned_text(cairo_t *cr, double x, double y, char *text) {
+void draw_right_aligned_text(cairo_t *cr, double x, double y, double rotate_angle, char *text) {
 	// Calculate text width
 	cairo_text_extents_t extents;
 	cairo_text_extents(cr, text, &extents);
 	double text_width = extents.width;
 
 	// Position and draw text to the left
-	cairo_move_to(cr, x - text_width, y); // adjust starting position to the left
+	cairo_move_to(cr, x - text_width*cos(rotate_angle), y+sin(rotate_angle)*(text_width-5)); // adjust starting position to the left
+	cairo_rotate(cr, -rotate_angle);
 	cairo_show_text(cr, text);
+	cairo_rotate(cr, rotate_angle);
 }
 
 void draw_coordinate_system(cairo_t *cr, double width, double height, enum CoordAxisLabelType x_axis_label_type, enum CoordAxisLabelType y_axis_label_type,
 		double min_x, double max_x, double min_y, double max_y, Vector2 origin, int num_x_labels, int num_y_labels) {
 	// Set text color
 	cairo_set_source_rgb(cr, 1, 1, 1);
-
 	// Set font options
 	cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
 	cairo_set_font_size(cr, 12.0);
@@ -309,7 +310,7 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 	}
 
 	// x tick size and min label
-	if(y_axis_label_type == COORD_LABEL_NUMBER) {
+	if(y_axis_label_type == COORD_LABEL_NUMBER || y_axis_label_type == COORD_LABEL_DURATION) {
 		double tick_unit;
 		do {
 			for(int i = 0; i < sizeof(tick_units)/sizeof(tick_units[0]); i++) {
@@ -320,7 +321,7 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 			tick_scale *= 10;
 		} while(num_y_labels * y_label_tick < (max_y - min_y));
 		min_y_label = (min_y == 0) ? y_label_tick : ceil(min_y/y_label_tick)*y_label_tick;
-	} else if(x_axis_label_type == COORD_LABEL_DATE) {
+	} else if(y_axis_label_type == COORD_LABEL_DATE) {
 		min_y_label = floor(min_y+2.0/3*(max_y-min_y)/num_y_labels);
 		y_label_tick = ceil((max_y-min_y)/num_y_labels);
 	}
@@ -360,7 +361,7 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 			sprintf(string, "%g", get_settings_datetime_type() == DATE_KERBAL ? label*4 : label);
 		else if(y_axis_label_type == COORD_LABEL_DATE)
 			date_to_string(convert_JD_date(label, get_settings_datetime_type()), string, 0);
-		draw_right_aligned_text(cr, y_label_x, y+half_font_size, string);
+		draw_right_aligned_text(cr, y_label_x, y+half_font_size, M_PI/4, string);
 		cairo_set_source_rgb(cr, 0, 0, 0);
 		draw_stroke(cr, vec2(origin.x, y), vec2(width, y));
 	}
@@ -376,10 +377,18 @@ void draw_data_point(cairo_t *cr, double x, double y, double radius) {
 	}
 }
 
-void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnalyzerPoint *porkchop, int num_itins, enum LastTransferType last_transfer_type) {
-	double dv, date, dur;
+const int porkchop_dur_yaxis_x = 40;
+const int porkchop_arrdate_yaxis_x = 60;
+const int porkchop_xaxis_y = 40;
 
-	Vector2 origin = {45, height-40};
+int get_porkchop_dur_yaxis_x() {return porkchop_dur_yaxis_x;}
+int get_porkchop_arrdate_yaxis_x() {return porkchop_arrdate_yaxis_x;}
+int get_porkchop_xaxis_y() {return porkchop_xaxis_y;}
+
+void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnalyzerPoint *porkchop, int num_itins, enum LastTransferType last_transfer_type, int dur0arrdate1) {
+	double dv, depdate, dur, arrdate;
+
+	Vector2 origin = {dur0arrdate1 ? porkchop_arrdate_yaxis_x : porkchop_dur_yaxis_x, height-porkchop_xaxis_y};
 
 	int first_show_ind = 0;
 	while(!porkchop[first_show_ind].inside_filter) first_show_ind++;
@@ -389,8 +398,9 @@ void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnal
 	if(last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
 	if(last_transfer_type == TF_CIRC)		dv_sat += pp.dv_arr_circ;
 
-	double min_date = pp.dep_date, max_date = pp.dep_date;
+	double min_depdate = pp.dep_date, max_depdate = pp.dep_date;
 	double min_dur = pp.dur, max_dur = pp.dur;
+	double min_arrdate = pp.dep_date+pp.dur, max_arrdate = pp.dep_date+pp.dur;
 	double min_dv = pp.dv_dep + dv_sat;
 	double max_dv = pp.dv_dep + dv_sat;
 
@@ -404,34 +414,43 @@ void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnal
 		if(last_transfer_type == TF_CIRC)		dv_sat += pp.dv_arr_circ;
 
 		dv = pp.dv_dep + dv_sat;
-		date = pp.dep_date;
+		depdate = pp.dep_date;
 		dur = pp.dur;
+		arrdate = pp.dep_date+pp.dur;
+		
 
 		if(dv < min_dv) min_dv = dv;
 		else if(dv > max_dv) max_dv = dv;
-		if(date < min_date) min_date = date;
-		else if(date > max_date) max_date = date;
+		if(depdate < min_depdate) min_depdate = depdate;
+		else if(depdate > max_depdate) max_depdate = depdate;
 		if(dur < min_dur) min_dur = dur;
 		else if(dur > max_dur) max_dur = dur;
+		if(arrdate < min_arrdate) min_arrdate = arrdate;
+		else if(arrdate > max_arrdate) max_arrdate = arrdate;
 	}
 
 
-	double ddate = max_date-min_date;
+	double ddepdate = max_depdate - min_depdate;
 	double ddur = max_dur - min_dur;
+	double darrdate = max_arrdate - min_arrdate;
 
 	double margin = 0.05;
 
-	min_date = min_date-ddate*margin;
-	max_date = max_date+ddate*margin;
+	min_depdate = min_depdate - ddepdate*margin;
+	max_depdate = max_depdate + ddepdate*margin;
 	min_dur = min_dur - ddur * margin;
 	max_dur = max_dur + ddur * margin;
+	min_arrdate = min_arrdate - darrdate * margin;
+	max_arrdate = max_arrdate + darrdate * margin;
 
 	// gradients
-	double m_dur, m_date;
-	m_date = (width-origin.x)/(max_date - min_date);
+	double m_dur, m_depdate, m_arrdate;
+	m_depdate = (width - origin.x)/(max_depdate - min_depdate);
+	m_arrdate = -origin.y/(max_arrdate - min_arrdate); // negative, because positive is down
 	m_dur = -origin.y/(max_dur - min_dur); // negative, because positive is down
 
-	draw_coordinate_system(cr, width, height, COORD_LABEL_DATE, COORD_LABEL_DURATION, min_date, max_date, min_dur, max_dur, origin, 5, 10);
+	if(dur0arrdate1) draw_coordinate_system(cr, width, height, COORD_LABEL_DATE, COORD_LABEL_DATE, min_depdate, max_depdate, min_arrdate, max_arrdate, origin, 5, 10);
+	else draw_coordinate_system(cr, width, height, COORD_LABEL_DATE, COORD_LABEL_DURATION, min_depdate, max_depdate, min_dur, max_dur, origin, 5, 10);
 
 	// find points to draw
 	int *draw_idx = calloc(sizeof(int), num_itins);
@@ -458,8 +477,9 @@ void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnal
 		if(last_transfer_type == TF_CIRC)		dv_sat += pp.dv_arr_circ;
 
 		dv = pp.dv_dep + dv_sat;
-		date = pp.dep_date;
+		depdate = pp.dep_date;
 		dur = pp.dur;
+		arrdate = pp.dep_date+pp.dur;
 
 		// color coding
 		color_bias = (dv - min_dv) / (max_dv - min_dv);
@@ -468,7 +488,7 @@ void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnal
 		double b = i == 0 ? 0 : 4*pow(color_bias-0.5,2);
 		cairo_set_source_rgb(buffer_cr, r,g,b);
 
-		Vector2 data_point = vec2(origin.x + m_date*(date - min_date), origin.y + m_dur * (dur - min_dur));
+		Vector2 data_point = vec2(origin.x + m_depdate*(depdate - min_depdate), origin.y + (dur0arrdate1 ? (m_arrdate*(arrdate - min_arrdate)) : (m_dur*(dur - min_dur))));
 		int radius = i > 0 ? 2 : 5;
 		if(num_draw_itins < 10000) radius += 2;
 		draw_data_point(buffer_cr, data_point.x, data_point.y, radius);

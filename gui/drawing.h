@@ -21,7 +21,10 @@ double calc_scale(int area_width, int area_height, Body *farthest_body);
 void set_cairo_body_color(cairo_t *cr, Body *body);
 void draw_transfer_point_2d(cairo_t *cr, Vector2 center, double scale, Vector3 r);
 void draw_trajectory_2d(cairo_t *cr, Vector2 center, double scale, struct ItinStep *tf, Body *attractor);
-void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnalyzerPoint *porkchop, int num_itins, enum LastTransferType last_transfer_type);
+int get_porkchop_dur_yaxis_x();
+int get_porkchop_arrdate_yaxis_x();
+int get_porkchop_xaxis_y();
+void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnalyzerPoint *porkchop, int num_itins, enum LastTransferType last_transfer_type, int dur0arrdate1);
 void draw_plot(cairo_t *cr, double width, double height, double *x, double *y, int num_points);
 void draw_multi_plot(cairo_t *cr, double width, double height, double *x, double **y, int num_plots, int num_points);
 

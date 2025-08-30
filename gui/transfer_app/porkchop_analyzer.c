@@ -28,7 +28,9 @@ CelestSystem *pa_system;
 double pa_min_vals[5], pa_max_vals[5];
 
 enum PaMinMaxType {PA_DEP, PA_DUR, PA_TOTDV, PA_DEPDV, PA_SATDV};
+enum PaYAxisType {PA_YAXIS_DUR, PA_YAXIS_ARRDATE};
 
+enum PaYAxisType pa_yaxis_type = PA_YAXIS_DUR;
 double pa_dep_periapsis = 50e3;
 double pa_arr_periapsis = 50e3;
 
@@ -95,7 +97,7 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 void update_pa_porkchop_diagram() {
 	clear_screen(pa_porkchop_screen);
 
-	if(pa_porkchop_points != NULL) draw_porkchop(pa_porkchop_screen->static_layer.cr, pa_porkchop_screen->width, pa_porkchop_screen->height, pa_porkchop_points, pa_num_itins, pa_last_transfer_type);
+	if(pa_porkchop_points != NULL) draw_porkchop(pa_porkchop_screen->static_layer.cr, pa_porkchop_screen->width, pa_porkchop_screen->height, pa_porkchop_points, pa_num_itins, pa_last_transfer_type, pa_yaxis_type);
 	draw_screen(pa_porkchop_screen);
 }
 
@@ -144,16 +146,18 @@ void on_pa_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr) {
 void on_pa_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer *ptr) {
 	if((Screen*)ptr == pa_porkchop_screen) {
 		if(pa_system == NULL) return;
+		int min_x = pa_yaxis_type == PA_YAXIS_ARRDATE ? get_porkchop_arrdate_yaxis_x() : get_porkchop_dur_yaxis_x();
+		int min_y = get_porkchop_xaxis_y();
 		if(pa_porkchop_screen->dragging) {
 			double x = pa_porkchop_screen->mouse_pos_on_press.x;
 			double y = pa_porkchop_screen->mouse_pos_on_press.y;
 			double width = event->x-pa_porkchop_screen->mouse_pos_on_press.x;
 			double height = event->y-pa_porkchop_screen->mouse_pos_on_press.y;
-			if(x < 45 || y > pa_porkchop_screen->height-40) return;
-			if(x+width < 45) width = 45-x;
+			if(x < min_x || y > pa_porkchop_screen->height-min_y) return;
+			if(x+width < min_x) width = min_x-x;
 			if(y+height < 0) height = -y;
 			if(x+width > pa_porkchop_screen->width) width = pa_porkchop_screen->width-x;
-			if(y+height > pa_porkchop_screen->height-40) height = (pa_porkchop_screen->height-40)-y;
+			if(y+height > pa_porkchop_screen->height-min_y) height = (pa_porkchop_screen->height-min_y)-y;
 			clear_dynamic_screen_layer(pa_porkchop_screen);
 			cairo_rectangle(pa_porkchop_screen->dynamic_layer.cr, x, y, width, height);
 			cairo_set_source_rgba(pa_porkchop_screen->dynamic_layer.cr, 1, 0, 0, 1);
@@ -173,6 +177,8 @@ void on_pa_screen_button_release(GtkWidget *widget, GdkEventButton *event, gpoin
 		pa_porkchop_screen->dragging = FALSE;
 
 		clear_dynamic_screen_layer(pa_porkchop_screen);
+		
+		if(pa_yaxis_type != PA_YAXIS_DUR) {draw_screen(pa_porkchop_screen);return;}	// arrival date not yet implemented
 
 		if(pa_system == NULL) return;
 
@@ -182,7 +188,7 @@ void on_pa_screen_button_release(GtkWidget *widget, GdkEventButton *event, gpoin
 		double y1 = event->y;
 
 		if(x0 < 45 || y0 > pa_porkchop_screen->height-40) return;
-		get_min_max_dep_dur_range_from_mouse_rect(&x0, &x1, &y0, &y1, pa_min_vals[PA_DEP], pa_max_vals[PA_DEP], pa_min_vals[PA_DUR], pa_max_vals[PA_DUR], pa_porkchop_screen->width, pa_porkchop_screen->height);
+		get_min_max_dep_dur_range_from_mouse_rect(&x0, &x1, &y0, &y1, pa_min_vals[PA_DEP], pa_max_vals[PA_DEP], pa_min_vals[PA_DUR], pa_max_vals[PA_DUR], pa_porkchop_screen->width, pa_porkchop_screen->height, pa_yaxis_type);
 
 		char string[20];
 		date_to_string(convert_JD_date(x0, get_settings_datetime_type()), string, 0);
@@ -379,6 +385,11 @@ void reset_min_max_feedback(int take_hidden_group_into_account) {
 
 	for(int i = 0; i < 5; i++) pa_min_vals[i] = min[i];
 	for(int i = 0; i < 5; i++) pa_max_vals[i] = max[i];
+}
+
+G_MODULE_EXPORT void on_pa_switch_y_axis_type(GtkWidget* widget, gpointer data) {
+	pa_yaxis_type = pa_yaxis_type != PA_YAXIS_DUR ? PA_YAXIS_DUR : PA_YAXIS_ARRDATE;
+	update_pa();
 }
 
 G_MODULE_EXPORT void on_change_itin_group_visibility(GtkWidget* widget, gpointer data) {

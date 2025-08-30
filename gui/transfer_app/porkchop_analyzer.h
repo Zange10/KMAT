@@ -11,6 +11,7 @@ void end_porkchop_analyzer();
 
 // Handler -----------------------
 G_MODULE_EXPORT void on_change_itin_group_visibility(GtkWidget* widget, gpointer data);
+G_MODULE_EXPORT void on_pa_switch_y_axis_type(GtkWidget* widget, gpointer data);
 G_MODULE_EXPORT void on_porkchop_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
 G_MODULE_EXPORT void on_preview_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
 G_MODULE_EXPORT void on_load_itineraries(GtkWidget* widget, gpointer data);

@@ -1,4 +1,5 @@
 #include "porkchop_analyzer_tools.h"
+#include "gui/drawing.h"
 #include <stdlib.h>
 
 
@@ -60,28 +61,31 @@ void sort_porkchop(struct PorkchopAnalyzerPoint *pp, int num_itins, enum LastTra
 	free(dvs);
 }
 
-void get_min_max_dep_dur_range_from_mouse_rect(double *dep0, double *dep1, double *dur0, double *dur1, double min_dep, double max_dep, double min_dur, double max_dur, double screen_width, double screen_height) {
+void get_min_max_dep_dur_range_from_mouse_rect(double *dep0, double *dep1, double *dur0, double *dur1, double min_dep, double max_dep, double min_dur, double max_dur, double screen_width, double screen_height, int dur0arrdate1) {
 	double x0 = *dep0, x1 = *dep1, y0 = *dur0, y1 = *dur1;
 
-	if(x0 < 45) x0 = 45;
-	if(x1 < 45) x1 = 45;
+	int min_x = dur0arrdate1 ? get_porkchop_arrdate_yaxis_x() : get_porkchop_dur_yaxis_x();
+	int min_y = get_porkchop_xaxis_y();
+	
+	if(x0 < min_x) x0 = min_x;
+	if(x1 < min_x) x1 = min_x;
 	if(x0 > screen_width) x0 = screen_width;
 	if(x1 > screen_width) x1 = screen_width;
 
 	if(y0 < 0) y0 = 0;
 	if(y1 < 0) y1 = 0;
-	if(y0 > screen_height-40) y0 = screen_height-40;
-	if(y1 > screen_height-40) y1 = screen_height-40;
+	if(y0 > screen_height-min_y) y0 = screen_height-min_y;
+	if(y1 > screen_height-min_y) y1 = screen_height-min_y;
 
 	if(x0 > x1) { double temp = x0; x0 = x1; x1 = temp;	}
 	if(y0 > y1) { double temp = y0; y0 = y1; y1 = temp; }
 
-	x0 -= 45;
-	x1 -= 45;
-	x0 /= (screen_width-45);
-	x1 /= (screen_width-45);
-	y0 /= (screen_height-40);
-	y1 /= (screen_height-40);
+	x0 -= min_x;
+	x1 -= min_x;
+	x0 /= (screen_width-min_x);
+	x1 /= (screen_width-min_x);
+	y0 /= (screen_height-min_y);
+	y1 /= (screen_height-min_y);
 
 	double ddate = max_dep-min_dep;
 	double ddur = max_dur-min_dur;
