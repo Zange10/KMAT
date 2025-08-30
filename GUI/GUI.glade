@@ -1964,10 +1964,10 @@
                       <object class="GtkLabel" id="lb_tp_date">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
-                        <property name="label" translatable="yes">2000-01-01</property>
+                        <property name="label" translatable="yes">2000-01-01 00:00</property>
                         <property name="single-line-mode">True</property>
                         <attributes>
-                          <attribute name="scale" value="3"/>
+                          <attribute name="scale" value="2"/>
                         </attributes>
                       </object>
                       <packing>
@@ -1976,13 +1976,13 @@
                       </packing>
                     </child>
                     <child>
-                      <!-- n-columns=4 n-rows=2 -->
+                      <!-- n-columns=5 n-rows=2 -->
                       <object class="GtkGrid">
                         <property name="visible">True</property>
                         <property name="can-focus">False</property>
                         <property name="column-homogeneous">True</property>
                         <child>
-                          <object class="GtkButton" id="bt_tp_1yp1">
+                          <object class="GtkButton" id="bt_tp_10y6hp">
                             <property name="label" translatable="yes">+10Y</property>
                             <property name="name">+10Y</property>
                             <property name="visible">True</property>
@@ -1996,7 +1996,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tp_1ym1">
+                          <object class="GtkButton" id="bt_tp_10y6hm">
                             <property name="label" translatable="yes">-10Y</property>
                             <property name="name">-10Y</property>
                             <property name="visible">True</property>
@@ -2010,7 +2010,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tp_1yp">
+                          <object class="GtkButton" id="bt_tp_1y1hp">
                             <property name="label" translatable="yes">+1Y</property>
                             <property name="name">+1Y</property>
                             <property name="visible">True</property>
@@ -2024,7 +2024,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tp_1ym">
+                          <object class="GtkButton" id="bt_tp_1y1hm">
                             <property name="label" translatable="yes">-1Y</property>
                             <property name="name">-1Y</property>
                             <property name="visible">True</property>
@@ -2038,7 +2038,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tp_1m30dp">
+                          <object class="GtkButton" id="bt_tp_1m30d10minp">
                             <property name="label" translatable="yes">+1M</property>
                             <property name="name">+1M</property>
                             <property name="visible">True</property>
@@ -2052,7 +2052,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tp_1m30dm">
+                          <object class="GtkButton" id="bt_tp_1m30d10minm">
                             <property name="label" translatable="yes">-1M</property>
                             <property name="name">-1M</property>
                             <property name="visible">True</property>
@@ -2066,7 +2066,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tp_1dp">
+                          <object class="GtkButton" id="bt_tp_1d1minp">
                             <property name="label" translatable="yes">+1D</property>
                             <property name="name">+1D</property>
                             <property name="visible">True</property>
@@ -2080,7 +2080,7 @@
                           </packing>
                         </child>
                         <child>
-                          <object class="GtkButton" id="bt_tp_1dm">
+                          <object class="GtkButton" id="bt_tp_1d1minm">
                             <property name="label" translatable="yes">-1D</property>
                             <property name="name">-1D</property>
                             <property name="visible">True</property>
@@ -2090,6 +2090,33 @@
                           </object>
                           <packing>
                             <property name="left-attach">3</property>
+                            <property name="top-attach">1</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton">
+                            <property name="label" translatable="yes">D/C</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <signal name="clicked" handler="on_tp_switch_clocktime_date" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">4</property>
+                            <property name="top-attach">0</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkButton">
+                            <property name="label" translatable="yes">00:00</property>
+                            <property name="visible">True</property>
+                            <property name="can-focus">True</property>
+                            <property name="receives-default">True</property>
+                            <property name="image-position">top</property>
+                            <signal name="clicked" handler="on_tp_reset_clocktime" swapped="no"/>
+                          </object>
+                          <packing>
+                            <property name="left-attach">4</property>
                             <property name="top-attach">1</property>
                           </packing>
                         </child>

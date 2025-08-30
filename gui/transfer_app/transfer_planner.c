@@ -25,8 +25,14 @@ GObject *cb_tp_central_body;
 GObject *cb_tp_tfbody;
 GObject *lb_tp_date;
 GObject *tb_tp_tfdate;
-GObject *bt_tp_1m30dp;
-GObject *bt_tp_1m30dm;
+GObject *bt_tp_10y6hp;
+GObject *bt_tp_10y6hm;
+GObject *bt_tp_1y1hp;
+GObject *bt_tp_1y1hm;
+GObject *bt_tp_1m30d10minp;
+GObject *bt_tp_1m30d10minm;
+GObject *bt_tp_1d1minp;
+GObject *bt_tp_1d1minm;
 GObject *lb_tp_transfer_dv;
 GObject *lb_tp_total_dv;
 GObject *lb_tp_param_labels;
@@ -62,8 +68,14 @@ void init_transfer_planner(GtkBuilder *builder) {
 	cb_tp_central_body = gtk_builder_get_object(builder, "cb_tp_central_body");
 	cb_tp_tfbody = gtk_builder_get_object(builder, "cb_tp_tfbody");
 	tb_tp_tfdate = gtk_builder_get_object(builder, "tb_tp_tfdate");
-	bt_tp_1m30dp = gtk_builder_get_object(builder, "bt_tp_1m30dp");
-	bt_tp_1m30dm = gtk_builder_get_object(builder, "bt_tp_1m30dm");
+	bt_tp_10y6hp = gtk_builder_get_object(builder, "bt_tp_10y6hp");
+	bt_tp_10y6hm = gtk_builder_get_object(builder, "bt_tp_10y6hm");
+	bt_tp_1y1hp = gtk_builder_get_object(builder, "bt_tp_1y1hp");
+	bt_tp_1y1hm = gtk_builder_get_object(builder, "bt_tp_1y1hm");
+	bt_tp_1m30d10minp = gtk_builder_get_object(builder, "bt_tp_1m30d10minp");
+	bt_tp_1m30d10minm = gtk_builder_get_object(builder, "bt_tp_1m30d10minm");
+	bt_tp_1d1minp = gtk_builder_get_object(builder, "bt_tp_1d1minp");
+	bt_tp_1d1minm = gtk_builder_get_object(builder, "bt_tp_1d1minm");
 	lb_tp_transfer_dv = gtk_builder_get_object(builder, "lb_tp_transfer_dv");
 	lb_tp_total_dv = gtk_builder_get_object(builder, "lb_tp_total_dv");
 	lb_tp_param_labels = gtk_builder_get_object(builder, "lb_tp_param_labels");
@@ -138,19 +150,6 @@ void on_tp_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer 
 }
 
 // -------------------------------------------------------------------------------------
-
-
-
-void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
-	change_label_date_type(lb_tp_date, old_date_type, new_date_type);
-	if(curr_transfer_tp != NULL) change_button_date_type(tb_tp_tfdate, old_date_type, new_date_type);
-	current_date_tp = convert_date_JD(change_date_type(convert_JD_date(current_date_tp, old_date_type), new_date_type));
-	gtk_button_set_label(GTK_BUTTON(bt_tp_1m30dp), new_date_type == DATE_ISO ? "+1M" : "+30D");
-	gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30dp), new_date_type == DATE_ISO ? "+1M" : "+30D");
-	gtk_button_set_label(GTK_BUTTON(bt_tp_1m30dm), new_date_type == DATE_ISO ? "-1M" : "-30D");
-	gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30dm), new_date_type == DATE_ISO ? "-1M" : "-30D");
-	update();
-}
 
 
 G_MODULE_EXPORT void on_tp_system_change() {
@@ -257,9 +256,13 @@ void update() {
 }
 
 void update_date_label() {
+	char time_string[20];
 	char date_string[20];
+	char clock_string[20];
 	date_to_string(convert_JD_date(current_date_tp, get_settings_datetime_type()), date_string, 0);
-	gtk_label_set_text(GTK_LABEL(lb_tp_date), date_string);
+	clocktime_to_string(convert_JD_date(current_date_tp, get_settings_datetime_type()), clock_string, 0);
+	sprintf(time_string, "%s %s", date_string, clock_string);
+	gtk_label_set_text(GTK_LABEL(lb_tp_date), time_string);
 }
 
 void update_transfer_panel() {
@@ -359,8 +362,24 @@ G_MODULE_EXPORT void on_body_toggle(GtkWidget* widget, gpointer data) {
 }
 
 
+
+void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
+	change_label_date_type(lb_tp_date, old_date_type, new_date_type);
+	if(curr_transfer_tp != NULL) change_button_date_type(tb_tp_tfdate, old_date_type, new_date_type);
+	current_date_tp = convert_date_JD(change_date_type(convert_JD_date(current_date_tp, old_date_type), new_date_type));
+	
+	if(strcmp(gtk_widget_get_name(GTK_WIDGET(bt_tp_10y6hp)), "+10Y") == 0) {
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1m30d10minp), new_date_type == DATE_ISO ? "+1M" : "+30D");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30d10minp), new_date_type == DATE_ISO ? "+1M" : "+30D");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1m30d10minm), new_date_type == DATE_ISO ? "-1M" : "-30D");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30d10minm), new_date_type == DATE_ISO ? "-1M" : "-30D");
+	}
+	update();
+}
+
 G_MODULE_EXPORT void on_change_date(GtkWidget* widget, gpointer data) {
 	const char *name = gtk_widget_get_name(widget);
+	// Date
 	if		(strcmp(name, "+10Y") == 0) current_date_tp = jd_change_date(current_date_tp, 10, 0, 0, get_settings_datetime_type());
 	else if	(strcmp(name,  "+1Y") == 0) current_date_tp = jd_change_date(current_date_tp, 1, 0, 0, get_settings_datetime_type());
 	else if	(strcmp(name,  "+1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 1, 0, get_settings_datetime_type());
@@ -371,6 +390,15 @@ G_MODULE_EXPORT void on_change_date(GtkWidget* widget, gpointer data) {
 	else if	(strcmp(name,  "-1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, -1, 0, get_settings_datetime_type());
 	else if	(strcmp(name, "-30D") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -30, get_settings_datetime_type());
 	else if	(strcmp(name,  "-1D") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -1, get_settings_datetime_type());
+	// Clocktime
+	else if	(strcmp(name,  "+6h") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0,  6.0/24, get_settings_datetime_type());
+	else if	(strcmp(name,  "-6h") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -6.0/24, get_settings_datetime_type());
+	else if	(strcmp(name,  "+1h") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0,  1.0/24, get_settings_datetime_type());
+	else if	(strcmp(name,  "-1h") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -1.0/24, get_settings_datetime_type());
+	else if	(strcmp(name, "+10m") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0,  10.0/(24*60), get_settings_datetime_type());
+	else if	(strcmp(name, "-10m") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -10.0/(24*60), get_settings_datetime_type());
+	else if	(strcmp(name,  "+1m") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0,  1.0/(24*60), get_settings_datetime_type());
+	else if	(strcmp(name,  "-1m") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -1.0/(24*60), get_settings_datetime_type());
 
 	if(curr_transfer_tp != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate))) {
 		if(curr_transfer_tp->prev != NULL && current_date_tp <= curr_transfer_tp->prev->date) {
@@ -384,6 +412,59 @@ G_MODULE_EXPORT void on_change_date(GtkWidget* widget, gpointer data) {
 	update_itinerary();
 }
 
+G_MODULE_EXPORT void on_tp_reset_clocktime(GtkWidget* widget, gpointer data) {
+	Datetime datetime = convert_JD_date(current_date_tp, get_settings_datetime_type());
+	current_date_tp = convert_date_JD((Datetime){datetime.y, datetime.m, datetime.d});
+	if(curr_transfer_tp != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate))) {
+		if(curr_transfer_tp->prev != NULL && current_date_tp <= curr_transfer_tp->prev->date) {
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
+			return;
+		}
+		curr_transfer_tp->date = current_date_tp;
+		sort_transfer_dates(get_first(curr_transfer_tp));
+	}
+	
+	update_itinerary();
+}
+
+G_MODULE_EXPORT void on_tp_switch_clocktime_date(GtkWidget* widget, gpointer data) {
+	if(strcmp(gtk_widget_get_name(GTK_WIDGET(bt_tp_10y6hp)), "+10Y") == 0) {
+		gtk_button_set_label(GTK_BUTTON(bt_tp_10y6hp), "+6h");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_10y6hp), "+6h");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_10y6hm), "-6h");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_10y6hm), "-6h");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1y1hp), "+1h");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1y1hp), "+1h");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1y1hm), "-1h");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1y1hm), "-1h");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1m30d10minp), "+10m");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30d10minp), "+10m");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1m30d10minm), "-10m");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30d10minm), "-10m");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1d1minp), "+1m");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1d1minp), "+1m");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1d1minm), "-1m");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1d1minm), "-1m");
+	} else {
+		gtk_button_set_label(GTK_BUTTON(bt_tp_10y6hp), "+10Y");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_10y6hp), "+10Y");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_10y6hm), "-10Y");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_10y6hm), "-10Y");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1y1hp), "+1Y");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1y1hp), "+1Y");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1y1hm), "-1Y");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1y1hm), "-1Y");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1m30d10minp), get_settings_datetime_type() == DATE_ISO ? "+1M" : "+30D");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30d10minp), get_settings_datetime_type() == DATE_ISO ? "+1M" : "+30D");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1m30d10minm), get_settings_datetime_type() == DATE_ISO ? "-1M" : "-30D");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30d10minm), get_settings_datetime_type() == DATE_ISO ? "-1M" : "-30D");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1d1minp), "+1D");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1d1minp), "+1D");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1d1minm), "-1D");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1d1minm), "-1D");
+		
+	}
+}
 
 G_MODULE_EXPORT void on_prev_transfer(GtkWidget* widget, gpointer data) {
 	if(curr_transfer_tp == NULL) return;
