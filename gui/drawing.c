@@ -272,6 +272,71 @@ void draw_right_aligned_text(cairo_t *cr, double x, double y, double rotate_angl
 	cairo_rotate(cr, rotate_angle);
 }
 
+void get_axis_ticks(enum CoordAxisLabelType axis_label_type, int num_labels, double min_value, double max_value, double *p_value_tick, Datetime *p_date_tick, double *p_min_label) {
+	if(axis_label_type == COORD_LABEL_NUMBER || axis_label_type == COORD_LABEL_DURATION) {
+		double tick_units[] = {1,2,5};
+		double tick = tick_units[0];
+		double tick_scale = 1e-9;
+		do {
+			for(int i = 0; i < sizeof(tick_units)/sizeof(tick_units[0]); i++) {
+				tick = tick_units[i] * tick_scale;
+				if(num_labels*tick > (max_value - min_value)) break;
+			}
+			tick_scale *= 10;
+		} while(num_labels*tick < (max_value - min_value));
+		*p_value_tick = tick;
+		*p_min_label = (min_value == 0) ? tick : ceil(min_value/tick)*tick;
+	} else if(axis_label_type == COORD_LABEL_DATE) {
+		Datetime tick = {0, 0, 1};
+		double min_label = 0;
+		for(int i = 0; i < 3; i++) {
+			if(get_settings_datetime_type() != DATE_ISO && i == 1) continue; // kerbal date doesn't have months
+			tick = i == 0 ? (Datetime){0, 0, 1} : i == 1 ? (Datetime) {0, 1, 0} : (Datetime) {1, 0, 0};
+			int tick_scale = 0;
+			bool found_valid_tick = false;
+			do {
+				switch(tick_scale) {
+					case 0: tick_scale = 1; break;
+					case 1: tick_scale = 2; break;
+					case 2: tick_scale = i!=1 ? 5 : 6; break;
+					case 5: tick_scale = 10; break;
+					case 10: tick_scale = 20; break;
+					case 20: tick_scale = 50; break;
+					case 50: tick_scale = 100; break;
+					default: tick_scale *= 2;
+				}
+				tick = (Datetime) {(tick.y != 0)*tick_scale, (tick.m != 0)*tick_scale, (tick.d != 0)*tick_scale};
+				Datetime min_date = convert_JD_date(min_value, get_settings_datetime_type());
+				Datetime min_x_date_label = (Datetime) {
+						min_date.y,
+						tick.y == 0 && tick.m <6 ? min_date.m : 1,
+										(tick.y == 0 && tick.m == 0) ? min_date.d : 1,
+								.date_type = get_settings_datetime_type()
+				};
+				min_label = convert_date_JD(min_x_date_label);
+				min_label = jd_change_date(
+						min_label,
+						tick.y,
+						tick.m,
+						tick.d,
+						get_settings_datetime_type()
+				);
+				double max_label = jd_change_date(
+						min_label,
+						tick.y*num_labels,
+						tick.m*num_labels,
+						tick.d*num_labels,
+						get_settings_datetime_type()
+				);
+				if(max_label > max_value) { found_valid_tick = true; break;}
+			} while((tick.d < 10 || get_settings_datetime_type() != DATE_ISO) && tick.d < 100 && tick.m < 6);
+			if(found_valid_tick) break;
+		}
+		*p_date_tick = tick;
+		*p_min_label = min_label;
+	}
+}
+
 void draw_coordinate_system(cairo_t *cr, double width, double height, enum CoordAxisLabelType x_axis_label_type, enum CoordAxisLabelType y_axis_label_type,
 		double min_x, double max_x, double min_y, double max_y, Vector2 origin, int num_x_labels, int num_y_labels) {
 	// Set text color
@@ -285,128 +350,20 @@ void draw_coordinate_system(cairo_t *cr, double width, double height, enum Coord
 	draw_stroke(cr, vec2(origin.x, 0), vec2(origin.x, origin.y));
 	draw_stroke(cr, vec2(origin.x, origin.y), vec2(width, origin.y));
 
-	const double tick_units[] = {1,2,5};
-	double y_label_tick = tick_units[0];
-	double x_label_tick = tick_units[0];
+	double y_label_tick, x_label_tick;
 	double min_x_label, min_y_label;
-	Datetime x_date_label_tick = {0,0,1}, y_date_label_tick = {0,0,1};
-	double tick_scale = 1e-9;
-
-	// x tick size and min label
-	if(x_axis_label_type == COORD_LABEL_NUMBER) {
-		double tick_unit;
-		do {
-			for(int i = 0; i < sizeof(tick_units)/sizeof(tick_units[0]); i++) {
-				tick_unit = tick_units[i];
-				x_label_tick = tick_unit * tick_scale;
-				if(num_x_labels * x_label_tick > (max_x - min_x)) break;
-			}
-			tick_scale *= 10;
-		} while(num_x_labels * x_label_tick < (max_x - min_x));
-		tick_scale = 1e-9;
-		min_x_label = (min_x == 0) ? x_label_tick : ceil(min_x/x_label_tick)*x_label_tick;
-	} else if(x_axis_label_type == COORD_LABEL_DATE) {
-		for(int i = 0; i < 3; i++) {
-			if(get_settings_datetime_type() != DATE_ISO && i == 1) continue; // kerbal date doesn't have months
-			x_date_label_tick = i == 0 ? (Datetime){0,0,1} : i == 1 ? (Datetime) {0,1,0} : (Datetime) {1,0,0};
-			int tick_scale = 0;
-			bool found_valid_tick = false;
-			do {
-				switch(tick_scale) {
-					case 0: tick_scale = 1; break;
-					case 1: tick_scale = 2; break;
-					case 2: tick_scale = i!=1 ? 5 : 6; break;
-					case 5: tick_scale = 10; break;
-					case 10: tick_scale = 20; break;
-					case 20: tick_scale = 50; break;
-					case 50: tick_scale = 100; break;
-					default: tick_scale *= 2;
-				}
-				x_date_label_tick = (Datetime) {(x_date_label_tick.y!=0) * tick_scale, (x_date_label_tick.m!=0) * tick_scale, (x_date_label_tick.d!=0) * tick_scale};
-				Datetime min_date = convert_JD_date(min_x, get_settings_datetime_type());
-				Datetime min_x_date_label = (Datetime) {
-						min_date.y,
-						x_date_label_tick.y == 0 && x_date_label_tick.m < 6 ? min_date.m : 1,
-						(x_date_label_tick.y == 0 && x_date_label_tick.m == 0) ? min_date.d : 1,
-						.date_type = get_settings_datetime_type()
-				};
-				min_x_label = convert_date_JD(min_x_date_label);
-				min_x_label = jd_change_date(
-						min_x_label,
-						x_date_label_tick.y,
-						x_date_label_tick.m,
-						x_date_label_tick.d,
-						get_settings_datetime_type()
-				);
-				double max_x_label = jd_change_date(
-						min_x_label,
-						x_date_label_tick.y*num_x_labels,
-						x_date_label_tick.m*num_x_labels,
-						x_date_label_tick.d*num_x_labels,
-						get_settings_datetime_type()
-				);
-				if(max_x_label > max_x) {found_valid_tick = true; break;}
-			} while((x_date_label_tick.d < 10 || get_settings_datetime_type() != DATE_ISO) && x_date_label_tick.d < 100 && x_date_label_tick.m < 6);
-			if(found_valid_tick) break;
-		}
+	Datetime x_date_label_tick, y_date_label_tick;
+	
+	if(x_axis_label_type != COORD_LABEL_DATE) {
+		get_axis_ticks(x_axis_label_type, num_x_labels, min_x, max_x, &x_label_tick, NULL, &min_x_label);
+	} else {
+		get_axis_ticks(x_axis_label_type, num_x_labels, min_x, max_x, NULL, &x_date_label_tick, &min_x_label);
 	}
-
-	// x tick size and min label
-	if(y_axis_label_type == COORD_LABEL_NUMBER || y_axis_label_type == COORD_LABEL_DURATION) {
-		double tick_unit;
-		do {
-			for(int i = 0; i < sizeof(tick_units)/sizeof(tick_units[0]); i++) {
-				tick_unit = tick_units[i];
-				y_label_tick = tick_unit * tick_scale;
-				if(num_y_labels * y_label_tick > (max_y - min_y)) break;
-			}
-			tick_scale *= 10;
-		} while(num_y_labels * y_label_tick < (max_y - min_y));
-		min_y_label = (min_y == 0) ? y_label_tick : ceil(min_y/y_label_tick)*y_label_tick;
-	} else if(y_axis_label_type == COORD_LABEL_DATE) {
-		for(int i = 0; i < 3; i++) {
-			if(get_settings_datetime_type() != DATE_ISO && i == 1) continue; // kerbal date doesn't have months
-			y_date_label_tick = i == 0 ? (Datetime){0,0,1} : i == 1 ? (Datetime) {0,1,0} : (Datetime) {1,0,0};
-			int tick_scale = 0;
-			bool found_valid_tick = false;
-			do {
-				switch(tick_scale) {
-					case 0: tick_scale = 1; break;
-					case 1: tick_scale = 2; break;
-					case 2: tick_scale = i!=1 ? 5 : 6; break;
-					case 5: tick_scale = 10; break;
-					case 10: tick_scale = 20; break;
-					case 20: tick_scale = 50; break;
-					case 50: tick_scale = 100; break;
-					default: tick_scale *= 2;
-				}
-				y_date_label_tick = (Datetime) {(y_date_label_tick.y!=0) * tick_scale, (y_date_label_tick.m!=0) * tick_scale, (y_date_label_tick.d!=0) * tick_scale};
-				Datetime min_date = convert_JD_date(min_y, get_settings_datetime_type());
-				Datetime min_y_date_label = (Datetime) {
-						min_date.y,
-						y_date_label_tick.y == 0 && y_date_label_tick.m < 6 ? min_date.m : 1,
-										(y_date_label_tick.y == 0 && y_date_label_tick.m == 0) ? min_date.d : 1,
-								.date_type = get_settings_datetime_type()
-				};
-				min_y_label = convert_date_JD(min_y_date_label);
-				min_y_label = jd_change_date(
-						min_y_label,
-						y_date_label_tick.y,
-						y_date_label_tick.m,
-						y_date_label_tick.d,
-						get_settings_datetime_type()
-				);
-				double max_y_label = jd_change_date(
-						min_y_label,
-						y_date_label_tick.y*num_y_labels,
-						y_date_label_tick.m*num_y_labels,
-						y_date_label_tick.d*num_y_labels,
-						get_settings_datetime_type()
-				);
-				if(max_y_label > max_y) {found_valid_tick = true; break;}
-			} while((y_date_label_tick.d < 10 || get_settings_datetime_type() != DATE_ISO) && y_date_label_tick.d < 100 && y_date_label_tick.m < 6);
-			if(found_valid_tick) break;
-		}
+	
+	if(y_axis_label_type != COORD_LABEL_DATE) {
+		get_axis_ticks(y_axis_label_type, num_y_labels, min_y, max_y, &y_label_tick, NULL, &min_y_label);
+	} else {
+		get_axis_ticks(y_axis_label_type, num_y_labels, min_y, max_y, NULL, &y_date_label_tick, &min_y_label);
 	}
 
 	// gradients
