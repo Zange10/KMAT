@@ -61,8 +61,8 @@ void sort_porkchop(struct PorkchopAnalyzerPoint *pp, int num_itins, enum LastTra
 	free(dvs);
 }
 
-void get_min_max_dep_dur_range_from_mouse_rect(double *dep0, double *dep1, double *dur0, double *dur1, double min_dep, double max_dep, double min_dur, double max_dur, double screen_width, double screen_height, int dur0arrdate1) {
-	double x0 = *dep0, x1 = *dep1, y0 = *dur0, y1 = *dur1;
+void get_min_max_dep_arr_dur_range_from_mouse_rect(double *p_x0, double *p_x1, double *p_y0, double *p_y1, double min_x_val, double max_x_val, double min_y_val, double max_y_val, double screen_width, double screen_height, int dur0arrdate1) {
+	double x0 = *p_x0, x1 = *p_x1, y0 = *p_y0, y1 = *p_y1;
 
 	int min_x = dur0arrdate1 ? get_porkchop_arrdate_yaxis_x() : get_porkchop_dur_yaxis_x();
 	int min_y = get_porkchop_xaxis_y();
@@ -87,22 +87,22 @@ void get_min_max_dep_dur_range_from_mouse_rect(double *dep0, double *dep1, doubl
 	y0 /= (screen_height-min_y);
 	y1 /= (screen_height-min_y);
 
-	double ddate = max_dep-min_dep;
-	double ddur = max_dur-min_dur;
+	double ddate = max_x_val - min_x_val;
+	double ddur = max_y_val - min_y_val;
 
 	// below from porkchop drawing...
 
 	double margin = 0.05;
+	
+	min_x_val = min_x_val - ddate*margin;
+	max_x_val = max_x_val + ddate*margin;
+	min_y_val = min_y_val - ddur*margin;
+	max_y_val = max_y_val + ddur*margin;
 
-	min_dep = min_dep-ddate*margin;
-	max_dep = max_dep+ddate*margin;
-	min_dur = min_dur - ddur * margin;
-	max_dur = max_dur + ddur * margin;
-
-	x0 = x0*(max_dep-min_dep)+min_dep;
-	x1 = x1*(max_dep-min_dep)+min_dep;
-	y0 = (1-y0)*(max_dur-min_dur)+min_dur;
-	y1 = (1-y1)*(max_dur-min_dur)+min_dur;
-
-	*dep0 = x0, *dep1 = x1, *dur0 = y0, *dur1 = y1;
+	x0 = x0*(max_x_val - min_x_val) + min_x_val;
+	x1 = x1*(max_x_val - min_x_val) + min_x_val;
+	y0 = (1-y0)*(max_y_val - min_y_val) + min_y_val;
+	y1 = (1-y1)*(max_y_val - min_y_val) + min_y_val;
+	
+	*p_x0 = x0, *p_x1 = x1, *p_y0 = y0, *p_y1 = y1;
 }
