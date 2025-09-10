@@ -346,7 +346,8 @@ void update_body_dropdown(GtkComboBox *cb_sel_body, CelestSystem *system) {
 	}
 
 	gtk_combo_box_set_model(cb_sel_body, GTK_TREE_MODEL(store));
-	gtk_combo_box_set_active(cb_sel_body, 0);
+	if(system && system->home_body) gtk_combo_box_set_active(cb_sel_body, get_body_system_id(system->home_body, system));
+	else gtk_combo_box_set_active(cb_sel_body, 0);
 
 	g_object_unref(store);
 }

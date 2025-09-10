@@ -751,7 +751,7 @@ void itinerary_detailed_overview_to_string(struct ItinStep *step, enum DateType 
 			Vector3 v_dep = step->next[0]->v_dep;
 			Vector3 v_body = step->v_body;
 			double rp = get_flyby_periapsis(v_arr, v_dep, v_body, step->body);
-			double incl = get_flyby_inclination(v_arr, v_dep, v_body);
+			double incl = get_flyby_inclination(v_arr, v_dep, v_body, get_body_equatorial_plane(step->body));
 			sprintf(string, "%sPeriapsis: %.2fkm\nInclination: %.2f°\n", string, (rp-step->body->radius)/1e3, rad2deg(incl));
 		}
 		if(step->next != NULL) step = step->next[0];
@@ -783,8 +783,13 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 						  "%.2f km²/s²\n"
 						  "%.2f°\n"
 						  "%.2f°",
-				hyp_params.rp / 1000, (hyp_params.rp-step->body->radius) / 1000, fabs(rad2deg(hyp_params.outgoing.decl)), hyp_params.c3_energy / 1e6,
+				hyp_params.rp / 1000, (hyp_params.rp-step->body->radius) / 1000, rad2deg(angle_plane3_vec3(get_body_equatorial_plane(step->body), subtract_vec3(step->next[0]->v_dep, step->v_body))), hyp_params.c3_energy / 1e6,
 				rad2deg(hyp_params.outgoing.bplane_angle), rad2deg(hyp_params.outgoing.decl));
+		
+		
+		print_vec3(subtract_vec3(step->next[0]->v_dep, step->v_body));
+		print_vec3(get_body_equatorial_plane(step->body).u);
+		print_vec3(get_body_equatorial_plane(step->body).v);
 
 	} else if(step->num_next_nodes == 0) {
 		double dt_in_days = step->date - get_first(step)->date;
@@ -808,7 +813,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 						  "%.2f km²/s²\n"
 						  "%.2f°\n"
 						  "%.2f°",
-				dt_in_days, hyp_params.rp / 1000, (hyp_params.rp-step->body->radius) / 1000, fabs(rad2deg(hyp_params.incoming.decl)), 180.0 - fabs(rad2deg(hyp_params.incoming.decl)), hyp_params.c3_energy / 1e6,
+				dt_in_days, hyp_params.rp / 1000, (hyp_params.rp-step->body->radius) / 1000, rad2deg(angle_plane3_vec3(get_body_equatorial_plane(step->body), subtract_vec3(step->v_arr, step->v_body))), 180.0 - fabs(rad2deg(angle_plane3_vec3(get_body_equatorial_plane(step->body), subtract_vec3(step->v_arr, step->v_body)))), hyp_params.c3_energy / 1e6,
 				rad2deg(hyp_params.incoming.bplane_angle), rad2deg(hyp_params.incoming.decl));
 
 	} else {
@@ -816,7 +821,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 			Vector3 v_arr = step->v_arr;
 			Vector3 v_dep = step->next[0]->v_dep;
 			Vector3 v_body = step->v_body;
-			double incl = get_flyby_inclination(v_arr, v_dep, v_body);
+			double incl = get_flyby_inclination(v_arr, v_dep, v_body, get_body_equatorial_plane(step->body));
 
 			hyp_params = get_hyperbola_params(step->v_arr, step->next[0]->v_dep,
 											  step->v_body, step->body, 0, HYP_FLYBY);

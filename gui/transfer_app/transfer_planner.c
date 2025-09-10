@@ -518,7 +518,7 @@ G_MODULE_EXPORT void on_goto_transfer_date(GtkWidget* widget, gpointer data) {
 G_MODULE_EXPORT void on_add_transfer(GtkWidget* widget, gpointer data) {
 	if(tp_system == NULL) return;
 	struct ItinStep *new_transfer = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-	new_transfer->body = tp_system->bodies[0];
+	new_transfer->body = tp_system->home_body ? : tp_system->bodies[0];
 	new_transfer->prev = NULL;
 	new_transfer->next = NULL;
 	new_transfer->num_next_nodes = 0;
@@ -724,7 +724,7 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 			Vector3 v_arr = step2pr->v_arr;
 			Vector3 v_dep = step2pr->next[0]->v_dep;
 			Vector3 v_body = step2pr->v_body;
-			double incl = get_flyby_inclination(v_arr, v_dep, v_body);
+			double incl = get_flyby_inclination(v_arr, v_dep, v_body, get_body_equatorial_plane(step2pr->body));
 
 			hyp_params = get_hyperbola_params(step2pr->v_arr, step2pr->next[0]->v_dep, step2pr->v_body, step2pr->body, 0, HYP_FLYBY);
 			double dt_in_days = step2pr->date - step2pr->prev->date;

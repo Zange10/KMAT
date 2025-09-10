@@ -81,7 +81,7 @@ void on_add_transfer_sc() {
 	new_step->prev = NULL;
 	new_step->next = NULL;
 
-	new_step->body = sc_system->bodies[0];
+	new_step->body = sc_system->home_body ? : sc_system->bodies[0];
 
 	if(sc_step != NULL) {
 		struct PlannedScStep *last = get_last_sc(sc_step);
