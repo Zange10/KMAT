@@ -785,11 +785,6 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 						  "%.2f°",
 				hyp_params.rp / 1000, (hyp_params.rp-step->body->radius) / 1000, rad2deg(angle_plane3_vec3(get_body_equatorial_plane(step->body), subtract_vec3(step->next[0]->v_dep, step->v_body))), hyp_params.c3_energy / 1e6,
 				rad2deg(hyp_params.outgoing.bplane_angle), rad2deg(hyp_params.outgoing.decl));
-		
-		
-		print_vec3(subtract_vec3(step->next[0]->v_dep, step->v_body));
-		print_vec3(get_body_equatorial_plane(step->body).u);
-		print_vec3(get_body_equatorial_plane(step->body).v);
 
 	} else if(step->num_next_nodes == 0) {
 		double dt_in_days = step->date - get_first(step)->date;
