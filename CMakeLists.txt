@@ -93,6 +93,8 @@ add_executable(KMAT
         tools/celestial_systems.c
         gui/missionplanner_app/mission_editor.c
         gui/missionplanner_app/mission_editor.h
+        gui/missionplanner_app/orbit_editor_win.c
+        gui/missionplanner_app/orbit_editor_win.h
 )
 
 # Platform-specific setup

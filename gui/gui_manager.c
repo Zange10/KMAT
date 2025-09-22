@@ -9,6 +9,7 @@
 #include "transfer_app/sequence_calculator.h"
 #include "transfer_app/itinerary_calculator.h"
 #include "missionplanner_app/mission_editor.h"
+#include "missionplanner_app/orbit_editor_win.h"
 #include "launch_app/launch_analyzer.h"
 #include "launch_app/capability_analyzer.h"
 #include "launch_app/launch_parameter_analyzer.h"
@@ -106,6 +107,7 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 	init_porkchop_analyzer(builder);
 	init_transfer_planner(builder);
 	// init mission planner page
+	init_orbit_editor_window(builder);
 	init_mission_editor(builder);
 	// init launch calc page
 //	init_launch_analyzer(builder);

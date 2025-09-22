@@ -1,11 +1,12 @@
 #include "mission_editor.h"
 #include "gui/drawing.h"
 #include "gui/gui_manager.h"
+#include "gui/missionplanner_app/orbit_editor_win.h"
 #include <math.h>
 
 CelestSystem *me_system;
 Body *me_central_body;
-Orbit orbit;
+Orbit orbit1;
 Orbit orbit2;
 
 Camera *me_camera;
@@ -36,8 +37,8 @@ void init_mission_editor(GtkBuilder *builder) {
 	
 	me_system = get_system_by_name("Solar System (Ephemeris)");
 	me_central_body = me_system->cb;
-	orbit = constr_orbit_from_elements(1e9, 0, deg2rad(60), 0, 0, 0, me_central_body);
-	orbit2 = constr_orbit_from_elements(me_central_body->radius, 0, deg2rad(0), 0, 0, 0, me_central_body);
+	orbit1 = constr_orbit_from_elements(1e9, 0, deg2rad(60), 0, 0, 0, me_central_body);
+	orbit2 = constr_orbit_from_elements(me_central_body->radius*2, 0.3, deg2rad(20), deg2rad(120), 0, 0, me_central_body);
 	
 	create_combobox_dropdown_text_renderer(cb_me_system, GTK_ALIGN_CENTER);
 	create_combobox_dropdown_text_renderer(cb_me_subsystem, GTK_ALIGN_CENTER);
@@ -50,6 +51,8 @@ void init_mission_editor(GtkBuilder *builder) {
 
 		update_camera_to_celestial_system(me_camera, me_system, deg2rad(90), 0);
 	}
+	
+	show_orbit_editor_window(&orbit1, &update_me_system_view);
 }
 
 void draw_stroke_wrt_body(Vector2 p2d_body, double radius_2d, Vector2 p0, Vector2 p1) {
@@ -102,6 +105,26 @@ void draw_stroke_wrt_body(Vector2 p2d_body, double radius_2d, Vector2 p0, Vector
 	if(!drew_sections) draw_stroke(get_camera_screen_cairo(me_camera), p0, p1);
 }
 
+void draw_orbit_wrt_body(Orbit orbit, Vector2 p2d_body, double radius_2d) {
+	OSV osv = osv_from_orbit(orbit);
+	Vector2 p2d = p3d_to_p2d(me_camera, osv.r);
+	
+	Vector2 last_p2d = p2d;
+	double ta_step = deg2rad(0.5);
+	
+	for(double dta = 0; dta < M_PI*2 + ta_step; dta += ta_step) {
+		orbit.ta += ta_step;
+		osv = osv_from_orbit(orbit);
+		p2d = p3d_to_p2d(me_camera, osv.r);
+		if(sq_mag_vec3(subtract_vec3(osv.r, me_camera->pos)) > sq_mag_vec3(subtract_vec3(vec3(0,0,0), me_camera->pos))) {
+			draw_stroke_wrt_body(p2d_body, radius_2d, last_p2d, p2d);
+		} else {
+			draw_stroke(get_camera_screen_cairo(me_camera), last_p2d, p2d);
+		}
+		last_p2d = p2d;
+	}
+}
+
 // TRANSFER PLANNER SYSTEM VIEW CALLBACKS -----------------------------------------------
 void update_me_system_view() {
 	me_camera->min_pos_dist = me_central_body->radius;
@@ -129,37 +152,10 @@ void update_me_system_view() {
 	cairo_arc(get_camera_screen_cairo(me_camera), p2d_body.x, p2d_body.y, radius_2d, 0, 2 * M_PI);
 	cairo_fill(get_camera_screen_cairo(me_camera));
 	
-	
-	Vector2 p0 = {600, 100};
-	Vector2 p1 = {100, 300};
-	
-	cairo_set_source_rgb(get_camera_screen_cairo(me_camera), 0, 0.5, 0);
-	draw_stroke_wrt_body(p2d_body, radius_2d, p0, p1);
-	
-	
 	cairo_set_source_rgb(get_camera_screen_cairo(me_camera), 1, 0, 0);
-	OSV osv = osv_from_orbit(orbit);
-	Vector2 p2d = p3d_to_p2d(me_camera, osv.r);
-	
-	Vector2 last_p2d = p2d;
-	double ta_step = deg2rad(0.5);
-	
-	for(double dta = 0; dta < M_PI*2 + ta_step; dta += ta_step) {
-		orbit.ta += ta_step;
-		osv = osv_from_orbit(orbit);
-		p2d = p3d_to_p2d(me_camera, osv.r);
-		if(sq_mag_vec3(subtract_vec3(osv.r, me_camera->pos)) > sq_mag_vec3(subtract_vec3(vec3(0,0,0), me_camera->pos))) {
-			draw_stroke_wrt_body(p2d_body, radius_2d, last_p2d, p2d);
-		} else {
-			draw_stroke(get_camera_screen_cairo(me_camera), last_p2d, p2d);
-		}
-		last_p2d = p2d;
-	}
-	
-	
-//	draw_orbit(me_camera, orbit);
+	draw_orbit_wrt_body(orbit1, p2d_body, radius_2d);
 	cairo_set_source_rgb(get_camera_screen_cairo(me_camera), 0, 0, 1);
-	draw_orbit(me_camera, orbit2);
+	draw_orbit_wrt_body(orbit2, p2d_body, radius_2d);
 	
 	draw_camera_image(me_camera);
 }
