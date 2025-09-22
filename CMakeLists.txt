@@ -91,6 +91,8 @@ add_executable(KMAT
         tools/version_tool.c
         tools/version_tool.h
         tools/celestial_systems.c
+        gui/missionplanner_app/mission_editor.c
+        gui/missionplanner_app/mission_editor.h
 )
 
 # Platform-specific setup
