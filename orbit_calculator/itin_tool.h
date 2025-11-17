@@ -38,10 +38,14 @@ struct Dv_Filter {
 	int last_transfer_type;
 };
 
+typedef struct Calc_Acc {
+	double lambert, fb_finder;
+} Calc_Acc;
+
 struct PorkchopPoint {
-		struct ItinStep *arrival;
-		double dep_date, dur;
-		double dv_dep, dv_dsm, dv_arr_cap, dv_arr_circ;
+	struct ItinStep *arrival;
+	double dep_date, dur;
+	double dv_dep, dv_dsm, dv_arr_cap, dv_arr_circ;
 };
 
 

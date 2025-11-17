@@ -655,6 +655,9 @@ G_MODULE_EXPORT void on_load_itineraries(GtkWidget* widget, gpointer data) {
 
 	free_all_porkchop_analyzer_itins();
 	struct ItinsLoadFileResults load_results = load_itineraries_from_bfile(filepath);
+	char param_string[1000];
+	print_header_data_to_string(load_results.header, param_string, get_settings_datetime_type());
+	printf("%s\n", param_string);
 	if(load_results.departures == NULL) return;
 	
 	if(pa_analysis_params.num_deps > 0 && pa_analysis_params.file_type > 2) {

@@ -14,6 +14,7 @@ typedef struct Itin_Calc_Data {
 	int num_deps_per_date;
 	int max_num_waiting_orbits;
 	struct Dv_Filter dv_filter;
+	struct Calc_Acc calc_acc;
 	ItinSequenceInfo seq_info;
 } Itin_Calc_Data;
 

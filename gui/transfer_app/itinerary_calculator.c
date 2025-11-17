@@ -164,6 +164,9 @@ void ic_calc_thread() {
 
 	ic_calc_data.dv_filter.dep_periapsis = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_depbody))]->atmo_alt + ic_dep_periapsis;
 	ic_calc_data.dv_filter.arr_periapsis = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))]->atmo_alt + ic_arr_periapsis;
+	
+	ic_calc_data.calc_acc.lambert = 1;
+	ic_calc_data.calc_acc.fb_finder = 1;
 
 	ic_calc_data.num_deps_per_date = 500;
 	ic_calc_data.step_dep_date = 1;

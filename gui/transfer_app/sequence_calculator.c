@@ -199,7 +199,10 @@ void sc_calc_thread() {
 
 	sc_calc_data.dv_filter.dep_periapsis = get_first_sc(sc_step)->body->atmo_alt + sc_dep_periapsis;
 	sc_calc_data.dv_filter.arr_periapsis = get_last_sc(sc_step)->body->atmo_alt + sc_arr_periapsis;
-
+	
+	sc_calc_data.calc_acc.lambert = 1;
+	sc_calc_data.calc_acc.fb_finder = 1;
+	
 	sc_calc_data.num_deps_per_date = 500;
 	sc_calc_data.step_dep_date = 1;
 	sc_calc_data.max_num_waiting_orbits = 0;
