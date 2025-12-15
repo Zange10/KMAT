@@ -146,10 +146,11 @@ void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_typ
 	change_label_date_type(lb_tp_date, old_date_type, new_date_type);
 	if(curr_transfer_tp != NULL) change_button_date_type(tb_tp_tfdate, old_date_type, new_date_type);
 	current_date_tp = convert_date_JD(change_date_type(convert_JD_date(current_date_tp, old_date_type), new_date_type));
-	gtk_button_set_label(GTK_BUTTON(bt_tp_1m30dp), new_date_type == DATE_ISO ? "+1M" : "+30D");
-	gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30dp), new_date_type == DATE_ISO ? "+1M" : "+30D");
-	gtk_button_set_label(GTK_BUTTON(bt_tp_1m30dm), new_date_type == DATE_ISO ? "-1M" : "-30D");
-	gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30dm), new_date_type == DATE_ISO ? "-1M" : "-30D");
+	gboolean has_months = (new_date_type == DATE_ISO || new_date_type == DATE_SOLISO);
+	gtk_button_set_label(GTK_BUTTON(bt_tp_1m30dp), has_months ? "+1M" : "+30D");
+	gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30dp), has_months ? "+1M" : "+30D");
+	gtk_button_set_label(GTK_BUTTON(bt_tp_1m30dm), has_months ? "-1M" : "-30D");
+	gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30dm), has_months ? "-1M" : "-30D");
 	update();
 }
 

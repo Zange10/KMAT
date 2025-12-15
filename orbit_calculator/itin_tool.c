@@ -688,6 +688,7 @@ void itinerary_short_overview_to_string(struct ItinStep *step, enum DateType dat
 	date_to_string(convert_JD_date(get_last(step)->date, date_type), date_string, 1);
 	double dt = get_last(step)->date-get_first(step)->date;
 	if(date_type == DATE_KERBAL) dt *= 4;
+	if (date_type == DATE_SOLISO) dt *= 2;
 	sprintf(string, "%sArrival: %s\nDuration: %.2f days\n", string, date_string, dt);
 	
 	struct PorkchopPoint pp = create_porkchop_point(get_last(step), dep_periapsis, arr_periapsis);
@@ -741,6 +742,7 @@ void itinerary_detailed_overview_to_string(struct ItinStep *step, enum DateType 
 	date_to_string(convert_JD_date(get_last(step)->date, date_type), date_string, 1);
 	double dt = get_last(step)->date-get_first(step)->date;
 	if(date_type == DATE_KERBAL) dt *= 4;
+	if (date_type == DATE_SOLISO) dt *= 2;
 	sprintf(string, "%sArrival: %s\nDuration: %.2f days\n", string, date_string, dt);
 	
 	struct PorkchopPoint pp = create_porkchop_point(get_last(step), dep_periapsis, arr_periapsis);

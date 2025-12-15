@@ -5,6 +5,7 @@
 
 #define J2000_UT0 2451545.0		// 2000-01-01T12:00
 #define J2000_UT1950 2433282.5	// 1950-01-01T00:00
+#define J2000_UT1951 2433647.5 // 1951-01-01
 
 void print_date(struct Date date, int line_break) {
 	switch(date.date_type) {
@@ -16,6 +17,9 @@ void print_date(struct Date date, int line_break) {
 			break;
 		case DATE_KERBALISO:
 			printf("[ILK] %4d-%03d %02d:%02d:%06.3f", date.y, date.d, date.h, date.min, date.s);
+			break;
+		case DATE_SOLISO:
+			printf("[SOL] %4d-%02d-%02d %02d:%02d:%06.3f", date.y, date.m, date.d, date.h, date.min, date.s);
 			break;
 	}
 	if(line_break) printf("\n");
@@ -39,12 +43,17 @@ int is_string_valid_date_format(const char *s, enum DateType date_type) {
 			if (matches != 2) return 0;
 			if (d < 1 || d > 365) return 0;
 			break;
+		case DATE_SOLISO:
+			matches = sscanf(s, "%d-%d-%d", &y, &m, &d);
+			if (matches != 3) return 0;
+			if (m < 1 || m > 12 || d < 1 || d > 31) return 0;
+			break;
 	}
 	return 1; // Date format is valid
 }
 
 void date_to_string(struct Date date, char *s, int clocktime) {
-	if(date.date_type == DATE_ISO)
+	if(date.date_type == DATE_ISO || date.date_type == DATE_SOLISO)
 		sprintf(s, "%d-%02d-%02d", date.y, date.m, date.d);
 	else
 		sprintf(s, "%d-%03d", date.y, date.d);
@@ -60,7 +69,7 @@ struct Date date_from_string(char *s, enum DateType date_type) {
 	ptr++; // Move past the '-'
 
 	// Extract month (only with ISO time)
-	if(date_type == DATE_ISO) {
+	if(date_type == DATE_ISO || date_type == DATE_SOLISO) {
 		month = (int) strtol(ptr, &ptr, 10);
 		ptr++; // Move past the '-'
 	} else month = 0;
@@ -176,8 +185,19 @@ struct Date convert_JD_date_kerbal(double JD, enum DateType date_type) {
 }
 
 struct Date convert_JD_date(double JD, enum DateType date_type) {
-	if(date_type == DATE_ISO) return convert_JD_date_iso(JD);
-	else return convert_JD_date_kerbal(JD, date_type);
+	if (date_type == DATE_SOLISO) {
+		struct Date d = convert_JD_date_iso(soliso_display_jd_from_internal(JD));
+		d.date_type = DATE_SOLISO;   // ensure downstream logic knows this is SOLISO
+		return d;
+	}
+
+	if (date_type == DATE_ISO) {
+		struct Date d = convert_JD_date_iso(JD);
+		d.date_type = DATE_ISO;
+		return d;
+	}
+
+	return convert_JD_date_kerbal(JD, date_type);
 }
 
 double convert_date_JD_iso(struct Date date) {
@@ -216,8 +236,17 @@ double convert_date_JD_kerbal(struct Date date) {
 }
 
 double convert_date_JD(struct Date date) {
-	if(date.date_type == DATE_ISO) return convert_date_JD_iso(date);
-	else return convert_date_JD_kerbal(date);
+	if (date.date_type == DATE_SOLISO) {
+		struct Date as_iso = date;
+		as_iso.date_type = DATE_ISO;
+		return internal_jd_from_soliso_display(convert_date_JD_iso(as_iso));
+	}
+
+	if (date.date_type == DATE_ISO) {
+		return convert_date_JD_iso(date);
+	}
+
+	return convert_date_JD_kerbal(date);
 }
 
 double jd_change_date(double jd, int delta_years, int delta_months, double delta_days, enum DateType date_type) {
@@ -225,7 +254,7 @@ double jd_change_date(double jd, int delta_years, int delta_months, double delta
 	struct Date date = convert_JD_date(jd, date_type);
 
 	// Kerbal and ISO-like Kerbal have no months
-	if(date_type == DATE_ISO) {
+	if(date_type == DATE_ISO || date_type == DATE_SOLISO) {
 		date.m += delta_months;
 		while(date.m > 12) {
 			date.m -= 12;
@@ -261,7 +290,25 @@ struct Date get_date_difference_from_epochs(double jd0, double jd1, enum DateTyp
 
 struct Date change_date_type(struct Date date, enum DateType new_date_type) {
 	double jd = convert_date_JD(date);
-	if(date.date_type == DATE_ISO && new_date_type != DATE_ISO) jd -= J2000_UT1950;
-	if(date.date_type != DATE_ISO && new_date_type == DATE_ISO) jd += J2000_UT1950;
+
+	int old_is_iso_family =
+		(date.date_type == DATE_ISO || date.date_type == DATE_SOLISO);
+	int new_is_iso_family =
+		(new_date_type == DATE_ISO || new_date_type == DATE_SOLISO);
+
+	if (old_is_iso_family && !new_is_iso_family)
+		jd -= J2000_UT1950;
+
+	if (!old_is_iso_family && new_is_iso_family)
+		jd += J2000_UT1950;
+
 	return convert_JD_date(jd, new_date_type);
+}
+
+double soliso_display_jd_from_internal(double jd_internal) {
+    return J2000_UT1951 + 2.0 * (jd_internal - J2000_UT1951);
+}
+
+double internal_jd_from_soliso_display(double jd_display) {
+    return J2000_UT1951 + 0.5 * (jd_display - J2000_UT1951);
 }

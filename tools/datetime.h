@@ -4,7 +4,7 @@
 /**
  * @brief ISO ("Earth time"; UT0 = 2000-01-01T12:00; 1y = 12M = 365.25d; 1d = 24h)  -  Kerbal time (UT0 = 0001-001T00:00; 1y = 426d; 1d = 6h)  -  Kerbal imitating ISO (UT0 = 0001-001T00:00; 1y = 365d; 1d = 24h)
  */
-enum DateType {DATE_ISO, DATE_KERBAL, DATE_KERBALISO};
+enum DateType {DATE_ISO, DATE_KERBAL, DATE_KERBALISO, DATE_SOLISO};
 
 /**
  * @brief Represents a date and time with year, month, day, hour, minute, and second components
@@ -116,5 +116,32 @@ struct Date get_date_difference_from_epochs(double jd0, double jd1, enum DateTyp
  * @return The date with the desired date type
  */
 struct Date change_date_type(struct Date date, enum DateType new_date_type);
+
+/**
+ * @brief Converts an internal Julian Date to a SOLISO display Julian Date
+ *
+ * DATE_SOLISO accelerates time relative to DATE_ISO by doubling the elapsed
+ * time since the reference epoch (J2000_UT1951). This function applies that
+ * forward mapping so that SOLISO dates appear to advance faster when displayed.
+ *
+ * @param jd_internal The internal (canonical) Julian Date
+ *
+ * @return The Julian Date mapped into the SOLISO display time scale
+ */
+double soliso_display_jd_from_internal(double jd_internal);
+
+/**
+ * @brief Converts a SOLISO display Julian Date back to the internal Julian Date
+ *
+ * This is the inverse of soliso_display_jd_from_internal(). It maps a Julian
+ * Date expressed in the accelerated SOLISO time scale back into the canonical
+ * internal Julian Date by halving the elapsed time since the reference epoch
+ * (J2000_UT1951).
+ *
+ * @param jd_display The Julian Date expressed in the SOLISO display time scale
+ *
+ * @return The corresponding internal (canonical) Julian Date
+ */
+double internal_jd_from_soliso_display(double jd_display);
 
 #endif //KSP_DATETIME_H
