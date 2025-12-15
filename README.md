@@ -1,3 +1,8 @@
+> This is a temporary fork of KMAT used to test the DATE_SOLISO (Implimentation of quarter scale system time with epoch of 1951-01-01)
+> time scale and related UI/itinerary changes.  
+> Not an official release.
+
+
 # KMAT
 
 ***KMAT*** (**K**MAT's a **M**ission **A**nalysis **T**ool) is a C-based (because fast) tool for interplanetary transfer planning, mission planning, and launch simulations. This tool was mainly created as a fun learning experience for me and for supporting my Kerbal Space Program Career in Realism Overhaul in combination with its add-on Realistic Progression One (RP-1). 
