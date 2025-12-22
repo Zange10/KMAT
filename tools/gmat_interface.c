@@ -1,6 +1,5 @@
 #include "gmat_interface.h"
 #include <stdio.h>
-#include "orbit_calculator/transfer_tools.h"
 #include <math.h>
 #include <time.h>
 
@@ -335,33 +334,29 @@ void create_gmat_variables(FILE *filePointer, int num_steps) {
 }
 
 void set_gmat_sc_initial_guess(FILE *filePointer, const char *var, struct ItinStep *step2pr) {
-	struct DepArrHyperbolaParams dep_hyp_params;
-	struct FlybyHyperbolaParams hyp_params;
+	struct HyperbolaParams hyp_params;
 	double rp;
 
 	if(step2pr->prev == NULL)
-		dep_hyp_params = get_dep_hyperbola_params(step2pr->next[0]->v_dep, step2pr->v_body, step2pr->body, 200e3);
+		hyp_params = get_hyperbola_params(vec3(0,0,0), step2pr->next[0]->v_dep, step2pr->v_body, step2pr->body, 200e3, HYP_DEPARTURE);
 	else if(step2pr->num_next_nodes == 0) {
-		dep_hyp_params = get_dep_hyperbola_params(step2pr->v_arr, step2pr->v_body, step2pr->body,200e3);
-		dep_hyp_params.decl *= -1;
-		dep_hyp_params.bplane_angle = pi_norm(M_PI + dep_hyp_params.bplane_angle);
+		hyp_params = get_hyperbola_params(step2pr->v_arr, vec3(0,0,0), step2pr->v_body, step2pr->body,200e3, HYP_ARRIVAL);
 	} else {
-		struct Vector v_arr = step2pr->v_arr;
-		struct Vector v_dep = step2pr->next[0]->v_dep;
-		struct Vector v_body = step2pr->v_body;
+		Vector3 v_arr = step2pr->v_arr;
+		Vector3 v_dep = step2pr->next[0]->v_dep;
+		Vector3 v_body = step2pr->v_body;
 		rp = get_flyby_periapsis(v_arr, v_dep, v_body, step2pr->body);
-		hyp_params = get_hyperbola_params(step2pr->v_arr, step2pr->next[0]->v_dep, step2pr->v_body, step2pr->body,rp - step2pr->body->radius);
-		dep_hyp_params = hyp_params.arr_hyp;
+		hyp_params = get_hyperbola_params(step2pr->v_arr, step2pr->next[0]->v_dep, step2pr->v_body, step2pr->body, 0, HYP_FLYBY);
 	}
 
 
 	fprintf(filePointer, "\t%s_epoch = %f\n", var, step2pr->date-gmat_jd_mod);
-	fprintf(filePointer, "\t%s_c3 = %f\n", var, dep_hyp_params.c3_energy/1e6);
-	fprintf(filePointer, "\t%s_rha = %f\n", var, rad2deg(dep_hyp_params.bplane_angle));
-	fprintf(filePointer, "\t%s_dha = %f\n", var, rad2deg(dep_hyp_params.decl));
+	fprintf(filePointer, "\t%s_c3 = %f\n", var, hyp_params.c3_energy/1e6);
+	fprintf(filePointer, "\t%s_rha = %f\n", var, rad2deg(hyp_params.incoming.bplane_angle));
+	fprintf(filePointer, "\t%s_dha = %f\n", var, rad2deg(hyp_params.incoming.decl));
 
 	if(step2pr->prev != NULL && step2pr->next != NULL) {
-		fprintf(filePointer, "\t%s_bvazi = %f\n", var, rad2deg(dep_hyp_params.bvazi));
+		fprintf(filePointer, "\t%s_bvazi = %f\n", var, rad2deg(hyp_params.incoming.bvazi));
 		fprintf(filePointer, "\t%s_periapsis = %f\n", var, rp*1e-3);
 	}
 }

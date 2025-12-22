@@ -3,8 +3,7 @@
 
 
 #include <gtk/gtk.h>
-#include "tools/ephem.h"
-#include "tools/datetime.h"
+#include "orbitlib.h"
 
 void init_transfer_planner(GtkBuilder *builder);
 void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_type);
@@ -23,6 +22,8 @@ G_MODULE_EXPORT void on_tp_central_body_change();
 G_MODULE_EXPORT void on_transfer_planner_draw(GtkWidget *widget, cairo_t *cr, gpointer data);
 G_MODULE_EXPORT void on_body_toggle(GtkWidget* widget, gpointer data);
 G_MODULE_EXPORT void on_change_date(GtkWidget* widget, gpointer data);
+G_MODULE_EXPORT void on_tp_reset_clocktime(GtkWidget* widget, gpointer data);
+G_MODULE_EXPORT void on_tp_switch_clocktime_date(GtkWidget* widget, gpointer data);
 G_MODULE_EXPORT void on_prev_transfer(GtkWidget* widget, gpointer data);
 G_MODULE_EXPORT void on_next_transfer(GtkWidget* widget, gpointer data);
 G_MODULE_EXPORT void on_transfer_body_change(GtkWidget* widget, gpointer data);

@@ -26,8 +26,8 @@ Screen * new_screen(GtkWidget *drawing_area, void (*resize_func)(), void (*butto
 	new_screen->drawing_area = drawing_area;
 	new_screen->static_layer = new_screen_layer(new_screen->width, new_screen->height, FALSE);
 	new_screen->dynamic_layer = new_screen_layer(new_screen->width, new_screen->height, TRUE);
-	new_screen->last_mouse_pos = vec2D(0,0);
-	new_screen->mouse_pos_on_press = vec2D(0,0);
+	new_screen->last_mouse_pos = vec2(0,0);
+	new_screen->mouse_pos_on_press = vec2(0,0);
 	new_screen->background_color = (PixelColor) {0,0,0};
 	new_screen->dragging = FALSE;
 
@@ -116,8 +116,8 @@ G_MODULE_EXPORT void on_draw_screen(GtkWidget *drawing_area, cairo_t *cr_drawing
 
 void on_screen_button_press(GtkWidget *widget, GdkEventButton *event, Screen *screen) {
 	screen->dragging = TRUE;
-	screen->last_mouse_pos = (struct Vector2D) {event->x, event->y};
-	screen->mouse_pos_on_press = (struct Vector2D) {event->x, event->y};
+	screen->last_mouse_pos = (struct Vector2) {event->x, event->y};
+	screen->mouse_pos_on_press = (struct Vector2) {event->x, event->y};
 }
 
 void on_screen_button_release(GtkWidget *widget, GdkEventButton *event, Screen *screen) {

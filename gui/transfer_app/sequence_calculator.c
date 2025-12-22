@@ -1,6 +1,5 @@
 #include "sequence_calculator.h"
 #include "orbit_calculator/transfer_calc.h"
-#include "orbit_calculator/transfer_tools.h"
 #include "gui/gui_manager.h"
 #include "gui/settings.h"
 #include "gui/info_win_manager.h"
@@ -22,7 +21,7 @@ GtkWidget *grid_sc_preview;
 
 struct PlannedScStep *sc_step;
 
-struct System *sc_system;
+CelestSystem *sc_system;
 
 double sc_dep_periapsis = 50e3;
 double sc_arr_periapsis = 50e3;
@@ -82,7 +81,7 @@ void on_add_transfer_sc() {
 	new_step->prev = NULL;
 	new_step->next = NULL;
 
-	new_step->body = sc_system->bodies[0];
+	new_step->body = sc_system->home_body ? : sc_system->bodies[0];
 
 	if(sc_step != NULL) {
 		struct PlannedScStep *last = get_last_sc(sc_step);
@@ -200,7 +199,10 @@ void sc_calc_thread() {
 
 	sc_calc_data.dv_filter.dep_periapsis = get_first_sc(sc_step)->body->atmo_alt + sc_dep_periapsis;
 	sc_calc_data.dv_filter.arr_periapsis = get_last_sc(sc_step)->body->atmo_alt + sc_arr_periapsis;
-
+	
+	sc_calc_data.calc_acc.lambert = 1;
+	sc_calc_data.calc_acc.fb_finder = 1;
+	
 	sc_calc_data.num_deps_per_date = 500;
 	sc_calc_data.step_dep_date = 1;
 	sc_calc_data.max_num_waiting_orbits = 0;
@@ -253,9 +255,14 @@ G_MODULE_EXPORT void on_get_sc_ref_values() {
 	struct Body *arr_body = get_last_sc(sc_step)->body;
 
 	if(dep_body == arr_body) return;
-
-	calc_interplanetary_hohmann_transfer(dep_body, arr_body, sc_system->cb, &dur, &dv_dep, &dv_arr_cap, &dv_arr_circ, dep_body->atmo_alt+sc_dep_periapsis, arr_body->atmo_alt+sc_arr_periapsis);
-
+	
+	Hohmann hohmann = calc_hohmann_transfer(dep_body->orbit.a, arr_body->orbit.a, sc_system->cb);
+	
+	dur = hohmann.dur;
+	dv_dep = dv_circ(dep_body, altatmo2radius(dep_body,sc_dep_periapsis), hohmann.dv_dep);
+	dv_arr_circ = dv_circ(arr_body, altatmo2radius(arr_body,sc_arr_periapsis), hohmann.dv_arr);
+	dv_arr_cap = dv_capture(arr_body, altatmo2radius(arr_body,sc_arr_periapsis), hohmann.dv_arr);
+	
 	dur /= get_settings_datetime_type() != DATE_KERBAL ? (24*60*60) : (6*60*60);
 
 	char msg[256];

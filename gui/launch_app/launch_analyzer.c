@@ -1,7 +1,6 @@
 #include "launch_analyzer.h"
 #include "database/lv_database.h"
 #include "launch_calculator/lv_profile.h"
-#include "tools/analytic_geometry.h"
 #include "launch_calculator/launch_sim.h"
 #include "launch_calculator/launch_calculator.h"
 #include "gui/drawing.h"
@@ -149,22 +148,22 @@ void update_launch_data_points(struct LaunchState *state, struct Body *body) {
 	int counter = 0;
 	struct Orbit orbit;
 
-	double launch_latitude = angle_vec_vec(vec(1,0,0), state->r);
+	double launch_latitude = angle_vec3_vec3(vec3(1,0,0), state->r);
 
 	while(state != NULL) {
 		if(state->t >= next_point_t || state->next == NULL) {
 			ldp.t[counter] = state->t;
 			ldp.dwnrng[counter] = calc_downrange_distance(state->r, state->t, launch_latitude, EARTH())/1000;
-			ldp.alt[counter] = (vector_mag(state->r) - body->radius) / 1000;
-			ldp.orbv[counter] = vector_mag(state->v);
-			ldp.surfv[counter] = vector_mag(calc_surface_velocity_from_osv(state->r, state->v, body));
+			ldp.alt[counter] = (mag_vec3(state->r) - body->radius) / 1000;
+			ldp.orbv[counter] = mag_vec3(state->v);
+			ldp.surfv[counter] = mag_vec3(calc_surface_velocity_from_osv(state->r, state->v, body));
 			ldp.vertv[counter] = calc_vertical_speed_from_osv(state->r, state->v);
 			ldp.mass[counter] = state->m / 1000;
 			ldp.pitch[counter] = rad2deg(state->pitch);
 			orbit = constr_orbit_from_osv(state->r, state->v, EARTH());
 			ldp.sma[counter] = orbit.a/1000;
 			ldp.ecc[counter] = orbit.e;
-			ldp.incl[counter] = rad2deg(orbit.inclination);
+			ldp.incl[counter] = rad2deg(orbit.i);
 			ldp.stage[counter] = state->stage_id;
 			counter++;
 			next_point_t += step;
@@ -306,14 +305,14 @@ G_MODULE_EXPORT void on_run_launch_simulation(GtkWidget* widget, gpointer data) 
 
 	update_launch_result_values(
 			launch_state->t,
-			vector_mag(launch_state->r) - body->radius,
+			mag_vec3(launch_state->r) - body->radius,
 			calc_orbit_apoapsis(orbit),
 			calc_orbit_periapsis(orbit),
 			orbit.a,
 			orbit.e,
-			orbit.inclination,
-			vector_mag(launch_state->v),
-			vector_mag(calc_surface_velocity_from_osv(launch_state->r, launch_state->v, body)),
+			orbit.i,
+			mag_vec3(launch_state->v),
+			mag_vec3(calc_surface_velocity_from_osv(launch_state->r, launch_state->v, body)),
 			calc_vertical_speed_from_osv(launch_state->r, launch_state->v),
 			lr.dv,
 			lr.rem_dv,

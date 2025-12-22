@@ -23,12 +23,14 @@ struct PorkchopAnalyzerPoint *pa_porkchop_points;
 
 ItinStepBinHeaderData pa_analysis_params;
 
-struct System *pa_system;
+CelestSystem *pa_system;
 
-double pa_min_vals[5], pa_max_vals[5];
+double pa_min_vals[6], pa_max_vals[6];
 
-enum PaMinMaxType {PA_DEP, PA_DUR, PA_TOTDV, PA_DEPDV, PA_SATDV};
+enum PaMinMaxType {PA_DEP, PA_ARR, PA_DUR, PA_TOTDV, PA_DEPDV, PA_SATDV};
+enum PaYAxisType {PA_YAXIS_DUR, PA_YAXIS_ARRDATE};
 
+enum PaYAxisType pa_yaxis_type = PA_YAXIS_DUR;
 double pa_dep_periapsis = 50e3;
 double pa_arr_periapsis = 50e3;
 
@@ -36,8 +38,8 @@ Screen *pa_porkchop_screen;
 Camera *pa_itin_preview_camera;
 
 gboolean *body_show_status_pa;
-GObject *tf_pa_min_feedback[5];
-GObject *tf_pa_max_feedback[5];
+GObject *tf_pa_min_feedback[6];
+GObject *tf_pa_max_feedback[6];
 GObject *lb_pa_tfdate;
 GObject *lb_pa_tfbody;
 GObject *lb_pa_transfer_dv;
@@ -64,16 +66,18 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 	pa_last_transfer_type = TF_FLYBY;
 	da_pa_porkchop = gtk_builder_get_object(builder, "da_pa_porkchop");
 	da_pa_preview = gtk_builder_get_object(builder, "da_pa_preview");
-	tf_pa_min_feedback[0] = gtk_builder_get_object(builder, "tf_pa_min_depdate");
-	tf_pa_min_feedback[1] = gtk_builder_get_object(builder, "tf_pa_min_dur");
-	tf_pa_min_feedback[2] = gtk_builder_get_object(builder, "tf_pa_min_totdv");
-	tf_pa_min_feedback[3] = gtk_builder_get_object(builder, "tf_pa_min_depdv");
-	tf_pa_min_feedback[4] = gtk_builder_get_object(builder, "tf_pa_min_satdv");
-	tf_pa_max_feedback[0] = gtk_builder_get_object(builder, "tf_pa_max_depdate");
-	tf_pa_max_feedback[1] = gtk_builder_get_object(builder, "tf_pa_max_dur");
-	tf_pa_max_feedback[2] = gtk_builder_get_object(builder, "tf_pa_max_totdv");
-	tf_pa_max_feedback[3] = gtk_builder_get_object(builder, "tf_pa_max_depdv");
-	tf_pa_max_feedback[4] = gtk_builder_get_object(builder, "tf_pa_max_satdv");
+	tf_pa_min_feedback[PA_DEP] = gtk_builder_get_object(builder, "tf_pa_min_depdate");
+	tf_pa_min_feedback[PA_ARR] = gtk_builder_get_object(builder, "tf_pa_min_arrdate");
+	tf_pa_min_feedback[PA_DUR] = gtk_builder_get_object(builder, "tf_pa_min_dur");
+	tf_pa_min_feedback[PA_TOTDV] = gtk_builder_get_object(builder, "tf_pa_min_totdv");
+	tf_pa_min_feedback[PA_DEPDV] = gtk_builder_get_object(builder, "tf_pa_min_depdv");
+	tf_pa_min_feedback[PA_SATDV] = gtk_builder_get_object(builder, "tf_pa_min_satdv");
+	tf_pa_max_feedback[PA_DEP] = gtk_builder_get_object(builder, "tf_pa_max_depdate");
+	tf_pa_max_feedback[PA_ARR] = gtk_builder_get_object(builder, "tf_pa_max_arrdate");
+	tf_pa_max_feedback[PA_DUR] = gtk_builder_get_object(builder, "tf_pa_max_dur");
+	tf_pa_max_feedback[PA_TOTDV] = gtk_builder_get_object(builder, "tf_pa_max_totdv");
+	tf_pa_max_feedback[PA_DEPDV] = gtk_builder_get_object(builder, "tf_pa_max_depdv");
+	tf_pa_max_feedback[PA_SATDV] = gtk_builder_get_object(builder, "tf_pa_max_satdv");
 	lb_pa_tfdate = gtk_builder_get_object(builder, "lb_pa_tfdate");
 	lb_pa_tfbody = gtk_builder_get_object(builder, "lb_pa_tfbody");
 	lb_pa_transfer_dv = gtk_builder_get_object(builder, "lb_pa_transfer_dv");
@@ -95,7 +99,7 @@ void init_porkchop_analyzer(GtkBuilder *builder) {
 void update_pa_porkchop_diagram() {
 	clear_screen(pa_porkchop_screen);
 
-	if(pa_porkchop_points != NULL) draw_porkchop(pa_porkchop_screen->static_layer.cr, pa_porkchop_screen->width, pa_porkchop_screen->height, pa_porkchop_points, pa_num_itins, pa_last_transfer_type);
+	if(pa_porkchop_points != NULL) draw_porkchop(pa_porkchop_screen->static_layer.cr, pa_porkchop_screen->width, pa_porkchop_screen->height, pa_porkchop_points, pa_num_itins, pa_last_transfer_type, pa_yaxis_type);
 	draw_screen(pa_porkchop_screen);
 }
 
@@ -111,8 +115,8 @@ void update_pa_itinerary_preview() {
 		if(!body_show_status_pa[i]) continue;
 		draw_body(pa_itin_preview_camera, pa_system, pa_system->bodies[i], current_date_pa);
 		struct Orbit orbit = pa_system->bodies[i]->orbit;
-		if(pa_system->calc_method == EPHEMS) {
-			struct OSV body_osv = osv_from_ephem(pa_system->bodies[i]->ephem, current_date_pa, pa_system->cb);
+		if(pa_system->prop_method == EPHEMS) {
+			struct OSV body_osv = osv_from_ephem(pa_system->bodies[i]->ephem, pa_system->bodies[i]->num_ephems, current_date_pa, pa_system->cb);
 			orbit = constr_orbit_from_osv(body_osv.r, body_osv.v, pa_system->cb);
 		}
 		draw_orbit(pa_itin_preview_camera, orbit);
@@ -144,16 +148,18 @@ void on_pa_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr) {
 void on_pa_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer *ptr) {
 	if((Screen*)ptr == pa_porkchop_screen) {
 		if(pa_system == NULL) return;
+		int min_x = pa_yaxis_type == PA_YAXIS_ARRDATE ? get_porkchop_arrdate_yaxis_x() : get_porkchop_dur_yaxis_x();
+		int min_y = get_porkchop_xaxis_y();
 		if(pa_porkchop_screen->dragging) {
 			double x = pa_porkchop_screen->mouse_pos_on_press.x;
 			double y = pa_porkchop_screen->mouse_pos_on_press.y;
 			double width = event->x-pa_porkchop_screen->mouse_pos_on_press.x;
 			double height = event->y-pa_porkchop_screen->mouse_pos_on_press.y;
-			if(x < 45 || y > pa_porkchop_screen->height-40) return;
-			if(x+width < 45) width = 45-x;
+			if(x < min_x || y > pa_porkchop_screen->height-min_y) return;
+			if(x+width < min_x) width = min_x-x;
 			if(y+height < 0) height = -y;
 			if(x+width > pa_porkchop_screen->width) width = pa_porkchop_screen->width-x;
-			if(y+height > pa_porkchop_screen->height-40) height = (pa_porkchop_screen->height-40)-y;
+			if(y+height > pa_porkchop_screen->height-min_y) height = (pa_porkchop_screen->height-min_y)-y;
 			clear_dynamic_screen_layer(pa_porkchop_screen);
 			cairo_rectangle(pa_porkchop_screen->dynamic_layer.cr, x, y, width, height);
 			cairo_set_source_rgba(pa_porkchop_screen->dynamic_layer.cr, 1, 0, 0, 1);
@@ -182,18 +188,29 @@ void on_pa_screen_button_release(GtkWidget *widget, GdkEventButton *event, gpoin
 		double y1 = event->y;
 
 		if(x0 < 45 || y0 > pa_porkchop_screen->height-40) return;
-		get_min_max_dep_dur_range_from_mouse_rect(&x0, &x1, &y0, &y1, pa_min_vals[PA_DEP], pa_max_vals[PA_DEP], pa_min_vals[PA_DUR], pa_max_vals[PA_DUR], pa_porkchop_screen->width, pa_porkchop_screen->height);
+		get_min_max_dep_arr_dur_range_from_mouse_rect(&x0, &x1, &y0, &y1, pa_min_vals[PA_DEP], pa_max_vals[PA_DEP],
+													  pa_min_vals[pa_yaxis_type == PA_YAXIS_DUR ? PA_DUR : PA_ARR],
+													  pa_max_vals[pa_yaxis_type == PA_YAXIS_DUR ? PA_DUR : PA_ARR],
+													  pa_porkchop_screen->width, pa_porkchop_screen->height,
+													  pa_yaxis_type);
 
 		char string[20];
 		date_to_string(convert_JD_date(x0, get_settings_datetime_type()), string, 0);
-		gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[0]), string);
-		sprintf(string, "%.0f", get_settings_datetime_type() == DATE_KERBAL ? y0*4 : y0);
-		gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[1]), string);
-
+		gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[PA_DEP]), string);
 		date_to_string(convert_JD_date(x1, get_settings_datetime_type()), string, 0);
-		gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[0]), string);
-		sprintf(string, "%.0f", get_settings_datetime_type() == DATE_KERBAL ? y1*4 : y1);
-		gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[1]), string);
+		gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[PA_DEP]), string);
+		
+		if(pa_yaxis_type == PA_YAXIS_ARRDATE) {
+			date_to_string(convert_JD_date(y0, get_settings_datetime_type()), string, 0);
+			gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[PA_ARR]), string);
+			date_to_string(convert_JD_date(y1, get_settings_datetime_type()), string, 0);
+			gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[PA_ARR]), string);
+		} else {
+			sprintf(string, "%.0f", get_settings_datetime_type() == DATE_KERBAL ? y0*4 : y0);
+			gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[PA_DUR]), string);
+			sprintf(string, "%.0f", get_settings_datetime_type() == DATE_KERBAL ? y1*4 : y1);
+			gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[PA_DUR]), string);
+		}
 
 		on_apply_filter(NULL, NULL);
 
@@ -205,8 +222,10 @@ void on_pa_screen_button_release(GtkWidget *widget, GdkEventButton *event, gpoin
 
 
 void pa_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
-	change_text_field_date_type(tf_pa_min_feedback[0], old_date_type, new_date_type);
-	change_text_field_date_type(tf_pa_max_feedback[0], old_date_type, new_date_type);
+	change_text_field_date_type(tf_pa_min_feedback[PA_DEP], old_date_type, new_date_type);
+	change_text_field_date_type(tf_pa_max_feedback[PA_DEP], old_date_type, new_date_type);
+	change_text_field_date_type(tf_pa_min_feedback[PA_ARR], old_date_type, new_date_type);
+	change_text_field_date_type(tf_pa_max_feedback[PA_ARR], old_date_type, new_date_type);
 	if(curr_transfer_pa != NULL) change_label_date_type(lb_pa_tfdate, old_date_type, new_date_type);
 	else if(new_date_type == DATE_ISO) gtk_label_set_text(GTK_LABEL(lb_pa_tfdate), "0000-00-00");
 	else gtk_label_set_text(GTK_LABEL(lb_pa_tfdate), "0000-000");
@@ -218,15 +237,15 @@ double calc_step_dv_pa(struct ItinStep *step) {
 	if(step->body == NULL) {
 		if(step->next == NULL || step->next[0]->next == NULL || step->prev == NULL)
 			return 0;
-		return vector_mag(subtract_vectors(step->v_arr, step->next[0]->v_dep));
+		return mag_vec3(subtract_vec3(step->v_arr, step->next[0]->v_dep));
 	} else if(step->prev == NULL) {
-		double vinf = vector_mag(subtract_vectors(step->next[0]->v_dep, step->v_body));
-		return dv_circ(step->body, step->body->atmo_alt+pa_dep_periapsis, vinf);
+		double vinf = mag_vec3(subtract_vec3(step->next[0]->v_dep, step->v_body));
+		return dv_circ(step->body, altatmo2radius(step->body, pa_dep_periapsis), vinf);
 	} else if(step->next == NULL) {
 		if(pa_last_transfer_type == TF_FLYBY) return 0;
-		double vinf = vector_mag(subtract_vectors(step->v_arr, step->v_body));
-		if(pa_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, step->body->atmo_alt + pa_arr_periapsis, vinf);
-		else if(pa_last_transfer_type == TF_CIRC) return dv_circ(step->body, step->body->atmo_alt + pa_arr_periapsis, vinf);
+		double vinf = mag_vec3(subtract_vec3(step->v_arr, step->v_body));
+		if(pa_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, altatmo2radius(step->body, pa_arr_periapsis), vinf);
+		else if(pa_last_transfer_type == TF_CIRC) return dv_circ(step->body, altatmo2radius(step->body, pa_arr_periapsis), vinf);
 	}
 	return 0;
 }
@@ -245,10 +264,7 @@ double calc_total_dv_pa() {
 double calc_periapsis_height_pa() {
 	if(curr_transfer_pa->body == NULL) return -1e20;
 	if(curr_transfer_pa->next == NULL || curr_transfer_pa->prev == NULL) return -1e20;
-	struct Vector v_arr = subtract_vectors(curr_transfer_pa->v_arr, curr_transfer_pa->v_body);
-	struct Vector v_dep = subtract_vectors(curr_transfer_pa->next[0]->v_dep, curr_transfer_pa->v_body);
-	double beta = (M_PI - angle_vec_vec(v_arr, v_dep))/2;
-	double rp = (1 / cos(beta) - 1) * (curr_transfer_pa->body->mu / (pow(vector_mag(v_arr), 2)));
+	double rp = get_flyby_periapsis(curr_transfer_pa->v_arr, curr_transfer_pa->next[0]->v_dep, curr_transfer_pa->v_body, curr_transfer_pa->body);
 	return (rp-curr_transfer_pa->body->radius)*1e-3;
 }
 
@@ -264,7 +280,7 @@ void free_all_porkchop_analyzer_itins() {
 	curr_transfer_pa = NULL;
 	free(pa_groups);
 	pa_groups = NULL;
-	if(!is_available_system(pa_system)) free_system(pa_system);
+	if(!is_available_system(pa_system)) free_celestial_system(pa_system);
 	pa_system = NULL;
 	
 	if(pa_analysis_params.num_deps > 0 && pa_analysis_params.file_type > 2) {
@@ -291,11 +307,11 @@ void pa_update_preview() {
 
 	if(curr_transfer_pa == NULL) {
 		char date0_string[10];
-		date_to_string((struct Date) {.date_type=get_settings_datetime_type()}, date0_string, 0);
+		date_to_string((Datetime) {.date_type=get_settings_datetime_type()}, date0_string, 0);
 		gtk_label_set_label(GTK_LABEL(lb_pa_tfdate), date0_string);
 		gtk_label_set_label(GTK_LABEL(lb_pa_tfbody), "Planet");
 	} else {
-		struct Date date = convert_JD_date(curr_transfer_pa->date, get_settings_datetime_type());
+		Datetime date = convert_JD_date(curr_transfer_pa->date, get_settings_datetime_type());
 		char date_string[10];
 		date_to_string(date, date_string, 0);
 		gtk_label_set_label(GTK_LABEL(lb_pa_tfdate), date_string);
@@ -322,21 +338,23 @@ void reset_min_max_feedback(int take_hidden_group_into_account) {
 	while(!pa_porkchop_points[first_show_idx].inside_filter || (!take_hidden_group_into_account && !pa_porkchop_points[first_show_idx].group->show_group)) first_show_idx++;
 	struct PorkchopPoint pp = pa_porkchop_points[first_show_idx].data;
 
-	double min[5] = {
+	double min[6] = {
 			/* depdate	*/ pp.dep_date,
+			/* arrdate	*/ pp.dep_date+pp.dur,
 			/* duration	*/ pp.dur,
 			/* total dv	*/ pp.dv_dep + pp.dv_dsm + pp.dv_arr_cap*cap + pp.dv_arr_circ*circ,
 			/* dep dv	*/ pp.dv_dep,
 			/* sat dv	*/ pp.dv_dsm + pp.dv_arr_cap*cap + pp.dv_arr_circ*circ,
 	};
-	double max[5] = {
+	double max[6] = {
 			/* depdate	*/ pp.dep_date,
+			/* arrdate	*/ pp.dep_date+pp.dur,
 			/* duration	*/ pp.dur,
 			/* total dv	*/ pp.dv_dep + pp.dv_dsm + pp.dv_arr_cap*cap + pp.dv_arr_circ*circ,
 			/* dep dv	*/ pp.dv_dep,
 			/* sat dv	*/ pp.dv_dsm + pp.dv_arr_cap*cap + pp.dv_arr_circ*circ,
 	};
-	double dep_dv, sat_dv, tot_dv, date, dur;
+	double dep_dv, sat_dv, tot_dv, depdate, arrdate, dur;
 
 	for(int i = 1; i < pa_num_itins; i++) {
 		if(!pa_porkchop_points[i].inside_filter || (!take_hidden_group_into_account && !pa_porkchop_points[i].group->show_group)) continue;
@@ -344,44 +362,63 @@ void reset_min_max_feedback(int take_hidden_group_into_account) {
 		dep_dv = pp.dv_dep;
 		sat_dv = pp.dv_dsm + pp.dv_arr_cap*cap + pp.dv_arr_circ*circ;
 		tot_dv = dep_dv + sat_dv;
-		date = pp.dep_date;
+		depdate = pp.dep_date;
 		dur = pp.dur;
-
-		if(date < min[0]) min[0] = date;
-		else if(date > max[0]) max[0] = date;
-		if(dur < min[1]) min[1] = dur;
-		else if(dur > max[1]) max[1] = dur;
-		if(tot_dv < min[2]) min[2] = tot_dv;
-		else if(tot_dv > max[2]) max[2] = tot_dv;
-		if(dep_dv < min[3]) min[3] = dep_dv;
-		else if(dep_dv > max[3]) max[3] = dep_dv;
-		if(sat_dv < min[4]) min[4] = sat_dv;
-		else if(sat_dv > max[4]) max[4] = sat_dv;
+		arrdate = depdate + dur;
+		
+		int j = 0;
+		
+		if(depdate < min[j]) min[j] = depdate;
+		else if(depdate > max[j]) max[j] = depdate;
+		j++;
+		if(arrdate < min[j]) min[j] = arrdate;
+		else if(arrdate > max[j]) max[j] = arrdate;
+		j++;
+		if(dur < min[j]) min[j] = dur;
+		else if(dur > max[j]) max[j] = dur;
+		j++;
+		if(tot_dv < min[j]) min[j] = tot_dv;
+		else if(tot_dv > max[j]) max[j] = tot_dv;
+		j++;
+		if(dep_dv < min[j]) min[j] = dep_dv;
+		else if(dep_dv > max[j]) max[j] = dep_dv;
+		j++;
+		if(sat_dv < min[j]) min[j] = sat_dv;
+		else if(sat_dv > max[j]) max[j] = sat_dv;
 	}
 
 	char string[20];
-	date_to_string(convert_JD_date(min[0], get_settings_datetime_type()), string, 0);
-	gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[0]), string);
-	sprintf(string, "%.0f", get_settings_datetime_type() == DATE_KERBAL ? min[1]*4 : min[1]);
-	gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[1]), string);
+	date_to_string(convert_JD_date(min[PA_DEP], get_settings_datetime_type()), string, 0);
+	gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[PA_DEP]), string);
+	date_to_string(convert_JD_date(min[PA_ARR], get_settings_datetime_type()), string, 0);
+	gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[PA_ARR]), string);
+	sprintf(string, "%.0f", get_settings_datetime_type() == DATE_KERBAL ? min[PA_DUR]*4 : min[PA_DUR]);
+	gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[PA_DUR]), string);
 
-	for(int i = 2; i < 5; i++) {
+	for(int i = 3; i < 6; i++) {
 		sprintf(string, "%.2f", min[i]);
 		gtk_entry_set_text(GTK_ENTRY(tf_pa_min_feedback[i]), string);
 	}
 
-	date_to_string(convert_JD_date(max[0], get_settings_datetime_type()), string, 0);
-	gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[0]), string);
-	sprintf(string, "%.0f", get_settings_datetime_type() == DATE_KERBAL ? max[1]*4 : max[1]);
-	gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[1]), string);
+	date_to_string(convert_JD_date(max[PA_DEP], get_settings_datetime_type()), string, 0);
+	gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[PA_DEP]), string);
+	date_to_string(convert_JD_date(max[PA_ARR], get_settings_datetime_type()), string, 0);
+	gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[PA_ARR]), string);
+	sprintf(string, "%.0f", get_settings_datetime_type() == DATE_KERBAL ? max[PA_DUR]*4 : max[PA_DUR]);
+	gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[PA_DUR]), string);
 
-	for(int i = 2; i < 5; i++) {
+	for(int i = 3; i < 6; i++) {
 		sprintf(string, "%.2f", max[i]);
 		gtk_entry_set_text(GTK_ENTRY(tf_pa_max_feedback[i]), string);
 	}
 
-	for(int i = 0; i < 5; i++) pa_min_vals[i] = min[i];
-	for(int i = 0; i < 5; i++) pa_max_vals[i] = max[i];
+	for(int i = 0; i < 6; i++) pa_min_vals[i] = min[i];
+	for(int i = 0; i < 6; i++) pa_max_vals[i] = max[i];
+}
+
+G_MODULE_EXPORT void on_pa_switch_y_axis_type(GtkWidget* widget, gpointer data) {
+	pa_yaxis_type = pa_yaxis_type != PA_YAXIS_DUR ? PA_YAXIS_DUR : PA_YAXIS_ARRDATE;
+	update_pa();
 }
 
 G_MODULE_EXPORT void on_change_itin_group_visibility(GtkWidget* widget, gpointer data) {
@@ -618,6 +655,9 @@ G_MODULE_EXPORT void on_load_itineraries(GtkWidget* widget, gpointer data) {
 
 	free_all_porkchop_analyzer_itins();
 	struct ItinsLoadFileResults load_results = load_itineraries_from_bfile(filepath);
+	char param_string[1000];
+	print_header_data_to_string(load_results.header, param_string, get_settings_datetime_type());
+	printf("%s\n", param_string);
 	if(load_results.departures == NULL) return;
 	
 	if(pa_analysis_params.num_deps > 0 && pa_analysis_params.file_type > 2) {
@@ -677,7 +717,7 @@ void update_pa() {
 	reset_min_max_feedback(1);
 }
 
-gboolean are_any_porkchop_points_in_filter(const double min[5], const double max[5]) {
+gboolean are_any_porkchop_points_in_filter(const double min[6], const double max[6]) {
 	// show only groups inside filter in gui (setting visible below)
 	for(int group_idx = 0; group_idx < pa_num_groups; group_idx++) pa_groups[group_idx].has_itin_inside_filter = 0;
 
@@ -692,24 +732,29 @@ gboolean are_any_porkchop_points_in_filter(const double min[5], const double max
 		if(pa_last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
 		if(pa_last_transfer_type == TF_CIRC)	dv_sat += pp.dv_arr_circ;
 
-		if(	!(pp.dep_date 		< min[0] || pp.dep_date 		> max[0] ||
-			   pp.dur 				< min[1] || pp.dur 				> max[1] ||
-			   pp.dv_dep + dv_sat	< min[2] || pp.dv_dep + dv_sat	> max[2] ||
-			   pp.dv_dep 			< min[3] || pp.dv_dep 			> max[3] ||
-			   dv_sat 				< min[4] || dv_sat 				> max[4])) return TRUE;
+		if(	!(pp.dep_date 			< min[PA_DEP] || pp.dep_date 			> max[PA_DEP] ||
+			  pp.dep_date+pp.dur 	< min[PA_ARR] || pp.dep_date+pp.dur 	> max[PA_ARR] ||
+			  pp.dur 				< min[PA_DUR] || pp.dur 				> max[PA_DUR] ||
+			  pp.dv_dep + dv_sat	< min[PA_TOTDV] || pp.dv_dep + dv_sat	> max[PA_TOTDV] ||
+			  pp.dv_dep 			< min[PA_DEPDV] || pp.dv_dep 			> max[PA_DEPDV] ||
+			  dv_sat 				< min[PA_SATDV] || dv_sat 				> max[PA_SATDV])) return TRUE;
 	}
 	return FALSE;
 }
 
 void apply_filter() {
 	if(pa_porkchop_points == NULL) return;
-	double min[5], max[5];
+	double min[6], max[6];
 	char *string;
-	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_min_feedback[0]));
-	min[0] = convert_date_JD(date_from_string(string, get_settings_datetime_type()))-1;	// rounding imprecision in filter entry field
-	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_max_feedback[0]));
-	max[0] = convert_date_JD(date_from_string(string, get_settings_datetime_type()))+1;	// rounding imprecision in filter entry field
-	for(int i = 1; i < 5; i++) {
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_min_feedback[PA_DEP]));
+	min[PA_DEP] = convert_date_JD(date_from_string(string, get_settings_datetime_type()))-1;	// rounding imprecision in filter entry field
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_max_feedback[PA_DEP]));
+	max[PA_DEP] = convert_date_JD(date_from_string(string, get_settings_datetime_type()))+1;	// rounding imprecision in filter entry field
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_min_feedback[PA_ARR]));
+	min[PA_ARR] = convert_date_JD(date_from_string(string, get_settings_datetime_type()))-1;	// rounding imprecision in filter entry field
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_max_feedback[PA_ARR]));
+	max[PA_ARR] = convert_date_JD(date_from_string(string, get_settings_datetime_type()))+1;	// rounding imprecision in filter entry field
+	for(int i = 2; i < 6; i++) {
 		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_min_feedback[i]));
 		min[i] = strtod(string, NULL)-1;	// rounding imprecision in filter entry field
 		string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_pa_max_feedback[i]));
@@ -717,7 +762,7 @@ void apply_filter() {
 		if(get_settings_datetime_type() == DATE_KERBAL && i == 1) {min[i] /= 4; max[i] /= 4;}
 	}
 
-	for(int i = 0; i < 5; i++) {
+	for(int i = 0; i < 6; i++) {
 		if(min[i] > max[i]) {
 			double temp = min[i];
 			min[i] = max[i];
@@ -743,11 +788,12 @@ void apply_filter() {
 		if(pa_last_transfer_type == TF_CAPTURE)	dv_sat += pp.dv_arr_cap;
 		if(pa_last_transfer_type == TF_CIRC)	dv_sat += pp.dv_arr_circ;
 
-		if(	pp.dep_date 		< min[0] || pp.dep_date 		> max[0] ||
-			   pp.dur 				< min[1] || pp.dur 				> max[1] ||
-			   pp.dv_dep + dv_sat	< min[2] || pp.dv_dep + dv_sat	> max[2] ||
-			   pp.dv_dep 			< min[3] || pp.dv_dep 			> max[3] ||
-			   dv_sat 				< min[4] || dv_sat 				> max[4]) pa_porkchop_points[i].inside_filter = 0;
+		if(	pp.dep_date 		< min[PA_DEP] 	|| pp.dep_date 			> max[PA_DEP] ||
+			pp.dep_date+pp.dur 	< min[PA_ARR] 	|| pp.dep_date+pp.dur 	> max[PA_ARR] ||
+			pp.dur 				< min[PA_DUR] 	|| pp.dur 				> max[PA_DUR] ||
+			pp.dv_dep + dv_sat	< min[PA_TOTDV] || pp.dv_dep + dv_sat	> max[PA_TOTDV] ||
+			pp.dv_dep 			< min[PA_DEPDV] || pp.dv_dep 			> max[PA_DEPDV] ||
+			dv_sat 				< min[PA_SATDV] || dv_sat 				> max[PA_SATDV]) pa_porkchop_points[i].inside_filter = 0;
 		else pa_porkchop_points[i].group->has_itin_inside_filter = 1;
 
 		if(pa_porkchop_points[i].inside_filter && pa_porkchop_points[i].group->show_group) rem_num_itins++;

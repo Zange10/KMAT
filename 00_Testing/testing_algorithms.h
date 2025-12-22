@@ -2,7 +2,6 @@
 #define KSP_TESTING_ALGORITHMS_H
 
 
-#include "tools/datetime.h"
 #include "orbit_calculator/itin_tool.h"
 
 
@@ -23,7 +22,7 @@ enum TestResult {
 union TestData { ;
 	struct Itin_To_Target_Calc_Test {
 		enum TestType test_type;
-		struct Date min_dep_date, max_dep_date, max_arr_date;
+		struct Datetime min_dep_date, max_dep_date, max_arr_date;
 		int max_duration;
 		double max_depdv, max_satdv, max_totdv;
 		enum LastTransferType last_transfer_type;
@@ -37,7 +36,7 @@ union TestData { ;
 
 	struct Itin_Spec_Seq_Calc_Test {
 		enum TestType test_type;
-		struct Date min_dep_date, max_dep_date, max_arr_date;
+		struct Datetime min_dep_date, max_dep_date, max_arr_date;
 		int max_duration;
 		double max_depdv, max_satdv, max_totdv;
 		enum LastTransferType last_transfer_type;

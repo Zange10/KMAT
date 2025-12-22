@@ -23,7 +23,7 @@ struct PorkchopAnalyzerPoint {
 
 void sort_porkchop(struct PorkchopAnalyzerPoint *pp, int num_itins, enum LastTransferType last_transfer_type);
 
-void get_min_max_dep_dur_range_from_mouse_rect(double *dep0, double *dep1, double *dur0, double *dur1, double min_dep, double max_dep, double min_dur, double max_dur, double screen_width, double screen_height);
+void get_min_max_dep_arr_dur_range_from_mouse_rect(double *p_x0, double *p_x1, double *p_y0, double *p_y1, double min_x_val, double max_x_val, double min_y_val, double max_y_val, double screen_width, double screen_height, int dur0arrdate1);
 
 
 #endif //KSP_PORKCHOP_ANALYZER_TOOLS_H

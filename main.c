@@ -1,11 +1,10 @@
-#include "celestial_bodies.h"
 #include "launch_calculator/launch_calculator.h"
-#include "orbit_calculator/orbit_calculator.h"
 #include "tools/tool_funcs.h"
 #include "database/database.h"
 #include "gui/gui_manager.h"
 #include "00_Testing/testing.h"
-//#include "database/database.h"
+#include <math.h>
+
 #ifdef _WIN32
 #include <windows.h>  // for SetPriorityClass(), SetThreadPriority()
 #endif
@@ -34,7 +33,6 @@ int main() {
 
 	init_celestial_bodies();
 	init_available_systems("../Celestial_Systems/");
-
 
 //	init_db();
 

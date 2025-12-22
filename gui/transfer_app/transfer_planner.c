@@ -1,5 +1,4 @@
 #include "transfer_planner.h"
-#include "orbit_calculator/transfer_tools.h"
 #include "gui/drawing.h"
 #include "gui/gui_manager.h"
 #include "gui/settings.h"
@@ -16,7 +15,7 @@
 
 struct ItinStep *curr_transfer_tp;
 
-struct System *tp_system;
+CelestSystem *tp_system;
 
 Camera *tp_system_camera;
 
@@ -26,8 +25,14 @@ GObject *cb_tp_central_body;
 GObject *cb_tp_tfbody;
 GObject *lb_tp_date;
 GObject *tb_tp_tfdate;
-GObject *bt_tp_1m30dp;
-GObject *bt_tp_1m30dm;
+GObject *bt_tp_10y6hp;
+GObject *bt_tp_10y6hm;
+GObject *bt_tp_1y1hp;
+GObject *bt_tp_1y1hm;
+GObject *bt_tp_1m30d10minp;
+GObject *bt_tp_1m30d10minm;
+GObject *bt_tp_1d1minp;
+GObject *bt_tp_1d1minm;
 GObject *lb_tp_transfer_dv;
 GObject *lb_tp_total_dv;
 GObject *lb_tp_param_labels;
@@ -40,8 +45,8 @@ double current_date_tp;
 
 enum LastTransferType tp_last_transfer_type;
 
-double tp_dep_periapsis = 100e3;
-double tp_arr_periapsis = 100e3;
+double tp_dep_periapsis = 50e3;
+double tp_arr_periapsis = 50e3;
 
 void tp_update_bodies();
 void remove_all_transfers();
@@ -53,7 +58,7 @@ void on_tp_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer 
 
 
 void init_transfer_planner(GtkBuilder *builder) {
-	struct Date date = {1950, 1, 1, 0, 0, 0};
+	struct Datetime date = {1950, 1, 1, 0, 0, 0};
 	current_date_tp = convert_date_JD(date);
 
 	remove_all_transfers();
@@ -63,8 +68,14 @@ void init_transfer_planner(GtkBuilder *builder) {
 	cb_tp_central_body = gtk_builder_get_object(builder, "cb_tp_central_body");
 	cb_tp_tfbody = gtk_builder_get_object(builder, "cb_tp_tfbody");
 	tb_tp_tfdate = gtk_builder_get_object(builder, "tb_tp_tfdate");
-	bt_tp_1m30dp = gtk_builder_get_object(builder, "bt_tp_1m30dp");
-	bt_tp_1m30dm = gtk_builder_get_object(builder, "bt_tp_1m30dm");
+	bt_tp_10y6hp = gtk_builder_get_object(builder, "bt_tp_10y6hp");
+	bt_tp_10y6hm = gtk_builder_get_object(builder, "bt_tp_10y6hm");
+	bt_tp_1y1hp = gtk_builder_get_object(builder, "bt_tp_1y1hp");
+	bt_tp_1y1hm = gtk_builder_get_object(builder, "bt_tp_1y1hm");
+	bt_tp_1m30d10minp = gtk_builder_get_object(builder, "bt_tp_1m30d10minp");
+	bt_tp_1m30d10minm = gtk_builder_get_object(builder, "bt_tp_1m30d10minm");
+	bt_tp_1d1minp = gtk_builder_get_object(builder, "bt_tp_1d1minp");
+	bt_tp_1d1minm = gtk_builder_get_object(builder, "bt_tp_1d1minm");
 	lb_tp_transfer_dv = gtk_builder_get_object(builder, "lb_tp_transfer_dv");
 	lb_tp_total_dv = gtk_builder_get_object(builder, "lb_tp_total_dv");
 	lb_tp_param_labels = gtk_builder_get_object(builder, "lb_tp_param_labels");
@@ -109,8 +120,8 @@ void update_tp_system_view() {
 		if(!body_show_status_tp[i]) continue;
 		draw_body(tp_system_camera, tp_system, tp_system->bodies[i], current_date_tp);
 		struct Orbit orbit = tp_system->bodies[i]->orbit;
-		if(tp_system->calc_method == EPHEMS) {
-			struct OSV body_osv = osv_from_ephem(tp_system->bodies[i]->ephem, current_date_tp, tp_system->cb);
+		if(tp_system->prop_method == EPHEMS) {
+			struct OSV body_osv = osv_from_ephem(tp_system->bodies[i]->ephem, tp_system->bodies[i]->num_ephems, current_date_tp, tp_system->cb);
 			orbit = constr_orbit_from_osv(body_osv.r, body_osv.v, tp_system->cb);
 		}
 		draw_orbit(tp_system_camera, orbit);
@@ -141,19 +152,6 @@ void on_tp_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer 
 // -------------------------------------------------------------------------------------
 
 
-
-void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
-	change_label_date_type(lb_tp_date, old_date_type, new_date_type);
-	if(curr_transfer_tp != NULL) change_button_date_type(tb_tp_tfdate, old_date_type, new_date_type);
-	current_date_tp = convert_date_JD(change_date_type(convert_JD_date(current_date_tp, old_date_type), new_date_type));
-	gtk_button_set_label(GTK_BUTTON(bt_tp_1m30dp), new_date_type == DATE_ISO ? "+1M" : "+30D");
-	gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30dp), new_date_type == DATE_ISO ? "+1M" : "+30D");
-	gtk_button_set_label(GTK_BUTTON(bt_tp_1m30dm), new_date_type == DATE_ISO ? "-1M" : "-30D");
-	gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30dm), new_date_type == DATE_ISO ? "-1M" : "-30D");
-	update();
-}
-
-
 G_MODULE_EXPORT void on_tp_system_change() {
 	if(get_num_available_systems() == 0 ||
 			gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system)) == get_num_available_systems() ||
@@ -161,7 +159,7 @@ G_MODULE_EXPORT void on_tp_system_change() {
 			gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system)) == -1) return;
 	
 	if(!is_available_system(get_top_level_system(tp_system)) && tp_system != NULL) {
-		free_system(get_top_level_system(tp_system));
+		free_celestial_system(get_top_level_system(tp_system));
 		tp_system = NULL;
 		remove_combobox_last_entry(GTK_COMBO_BOX(cb_tp_system));
 	}
@@ -182,7 +180,8 @@ G_MODULE_EXPORT void on_tp_central_body_change() {
 	}
 	gtk_widget_set_sensitive(GTK_WIDGET(cb_tp_central_body), 1);
 	tp_system = get_subsystem_from_system_and_id(get_top_level_system(tp_system), gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_central_body)));
-	
+
+	update_camera_to_celestial_system(tp_system_camera, tp_system, deg2rad(90), 0);
 	remove_all_transfers();
 	tp_update_bodies();
 	update();
@@ -194,15 +193,15 @@ double calc_step_dv(struct ItinStep *step) {
 		if(step->next == NULL || step->next[0]->next == NULL || step->prev == NULL)
 			return 0;
 		if(step->v_body.x == 0) return 0;
-		return vector_mag(subtract_vectors(step->v_arr, step->next[0]->v_dep));
+		return mag_vec3(subtract_vec3(step->v_arr, step->next[0]->v_dep));
 	} else if(step->prev == NULL) {
-		double vinf = vector_mag(subtract_vectors(step->next[0]->v_dep, step->v_body));
-		return dv_circ(step->body, tp_dep_periapsis, vinf);
+		double vinf = mag_vec3(subtract_vec3(step->next[0]->v_dep, step->v_body));
+		return dv_circ(step->body, altatmo2radius(step->body, tp_dep_periapsis), vinf);
 	} else if(step->next == NULL) {
 		if(tp_last_transfer_type == TF_FLYBY) return 0;
-		double vinf = vector_mag(subtract_vectors(step->v_arr, step->v_body));
-		if(tp_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, tp_arr_periapsis, vinf);
-		else if(tp_last_transfer_type == TF_CIRC) return dv_circ(step->body, tp_arr_periapsis, vinf);
+		double vinf = mag_vec3(subtract_vec3(step->v_arr, step->v_body));
+		if(tp_last_transfer_type == TF_CAPTURE) return dv_capture(step->body, altatmo2radius(step->body, tp_arr_periapsis), vinf);
+		else if(tp_last_transfer_type == TF_CIRC) return dv_circ(step->body, altatmo2radius(step->body, tp_arr_periapsis), vinf);
 	}
 	return 0;
 }
@@ -257,9 +256,13 @@ void update() {
 }
 
 void update_date_label() {
+	char time_string[20];
 	char date_string[20];
+	char clock_string[20];
 	date_to_string(convert_JD_date(current_date_tp, get_settings_datetime_type()), date_string, 0);
-	gtk_label_set_text(GTK_LABEL(lb_tp_date), date_string);
+	clocktime_to_string(convert_JD_date(current_date_tp, get_settings_datetime_type()), clock_string, 0);
+	sprintf(time_string, "%s %s", date_string, clock_string);
+	gtk_label_set_text(GTK_LABEL(lb_tp_date), time_string);
 }
 
 void update_transfer_panel() {
@@ -268,7 +271,7 @@ void update_transfer_panel() {
 		update_body_dropdown(GTK_COMBO_BOX(cb_tp_tfbody), NULL);
 		fix_tfbody = TRUE;
 	} else {
-		struct Date date = convert_JD_date(curr_transfer_tp->date, get_settings_datetime_type());
+		struct Datetime date = convert_JD_date(curr_transfer_tp->date, get_settings_datetime_type());
 		char date_string[10];
 		date_to_string(date, date_string, 0);
 		gtk_button_set_label(GTK_BUTTON(tb_tp_tfdate), date_string);
@@ -359,8 +362,24 @@ G_MODULE_EXPORT void on_body_toggle(GtkWidget* widget, gpointer data) {
 }
 
 
+
+void tp_change_date_type(enum DateType old_date_type, enum DateType new_date_type) {
+	change_label_date_type(lb_tp_date, old_date_type, new_date_type);
+	if(curr_transfer_tp != NULL) change_button_date_type(tb_tp_tfdate, old_date_type, new_date_type);
+	current_date_tp = convert_date_JD(change_date_type(convert_JD_date(current_date_tp, old_date_type), new_date_type));
+	
+	if(strcmp(gtk_widget_get_name(GTK_WIDGET(bt_tp_10y6hp)), "+10Y") == 0) {
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1m30d10minp), new_date_type == DATE_ISO ? "+1M" : "+30D");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30d10minp), new_date_type == DATE_ISO ? "+1M" : "+30D");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1m30d10minm), new_date_type == DATE_ISO ? "-1M" : "-30D");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30d10minm), new_date_type == DATE_ISO ? "-1M" : "-30D");
+	}
+	update();
+}
+
 G_MODULE_EXPORT void on_change_date(GtkWidget* widget, gpointer data) {
 	const char *name = gtk_widget_get_name(widget);
+	// Date
 	if		(strcmp(name, "+10Y") == 0) current_date_tp = jd_change_date(current_date_tp, 10, 0, 0, get_settings_datetime_type());
 	else if	(strcmp(name,  "+1Y") == 0) current_date_tp = jd_change_date(current_date_tp, 1, 0, 0, get_settings_datetime_type());
 	else if	(strcmp(name,  "+1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 1, 0, get_settings_datetime_type());
@@ -371,6 +390,15 @@ G_MODULE_EXPORT void on_change_date(GtkWidget* widget, gpointer data) {
 	else if	(strcmp(name,  "-1M") == 0) current_date_tp = jd_change_date(current_date_tp, 0, -1, 0, get_settings_datetime_type());
 	else if	(strcmp(name, "-30D") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -30, get_settings_datetime_type());
 	else if	(strcmp(name,  "-1D") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -1, get_settings_datetime_type());
+	// Clocktime
+	else if	(strcmp(name,  "+6h") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0,  6.0/24, get_settings_datetime_type());
+	else if	(strcmp(name,  "-6h") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -6.0/24, get_settings_datetime_type());
+	else if	(strcmp(name,  "+1h") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0,  1.0/24, get_settings_datetime_type());
+	else if	(strcmp(name,  "-1h") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -1.0/24, get_settings_datetime_type());
+	else if	(strcmp(name, "+10m") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0,  10.0/(24*60), get_settings_datetime_type());
+	else if	(strcmp(name, "-10m") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -10.0/(24*60), get_settings_datetime_type());
+	else if	(strcmp(name,  "+1m") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0,  1.0/(24*60), get_settings_datetime_type());
+	else if	(strcmp(name,  "-1m") == 0) current_date_tp = jd_change_date(current_date_tp, 0, 0, -1.0/(24*60), get_settings_datetime_type());
 
 	if(curr_transfer_tp != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate))) {
 		if(curr_transfer_tp->prev != NULL && current_date_tp <= curr_transfer_tp->prev->date) {
@@ -384,6 +412,59 @@ G_MODULE_EXPORT void on_change_date(GtkWidget* widget, gpointer data) {
 	update_itinerary();
 }
 
+G_MODULE_EXPORT void on_tp_reset_clocktime(GtkWidget* widget, gpointer data) {
+	Datetime datetime = convert_JD_date(current_date_tp, get_settings_datetime_type());
+	current_date_tp = convert_date_JD((Datetime){datetime.y, datetime.m, datetime.d});
+	if(curr_transfer_tp != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate))) {
+		if(curr_transfer_tp->prev != NULL && current_date_tp <= curr_transfer_tp->prev->date) {
+			gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
+			return;
+		}
+		curr_transfer_tp->date = current_date_tp;
+		sort_transfer_dates(get_first(curr_transfer_tp));
+	}
+	
+	update_itinerary();
+}
+
+G_MODULE_EXPORT void on_tp_switch_clocktime_date(GtkWidget* widget, gpointer data) {
+	if(strcmp(gtk_widget_get_name(GTK_WIDGET(bt_tp_10y6hp)), "+10Y") == 0) {
+		gtk_button_set_label(GTK_BUTTON(bt_tp_10y6hp), "+6h");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_10y6hp), "+6h");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_10y6hm), "-6h");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_10y6hm), "-6h");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1y1hp), "+1h");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1y1hp), "+1h");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1y1hm), "-1h");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1y1hm), "-1h");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1m30d10minp), "+10m");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30d10minp), "+10m");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1m30d10minm), "-10m");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30d10minm), "-10m");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1d1minp), "+1m");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1d1minp), "+1m");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1d1minm), "-1m");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1d1minm), "-1m");
+	} else {
+		gtk_button_set_label(GTK_BUTTON(bt_tp_10y6hp), "+10Y");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_10y6hp), "+10Y");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_10y6hm), "-10Y");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_10y6hm), "-10Y");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1y1hp), "+1Y");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1y1hp), "+1Y");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1y1hm), "-1Y");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1y1hm), "-1Y");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1m30d10minp), get_settings_datetime_type() == DATE_ISO ? "+1M" : "+30D");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30d10minp), get_settings_datetime_type() == DATE_ISO ? "+1M" : "+30D");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1m30d10minm), get_settings_datetime_type() == DATE_ISO ? "-1M" : "-30D");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1m30d10minm), get_settings_datetime_type() == DATE_ISO ? "-1M" : "-30D");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1d1minp), "+1D");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1d1minp), "+1D");
+		gtk_button_set_label(GTK_BUTTON(bt_tp_1d1minm), "-1D");
+		gtk_widget_set_name(GTK_WIDGET(bt_tp_1d1minm), "-1D");
+		
+	}
+}
 
 G_MODULE_EXPORT void on_prev_transfer(GtkWidget* widget, gpointer data) {
 	if(curr_transfer_tp == NULL) return;
@@ -437,7 +518,7 @@ G_MODULE_EXPORT void on_goto_transfer_date(GtkWidget* widget, gpointer data) {
 G_MODULE_EXPORT void on_add_transfer(GtkWidget* widget, gpointer data) {
 	if(tp_system == NULL) return;
 	struct ItinStep *new_transfer = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-	new_transfer->body = tp_system->bodies[0];
+	new_transfer->body = tp_system->home_body ? : tp_system->bodies[0];
 	new_transfer->prev = NULL;
 	new_transfer->next = NULL;
 	new_transfer->num_next_nodes = 0;
@@ -603,7 +684,7 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 		update_body_dropdown(GTK_COMBO_BOX(cb_tp_tfbody), NULL);
 		free_itinerary(get_first(curr_transfer_tp));
 	}
-	if(!is_available_system(tp_system) && tp_system != NULL) free_system(tp_system);
+	if(!is_available_system(tp_system) && tp_system != NULL) free_celestial_system(tp_system);
 	curr_transfer_tp = NULL;
 	tp_system = NULL;
 	if(gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system)) == get_num_available_systems()) remove_combobox_last_entry(GTK_COMBO_BOX(cb_tp_system));
@@ -624,8 +705,8 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 	update_central_body_dropdown(GTK_COMBO_BOX(cb_tp_central_body), tp_system);
 
 	struct ItinStep *step2pr = get_first(curr_transfer_tp);
-	struct DepArrHyperbolaParams dep_hyp_params = get_dep_hyperbola_params(step2pr->next[0]->v_dep, step2pr->v_body,
-																		   step2pr->body, 200e3);
+	HyperbolaParams hyp_params = get_hyperbola_params(vec3(0,0,0), step2pr->next[0]->v_dep, step2pr->v_body,
+																		   step2pr->body, 200e3, HYP_DEPARTURE);
 	printf("\nDeparture Hyperbola %s\n"
 		   "Date: %f\n"
 		   "OutgoingRadPer: %f km\n"
@@ -634,21 +715,18 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 		   "OutgoingDHA: %f°\n"
 		   "OutgoingBVAZI: -°\n"
 		   "TA: 0.0°\n",
-		   step2pr->body->name, step2pr->date, dep_hyp_params.r_pe/1000, dep_hyp_params.c3_energy/1e6,
-		   rad2deg(dep_hyp_params.bplane_angle), rad2deg(dep_hyp_params.decl));
+		   step2pr->body->name, step2pr->date, hyp_params.rp/1000, hyp_params.c3_energy/1e6,
+		   rad2deg(hyp_params.outgoing.bplane_angle), rad2deg(hyp_params.outgoing.decl));
 	
 	step2pr = step2pr->next[0];
 	while(step2pr->num_next_nodes != 0) {
 		if(step2pr->body != NULL) {
-			struct Vector v_arr = step2pr->v_arr;
-			struct Vector v_dep = step2pr->next[0]->v_dep;
-			struct Vector v_body = step2pr->v_body;
-			double rp = get_flyby_periapsis(v_arr, v_dep, v_body, step2pr->body);
-			double incl = get_flyby_inclination(v_arr, v_dep, v_body);
+			Vector3 v_arr = step2pr->v_arr;
+			Vector3 v_dep = step2pr->next[0]->v_dep;
+			Vector3 v_body = step2pr->v_body;
+			double incl = get_flyby_inclination(v_arr, v_dep, v_body, get_body_equatorial_plane(step2pr->body));
 
-			struct FlybyHyperbolaParams hyp_params = get_hyperbola_params(step2pr->v_arr, step2pr->next[0]->v_dep,
-																		  step2pr->v_body, step2pr->body,
-																		  rp - step2pr->body->radius);
+			hyp_params = get_hyperbola_params(step2pr->v_arr, step2pr->next[0]->v_dep, step2pr->v_body, step2pr->body, 0, HYP_FLYBY);
 			double dt_in_days = step2pr->date - step2pr->prev->date;
 
 			printf("\nFly-by Hyperbola %s (Travel Time: %.2f days)\n"
@@ -663,27 +741,27 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 				   "OutgoingDHA: %f°\n"
 				   "OutgoingBVAZI: %f°\n"
 				   "TA: 0.0°\n",
-				   step2pr->body->name, dt_in_days, step2pr->date, hyp_params.dep_hyp.r_pe / 1000, rad2deg(incl),
-				   hyp_params.dep_hyp.c3_energy / 1e6,
-				   rad2deg(hyp_params.arr_hyp.bplane_angle), rad2deg(hyp_params.arr_hyp.decl),
-				   rad2deg(hyp_params.arr_hyp.bvazi),
-				   rad2deg(hyp_params.dep_hyp.bplane_angle), rad2deg(hyp_params.dep_hyp.decl),
-				   rad2deg(hyp_params.dep_hyp.bvazi));
+				   step2pr->body->name, dt_in_days, step2pr->date, hyp_params.rp / 1000, rad2deg(incl),
+				   hyp_params.c3_energy / 1e6,
+				   rad2deg(hyp_params.incoming.bplane_angle), rad2deg(hyp_params.incoming.decl),
+				   rad2deg(hyp_params.incoming.bvazi),
+				   rad2deg(hyp_params.outgoing.bplane_angle), rad2deg(hyp_params.outgoing.decl),
+				   rad2deg(hyp_params.outgoing.bvazi));
 			step2pr = step2pr->next[0];
 		} else {
 			double dt_in_days = step2pr->date - step2pr->prev->date;
-			double dist_to_sun = vector_mag(step2pr->r);
+			double dist_to_sun = mag_vec3(step2pr->r);
 
-			struct Vector orbit_prograde = step2pr->v_arr;
-			struct Vector orbit_normal = cross_product(step2pr->r, step2pr->v_arr);
-			struct Vector orbit_radialin = cross_product(orbit_normal, step2pr->v_arr);
-			struct Vector dv_vec = subtract_vectors(step2pr->next[0]->v_dep, step2pr->v_arr);
+			Vector3 orbit_prograde = step2pr->v_arr;
+			Vector3 orbit_normal = cross_vec3(step2pr->r, step2pr->v_arr);
+			Vector3 orbit_radialin = cross_vec3(orbit_normal, step2pr->v_arr);
+			Vector3 dv_vec = subtract_vec3(step2pr->next[0]->v_dep, step2pr->v_arr);
 
 			// dv vector in S/C coordinate system (prograde, radial in, normal) (sign it if projected vector more than 90° from target vector / pointing in opposite direction)
-			struct Vector dv_vec_sc = {
-					vector_mag(proj_vec_vec(dv_vec, orbit_prograde)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_prograde), orbit_prograde) < M_PI/2 ? 1 : -1),
-					vector_mag(proj_vec_vec(dv_vec, orbit_radialin)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_radialin), orbit_radialin) < M_PI/2 ? 1 : -1),
-					vector_mag(proj_vec_vec(dv_vec, orbit_normal)) * (angle_vec_vec(proj_vec_vec(dv_vec, orbit_normal), orbit_normal) < M_PI/2 ? 1 : -1)
+			Vector3 dv_vec_sc = {
+					mag_vec3(proj_vec3_vec3(dv_vec, orbit_prograde)) * (angle_vec3_vec3(proj_vec3_vec3(dv_vec, orbit_prograde), orbit_prograde) < M_PI/2 ? 1 : -1),
+					mag_vec3(proj_vec3_vec3(dv_vec, orbit_radialin)) * (angle_vec3_vec3(proj_vec3_vec3(dv_vec, orbit_radialin), orbit_radialin) < M_PI/2 ? 1 : -1),
+					mag_vec3(proj_vec3_vec3(dv_vec, orbit_normal)) * (angle_vec3_vec3(proj_vec3_vec3(dv_vec, orbit_normal), orbit_normal) < M_PI/2 ? 1 : -1)
 			};
 
 			printf("\nDeep Space Maneuver (Travel Time: %.2f days)\n"
@@ -693,16 +771,13 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 				   "Dv Radial: %f m/s\n"
 				   "Dv Normal: %f m/s\n"
 				   "Total: %f m/s\n",
-				   dt_in_days, step2pr->date, dist_to_sun / 1.495978707e11, dv_vec_sc.x, dv_vec_sc.y, dv_vec_sc.z, vector_mag(dv_vec_sc));
+				   dt_in_days, step2pr->date, dist_to_sun / 1.495978707e11, dv_vec_sc.x, dv_vec_sc.y, dv_vec_sc.z, mag_vec3(dv_vec_sc));
 			step2pr = step2pr->next[0];
 		}
 	}
 	
-	double rp = 100000e3;
 	double dt_in_days = step2pr->date - step2pr->prev->date;
-	struct DepArrHyperbolaParams arr_hyp_params = get_dep_hyperbola_params(step2pr->v_arr, step2pr->v_body, step2pr->body, rp - step2pr->body->radius);
-	arr_hyp_params.decl *= -1;
-	arr_hyp_params.bplane_angle = pi_norm(M_PI + arr_hyp_params.bplane_angle);
+	hyp_params = get_hyperbola_params(step2pr->v_arr, vec3(0,0,0), step2pr->v_body, step2pr->body, 200e3, HYP_ARRIVAL);
 	printf("\nArrival Hyperbola %s (Travel Time: %.2f days)\n"
 		   "Date: %f\n"
 		   "IncomingRadPer: %f km\n"
@@ -711,8 +786,8 @@ G_MODULE_EXPORT void on_load_itinerary(GtkWidget* widget, gpointer data) {
 		   "IncomingDHA: %f°\n"
 		   "IncomingBVAZI: -°\n"
 		   "TA: 0.0°\n",
-		   step2pr->body->name, dt_in_days, step2pr->date, arr_hyp_params.r_pe/1000, arr_hyp_params.c3_energy/1e6,
-		   rad2deg(arr_hyp_params.bplane_angle), rad2deg(arr_hyp_params.decl));
+		   step2pr->body->name, dt_in_days, step2pr->date, hyp_params.rp/1000, hyp_params.c3_energy/1e6,
+		   rad2deg(hyp_params.incoming.bplane_angle), rad2deg(hyp_params.incoming.decl));
 }
 
 

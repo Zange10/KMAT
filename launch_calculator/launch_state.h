@@ -1,12 +1,12 @@
 #ifndef KSP_LAUNCH_STATE_H
 #define KSP_LAUNCH_STATE_H
 
-#include "tools/analytic_geometry.h"
+#include "geometrylib.h"
 
 struct LaunchState {
 	double t;			// time since launch [s]
-	struct Vector r;	// position [m]
-	struct Vector v;	// velocity [m/s]
+	Vector3 r;	// position [m]
+	Vector3 v;	// velocity [m/s]
 	double m;			// vessel mass [kg]
 	double pitch;
 	int stage_id;

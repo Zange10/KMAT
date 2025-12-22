@@ -1,11 +1,10 @@
 #include "transfer_calc.h"
-#include "transfer_tools.h"
 #include "tools/tool_funcs.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <math.h>
 #include "tools/thread_pool.h"
-#include "orbit_calculator.h"
 
 
 
@@ -34,10 +33,10 @@ void *calc_itins_from_departure(void *args) {
 
 	enum ItinSequenceInfoType itin_seq_type = calc_data->seq_info.to_target.type;
 
-	struct System *system;
-	struct Body *dep_body,
-			*arr_body,			// only to_target: target body
-			**fly_by_bodies;	// to_target: allowed fly_by_bodies; spec_seq: bodies in sequence
+	CelestSystem *system;
+	Body *dep_body,
+		*arr_body,			// only to_target: target body
+		**fly_by_bodies;	// to_target: allowed fly_by_bodies; spec_seq: bodies in sequence
 	int num_initial_transfers,
 			num_steps,			// only spec_seq: number of steps in sequence
 			num_flyby_bodies;	// only to_target: number of allowed fly_by_bodies
@@ -67,30 +66,30 @@ void *calc_itins_from_departure(void *args) {
 
 	double jd_dep = jd_min_dep + index;
 	struct ItinStep *curr_step;
-	struct OSV osv_body0, osv_body1;
+	OSV osv_body0, osv_body1;
 
 	// used for progress feedback
 	double jd_diff = jd_max_dep-jd_min_dep+1;
 
 	while(jd_dep <= jd_max_dep && get_thread_counter(3) == 0) {
-		osv_body0 = system->calc_method == ORB_ELEMENTS ?
-					osv_from_elements(dep_body->orbit, jd_dep, system) :
-					osv_from_ephem(dep_body->ephem, jd_dep, system->cb);
+		osv_body0 = system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(dep_body->orbit, jd_dep) :
+					osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, system->cb);
 
 		curr_step = departures[index];
 		curr_step->body = dep_body;
 		curr_step->date = jd_dep;
 		curr_step->r = osv_body0.r;
 		curr_step->v_body = osv_body0.v;
-		curr_step->v_dep = vec(0, 0, 0);
-		curr_step->v_arr = vec(0, 0, 0);
+		curr_step->v_dep = vec3(0, 0, 0);
+		curr_step->v_arr = vec3(0, 0, 0);
 		curr_step->num_next_nodes = num_initial_transfers;
 		curr_step->prev = NULL;
 		curr_step->next = (struct ItinStep **) malloc(curr_step->num_next_nodes * sizeof(struct ItinStep *));
 
 		double jd_max_arr = jd_dep + max_total_duration < calc_data->jd_max_arr ? jd_dep + max_total_duration : calc_data->jd_max_arr;
 
-		struct Body *next_step_body;
+		Body *next_step_body;
 		int num_next_bodies = itin_seq_type == ITIN_SEQ_INFO_TO_TARGET ? num_flyby_bodies : 1;
 		int next_step_id = 0;
 
@@ -102,13 +101,14 @@ void *calc_itins_from_departure(void *args) {
 				next_step_body = fly_by_bodies[1];
 			}
 
-			struct OSV arr_body_temp_osv = system->calc_method == ORB_ELEMENTS ?
-										   osv_from_elements(next_step_body->orbit, jd_dep, system) :
-										   osv_from_ephem(next_step_body->ephem, jd_dep, system->cb);
+			OSV arr_body_temp_osv = system->prop_method == ORB_ELEMENTS ?
+										   osv_from_elements(next_step_body->orbit, jd_dep) :
+										   osv_from_ephem(next_step_body->ephem, next_step_body->num_ephems, jd_dep, system->cb);
 
-			double r0 = vector_mag(osv_body0.r), r1 = vector_mag(arr_body_temp_osv.r);
+			double r0 = mag_vec3(osv_body0.r), r1 = mag_vec3(arr_body_temp_osv.r);
 			double r_ratio =  r1/r0;
-			double hohmann_dur = calc_hohmann_transfer_duration(r0, r1, system->cb)/86400;
+			Hohmann hohmann = calc_hohmann_transfer(r0, r1, system->cb);
+			double hohmann_dur = hohmann.dur/86400;
 			double min_duration = 0.4 * hohmann_dur;
 			double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
 			double max_min_duration_diff = max_duration - min_duration;
@@ -118,18 +118,30 @@ void *calc_itins_from_departure(void *args) {
 
 				if(jd_arr > jd_max_arr) break;
 
-				osv_body1 = system->calc_method == ORB_ELEMENTS ?
-							osv_from_elements(next_step_body->orbit, jd_arr, system) :
-							osv_from_ephem(next_step_body->ephem, jd_arr, system->cb);
+				osv_body1 = system->prop_method == ORB_ELEMENTS ?
+							osv_from_elements(next_step_body->orbit, jd_arr) :
+							osv_from_ephem(next_step_body->ephem, next_step_body->num_ephems, jd_arr, system->cb);
 
-				double data[3];
-
-				struct Transfer tf = calc_transfer(tt, dep_body, next_step_body, osv_body0.r, osv_body0.v,
-												   osv_body1.r, osv_body1.v, (jd_arr - jd_dep) * 86400, system->cb, data, dv_filter.dep_periapsis, dv_filter.arr_periapsis);
-
-
-				if(data[1] > dv_filter.max_totdv || data[1] > dv_filter.max_depdv) continue;
-				if(num_steps == 2 && (data[1] + data[2] > dv_filter.max_totdv || data[2] > dv_filter.max_satdv)) continue;
+				Lambert3 tf = calc_lambert3(osv_body0.r, osv_body1.r, (jd_arr - jd_dep) * 86400, system->cb);
+				
+				
+				double dv_dep, dv_arr;
+				if(dep_body != NULL) {
+					double vinf = fabs(mag_vec3(subtract_vec3(tf.v0, osv_body0.v)));
+					dv_dep = tt % 2 == 0 ? dv_capture(dep_body, alt2radius(dep_body, dv_filter.dep_periapsis), vinf) : dv_circ(dep_body,alt2radius(dep_body, dv_filter.dep_periapsis),vinf);
+				} else dv_dep = mag_vec3(osv_body0.v);
+				
+				if(arr_body != NULL) {
+					double vinf = fabs(mag_vec3(subtract_vec3(tf.v1, osv_body1.v)));
+					if(tt < 2) dv_arr = dv_capture(arr_body, alt2radius(arr_body, dv_filter.arr_periapsis), vinf);
+					else if(tt < 4) dv_arr = dv_circ(arr_body, alt2radius(arr_body, dv_filter.arr_periapsis), vinf);
+					else dv_arr = 0;
+				} else {
+					dv_arr = mag_vec3(osv_body1.v);
+				}
+				
+				if(dv_dep > dv_filter.max_totdv || dv_dep > dv_filter.max_depdv) continue;
+				if(num_steps == 2 && (dv_dep + dv_arr > dv_filter.max_totdv || dv_arr > dv_filter.max_satdv)) continue;
 
 				curr_step = get_first(curr_step);
 				curr_step->next[next_step_id] = (struct ItinStep *) malloc(sizeof(struct ItinStep));

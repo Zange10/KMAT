@@ -1,16 +1,13 @@
 #ifndef KSP_ITIN_TOOL_H
 #define KSP_ITIN_TOOL_H
 
-#include "tools/analytic_geometry.h"
-#include "tools/ephem.h"
-#include "tools/datetime.h"
-#include "celestial_bodies.h"
+#include "tools/celestial_systems.h"
 #include <stdio.h>
 
 struct ItinStep {
-	struct Body *body;
-	struct Vector r;
-	struct Vector v_arr, v_body, v_dep;
+	Body *body;
+	Vector3 r;
+	Vector3 v_arr, v_body, v_dep;
 	double date;
 	int num_next_nodes;
 	struct ItinStep *prev;
@@ -22,14 +19,14 @@ enum ItinSequenceInfoType {ITIN_SEQ_INFO_TO_TARGET, ITIN_SEQ_INFO_SPEC_SEQ};
 typedef union ItinSequenceInfo {
 	struct ItinSequenceInfoToTarget {
 		enum ItinSequenceInfoType type;
-		struct System *system;
-		struct Body *dep_body, *arr_body, **flyby_bodies;
+		CelestSystem *system;
+		Body *dep_body, *arr_body, **flyby_bodies;
 		int num_flyby_bodies;
 	} to_target;
 
 	struct ItinSequenceInfoSpecItin {
 		enum ItinSequenceInfoType type;
-		struct System *system;
+		CelestSystem *system;
 		struct Body **bodies;
 		int num_steps;
 	} spec_seq;
@@ -41,20 +38,24 @@ struct Dv_Filter {
 	int last_transfer_type;
 };
 
+typedef struct Calc_Acc {
+	double lambert, fb_finder;
+} Calc_Acc;
+
 struct PorkchopPoint {
-		struct ItinStep *arrival;
-		double dep_date, dur;
-		double dv_dep, dv_dsm, dv_arr_cap, dv_arr_circ;
+	struct ItinStep *arrival;
+	double dep_date, dur;
+	double dv_dep, dv_dsm, dv_arr_cap, dv_arr_circ;
 };
 
 
 enum LastTransferType {TF_FLYBY, TF_CAPTURE, TF_CIRC};
 
 // find viable flybys to next body with a given arrival trajectory
-void find_viable_flybys(struct ItinStep *tf, struct System *system, struct Body *next_body, double min_dt, double max_dt);
+void find_viable_flybys(struct ItinStep *tf, CelestSystem *system, Body *next_body, double min_dt, double max_dt);
 
 // find viable flybys to next body with a given arrival trajectory
-void find_viable_dsb_flybys(struct ItinStep *tf, struct Ephem **ephems, struct Body *next_body, double min_dt0, double max_dt0, double min_dt1, double max_dt1);
+void find_viable_dsb_flybys(struct ItinStep *tf, Ephem **ephems, Body *next_body, double min_dt0, double max_dt0, double min_dt1, double max_dt1);
 
 // return departure step
 struct ItinStep * get_first(struct ItinStep *tf);
@@ -84,7 +85,7 @@ struct PorkchopPoint *create_porkchop_array_from_departures(struct ItinStep **de
 struct PorkchopPoint create_porkchop_point(struct ItinStep *itin, double dep_periapsis, double arr_periapsis);
 
 // from current step and given information, initiate calculation of next steps
-int calc_next_spec_itin_step(struct ItinStep *curr_step, struct System *system, struct Body **bodies, double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step);
+int calc_next_spec_itin_step(struct ItinStep *curr_step, CelestSystem *system, Body **bodies, double jd_max_arr, struct Dv_Filter *dv_filter, int num_steps, int step);
 
 // from current step and given information, initiate calculation of next steps
 int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct ItinSequenceInfoToTarget *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
@@ -93,7 +94,7 @@ int calc_next_itin_to_target_step(struct ItinStep *curr_step, struct ItinSequenc
 int continue_to_next_steps_and_check_for_valid_itins(struct ItinStep *curr_step, int num_of_end_nodes, struct ItinSequenceInfoToTarget *seq_info, double jd_max_arr, double max_total_duration, struct Dv_Filter *dv_filter);
 
 // find end nodes (next step at arrival body) and copy to the end of the next steps array of curr_step
-int find_copy_and_store_end_nodes(struct ItinStep *curr_step, struct Body *arr_body);
+int find_copy_and_store_end_nodes(struct ItinStep *curr_step, Body *arr_body);
 
 // removes end nodes from initerary that do not satisfy dv requirements (returns new number of end nodes)
 int remove_end_nodes_that_do_not_satisfy_dv_requirements(struct ItinStep *curr_step, int num_of_end_nodes, struct Dv_Filter *dv_filter);
@@ -102,10 +103,10 @@ int remove_end_nodes_that_do_not_satisfy_dv_requirements(struct ItinStep *curr_s
 int get_num_of_itin_layers(struct ItinStep *step);
 
 // update r and v_body vectors of itinerary steps (departure first)
-void update_itin_body_osvs(struct ItinStep *step, struct System *system);
+void update_itin_body_osvs(struct ItinStep *step, CelestSystem *system);
 
 // calculate from velocity vectors for itinerary steps from date and r vector (departure first)
-void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, struct System *system);
+void calc_itin_v_vectors_from_dates_and_r(struct ItinStep *step, CelestSystem *system);
 
 // copy the body reference, r and v vectors and date from orig_step to step_copy
 void copy_step_body_vectors_and_date(struct ItinStep *orig_step, struct ItinStep *step_copy);

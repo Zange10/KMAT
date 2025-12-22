@@ -16,7 +16,7 @@ typedef struct {
 	int major, minor, patch;
 } KmatVersion;
 
-KmatVersion current_version = {.major = 1, .minor = 3, .patch = 0};
+KmatVersion current_version = {.major = 1, .minor = 3, .patch = 1};
 KmatVersion latest_release = {1,0,0};
 
 void get_current_version_string_incl_tool_name(char *string) {

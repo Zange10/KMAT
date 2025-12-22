@@ -65,42 +65,42 @@ void launch_calculator() {
     } while(selection != 0);
 }
 
-struct Plane calc_plane_parallel_to_surf(struct Vector r) {
-	struct Plane s;
+Plane3 calc_plane_parallel_to_surf(Vector3 r) {
+	Plane3 s;
 	s.loc = r;
-	s.u = norm_vector(cross_product(vec(0,0,1), r));	// east
-	s.v = norm_vector(cross_product(r, s.u));	// north
-	if(s.v.z < 0) s.v = scalar_multiply(s.v, -1); // should be unnecessary, but to be on safe side
+	s.u = norm_vec3(cross_vec3(vec3(0,0,1), r));	// east
+	s.v = norm_vec3(cross_vec3(r, s.u));			// north
+	if(s.v.z < 0) s.v = scale_vec3(s.v, -1); // should be unnecessary, but to be on safe side
 	return s;
 }
 
-struct Vector calc_surface_velocity_from_osv(struct Vector r, struct Vector v, struct Body *body) {
-	struct Plane surface_plane = calc_plane_parallel_to_surf(r);
-	struct Plane eq = constr_plane(vec(0,0,0), vec(1,0,0), vec(0,1,0));
-	double lat = angle_plane_vec(eq, r);
-	double v_b = 2*M_PI*vector_mag(r) / body->rotation_period * cos(lat);
-	struct Vector v_b_vec = scalar_multiply(surface_plane.u, v_b);
-	return subtract_vectors(v, v_b_vec);
+Vector3 calc_surface_velocity_from_osv(Vector3 r, Vector3 v, Body *body) {
+	Plane3 surface_plane = calc_plane_parallel_to_surf(r);
+	Plane3 eq = constr_plane3(vec3(0,0,0), vec3(1,0,0), vec3(0,1,0));
+	double lat = angle_plane3_vec3(eq, r);
+	double v_b = 2*M_PI*mag_vec3(r) / body->rotation_period * cos(lat);
+	Vector3 v_b_vec = scale_vec3(surface_plane.u, v_b);
+	return subtract_vec3(v, v_b_vec);
 }
 
-double calc_vertical_speed_from_osv(struct Vector r, struct Vector v) {
-	struct Plane surface_plane = calc_plane_parallel_to_surf(r);
-	struct Vector up = cross_product(surface_plane.u, surface_plane.v);
-	struct Vector vert_v = proj_vec_vec(v, up);
-	double vertical_speed = vector_mag(vert_v);
-	if(angle_vec_vec(v, up) > M_PI/2) vertical_speed *= -1;	// points down
+double calc_vertical_speed_from_osv(Vector3 r, Vector3 v) {
+	Plane3 surface_plane = calc_plane_parallel_to_surf(r);
+	Vector3 up = cross_vec3(surface_plane.u, surface_plane.v);
+	Vector3 vert_v = proj_vec3_vec3(v, up);
+	double vertical_speed = mag_vec3(vert_v);
+	if(angle_vec3_vec3(v, up) > M_PI/2) vertical_speed *= -1;	// points down
 	return vertical_speed;
 }
 
-double calc_horizontal_orbspeed_from_osv(struct Vector r, struct Vector v) {
-	struct Plane surface_plane = calc_plane_parallel_to_surf(r);
-	struct Vector hor_v = proj_vec_plane(v, surface_plane);
-	return vector_mag(hor_v);
+double calc_horizontal_orbspeed_from_osv(Vector3 r, Vector3 v) {
+	Plane3 surface_plane = calc_plane_parallel_to_surf(r);
+	Vector3 hor_v = proj_vec3_plane3(v, surface_plane);
+	return mag_vec3(hor_v);
 }
 
-double calc_downrange_distance(struct Vector r, double time, double launch_latitude, struct Body *body) {
-	struct Vector launchsite = {cos(launch_latitude), 0, sin(launch_latitude)};
-	launchsite = rotate_vector_around_axis(launchsite, vec(0,0,1), 2*M_PI*time/body->rotation_period);
-	double angle_to_launchsite = angle_vec_vec(r, launchsite);
+double calc_downrange_distance(Vector3 r, double time, double launch_latitude, struct Body *body) {
+	Vector3 launchsite = {cos(launch_latitude), 0, sin(launch_latitude)};
+	launchsite = rotate_vector_around_axis(launchsite, vec3(0,0,1), 2*M_PI*time/body->rotation_period);
+	double angle_to_launchsite = angle_vec3_vec3(r, launchsite);
 	return angle_to_launchsite*body->radius; // angle/2pi * 2pi*r
 }

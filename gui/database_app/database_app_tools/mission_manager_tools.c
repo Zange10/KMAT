@@ -2,7 +2,7 @@
 #include "gui/css_loader.h"
 #include "mission_db_tools.h"
 #include "gui/database_app/mission_db.h"
-#include "tools/datetime.h"
+#include "orbitlib.h"
 
 GtkWidget *grid_mman_objectives;
 GtkWidget *grid_mman_events;
@@ -423,7 +423,7 @@ void update_mman_event_box() {
 	// Create labels and buttons and add them to the grid
 	for (int i = 0; i < num_events; i++) {
 		int row = i*2+3;
-		struct Date date = {};
+		struct Datetime date = {};
 		if(event_list[i].event_type != TIMESINCE_EVENT) {
 			date = convert_JD_date(events[i].epoch, DATE_ISO);
 		} else {
@@ -592,7 +592,7 @@ G_MODULE_EXPORT void on_mman_add_event(GtkWidget *button, gpointer data) {
 	if(new_events == NULL) { printf("Memory reallocation failed!\n"); exit(1); }
 	events = new_events;
 	// Initialize the new objective
-	struct Date date = {1950, 01, 01};
+	struct Datetime date = {1950, 01, 01};
 	events[num_events-1].id = 0;
 	if(initial_event_id < 0)
 		events[num_events-1].epoch = convert_date_JD(date);
@@ -670,7 +670,7 @@ G_MODULE_EXPORT void on_mman_change_event_time_type(GtkWidget *combo_box, gpoint
 double get_event_epoch(struct MissionEventList *event) {
 	char *endptr;
 	if(event->event_type != TIMESINCE_EVENT) {
-		struct Date date = {
+		struct Datetime date = {
 				.y   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_year)), &endptr, 10),
 				.m   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_month)), &endptr, 10),
 				.d   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_day)), &endptr, 10),
@@ -680,7 +680,7 @@ double get_event_epoch(struct MissionEventList *event) {
 		};
 		return convert_date_JD(date);
 	} else {
-		struct Date date_diff = {
+		struct Datetime date_diff = {
 				.d   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_day)), &endptr, 10),
 				.h   = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_hour)), &endptr, 10),
 				.min = (int) strtol(gtk_entry_get_text(GTK_ENTRY(event->tf_min)), &endptr, 10),

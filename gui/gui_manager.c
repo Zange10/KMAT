@@ -84,7 +84,16 @@ void activate_app(GtkApplication *app, gpointer gui_filepath) {
 	gtk_widget_set_visible(GTK_WIDGET (window), TRUE);
 
 	#ifdef _WIN32
-		set_window_style_css("../GUI/theme/breeze-dark-win.css");
+	char css_path[MAX_PATH] = {0};
+	char cache_path[MAX_PATH] = {0};
+
+	resolve_win_relative_path("../GUI/theme/share/themes/Breeze-Dark/gtk-3.0/gtk.css", css_path);
+	resolve_win_relative_path("../lib/gdk-pixbuf-2.0/2.10.0/loaders.cache", cache_path);
+
+	g_setenv("GDK_PIXBUF_MODULE_FILE", cache_path, TRUE);
+
+	// Load CSS manually if needed
+	set_window_style_css(css_path);
 	#endif
 	load_css("../GUI/theme/style.css");
 
@@ -246,7 +255,7 @@ void change_text_field_date_type(GObject *text_field, enum DateType old_date_typ
 	char *old_string, new_string[32];
 	old_string = (char*) gtk_entry_get_text(GTK_ENTRY(text_field));
 	if(!is_string_valid_date_format(old_string, old_date_type)) return;
-	struct Date date = date_from_string(old_string, old_date_type);
+	struct Datetime date = date_from_string(old_string, old_date_type);
 	date = change_date_type(date, new_date_type);
 	date_to_string(date, new_string, 0);
 	gtk_entry_set_text(GTK_ENTRY(text_field), new_string);
@@ -256,7 +265,7 @@ void change_label_date_type(GObject *label, enum DateType old_date_type, enum Da
 	char *old_string, new_string[32];
 	old_string = (char*) gtk_label_get_text(GTK_LABEL(label));
 	if(!is_string_valid_date_format(old_string, old_date_type)) return;
-	struct Date date = date_from_string(old_string, old_date_type);
+	struct Datetime date = date_from_string(old_string, old_date_type);
 	date = change_date_type(date, new_date_type);
 	date_to_string(date, new_string, 0);
 	gtk_label_set_text(GTK_LABEL(label), new_string);
@@ -266,7 +275,7 @@ void change_button_date_type(GObject *button, enum DateType old_date_type, enum 
 	char *old_string, new_string[32];
 	old_string = (char*) gtk_button_get_label(GTK_BUTTON(button));
 	if(!is_string_valid_date_format(old_string, old_date_type)) return;
-	struct Date date = date_from_string(old_string, old_date_type);
+	struct Datetime date = date_from_string(old_string, old_date_type);
 	date = change_date_type(date, new_date_type);
 	date_to_string(date, new_string, 0);
 	gtk_button_set_label(GTK_BUTTON(button), new_string);
@@ -305,7 +314,7 @@ void update_system_dropdown(GtkComboBox *cb_sel_system) {
 	g_object_unref(store);
 }
 
-void update_central_body_dropdown(GtkComboBox *cb_sel_central_body, struct System *system) {
+void update_central_body_dropdown(GtkComboBox *cb_sel_central_body, CelestSystem *system) {
 	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
 	GtkTreeIter iter;
 	// Add items to the list store
@@ -323,7 +332,7 @@ void update_central_body_dropdown(GtkComboBox *cb_sel_central_body, struct Syste
 }
 
 
-void update_body_dropdown(GtkComboBox *cb_sel_body, struct System *system) {
+void update_body_dropdown(GtkComboBox *cb_sel_body, CelestSystem *system) {
 	GtkListStore *store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
 	if(system != NULL) {
 		GtkTreeIter iter;
@@ -337,7 +346,8 @@ void update_body_dropdown(GtkComboBox *cb_sel_body, struct System *system) {
 	}
 
 	gtk_combo_box_set_model(cb_sel_body, GTK_TREE_MODEL(store));
-	gtk_combo_box_set_active(cb_sel_body, 0);
+	if(system && system->home_body) gtk_combo_box_set_active(cb_sel_body, get_body_system_id(system->home_body, system));
+	else gtk_combo_box_set_active(cb_sel_body, 0);
 
 	g_object_unref(store);
 }

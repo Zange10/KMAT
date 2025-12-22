@@ -1,6 +1,5 @@
 #include "itinerary_calculator.h"
 #include "orbit_calculator/transfer_calc.h"
-#include "orbit_calculator/transfer_tools.h"
 #include "gui/gui_manager.h"
 #include "gui/settings.h"
 #include "gui/info_win_manager.h"
@@ -24,7 +23,7 @@ GObject *tf_ic_satdv;
 GObject *vp_ic_fbbodies;
 GtkWidget *grid_ic_fbbodies;
 
-struct System *ic_system;
+CelestSystem *ic_system;
 
 double ic_dep_periapsis = 50e3;
 double ic_arr_periapsis = 50e3;
@@ -105,8 +104,8 @@ int get_num_selected_bodies_from_grid(GtkWidget *grid) {
 	return num_bodies;
 }
 
-struct Body ** get_bodies_from_grid(GtkWidget *grid, int num_bodies) {
-	struct Body **bodies = malloc(num_bodies * sizeof(struct Body*));
+Body ** get_bodies_from_grid(GtkWidget *grid, int num_bodies) {
+	Body **bodies = malloc(num_bodies * sizeof(Body*));
 	int idx = 0;
 	for(int i = 0; i < ic_system->num_bodies; i++) {
 		if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(gtk_grid_get_child_at(GTK_GRID(grid), 0, i)))) {
@@ -165,13 +164,16 @@ void ic_calc_thread() {
 
 	ic_calc_data.dv_filter.dep_periapsis = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_depbody))]->atmo_alt + ic_dep_periapsis;
 	ic_calc_data.dv_filter.arr_periapsis = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))]->atmo_alt + ic_arr_periapsis;
+	
+	ic_calc_data.calc_acc.lambert = 1;
+	ic_calc_data.calc_acc.fb_finder = 1;
 
 	ic_calc_data.num_deps_per_date = 500;
 	ic_calc_data.step_dep_date = 1;
 	ic_calc_data.max_num_waiting_orbits = 0;
 
 	// Make sure arrival body is a fly-by body
-	struct Body *arr_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))];
+	Body *arr_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))];
 	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(gtk_grid_get_child_at(GTK_GRID(grid_ic_fbbodies), 0, get_body_system_id(arr_body, ic_system))), 1);
 
 	struct ItinSequenceInfoToTarget seq_info = {
@@ -213,7 +215,7 @@ G_MODULE_EXPORT void on_ic_central_body_change() {
 			return;
 		}
 		gtk_widget_set_sensitive(GTK_WIDGET(cb_ic_central_body), 1);
-		struct System *ic_og_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))];
+		CelestSystem *ic_og_system = get_available_systems()[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_system))];
 		ic_system = get_subsystem_from_system_and_id(ic_og_system, gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_central_body)));
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_depbody), ic_system);
 		update_body_dropdown(GTK_COMBO_BOX(cb_ic_arrbody), ic_system);
@@ -224,13 +226,18 @@ G_MODULE_EXPORT void on_ic_central_body_change() {
 G_MODULE_EXPORT void on_get_ic_ref_values() {
 	if(ic_system == NULL) return;
 	double dv_dep, dv_arr_cap, dv_arr_circ, dur;
-	struct Body *dep_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_depbody))];
-	struct Body *arr_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))];
+	Body *dep_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_depbody))];
+	Body *arr_body = ic_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ic_arrbody))];
 
 	if(dep_body == arr_body) return;
-
-	calc_interplanetary_hohmann_transfer(dep_body, arr_body, ic_system->cb, &dur, &dv_dep, &dv_arr_cap, &dv_arr_circ, dep_body->atmo_alt+ic_dep_periapsis, arr_body->atmo_alt+ic_arr_periapsis);
-
+	
+	Hohmann hohmann = calc_hohmann_transfer(dep_body->orbit.a, arr_body->orbit.a, ic_system->cb);
+	
+	dur = hohmann.dur;
+	dv_dep = dv_circ(dep_body, altatmo2radius(dep_body,ic_dep_periapsis), hohmann.dv_dep);
+	dv_arr_circ = dv_circ(arr_body, altatmo2radius(arr_body,ic_arr_periapsis), hohmann.dv_arr);
+	dv_arr_cap = dv_capture(arr_body, altatmo2radius(arr_body,ic_arr_periapsis), hohmann.dv_arr);
+	
 	dur /= get_settings_datetime_type() != DATE_KERBAL ? (24*60*60) : (6*60*60);
 
 	char msg[256];

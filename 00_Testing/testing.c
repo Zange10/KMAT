@@ -16,9 +16,9 @@ void run_tests() {
 	// Kerbin -> Eeloo; 1-001 | 2-001 | 3000; dv_dep = 1500 | Bodies: all
 	test_data[num_tests] = (union TestData) (struct Itin_To_Target_Calc_Test) {
 			TEST_ITIN_TO_TARGET,
-			(struct Date) {.y = 1, .d = 1, .date_type = DATE_KERBAL},
-			(struct Date) {.y = 2, .d = 1, .date_type = DATE_KERBAL},
-			(struct Date) {.y = 100, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 1, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 2, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 100, .d = 1, .date_type = DATE_KERBAL},
 			3000,
 			1500, 1e9, 1e9, TF_FLYBY,
 			"Stock System",
@@ -32,9 +32,9 @@ void run_tests() {
 	// Kerbin -> Eeloo; 1-001 | 2-001 | 3000; dv_dep = 1800, dv_arr = 1800 (circ) | Bodies: Eve, Kerbin, Duna, Eeloo
 	test_data[num_tests] = (union TestData) (struct Itin_To_Target_Calc_Test) {
 			TEST_ITIN_TO_TARGET,
-			(struct Date) {.y = 1, .d = 1, .date_type = DATE_KERBAL},
-			(struct Date) {.y = 2, .d = 1, .date_type = DATE_KERBAL},
-			(struct Date) {.y = 100, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 1, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 2, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 100, .d = 1, .date_type = DATE_KERBAL},
 			3000,
 			1800, 1800, 1e9, TF_CIRC,
 			"Stock System",
@@ -48,9 +48,9 @@ void run_tests() {
 	// Kerbin -> Kerbin; 1-001 | 2-001 | 1000; dv_dep = 1800 | Bodies: Eve, Kerbin, Duna, Jool
 	test_data[num_tests] = (union TestData) (struct Itin_To_Target_Calc_Test) {
 			TEST_ITIN_TO_TARGET,
-			(struct Date) {.y = 1, .d = 1, .date_type = DATE_KERBAL},
-			(struct Date) {.y = 2, .d = 1, .date_type = DATE_KERBAL},
-			(struct Date) {.y = 100, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 1, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 2, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 100, .d = 1, .date_type = DATE_KERBAL},
 			1000,
 			1800, 1e9, 1e9, TF_FLYBY,
 			"Stock System",
@@ -64,9 +64,9 @@ void run_tests() {
 	// Earth -> Earth; 1959-01-01 | 1960-01-01 | 1000; dv_dep = 5000 | Bodies: all
 	test_data[num_tests] = (union TestData) (struct Itin_To_Target_Calc_Test) {
 			TEST_ITIN_TO_TARGET,
-			(struct Date) {.y = 1959, .m = 1, .d = 1, .date_type = DATE_ISO},
-			(struct Date) {.y = 1960, .m = 1, .d = 1, .date_type = DATE_ISO},
-			(struct Date) {.y = 2000, .m = 1, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 1959, .m = 1, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 1960, .m = 1, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 2000, .m = 1, .d = 1, .date_type = DATE_ISO},
 			1000,
 			5000, 1e9, 1e9, TF_FLYBY,
 			"Solar System (Ephemerides)",
@@ -80,9 +80,9 @@ void run_tests() {
 	// Earth -> Earth; 1959-01-01 | 1960-01-01 | 1000; dv_dep = 5000 | Bodies: Mercury, Venus, Earth
 	test_data[num_tests] = (union TestData) (struct Itin_To_Target_Calc_Test) {
 			TEST_ITIN_TO_TARGET,
-			(struct Date) {.y = 1959, .m = 1, .d = 1, .date_type = DATE_ISO},
-			(struct Date) {.y = 1960, .m = 1, .d = 1, .date_type = DATE_ISO},
-			(struct Date) {.y = 2000, .m = 1, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 1959, .m = 1, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 1960, .m = 1, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 2000, .m = 1, .d = 1, .date_type = DATE_ISO},
 			1000,
 			5000, 1e9, 1e9, TF_FLYBY,
 			"Solar System (Ephemerides)",
@@ -96,9 +96,9 @@ void run_tests() {
 	// Earth -> Jupiter; 1967-01-01 | 1968-01-01 | 3000; dv_dep = 4500 | Bodies: Venus, Earth, Mars, Jupiter
 	test_data[num_tests] = (union TestData) (struct Itin_To_Target_Calc_Test) {
 			TEST_ITIN_TO_TARGET,
-			(struct Date) {.y = 1967, .m = 1, .d = 1, .date_type = DATE_ISO},
-			(struct Date) {.y = 1968, .m = 1, .d = 1, .date_type = DATE_ISO},
-			(struct Date) {.y = 2000, .m = 1, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 1967, .m = 1, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 1968, .m = 1, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 2000, .m = 1, .d = 1, .date_type = DATE_ISO},
 			3000,
 			4500, 1e9, 1e9, TF_FLYBY,
 			"Solar System (Ephemerides)",
@@ -115,9 +115,9 @@ void run_tests() {
 	// Kerbin -> Eve; 2-001 | 3-001 | 300; dv_dep = 1200; dv_arr = 1500 (circ)
 	test_data[num_tests] = (union TestData) (struct Itin_Spec_Seq_Calc_Test) {
 			TEST_ITIN_SPEC_SEQ,
-			(struct Date) {.y = 2, .d = 1, .date_type = DATE_KERBAL},
-			(struct Date) {.y = 3, .d = 1, .date_type = DATE_KERBAL},
-			(struct Date) {.y = 100, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 2, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 3, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 100, .d = 1, .date_type = DATE_KERBAL},
 			300,
 			1200, 1500, 1e9, TF_CIRC,
 			"Stock System",
@@ -129,9 +129,9 @@ void run_tests() {
 	// Kerbin -> Eve -> Duna -> Kerbin; 2-001 | 3-001 | 1000; dv_dep = 1500
 	test_data[num_tests] = (union TestData) (struct Itin_Spec_Seq_Calc_Test) {
 			TEST_ITIN_SPEC_SEQ,
-			(struct Date) {.y = 2, .d = 1, .date_type = DATE_KERBAL},
-			(struct Date) {.y = 3, .d = 1, .date_type = DATE_KERBAL},
-			(struct Date) {.y = 100, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 2, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 3, .d = 1, .date_type = DATE_KERBAL},
+			(struct Datetime) {.y = 100, .d = 1, .date_type = DATE_KERBAL},
 			1000,
 			1500, 1e9, 1e9, TF_FLYBY,
 			"Stock System",
@@ -143,9 +143,9 @@ void run_tests() {
 	// Earth -> Mars; 1950-01-01 | 1951-06-01 | 1950-11-01 | 600; dv_dep = 5000; dv_arr = 4000 (circ); dv_tot = 8200
 	test_data[num_tests] = (union TestData) (struct Itin_Spec_Seq_Calc_Test) {
 			TEST_ITIN_SPEC_SEQ,
-			(struct Date) {.y = 1950, .m = 1, .d = 1, .date_type = DATE_ISO},
-			(struct Date) {.y = 1950, .m = 6, .d = 1, .date_type = DATE_ISO},
-			(struct Date) {.y = 1950, .m =11, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 1950, .m = 1, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 1950, .m = 6, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 1950, .m =11, .d = 1, .date_type = DATE_ISO},
 			600,
 			5000, 4000, 8200, TF_CIRC,
 			"Solar System (Ephemerides)",
@@ -157,9 +157,9 @@ void run_tests() {
 	// Earth -> Jupiter -> Saturn -> Uranus -> Neptune; 1977-01-01 | 1978-01-01 | 8000; dv_dep = 7200
 	test_data[num_tests] = (union TestData) (struct Itin_Spec_Seq_Calc_Test) {
 			TEST_ITIN_SPEC_SEQ,
-			(struct Date) {.y = 1977, .m = 1, .d = 1, .date_type = DATE_ISO},
-			(struct Date) {.y = 1978, .m = 1, .d = 1, .date_type = DATE_ISO},
-			(struct Date) {.y = 2000, .m = 1, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 1977, .m = 1, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 1978, .m = 1, .d = 1, .date_type = DATE_ISO},
+			(struct Datetime) {.y = 2000, .m = 1, .d = 1, .date_type = DATE_ISO},
 			8000,
 			7200, 1e9, 1e9, TF_FLYBY,
 			"Solar System (Ephemerides)",

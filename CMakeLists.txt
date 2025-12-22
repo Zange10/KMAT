@@ -5,9 +5,9 @@ set(CMAKE_C_STANDARD 11)
 
 include_directories(.)
 
+add_subdirectory(external/orbitlib)
+
 add_executable(KMAT
-        celestial_bodies.c
-        celestial_bodies.h
         tools/file_io.c
         tools/file_io.h
         launch_calculator/launch_calculator.c
@@ -15,10 +15,6 @@ add_executable(KMAT
         launch_calculator/lv_profile.c
         launch_calculator/lv_profile.h
         main.c
-        orbit_calculator/orbit.c
-        orbit_calculator/orbit.h
-        orbit_calculator/orbit_calculator.c
-        orbit_calculator/orbit_calculator.h
         tools/tool_funcs.c
         tools/tool_funcs.h
         launch_calculator/launch_circularization.c
@@ -27,13 +23,7 @@ add_executable(KMAT
         launch_calculator/lp_parameters.h
         orbit_calculator/transfer_calc.c
         orbit_calculator/transfer_calc.h
-        tools/analytic_geometry.c
-        tools/analytic_geometry.h
-        orbit_calculator/transfer_tools.c
-        orbit_calculator/transfer_tools.h
         launch_calculator/lp_parameters.h
-        tools/ephem.c
-        tools/ephem.h
         tools/thread_pool.c
         tools/thread_pool.h
         gui/drawing.c
@@ -44,8 +34,6 @@ add_executable(KMAT
         database/database.c
         database/database.h
         orbit_calculator/double_swing_by.h
-        tools/data_tool.c
-        tools/data_tool.h
         orbit_calculator/itin_tool.c
         orbit_calculator/itin_tool.h
         gui/transfer_app/transfer_planner.c
@@ -90,8 +78,6 @@ add_executable(KMAT
         gui/gui_manager.h
         gui/info_win_manager.c
         gui/info_win_manager.h
-        tools/datetime.c
-        tools/datetime.h
         gui/settings.c
         gui/settings.h
         00_Testing/testing.c
@@ -104,6 +90,7 @@ add_executable(KMAT
         gui/gui_tools/screen.h
         tools/version_tool.c
         tools/version_tool.h
+        tools/celestial_systems.c
 )
 
 # Platform-specific setup
@@ -144,6 +131,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     )
 
     target_link_libraries(KMAT
+            orbitlib
             gtk-3
             gdk-3
             gobject-2.0
@@ -158,6 +146,10 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
             wininet
     )
 
+    target_include_directories(KMAT PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/external/orbitlib/include
+    )
+
 
     set_target_properties(KMAT PROPERTIES WIN32_EXECUTABLE TRUE)
 
@@ -170,7 +162,12 @@ else(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     include_directories(${GTK3_INCLUDE_DIRS})
     link_directories(${GTK3_LIBRARY_DIRS})
     add_definitions(${GTK3_CFLAGS_OTHER})
-    target_link_libraries(KMAT m ${GTK3_LIBRARIES} sqlite3)
+    target_link_libraries(KMAT m ${GTK3_LIBRARIES} sqlite3 orbitlib)
 
     target_link_options(KMAT PRIVATE -rdynamic)
+
+    target_include_directories(KMAT PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/external/orbitlib/include
+    )
+
 endif()
