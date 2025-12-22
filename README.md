@@ -26,6 +26,14 @@ Download the kmat-win.zip-file from the [latest release](https://github.com/Zang
 * **Linux:**\
 Download the kmat-linux.zip-file from the [latest release](https://github.com/Zange10/ksp-ro-tools/releases) and extract it (to a location of your choice). To be able to run, the packages for [GTK3](https://www.gtk.org/docs/installations/linux/) and [SQLite3](https://www.sqlite.org/index.html) need to be installed. You can run the application using the `Launch_KMAT` executable.
 
+### KMAT System Config Creator
+If the system you are playing with is not available or not detailed enough, you can let the _System Config Creator_ create a config file of your KSP System:
+1. Move the content of `KmatSystemConfigCreator.zip` to KSP's `GameData` folder
+2. Launch KSP and create a new save
+3. Go into the Tracking station
+
+After a few seconds, the config file compatible with KMAT should appear inside the `GameData/KmatSystemConfigCreator` folder
+
 ### Solar System using Ephemeris Data
 If you would like to use the solar system's ephemeris data (this might be recommended if you use Principia), download `solar_system_ephem.cfg` and move it to the `Celestial_Systems` folder. On initial startup, the ephemeris data will be retrieved from [JPL's Horizon API](https://ssd.jpl.nasa.gov/horizons/app.html#/) and stored in the `Ephemerides` folder (created automatically).
 
