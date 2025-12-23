@@ -21,10 +21,10 @@ The interplanetary transfer planner was validated against the mission trajectori
 ## Usage
 ### Installation
 * **Windows:**\
-Download the kmat-win.zip-file from the [latest release](https://github.com/Zange10/ksp-ro-tools/releases) and extract it (to a location of your choice). Now you can run the application using the `Launch_KMAT.exe`. On initial startup you might need to tell windows that this application is safe to run.
+Download `kmat-win.zip` from the [latest release](https://github.com/Zange10/ksp-ro-tools/releases) and extract it (to a location of your choice). Now you can run the application using the `Launch_KMAT.exe`. On initial startup you might need to tell windows that this application is safe to run.
 
 * **Linux:**\
-Download the kmat-linux.zip-file from the [latest release](https://github.com/Zange10/ksp-ro-tools/releases) and extract it (to a location of your choice). To be able to run, the packages for [GTK3](https://www.gtk.org/docs/installations/linux/) and [SQLite3](https://www.sqlite.org/index.html) need to be installed. You can run the application using the `Launch_KMAT` executable.
+Download `kmat-linux.tar.gz` from the [latest release](https://github.com/Zange10/ksp-ro-tools/releases) and extract it (to a location of your choice). To be able to run, the packages for [GTK3](https://www.gtk.org/docs/installations/linux/) and [SQLite3](https://www.sqlite.org/index.html) need to be installed. You can run the application using the `Launch_KMAT` executable.
 
 ### KMAT System Config Creator
 If the system you are playing with is not available or not detailed enough, you can let the _System Config Creator_ create a config file of your KSP System:
