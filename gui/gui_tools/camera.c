@@ -47,6 +47,17 @@ void update_camera_to_celestial_system(Camera *camera, CelestSystem *system, dou
 	camera->rotation_sensitive = FALSE;
 }
 
+void update_camera_to_celestial_body(Camera *camera, Body *body, double initial_pos_pitch, double initial_pos_yaw) {
+	if(body == NULL) { reset_camera(camera); return; }
+	update_camera_distance_wrt_width_at_center(camera, body->radius*2);
+	update_camera_position_from_angles(camera, initial_pos_pitch, initial_pos_yaw, get_camera_distance_to_center(camera));
+	camera_look_to_center(camera);
+
+	camera->min_pos_dist = body->radius*5;
+	camera->max_pos_dist = body->radius*1000;
+	camera->rotation_sensitive = FALSE;
+}
+
 
 
 void camera_zoom_to_fit_itinerary(Camera *camera, struct ItinStep *itin_step) {

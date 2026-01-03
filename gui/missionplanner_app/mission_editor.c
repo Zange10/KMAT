@@ -49,7 +49,7 @@ void init_mission_editor(GtkBuilder *builder) {
 		update_central_body_dropdown(GTK_COMBO_BOX(cb_me_subsystem), me_system);
 		update_body_dropdown(GTK_COMBO_BOX(cb_me_central_body), me_system);
 
-		update_camera_to_celestial_system(me_camera, me_system, deg2rad(90), 0);
+		update_camera_to_celestial_body(me_camera, me_system->cb, deg2rad(90), 0);
 	}
 	
 	show_orbit_editor_window(&orbit1, &update_me_system_view);
@@ -127,7 +127,6 @@ void draw_orbit_wrt_body(Orbit orbit, Vector2 p2d_body, double radius_2d) {
 
 // TRANSFER PLANNER SYSTEM VIEW CALLBACKS -----------------------------------------------
 void update_me_system_view() {
-	me_camera->min_pos_dist = me_central_body->radius;
 	clear_camera_screen(me_camera);
 	if(me_system == NULL) return;
 	

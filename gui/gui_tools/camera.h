@@ -13,11 +13,13 @@ typedef struct {
 } Camera;
 
 typedef struct CelestSystem CelestSystem;
+typedef struct Body Body;
 struct ItinStep;
 
 Camera * new_camera(GtkWidget *drawing_area, void (*resize_func)(), void (*button_press_func)(), void (*button_release_func)(), void (*mouse_motion_func)(), void (*scroll_func)());
 Vector2 p3d_to_p2d(Camera *camera, Vector3 p3d);
 void update_camera_to_celestial_system(Camera *camera, CelestSystem *system, double initial_pos_pitch, double initial_pos_yaw);
+void update_camera_to_celestial_body(Camera *camera, Body *body, double initial_pos_pitch, double initial_pos_yaw);
 void update_camera_position_from_angles(Camera *camera, double pos_pitch, double pos_yaw, double dist);
 void camera_look_to_center(Camera *camera);
 void update_camera_distance_to_center(Camera *camera, double new_distance);
