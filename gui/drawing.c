@@ -603,7 +603,6 @@ void draw_plot_from_data_array(cairo_t *cr, double width, double height, DataArr
 
 	double min_x = data[0].x, max_x = data[0].x;
 	double min_y = data[0].y, max_y = data[0].y;
-	if(min_y > 0) min_y = 0;
 
 	// find min and max
 	for(int i = 1; i < num_points; i++) {
