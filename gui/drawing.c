@@ -595,6 +595,53 @@ void draw_plot(cairo_t *cr, double width, double height, double *x, double *y, i
 	}
 }
 
+void draw_plot_from_data_array(cairo_t *cr, double width, double height, DataArray2 *data_array) {
+	Vector2 origin = {60, height-30};
+
+	size_t num_points = data_array2_size(data_array);
+	Vector2 *data = data_array2_get_data(data_array);
+
+	double min_x = data[0].x, max_x = data[0].x;
+	double min_y = data[0].y, max_y = data[0].y;
+	if(min_y > 0) min_y = 0;
+
+	// find min and max
+	for(int i = 1; i < num_points; i++) {
+		if(data[i].x < min_x) min_x = data[i].x;
+		else if(data[i].x > max_x) max_x = data[i].x;
+		if(data[i].y < min_y) min_y = data[i].y;
+		else if(data[i].y > max_y) max_y = data[i].y;
+	}
+
+	double dx = max_x-min_x;
+	double dy = max_y-min_y;
+
+
+	double margin = 0.05;
+
+	//min_x = min_x != 0 ? min_x - dx * margin : 0;
+	//max_x = max_x != 0 ? max_x + dx * margin : 0;
+	//dx = max_x-min_x;
+	min_y = min_y != 0 ? min_y - dy * margin : 0;
+	max_y = max_y != 0 ? max_y + dy * margin : 0;
+	dy = max_y-min_y;
+
+	// gradients
+	double m_x, m_y;
+	m_x = (width-origin.x)/dx;
+	m_y = -origin.y/dy; // negative, because positive is down
+
+	draw_coordinate_system(cr, width, height, COORD_LABEL_NUMBER, COORD_LABEL_NUMBER, min_x, max_x, min_y, max_y, origin, 10, 15);
+
+	// data
+	cairo_set_source_rgb(cr, 0, 0.8, 0.8);
+	for(int i = 1; i < num_points; i++) {
+		Vector2 point0 = vec2(origin.x + m_x*(data[i-1].x - min_x), origin.y + m_y * (data[i-1].y - min_y));
+		Vector2 point1 = vec2(origin.x + m_x*(data[i  ].x - min_x), origin.y + m_y * (data[i  ].y - min_y));
+		draw_stroke(cr, point0, point1);
+	}
+}
+
 void draw_multi_plot(cairo_t *cr, double width, double height, double *x, double **y, int num_plots, int num_points) {
 	Vector2 origin = {60, height-30};
 

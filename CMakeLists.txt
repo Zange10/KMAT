@@ -91,6 +91,10 @@ add_executable(KMAT
         tools/version_tool.c
         tools/version_tool.h
         tools/celestial_systems.c
+        gui/itin_rework/itin_rework_manager.c
+        gui/itin_rework/itin_rework_manager.h
+        gui/itin_rework/itin_rework_test.c
+        gui/itin_rework/itin_rework_test.h
 )
 
 # Platform-specific setup
