@@ -118,21 +118,34 @@ double calc_next_x(DataArray2 *arr, int index_0) {
 	// Vector2 *dxdy = data_array2_get_data(data_derivative);
 	// print_data_array2(data_derivative, "dur", "ddv");
 
-	for (int i = 0; i < num_data-2; i++) {
-		if (data[i+1].x-data[i].x < 1 && data[i+2].x-data[i+1].x < 1) continue;
-		if (!almost_colinear_f(data[i], data[i+1], data[i+2], 1e-1)) {
-			// data_array2_free(data_derivative);
-			if (data[i+1].x-data[i].x > data[i+2].x-data[i+1].x) {
-				printf("- %d  %f  %f  %f   -  %f\n", i, data[i].x, data[i+1].x, data[i+2].x, (data[i+1].x+data[i].x)/2);
-				return (data[i+1].x+data[i].x)/2;
-			} else {
-				printf("+ %d %f  %f  %f   -  %f\n", i, data[i].x, data[i+1].x, data[i+2].x, (data[i+2].x+data[i+1].x)/2);
-				return (data[i+2].x+data[i+1].x)/2;
-			}
-		}
-	}
+	// for (int i = 0; i < num_data-2; i++) {
+	// 	if (data[i+1].x-data[i].x < 1 && data[i+2].x-data[i+1].x < 1) continue;
+	// 	if (!almost_colinear_f(data[i], data[i+1], data[i+2], 1e-6)) {
+	// 		// data_array2_free(data_derivative);
+	// 		if (data[i+1].x-data[i].x > data[i+2].x-data[i+1].x) {
+	// 			// printf("- %d  %f  %f  %f   -  %f\n", i, data[i].x, data[i+1].x, data[i+2].x, (data[i+1].x+data[i].x)/2);
+	// 			return (data[i+1].x+data[i].x)/2;
+	// 		} else {
+	// 			// printf("+ %d %f  %f  %f   -  %f\n", i, data[i].x, data[i+1].x, data[i+2].x, (data[i+2].x+data[i+1].x)/2);
+	// 			return (data[i+2].x+data[i+1].x)/2;
+	// 		}
+	// 	}
+	// }
 
 	// data_array2_free(data_derivative);
+
+	if (num_data == 3) return (data[1].x - data[0].x)/100 + data[0].x;
+	if (num_data == 4) return (data[1].x - data[0].x)/10 + data[0].x;
+
+	for (int i = 1; i < num_data-1; i++) {
+		if ((data[i+1].x - data[i].x) < 0.001) continue;
+		double m = (data[i].y - data[i-1].y)/(data[i].x - data[i-1].x);
+		double ip_y = data[i].y + m*(data[i+1].x-data[i].x);
+
+		if (fabs(ip_y - data[i+1].y) > 1e0) {
+			return (data[i].x + data[i+1].x)/2;
+		}
+	}
 
 	return -1;
 }
@@ -191,14 +204,14 @@ G_MODULE_EXPORT void on_calc_ir() {
 	while(dt0 < max_dt && counter < max_new_steps) {
 		if (data_array2_size(ir_data) == 0) dt = dt0;
 		else dt = dt1;
-		int index_0 = (int) data_array2_size(ir_data)-1;
-		if (index_0 < 0) index_0 = 0;
+		int index = (int) data_array2_size(ir_data)-1;
+		if (index < 0) index = 0;
 
 		for(int i = 0; i < max_new_steps/10; i++) {
 			if(dt1 < min_dt) break;
 			if(dt < min_dt) dt = min_dt;
 			if(dt > max_dt) dt = max_dt;
-			printf("%f  %f  %f  %f  %f\n", min_dt, max_dt, dt0, dt1, dt);
+			// printf("%f  %f  %f  %f  %f\n", min_dt, max_dt, dt0, dt1, dt);
 
 			double jd_arr = jd_dep + dt / 86400;
 
@@ -217,7 +230,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 			if (dt == dt0 || dt == min_dt) dt = dt1;
 			else if (dt == dt1 || dt == max_dt) dt = (dt + (dt0 > min_dt ? dt0 : min_dt)) / 2;
-			else dt = calc_next_x(ir_data, index_0)*86400;
+			else dt = calc_next_x(ir_data, index)*86400;
 			if (dt < 0) break;
 		}
 		double temp = dt1;
@@ -228,9 +241,6 @@ G_MODULE_EXPORT void on_calc_ir() {
 	print_data_array2(ir_data, "dur", "dv");
 
 	printf("%d\n", counter);
-
-	draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
-	// draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
 
 
 	int num_points = 10000;
@@ -260,11 +270,36 @@ G_MODULE_EXPORT void on_calc_ir() {
 		double dy = (data[i+1].y - data[i].y) / (data[i+1].x - data[i].x);
 		data_array2_append_new(data_derivative, x, dy);
 	}
-	draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, compare_data);
+
+
+	DataArray2 *data_diff = data_array2_create();
+	data = data_array2_get_data(ir_data);
+	for (int i = 0; i < num_points; i++) {
+		int index = 0;
+		double x = data_array2_get_data(compare_data)[i].x;
+		double y = data_array2_get_data(compare_data)[i].y;
+		for (int j = 0; j < data_array2_size(ir_data)-1; j++) {
+			if (data[j+1].x > x) break;
+			index++;
+		}
+		double m = (data[index+1].y - data[index].y)/(data[index+1].x - data[index].x);
+		double ip_y = data[index].y + m*(x-data[index].x);
+		data_array2_append_new(data_diff, x, ip_y-y);
+	}
+
+
+	draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
+	// draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
+
+	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, compare_data);
 	// draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, compare_data);
 	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, data_derivative);
 
+	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, data_diff);
+
+
 	data_array2_free(data_derivative);
+	data_array2_free(data_diff);
 	data_array2_free(compare_data);
 	draw_screen(ir_screen);
 }
