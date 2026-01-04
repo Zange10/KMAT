@@ -4,15 +4,15 @@
   <requires lib="gtk+" version="3.24"/>
   <object class="GtkApplicationWindow" id="window">
     <property name="can-focus">False</property>
-    <property name="default-width">2000</property>
-    <property name="default-height">2000</property>
+    <property name="default-width">1200</property>
+    <property name="default-height">800</property>
     <child>
-      <!-- n-columns=2 n-rows=1 -->
+      <!-- n-columns=2 n-rows=2 -->
       <object class="GtkGrid">
         <property name="visible">True</property>
         <property name="can-focus">False</property>
         <child>
-          <object class="GtkDrawingArea" id="da_ir_graphing">
+          <object class="GtkDrawingArea" id="da_ir_graphing0">
             <property name="visible">True</property>
             <property name="can-focus">False</property>
             <property name="hexpand">True</property>
@@ -196,7 +196,7 @@
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="has-frame">False</property>
-                    <property name="text" translatable="yes">1000</property>
+                    <property name="text" translatable="yes">100000</property>
                     <property name="xalign">0.5</property>
                   </object>
                   <packing>
@@ -209,7 +209,7 @@
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="has-frame">False</property>
-                    <property name="text" translatable="yes">100</property>
+                    <property name="text" translatable="yes">10</property>
                     <property name="xalign">0.5</property>
                   </object>
                   <packing>
@@ -266,6 +266,19 @@
           <packing>
             <property name="left-attach">1</property>
             <property name="top-attach">0</property>
+            <property name="height">2</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkDrawingArea" id="da_ir_graphing1">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="hexpand">True</property>
+            <property name="vexpand">True</property>
+          </object>
+          <packing>
+            <property name="left-attach">0</property>
+            <property name="top-attach">1</property>
           </packing>
         </child>
       </object>

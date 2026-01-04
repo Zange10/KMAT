@@ -9,7 +9,8 @@
 #include <sys/time.h>
 
 GObject *ir_window;
-GObject *da_ir_graphing;
+GObject *da_ir_graphing0;
+GObject *da_ir_graphing1;
 GObject *cb_ir_system;
 GObject *cb_ir_central_body;
 GObject *cb_ir_depbody;
@@ -20,18 +21,21 @@ GObject *tf_ir_mindur;
 GObject *tf_ir_maxdur;
 
 CelestSystem *ir_system;
-Screen *ir_screen;
+Screen *ir_screen0;
+Screen *ir_screen1;
 
 double ir_dep_periapsis = 50e3;
 
-DataArray2 *ir_data;
+DataArray2 *ir_data0;
+DataArray2 *ir_data1;
 
 void on_ir_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr);
 
 
 void init_itin_rework_test(GtkBuilder *builder) {
 	ir_window = gtk_builder_get_object(builder, "window");
-	da_ir_graphing = gtk_builder_get_object(builder, "da_ir_graphing");
+	da_ir_graphing0 = gtk_builder_get_object(builder, "da_ir_graphing0");
+	da_ir_graphing1 = gtk_builder_get_object(builder, "da_ir_graphing1");
 	cb_ir_system = gtk_builder_get_object(builder, "cb_ir_system");
 	cb_ir_central_body = gtk_builder_get_object(builder, "cb_ir_central_body");
 	cb_ir_depbody = gtk_builder_get_object(builder, "cb_ir_depbody");
@@ -55,18 +59,29 @@ void init_itin_rework_test(GtkBuilder *builder) {
 		update_body_dropdown(GTK_COMBO_BOX(cb_ir_arrbody), ir_system);
 	}
 
-	ir_data = data_array2_create();
+	ir_data0 = data_array2_create();
+	ir_data1 = data_array2_create();
 
-	ir_screen = new_screen(GTK_WIDGET(da_ir_graphing), &on_ir_screen_resize, NULL, NULL, NULL, NULL);
-	set_screen_background_color(ir_screen, 0.15, 0.15, 0.15);
+	ir_screen0 = new_screen(GTK_WIDGET(da_ir_graphing0), &on_ir_screen_resize, NULL, NULL, NULL, NULL);
+	set_screen_background_color(ir_screen0, 0.15, 0.15, 0.15);
+
+	ir_screen1 = new_screen(GTK_WIDGET(da_ir_graphing1), &on_ir_screen_resize, NULL, NULL, NULL, NULL);
+	set_screen_background_color(ir_screen1, 0.15, 0.15, 0.15);
 }
 
 void on_ir_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr) {
-	if((Screen*)ptr == ir_screen) {
-		resize_screen(ir_screen);
-		clear_screen(ir_screen);
-		draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
-		draw_screen(ir_screen);
+	if((Screen*)ptr == ir_screen0) {
+		resize_screen(ir_screen0);
+		clear_screen(ir_screen0);
+		draw_plot_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
+		draw_screen(ir_screen0);
+	}
+
+	if((Screen*)ptr == ir_screen1) {
+		resize_screen(ir_screen1);
+		clear_screen(ir_screen1);
+		draw_plot_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, ir_data1);
+		draw_screen(ir_screen1);
 	}
 }
 
@@ -121,7 +136,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	double dep_periapsis = dep_body->atmo_alt + ir_dep_periapsis;
 
-	clear_screen(ir_screen);
+	clear_screen(ir_screen0);
+	clear_screen(ir_screen1);
 
 	double jd_dep = min_dep;
 
@@ -129,10 +145,11 @@ G_MODULE_EXPORT void on_calc_ir() {
 	double elapsed_time;
 	gettimeofday(&start, NULL);  // Record the ending time
 
-	int num_iterations = 100;
+	int num_iterations = 1;
+	DataArray2 *new_data = NULL;
 	for (int i = num_iterations; i >= 0; i--) {
-		data_array2_free(ir_data);
-		ir_data = calc_porkchop_line(dep_body, arr_body, ir_system, jd_dep+i*5, min_dur, max_dur, dep_periapsis, 10000);
+		data_array2_free(new_data);
+		new_data = calc_porkchop_line(dep_body, arr_body, ir_system, jd_dep+i*5, min_dur, max_dur, dep_periapsis, 200000, 10);
 	}
 
 	gettimeofday(&end, NULL);  // Record the ending time
@@ -166,12 +183,12 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 
 	DataArray2 *data_diff = data_array2_create();
-	data = data_array2_get_data(ir_data);
+	data = data_array2_get_data(new_data);
 	for (int i = 0; i < num_points; i++) {
 		int index = 0;
 		double x = data_array2_get_data(compare_data)[i].x;
 		double y = data_array2_get_data(compare_data)[i].y;
-		for (int j = 0; j < data_array2_size(ir_data)-1; j++) {
+		for (int j = 0; j < data_array2_size(new_data)-1; j++) {
 			if (data[j+1].x > x) break;
 			index++;
 		}
@@ -187,7 +204,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		int index = 0;
 		double x = data_array2_get_data(compare_data)[i].x;
 		double y = data_array2_get_data(compare_data)[i].y;
-		for (int j = 0; j < data_array2_size(ir_data)-1; j++) {
+		for (int j = 0; j < data_array2_size(new_data)-1; j++) {
 			if (data[j+1].x > x) break;
 			index++;
 		}
@@ -196,22 +213,20 @@ G_MODULE_EXPORT void on_calc_ir() {
 		data_array2_append_new(data_diff_old, x, ip_y-y);
 	}
 
+	ir_data0 = new_data;
+	ir_data1 = old_data;
 
-	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
-	draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
+	draw_plot_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
+	// draw_scatter_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
 
-	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, compare_data);
-	// draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, compare_data);
-	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, data_derivative);
+	draw_plot_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, ir_data1);
+	// draw_scatter_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, ir_data1);
 
-	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, old_data);
-
-	// draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, data_diff);
-	// draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, data_diff_old);
 
 
 	data_array2_free(data_derivative);
 	data_array2_free(data_diff);
 	data_array2_free(compare_data);
-	draw_screen(ir_screen);
+	draw_screen(ir_screen0);
+	draw_screen(ir_screen1);
 }
