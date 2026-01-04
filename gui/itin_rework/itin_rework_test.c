@@ -175,8 +175,6 @@ G_MODULE_EXPORT void on_calc_ir() {
 					osv_from_elements(dep_body->orbit, jd_dep) :
 					osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, ir_system->cb);
 
-	printf("%f    %f\n%f    %f\n%s    %s\n", min_dep, max_dep, min_dur, max_dur, dep_body->name, arr_body->name);
-
 	OSV osv_arr0 = ir_system->prop_method == ORB_ELEMENTS ?
 				   osv_from_elements(arr_body->orbit, jd_dep) :
 				   osv_from_ephem(arr_body->ephem, arr_body->num_ephems, jd_dep, ir_system->cb);
@@ -194,12 +192,24 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 
 
-	int max_new_steps = 10000;
+
+	double r0 = mag_vec3(osv0.r), r1 = mag_vec3(osv_arr0.r);
+	double r_ratio =  r1/r0;
+	Hohmann hohmann = calc_hohmann_transfer(r0, r1, ir_system->cb);
+	double hohmann_dur = hohmann.dur/86400;
+	double min_duration = 0.4 * hohmann_dur;
+	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+	if (max_duration < max_dur) max_dur = max_duration;
+	if (min_duration > min_dur) min_dur = min_duration;
+
+	int max_new_steps = 100000;
 	double min_dt = min_dur*86400;
 	double max_dt = max_dur*86400;
 	double min_dt_step = 1;
 	int counter = 0;
 	double last_dt, dt, t1;
+
+	printf("%f    %f\n%f    %f\n%s    %s\n", min_dep, max_dep, min_dur, max_dur, dep_body->name, arr_body->name);
 
 	while(dt0 < max_dt && counter < max_new_steps) {
 		if (data_array2_size(ir_data) == 0) dt = dt0;
@@ -238,12 +248,29 @@ G_MODULE_EXPORT void on_calc_ir() {
 		dt0 = temp;
 	}
 
-	print_data_array2(ir_data, "dur", "dv");
-
 	printf("%d\n", counter);
 
 
-	int num_points = 10000;
+	int old_num_points = 5000;
+	DataArray2 *old_data = data_array2_create();
+
+	for(int i = 0; i < old_num_points; i++) {
+		double dur = (max_dur-min_dur)/old_num_points*i + min_dur;
+		double jd_arr = min_dep + dur;
+		OSV osv1 = ir_system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(arr_body->orbit, jd_arr) :
+					osv_from_ephem(arr_body->ephem, arr_body->num_ephems, jd_arr, ir_system->cb);
+
+		Lambert3 tf = calc_lambert3(osv0.r, osv1.r, (jd_arr - jd_dep) * 86400, ir_system->cb);
+
+		double vinf = fabs(mag_vec3(subtract_vec3(tf.v0, osv0.v)));
+		double dv_dep = dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf);
+
+		data_array2_append_new(old_data, dur, dv_dep);
+	}
+
+
+	int num_points = 100000;
 	DataArray2 *compare_data = data_array2_create();
 
 	for(int i = 0; i < num_points; i++) {
@@ -288,14 +315,33 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 
 
-	draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
-	// draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
+	DataArray2 *data_diff_old = data_array2_create();
+	data = data_array2_get_data(old_data);
+	for (int i = 0; i < num_points; i++) {
+		int index = 0;
+		double x = data_array2_get_data(compare_data)[i].x;
+		double y = data_array2_get_data(compare_data)[i].y;
+		for (int j = 0; j < data_array2_size(ir_data)-1; j++) {
+			if (data[j+1].x > x) break;
+			index++;
+		}
+		double m = (data[index+1].y - data[index].y)/(data[index+1].x - data[index].x);
+		double ip_y = data[index].y + m*(x-data[index].x);
+		data_array2_append_new(data_diff_old, x, ip_y-y);
+	}
+
+
+	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
+	draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
 
 	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, compare_data);
 	// draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, compare_data);
 	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, data_derivative);
 
-	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, data_diff);
+	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, old_data);
+
+	// draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, data_diff);
+	// draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, data_diff_old);
 
 
 	data_array2_free(data_derivative);
