@@ -623,6 +623,8 @@ void draw_plot_from_data_array(cairo_t *cr, double width, double height, DataArr
 	//dx = max_x-min_x;
 	min_y = min_y != 0 ? min_y - dy * margin : 0;
 	max_y = max_y != 0 ? max_y + dy * margin : 0;
+	min_y = 3000;
+	max_y = 40000;
 	dy = max_y-min_y;
 
 	// gradients

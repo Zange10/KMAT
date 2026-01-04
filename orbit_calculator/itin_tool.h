@@ -51,6 +51,8 @@ struct PorkchopPoint {
 
 enum LastTransferType {TF_FLYBY, TF_CAPTURE, TF_CIRC};
 
+void calc_time_to_next_conjunction_and_opposition(Vector3 r0, OSV osv0_next, Body *cb, double *next_conjunction_dt, double *next_opposition_dt);
+
 // find viable flybys to next body with a given arrival trajectory
 void find_viable_flybys(struct ItinStep *tf, CelestSystem *system, Body *next_body, double min_dt, double max_dt);
 

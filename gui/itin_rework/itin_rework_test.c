@@ -109,47 +109,47 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	double dep_periapsis = dep_body->atmo_alt + ir_dep_periapsis;
 
-
-
-	double jd_dep = min_dep;
-	OSV osv0 = ir_system->prop_method == ORB_ELEMENTS ?
-					osv_from_elements(dep_body->orbit, jd_dep) :
-					osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, ir_system->cb);
-
-	printf("%f    %f\n%f    %f\n%s    %s\n", min_dep, max_dep, min_dur, max_dur, dep_body->name, arr_body->name);
-
-	int num_points = 10000;
-	data_array2_clear(ir_data);
-
-	for(int i = 0; i < num_points; i++) {
-		double dur = (max_dur-min_dur)/num_points*i + min_dur;
-		double jd_arr = min_dep + dur;
-		OSV osv1 = ir_system->prop_method == ORB_ELEMENTS ?
-					osv_from_elements(arr_body->orbit, jd_arr) :
-					osv_from_ephem(arr_body->ephem, arr_body->num_ephems, jd_arr, ir_system->cb);
-
-		Lambert3 tf = calc_lambert3(osv0.r, osv1.r, (jd_arr - jd_dep) * 86400, ir_system->cb);
-
-		double vinf = fabs(mag_vec3(subtract_vec3(tf.v0, osv0.v)));
-		double dv_dep = dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf);
-
-		data_array2_append_new(ir_data, dur, dv_dep);
-	}
-
-	Vector2 *data = data_array2_get_data(ir_data);
-	size_t num_data = data_array2_size(ir_data);
-	DataArray2 *data_derivative = data_array2_create();
-
-	for (int i = 0; i < num_data-1; i++) {
-		double x = (data[i].x + data[i+1].x) / 2;
-		double dy = (data[i+1].y - data[i].y) / (data[i+1].x - data[i].x);
-		data_array2_append_new(data_derivative, x, dy);
-	}
-
 	clear_screen(ir_screen);
-	draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
-	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, data_derivative);
-	draw_screen(ir_screen);
 
-	data_array2_free(data_derivative);
+	for(int c = 0; c < 100; c+=10) {
+		double jd_dep = min_dep + c;
+		OSV osv0 = ir_system->prop_method == ORB_ELEMENTS ?
+						osv_from_elements(dep_body->orbit, jd_dep) :
+						osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, ir_system->cb);
+
+		printf("%f    %f\n%f    %f\n%s    %s\n", min_dep, max_dep, min_dur, max_dur, dep_body->name, arr_body->name);
+
+		int num_points = 100000;
+		data_array2_clear(ir_data);
+
+		for(int i = 0; i < num_points; i++) {
+			double dur = (max_dur-min_dur)/num_points*i + min_dur;
+			double jd_arr = min_dep + dur;
+			OSV osv1 = ir_system->prop_method == ORB_ELEMENTS ?
+						osv_from_elements(arr_body->orbit, jd_arr) :
+						osv_from_ephem(arr_body->ephem, arr_body->num_ephems, jd_arr, ir_system->cb);
+
+			Lambert3 tf = calc_lambert3(osv0.r, osv1.r, (jd_arr - jd_dep) * 86400, ir_system->cb);
+
+			double vinf = fabs(mag_vec3(subtract_vec3(tf.v0, osv0.v)));
+			double dv_dep = dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf);
+
+			data_array2_append_new(ir_data, dur, dv_dep);
+		}
+
+		Vector2 *data = data_array2_get_data(ir_data);
+		size_t num_data = data_array2_size(ir_data);
+		DataArray2 *data_derivative = data_array2_create();
+
+		for (int i = 0; i < num_data-1; i++) {
+			double x = (data[i].x + data[i+1].x) / 2;
+			double dy = (data[i+1].y - data[i].y) / (data[i+1].x - data[i].x);
+			data_array2_append_new(data_derivative, x, dy);
+		}
+		draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
+	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, data_derivative);
+
+		data_array2_free(data_derivative);
+	}
+	draw_screen(ir_screen);
 }
