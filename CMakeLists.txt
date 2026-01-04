@@ -95,6 +95,8 @@ add_executable(KMAT
         gui/itin_rework/itin_rework_manager.h
         gui/itin_rework/itin_rework_test.c
         gui/itin_rework/itin_rework_test.h
+        gui/itin_rework/itin_rework_tools.c
+        gui/itin_rework/itin_rework_tools.h
 )
 
 # Platform-specific setup
