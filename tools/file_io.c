@@ -808,8 +808,8 @@ void print_header_data_to_string(ItinStepBinHeaderData header, char *string, enu
 		sprintf(string, "%sMax dep dv: %.0f m/s\n", string, header.calc_data.dv_filter.max_depdv);
 		sprintf(string, "%sMax sat dv: %.0f m/s\n", string, header.calc_data.dv_filter.max_satdv);
 		if(header.file_type >= 5) {
-			sprintf(string, "%sLambert accuracy: %e s\n", string, header.calc_data.calc_acc.lambert);
-			sprintf(string, "%sFly-by Pos accuracy: %e m\n", string, header.calc_data.calc_acc.fb_finder);
+			sprintf(string, "%sLambert accuracy: %.2e s\n", string, header.calc_data.calc_acc.lambert);
+			sprintf(string, "%sFly-by Pos accuracy: %.2e m\n", string, header.calc_data.calc_acc.fb_finder);
 		} else {
 			sprintf(string, "%sLambert accuracy: %.2e s\n", string, 1.0);
 			sprintf(string, "%sFly-by Pos accuracy: %.2e m\n", string, 1.0);
