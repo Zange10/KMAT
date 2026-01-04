@@ -150,6 +150,54 @@ double calc_next_x(DataArray2 *arr, int index_0) {
 	return -1;
 }
 
+void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, double dt0, double dt1, double max_depdv, double dep_periapsis, double *left_x, double *right_x) {
+	// x: dt, y: diff_vinf
+	DataArray2 *data = data_array2_create();
+	int max_new_steps = 100;
+	struct ItinStep *new_steps[max_new_steps];
+	int counter = 0;
+
+	double t0 = jd_dep;
+	double last_dt, dt, t1;
+	bool left_branch = true;
+
+	dt = dt0;
+
+	for(int i = 0; i < 100; i++) {
+		t1 = t0 + dt / 86400;
+
+		OSV osv_arr = ir_system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(arr_body->orbit, t1) :
+				osv_from_ephem(arr_body->ephem, arr_body->num_ephems, t1, ir_system->cb);
+
+		Lambert3 new_transfer = calc_lambert3(osv_dep.r, osv_arr.r, dt, ir_system->cb);
+		double vinf = fabs(mag_vec3(subtract_vec3(new_transfer.v0, osv_dep.v)));
+		double dv_dep = dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf);
+
+		if(fabs(dv_dep - max_depdv) < 1) {
+			if(left_branch) {
+				*left_x = dt;
+				left_branch = false;
+			} else {
+				*right_x = dt;
+				break;
+			}
+		}
+
+
+		data_array2_insert_new(data, dt, dv_dep - max_depdv);
+
+		if(!can_be_negative_monot_deriv(data)) break;
+		last_dt = dt;
+		if(i == 0) dt = dt1;
+		else dt = root_finder_monot_deriv_next_x(data, !left_branch);
+		if(i > 3 && dt == last_dt) break;	// step size 0 (imprecision)
+		if(isnan(dt) || isinf(dt)) break;
+	}
+	print_data_array2(data, "dt", "dv");
+	data_array2_free(data);
+}
+
 G_MODULE_EXPORT void on_calc_ir() {
 	char *string;
 
@@ -212,15 +260,32 @@ G_MODULE_EXPORT void on_calc_ir() {
 	printf("%f    %f\n%f    %f\n%s    %s\n", min_dep, max_dep, min_dur, max_dur, dep_body->name, arr_body->name);
 
 	while(dt0 < max_dt && counter < max_new_steps) {
-		if (data_array2_size(ir_data) == 0) dt = dt0;
-		else dt = dt1;
-		int index = (int) data_array2_size(ir_data)-1;
-		if (index < 0) index = 0;
+		int index = (int) data_array2_size(ir_data);
+		double left_x = 0, right_x = 0;
 
+		if(dt1 < min_dt) {
+			double temp = dt1;
+			dt1 = dt0 + period_arr0;
+			dt0 = temp;
+			continue;
+		}
+
+		find_root(osv0, jd_dep, dep_body, arr_body, dt0, dt1, 10000, dep_periapsis, &left_x, &right_x);
+
+		if (left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
+			double temp = dt1;
+			dt1 = dt0 + period_arr0;
+			dt0 = temp;
+			continue;
+		}
+
+		printf("ROOT: %f   %f\n", left_x/86400, right_x/86400);
+		if (left_x < dt0) left_x = dt0;
+		if (left_x < min_dur*86400) left_x = min_dur*86400;
+		if (right_x > dt1) right_x = dt1;
+		if (right_x > max_dur*86400) right_x = max_dur*86400;
+		dt = left_x;
 		for(int i = 0; i < max_new_steps/10; i++) {
-			if(dt1 < min_dt) break;
-			if(dt < min_dt) dt = min_dt;
-			if(dt > max_dt) dt = max_dt;
 			// printf("%f  %f  %f  %f  %f\n", min_dt, max_dt, dt0, dt1, dt);
 
 			double jd_arr = jd_dep + dt / 86400;
@@ -235,20 +300,26 @@ G_MODULE_EXPORT void on_calc_ir() {
 			double dv_dep = dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf);
 
 			data_array2_insert_new(ir_data, dt/86400, dv_dep);
-			// printf("%f  %f\n", dt/86400, dv_dep);
+			printf("%f  %f   %f    %f   %f   %f\n", dt/86400, dv_dep, left_x/86400, right_x/86400, min_dur, max_dur);
 			counter++;
 
-			if (dt == dt0 || dt == min_dt) dt = dt1;
-			else if (dt == dt1 || dt == max_dt) dt = (dt + (dt0 > min_dt ? dt0 : min_dt)) / 2;
+			if (dt == left_x) dt = right_x;
+			else if (dt == right_x) dt = ( dt + data_array2_get_data(ir_data)[index].x*86400 ) / 2;
 			else dt = calc_next_x(ir_data, index)*86400;
 			if (dt < 0) break;
 		}
+
+		printf("%d\n", counter-index);
 		double temp = dt1;
 		dt1 = dt0 + period_arr0;
 		dt0 = temp;
 	}
 
-	printf("%d\n", counter);
+	int counter2 = 0;
+	for (int i = 0; i < counter; i++) {
+		if (data_array2_get_data(ir_data)[i].y < 10000) counter2++;
+	}
+	printf("%d  %d\n", counter, counter2);
 
 
 	int old_num_points = 5000;
@@ -331,8 +402,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 
 
-	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
-	draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
+	draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
+	// draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, ir_data);
 
 	// draw_plot_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, compare_data);
 	// draw_scatter_from_data_array(ir_screen->static_layer.cr, ir_screen->width, ir_screen->height, compare_data);
