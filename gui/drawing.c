@@ -502,7 +502,7 @@ void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnal
 	int *draw_idx = calloc(sizeof(int), num_itins);
 	int num_draw_itins = 0;
 	for(int i = 0; i < num_itins; i++) {
-		if(porkchop[i].inside_filter && porkchop[i].group->show_group) {
+		if(porkchop[i].inside_filter && (!porkchop[i].group || porkchop[i].group->show_group)) {
 			draw_idx[num_draw_itins] = i;
 			num_draw_itins++;
 		}

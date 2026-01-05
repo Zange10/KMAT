@@ -145,11 +145,15 @@ G_MODULE_EXPORT void on_calc_ir() {
 	double elapsed_time;
 	gettimeofday(&start, NULL);  // Record the ending time
 
-	int num_iterations = 1;
+	int num_iterations = 300;
 	DataArray2 *new_data = NULL;
-	for (int i = num_iterations; i >= 0; i--) {
+	int num_deps = num_iterations;
+	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
+	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
+	for(int i = 0; i < num_deps; i++) departures[i]->num_next_nodes = 0;
+	for (int i = 0; i < num_deps; i++) {
 		data_array2_free(new_data);
-		new_data = calc_porkchop_line(dep_body, arr_body, ir_system, jd_dep+i*5, min_dur, max_dur, dep_periapsis, 200000, 10);
+		new_data = calc_porkchop_line(departures[i], dep_body, arr_body, ir_system, jd_dep+i*5, min_dur, max_dur, dep_periapsis, 7000, 1);
 	}
 
 	gettimeofday(&end, NULL);  // Record the ending time
@@ -160,7 +164,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	int old_num_points = 500;
 	DataArray2 *old_data = NULL;
-	for (int i = num_iterations; i >= 0; i--) {
+	for (int i = num_iterations-1; i >= 0; i--) {
 		data_array2_free(old_data);
 		old_data = calc_porkchop_line_static(dep_body, arr_body, ir_system, jd_dep+i*5, min_dur, max_dur, dep_periapsis, old_num_points);
 	}
@@ -204,7 +208,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		int index = 0;
 		double x = data_array2_get_data(compare_data)[i].x;
 		double y = data_array2_get_data(compare_data)[i].y;
-		for (int j = 0; j < data_array2_size(new_data)-1; j++) {
+		for (int j = 0; j < data_array2_size(old_data)-1; j++) {
 			if (data[j+1].x > x) break;
 			index++;
 		}
@@ -215,12 +219,44 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	ir_data0 = new_data;
 	ir_data1 = old_data;
+	// ir_data0 = data_diff;
+	// ir_data1 = data_diff_old;
+
+	// remove departure dates with no valid itinerary
+	for(int i = 0; i < num_deps; i++) {
+		if(departures[i] == NULL || departures[i]->num_next_nodes == 0) {
+			num_deps--;
+			for(int j = i; j < num_deps; j++) {
+				departures[j] = departures[j + 1];
+			}
+			i--;
+		}
+	}
+
+	int num_itins = 0, tot_num_itins = 0;
+	for(int i = 0; i < num_deps; i++) num_itins += get_number_of_itineraries(departures[i]);
+	for(int i = 0; i < num_deps; i++) tot_num_itins += get_total_number_of_stored_steps(departures[i]);
+
+	printf("\n%d itineraries found!\nNumber of Nodes: %d\n", num_itins, tot_num_itins);
+
+	int index = 0;
+	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins * sizeof(struct ItinStep*));
+	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(departures[i], arrivals, &index);
+	struct PorkchopAnalyzerPoint *pp = malloc(num_itins * sizeof(struct PorkchopAnalyzerPoint));
+	for(int i = 0; i < num_itins; i++) {
+		pp[i].data = create_porkchop_point(arrivals[i], get_first(arrivals[0])->body->atmo_alt + dep_periapsis, arrivals[0]->body->atmo_alt + dep_periapsis);
+		pp[i].inside_filter = 1;
+		pp[i].group = NULL;
+	}
+	free(arrivals);
 
 	draw_plot_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
 	// draw_scatter_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
 
-	draw_plot_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, ir_data1);
+	// draw_plot_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, ir_data1);
 	// draw_scatter_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, ir_data1);
+
+	draw_porkchop(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, pp, num_itins, TF_FLYBY, 0);
 
 
 

@@ -87,7 +87,7 @@ void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, Celes
 
 
 
-DataArray2 * calc_porkchop_line(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
+DataArray2 * calc_porkchop_line(struct ItinStep *departure_step, Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
 	DataArray2 *data = data_array2_create();
 
 	OSV osv0 = system->prop_method == ORB_ELEMENTS ?
@@ -110,6 +110,17 @@ DataArray2 * calc_porkchop_line(Body *dep_body, Body *arr_body, CelestSystem *sy
 		dt1 = next_opposition_dt;
 	}
 
+	struct ItinStep *curr_step;
+	curr_step = departure_step;
+	curr_step->body = dep_body;
+	curr_step->date = jd_dep;
+	curr_step->r = osv0.r;
+	curr_step->v_body = osv0.v;
+	curr_step->v_dep = vec3(0, 0, 0);
+	curr_step->v_arr = vec3(0, 0, 0);
+	curr_step->num_next_nodes = 1000;
+	curr_step->prev = NULL;
+	curr_step->next = (struct ItinStep **) malloc(curr_step->num_next_nodes * sizeof(struct ItinStep *));
 
 
 	double r0 = mag_vec3(osv0.r), r1 = mag_vec3(osv_arr0.r);
@@ -171,6 +182,21 @@ DataArray2 * calc_porkchop_line(Body *dep_body, Body *arr_body, CelestSystem *sy
 			// double vinf = fabs(mag_vec3(subtract_vec3(tf.v1, osv1.v)));
 			// double dv_arr = dv_circ(arr_body,alt2radius(arr_body, dep_periapsis),vinf);
 
+			curr_step = get_first(curr_step);
+			curr_step->next[counter] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
+			curr_step->next[counter]->prev = curr_step;
+			curr_step->next[counter]->next = NULL;
+
+			curr_step = curr_step->next[counter];
+
+			curr_step->body = arr_body;
+			curr_step->date = jd_arr;
+			curr_step->r = osv1.r;
+			curr_step->v_dep = tf.v0;
+			curr_step->v_arr = tf.v1;
+			curr_step->v_body = osv1.v;
+			curr_step->num_next_nodes = 0;
+
 			data_array2_insert_new(data, dt/86400, dv_dep);
 			// printf("%f  %f   %f    %f   %f   %f\n", dt/86400, dv_dep, left_x/86400, right_x/86400, min_dur, max_dur);
 			counter++;
@@ -187,6 +213,7 @@ DataArray2 * calc_porkchop_line(Body *dep_body, Body *arr_body, CelestSystem *sy
 	}
 
 	printf("Total: %d\n", counter);
+	departure_step->num_next_nodes = counter;
 
 	return data;
 }
