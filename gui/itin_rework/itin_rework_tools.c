@@ -36,6 +36,7 @@ void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, Celes
 	*right_x = 0;
 	bool left_branch = true;
 
+	if (dt0 < 100) dt0 = 100;	// transfer duration of 100s
 	dt = dt0;
 
 	for(int i = 0; i < 100; i++) {
@@ -52,6 +53,7 @@ void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, Celes
 		if(fabs(dv_dep - max_depdv) < 1 || (i > 3 && fabs(dt-last_dt) < 1)) {
 			if(left_branch) {
 				*left_x = dt;
+				last_dt = -1e20;
 				left_branch = false;
 				if (*right_x != 0) break;
 			} else {
@@ -88,7 +90,10 @@ void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, Celes
 
 
 DataArray2 * calc_porkchop_line(struct ItinStep *departure_step, Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
-	DataArray2 *data = data_array2_create();
+	DataArray2 *data_dep = data_array2_create();
+	DataArray2 *data_arr = data_array2_create();
+	DataArray2 *data = data_arr;
+
 
 	OSV osv0 = system->prop_method == ORB_ELEMENTS ?
 					osv_from_elements(dep_body->orbit, jd_dep) :
@@ -118,7 +123,7 @@ DataArray2 * calc_porkchop_line(struct ItinStep *departure_step, Body *dep_body,
 	curr_step->v_body = osv0.v;
 	curr_step->v_dep = vec3(0, 0, 0);
 	curr_step->v_arr = vec3(0, 0, 0);
-	curr_step->num_next_nodes = 1000;
+	curr_step->num_next_nodes = 10000;
 	curr_step->prev = NULL;
 	curr_step->next = (struct ItinStep **) malloc(curr_step->num_next_nodes * sizeof(struct ItinStep *));
 
@@ -179,8 +184,10 @@ DataArray2 * calc_porkchop_line(struct ItinStep *departure_step, Body *dep_body,
 
 			double vinf = fabs(mag_vec3(subtract_vec3(tf.v0, osv0.v)));
 			double dv_dep = dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf);
-			// double vinf = fabs(mag_vec3(subtract_vec3(tf.v1, osv1.v)));
-			// double dv_arr = dv_circ(arr_body,alt2radius(arr_body, dep_periapsis),vinf);
+			vinf = fabs(mag_vec3(subtract_vec3(tf.v1, osv1.v)));
+			double dv_arr = dv_capture(arr_body,alt2radius(arr_body, dep_periapsis),vinf);
+			data_array2_insert_new(data_dep, dt/86400, dv_dep);
+			data_array2_insert_new(data_arr, dt/86400, dv_arr);
 
 			curr_step = get_first(curr_step);
 			curr_step->next[counter] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
@@ -197,14 +204,18 @@ DataArray2 * calc_porkchop_line(struct ItinStep *departure_step, Body *dep_body,
 			curr_step->v_body = osv1.v;
 			curr_step->num_next_nodes = 0;
 
-			data_array2_insert_new(data, dt/86400, dv_dep);
 			// printf("%f  %f   %f    %f   %f   %f\n", dt/86400, dv_dep, left_x/86400, right_x/86400, min_dur, max_dur);
 			counter++;
 
 			if (dt == left_x) dt = right_x;
 			else if (dt == right_x) dt = ( dt + data_array2_get_data(data)[index].x*86400 ) / 2;
-			else dt = calc_next_x(data, index, dv_tolerance)*86400;
-			if (dt < 0) break;
+			else {
+				double next_dep_x = calc_next_x(data_dep, index, dv_tolerance)*86400;
+				double next_arr_x = calc_next_x(data_arr, index, dv_tolerance)*86400;
+				if (next_dep_x < 0 && next_arr_x < 0) break;
+				if (next_dep_x > 0 && next_dep_x < next_arr_x || next_arr_x < 0) dt = next_dep_x;
+				else dt = next_arr_x;
+			}
 		}
 
 		double temp = dt1;
@@ -214,6 +225,9 @@ DataArray2 * calc_porkchop_line(struct ItinStep *departure_step, Body *dep_body,
 
 	printf("Total: %d\n", counter);
 	departure_step->num_next_nodes = counter;
+
+	if (data == data_arr) data_array2_free(data_dep);
+	else data_array2_free(data_arr);
 
 	return data;
 }

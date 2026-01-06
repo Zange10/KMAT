@@ -152,8 +152,9 @@ G_MODULE_EXPORT void on_calc_ir() {
 	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 	for(int i = 0; i < num_deps; i++) departures[i]->num_next_nodes = 0;
 	for (int i = 0; i < num_deps; i++) {
-		data_array2_free(new_data);
-		new_data = calc_porkchop_line(departures[i], dep_body, arr_body, ir_system, jd_dep+i*5, min_dur, max_dur, dep_periapsis, 7000, 1);
+		DataArray2 *temp_data = calc_porkchop_line(departures[i], dep_body, arr_body, ir_system, jd_dep+i*2, min_dur, max_dur, dep_periapsis, 10000, 100);
+		if (!new_data) new_data = temp_data;
+		else data_array2_free(temp_data);
 	}
 
 	gettimeofday(&end, NULL);  // Record the ending time
@@ -165,8 +166,9 @@ G_MODULE_EXPORT void on_calc_ir() {
 	int old_num_points = 500;
 	DataArray2 *old_data = NULL;
 	for (int i = num_iterations-1; i >= 0; i--) {
-		data_array2_free(old_data);
-		old_data = calc_porkchop_line_static(dep_body, arr_body, ir_system, jd_dep+i*5, min_dur, max_dur, dep_periapsis, old_num_points);
+		DataArray2 *temp_data = calc_porkchop_line_static(dep_body, arr_body, ir_system, jd_dep+i*5, min_dur, max_dur, dep_periapsis, old_num_points);
+		if (!old_data) old_data = temp_data;
+		else data_array2_free(temp_data);
 	}
 	gettimeofday(&end, NULL);  // Record the ending time
 	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
@@ -217,8 +219,10 @@ G_MODULE_EXPORT void on_calc_ir() {
 		data_array2_append_new(data_diff_old, x, ip_y-y);
 	}
 
+	// ir_data0 = new_data;
+	// ir_data1 = data_diff;
 	ir_data0 = new_data;
-	ir_data1 = old_data;
+	ir_data1 = compare_data;
 	// ir_data0 = data_diff;
 	// ir_data1 = data_diff_old;
 
@@ -262,7 +266,6 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	data_array2_free(data_derivative);
 	data_array2_free(data_diff);
-	data_array2_free(compare_data);
 	draw_screen(ir_screen0);
 	draw_screen(ir_screen1);
 }
