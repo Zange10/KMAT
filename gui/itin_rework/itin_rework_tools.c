@@ -50,7 +50,7 @@ void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, Celes
 		double vinf = fabs(mag_vec3(subtract_vec3(new_transfer.v0, osv_dep.v)));
 		double dv_dep = dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf);
 
-		if(fabs(dv_dep - max_depdv) < 1 || (i > 3 && fabs(dt-last_dt) < 1)) {
+		if(i > 3 && (fabs(dv_dep - max_depdv) < 1 || (i > 3 && fabs(dt-last_dt) < 1))) {
 			if(left_branch) {
 				*left_x = dt;
 				last_dt = -1e20;
@@ -128,7 +128,7 @@ DataArray2 * calc_porkchop_line(struct ItinStep *departure_step, Body *dep_body,
 	curr_step->next = (struct ItinStep **) malloc(curr_step->num_next_nodes * sizeof(struct ItinStep *));
 
 
-	double r0 = mag_vec3(osv0.r), r1 = mag_vec3(osv_arr0.r);
+	double r0 = constr_orbit_from_osv(osv0.r, osv0.v, system->cb).a, r1 = arr0.a;
 	double r_ratio =  r1/r0;
 	Hohmann hohmann = calc_hohmann_transfer(r0, r1, system->cb);
 	double hohmann_dur = hohmann.dur/86400;

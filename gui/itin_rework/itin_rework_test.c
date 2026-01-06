@@ -19,6 +19,9 @@ GObject *tf_ir_mindepdate;
 GObject *tf_ir_maxdepdate;
 GObject *tf_ir_mindur;
 GObject *tf_ir_maxdur;
+GObject *tf_ir_tolerance;
+GObject *tf_ir_numdeps;
+GObject *tf_ir_maxdv;
 
 CelestSystem *ir_system;
 Screen *ir_screen0;
@@ -44,6 +47,9 @@ void init_itin_rework_test(GtkBuilder *builder) {
 	tf_ir_maxdepdate = gtk_builder_get_object(builder, "tf_ir_maxdepdate");
 	tf_ir_mindur = gtk_builder_get_object(builder, "tf_ir_maxarrdate");
 	tf_ir_maxdur = gtk_builder_get_object(builder, "tf_ir_maxdur");
+	tf_ir_tolerance = gtk_builder_get_object(builder, "tf_ir_tolerance");
+	tf_ir_numdeps = gtk_builder_get_object(builder, "tf_ir_numdeps");
+	tf_ir_maxdv = gtk_builder_get_object(builder, "tf_ir_maxdv");
 
 	ir_system = NULL;
 
@@ -130,6 +136,12 @@ G_MODULE_EXPORT void on_calc_ir() {
 	double min_dur = strtod(string, NULL);
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdur));
 	double max_dur = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_tolerance));
+	double tolerance = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_numdeps));
+	double target_numdeps = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdv));
+	double max_dep_dv = strtod(string, NULL);
 
 	Body *dep_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_depbody))];
 	Body *arr_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_arrbody))];
@@ -145,14 +157,14 @@ G_MODULE_EXPORT void on_calc_ir() {
 	double elapsed_time;
 	gettimeofday(&start, NULL);  // Record the ending time
 
-	int num_iterations = 300;
+	int num_iterations = (int) target_numdeps;
 	DataArray2 *new_data = NULL;
 	int num_deps = num_iterations;
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 	for(int i = 0; i < num_deps; i++) departures[i]->num_next_nodes = 0;
 	for (int i = 0; i < num_deps; i++) {
-		DataArray2 *temp_data = calc_porkchop_line(departures[i], dep_body, arr_body, ir_system, jd_dep+i*2, min_dur, max_dur, dep_periapsis, 10000, 100);
+		DataArray2 *temp_data = calc_porkchop_line(departures[i], dep_body, arr_body, ir_system, jd_dep+i*2, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
 		if (!new_data) new_data = temp_data;
 		else data_array2_free(temp_data);
 	}
