@@ -115,16 +115,6 @@ G_MODULE_EXPORT void on_ir_central_body_change() {
 	}
 }
 
-bool almost_colinear_f(Vector2 p0, Vector2 p1, Vector2 p2, double tol) {
-	double abx = p1.x - p0.x;
-	double aby = p1.y - p0.y;
-	double acx = p2.x - p0.x;
-	double acy = p2.y - p0.y;
-
-	double area2 = abx * acy - aby * acx;
-	return (area2 * area2) <= (tol * tol * (abx * abx + aby * aby));
-}
-
 G_MODULE_EXPORT void on_calc_ir() {
 	char *string;
 
@@ -164,7 +154,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 	for(int i = 0; i < num_deps; i++) departures[i]->num_next_nodes = 0;
 	for (int i = 0; i < num_deps; i++) {
-		DataArray2 *temp_data = calc_porkchop_line(departures[i], dep_body, arr_body, ir_system, jd_dep+i*2, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
+		DataArray2 *temp_data = calc_porkchop_line(departures[i], dep_body, arr_body, ir_system, jd_dep+i*5, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
 		if (!new_data) new_data = temp_data;
 		else data_array2_free(temp_data);
 	}
@@ -231,13 +221,6 @@ G_MODULE_EXPORT void on_calc_ir() {
 		data_array2_append_new(data_diff_old, x, ip_y-y);
 	}
 
-	// ir_data0 = new_data;
-	// ir_data1 = data_diff;
-	ir_data0 = new_data;
-	ir_data1 = compare_data;
-	// ir_data0 = data_diff;
-	// ir_data1 = data_diff_old;
-
 	// remove departure dates with no valid itinerary
 	for(int i = 0; i < num_deps; i++) {
 		if(departures[i] == NULL || departures[i]->num_next_nodes == 0) {
@@ -266,14 +249,101 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 	free(arrivals);
 
+	double opp_conj_gradient = calc_opposition_conjunction_gradient(dep_body, arr_body, ir_system, jd_dep);
+
+	DataArray2 *opp_data = data_array2_create();
+	DataArray2 *conj_data = data_array2_create();
+	DataArray2 *opp_diff_data = data_array2_create();
+	DataArray2 *conj_diff_data = data_array2_create();
+	DataArray2 *opp_err_data = data_array2_create();
+	DataArray2 *conj_err_data = data_array2_create();
+	double conj_diff_avg = 0;
+	double opp_diff_avg = 0;
+	double last_conjunction_dt, last_opposition_dt;
+	int opp_counter = 0, conj_counter = 0;
+	for (int i = 0; i < num_iterations; i++) {
+		double dx = 5;
+		double dep = min_dep + i*dx;
+		OSV osv0 = ir_system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(dep_body->orbit, dep) :
+					osv_from_ephem(dep_body->ephem, dep_body->num_ephems, dep, ir_system->cb);
+
+		OSV osv_arr0 = ir_system->prop_method == ORB_ELEMENTS ?
+					   osv_from_elements(arr_body->orbit, dep) :
+					   osv_from_ephem(arr_body->ephem, arr_body->num_ephems, dep, ir_system->cb);
+		double next_conjunction_dt, next_opposition_dt;
+		calc_time_to_next_conjunction_and_opposition(osv0.r, osv_arr0, ir_system->cb, &next_conjunction_dt, &next_opposition_dt);
+
+		if (i > 0) {
+			double opp_guess = last_opposition_dt + dx*86400*opp_conj_gradient;
+			double conj_guess = last_conjunction_dt + dx*86400*opp_conj_gradient;
+
+			while (opp_guess-next_opposition_dt > 0.5 * calc_orbital_period(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, ir_system->cb))) {
+				next_opposition_dt += calc_orbital_period(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, ir_system->cb));
+			}
+			while (opp_guess-next_opposition_dt < -0.5 * calc_orbital_period(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, ir_system->cb))) {
+				next_opposition_dt -= calc_orbital_period(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, ir_system->cb));
+			}
+			while (conj_guess-next_conjunction_dt > 0.5 * calc_orbital_period(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, ir_system->cb))) {
+				next_conjunction_dt += calc_orbital_period(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, ir_system->cb));
+			}
+			while (opp_guess-next_conjunction_dt < -0.5 * calc_orbital_period(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, ir_system->cb))) {
+				next_conjunction_dt -= calc_orbital_period(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, ir_system->cb));
+			}
+			data_array2_append_new(opp_err_data, dep-min_dep, (opp_guess-next_opposition_dt)/86400);
+			data_array2_append_new(conj_err_data, dep-min_dep, (conj_guess-next_conjunction_dt)/86400);
+		}
+		data_array2_append_new(opp_data, dep-min_dep, next_opposition_dt/86400);
+		data_array2_append_new(conj_data, dep-min_dep, next_conjunction_dt/86400);
+
+		if (i > 0) {
+			Vector2 *data_v = data_array2_get_data(opp_data);
+			double dxdy = (data_v[i].y - data_v[i-1].y)/(data_v[i].x - data_v[i-1].x);
+
+			data_array2_append_new(opp_diff_data, dep-min_dep, dxdy);
+			opp_diff_avg += dxdy;
+			opp_counter++;
+
+			data_v = data_array2_get_data(conj_data);
+			dxdy = (data_v[i].y - data_v[i-1].y)/(data_v[i].x - data_v[i-1].x);
+			data_array2_append_new(conj_diff_data, dep-min_dep, dxdy);
+			conj_diff_avg += dxdy;
+			conj_counter++;
+		}
+		last_conjunction_dt = next_conjunction_dt;
+		last_opposition_dt = next_opposition_dt;
+	}
+
+	opp_diff_avg /= opp_counter;
+	conj_diff_avg /= conj_counter;
+
+	print_data_array2(opp_data, "dep", "opp");
+	print_data_array2(conj_data, "dep", "conj");
+	print_data_array2(opp_diff_data, "dep", "d_opp");
+	print_data_array2(conj_diff_data, "dep", "d_conj");
+	printf("%f   %f   %f\n", opp_diff_avg, conj_diff_avg, opp_conj_gradient);
+
+
+
+	// ir_data0 = new_data;
+	// ir_data1 = data_diff;
+	// ir_data0 = new_data;
+	// ir_data1 = compare_data;
+	// ir_data0 = data_diff;
+	// ir_data1 = data_diff_old;
+	ir_data0 = opp_data;
+	// ir_data1 = conj_data;
+	// ir_data0 = opp_diff_data;
+	ir_data1 = opp_err_data;
+
 	draw_plot_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
 	// draw_scatter_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
 
-	// draw_plot_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, ir_data1);
+	draw_plot_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, ir_data1);
 	// draw_scatter_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, ir_data1);
 
-	draw_porkchop(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, pp, num_itins, TF_FLYBY, 0);
-
+	// draw_porkchop(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, pp, num_itins, TF_FLYBY, 0);
+	// draw_plot_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, grad_data);
 
 
 	data_array2_free(data_derivative);

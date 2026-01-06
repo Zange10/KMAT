@@ -434,7 +434,8 @@ int get_porkchop_xaxis_y() {return porkchop_xaxis_y;}
 void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnalyzerPoint *porkchop, int num_itins, enum LastTransferType last_transfer_type, int dur0arrdate1) {
 	double dv, depdate, dur, arrdate;
 
-	Vector2 origin = {dur0arrdate1 ? porkchop_arrdate_yaxis_x : porkchop_dur_yaxis_x, height-porkchop_xaxis_y};
+	Vector2 origin = {60, height-30};
+	// Vector2 origin = {dur0arrdate1 ? porkchop_arrdate_yaxis_x : porkchop_dur_yaxis_x, height-porkchop_xaxis_y};
 
 	int first_show_ind = 0;
 	while(!porkchop[first_show_ind].inside_filter) first_show_ind++;
@@ -623,8 +624,14 @@ void draw_plot_from_data_array(cairo_t *cr, double width, double height, DataArr
 	//dx = max_x-min_x;
 	min_y = min_y != 0 ? min_y - dy * margin : 0;
 	max_y = max_y != 0 ? max_y + dy * margin : 0;
-	// min_y = 3000;
-	// max_y = 40000;
+	// min_y = 280;
+	// max_y = 3120;
+	// min_y = 70;
+	// max_y = 810;
+	// min_y = 51;
+	// max_y = 235;
+	// min_y = -50;
+	// max_y = 3140;
 	dy = max_y-min_y;
 
 	// gradients

@@ -134,6 +134,7 @@ DataArray2 * calc_porkchop_line(struct ItinStep *departure_step, Body *dep_body,
 	double hohmann_dur = hohmann.dur/86400;
 	double min_duration = 0.4 * hohmann_dur;
 	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+	max_duration *= 10;
 	if (max_duration < max_dur) max_dur = max_duration;
 	if (min_duration > min_dur) min_dur = min_duration;
 
@@ -270,3 +271,22 @@ DataArray2 * calc_porkchop_line_static(Body *dep_body, Body *arr_body, CelestSys
 	return data;
 }
 
+
+double calc_opposition_conjunction_gradient(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep) {
+	OSV osv0 = system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(dep_body->orbit, jd_dep) :
+					osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, system->cb);
+
+	OSV osv_arr0 = system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(arr_body->orbit, jd_dep) :
+				   osv_from_ephem(arr_body->ephem, arr_body->num_ephems, jd_dep, system->cb);
+	Orbit orbit0 = constr_orbit_from_osv(osv0.r, osv0.v, system->cb);
+	Orbit orbit1 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
+
+	double rot_speed_dep_body = 2*M_PI/calc_orbital_period(orbit0);
+	double rot_speed_arr_body = 2*M_PI/calc_orbital_period(orbit1);
+	double rot_speed_relative = rot_speed_dep_body-rot_speed_arr_body;
+	double dydx = rot_speed_relative/(2*M_PI) * (calc_orbital_period(orbit1));
+
+	return dydx;
+}
