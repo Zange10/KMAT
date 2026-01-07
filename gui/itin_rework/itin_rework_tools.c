@@ -325,6 +325,16 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 	last_opposition_dt += period_arr0 * shift/2;
 	last_conjunction_dt += period_arr0 * shift/2;
 
+	if (last_opposition_dt < last_conjunction_dt) {
+		group->boundary0_bottom = vec2(jd_min_dep, last_opposition_dt);
+		group->boundary0_top = vec2(jd_min_dep, last_conjunction_dt);
+	} else {
+		group->boundary0_bottom = vec2(jd_min_dep, last_conjunction_dt);
+		group->boundary0_top = vec2(jd_min_dep, last_opposition_dt);
+	}
+
+	group->boundary_gradient = opp_conj_gradient;
+
 
 	double r0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb).a, r1 = arr0.a;
 	double r_ratio =  r1/r0;
@@ -383,7 +393,7 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 
 		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x);
 
-		printf("ROOT: %f   %f   (%f  %f)   (%f  %f)\n", left_x/86400, right_x/86400, dt0/86400, dt1/86400, opp_guess/86400, conj_guess/86400);
+		// printf("ROOT: %f   %f   (%f  %f)   (%f  %f)\n", left_x/86400, right_x/86400, dt0/86400, dt1/86400, opp_guess/86400, conj_guess/86400);
 		if (left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) continue;
 
 		if (left_x < dt0) left_x = dt0;
@@ -426,11 +436,23 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 			data_array2_insert_new(data_arr, dt/86400, dv_arr);
 
 			curr_step = get_first(curr_step);
-			curr_step->next[counter] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-			curr_step->next[counter]->prev = curr_step;
-			curr_step->next[counter]->next = NULL;
 
-			curr_step = curr_step->next[counter];
+			// sort chronologically
+			int insert_index = counter;
+			while (insert_index > 0) {
+				if (curr_step->next[insert_index-1]->date < jd_arr) break;
+				insert_index--;
+			}
+			if (insert_index != counter) {
+				memmove(&curr_step->next[insert_index+1],
+					&curr_step->next[insert_index],
+					(counter+2 - insert_index) * sizeof(*curr_step->next));
+			}
+
+			curr_step->next[insert_index] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
+			curr_step->next[insert_index]->prev = curr_step;
+			curr_step->next[insert_index]->next = NULL;
+			curr_step = curr_step->next[insert_index];
 
 			curr_step->body = group->arr_body;
 			curr_step->date = jd_arr;

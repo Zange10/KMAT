@@ -4,6 +4,7 @@
 #include "gui/gui_manager.h"
 #include "gui/gui_tools/screen.h"
 #include "gui/drawing.h"
+#include "mesh.h"
 #include "geometrylib.h"
 #include <math.h>
 #include <sys/time.h>
@@ -151,14 +152,23 @@ G_MODULE_EXPORT void on_calc_ir() {
 	struct timeval start, end;
 	double elapsed_time;
 	gettimeofday(&start, NULL);  // Record the ending time
-	DepartureGroup *departure_group = malloc(sizeof(DepartureGroup));
-	departure_group->dep_body = dep_body;
-	departure_group->arr_body = arr_body;
-	departure_group->num_departures = num_iterations;
-	departure_group->system = ir_system;
 
-	calc_group_porkchop(departure_group, pcgroup, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
+	int num_of_groups = 50;
+	DepartureGroup **departure_groups = malloc(num_of_groups*sizeof(DepartureGroup *));
+	int counter = 0;
+	for (int i = 0; i < num_of_groups; i++) {
+		departure_groups[counter] = malloc(sizeof(DepartureGroup));
+		departure_groups[counter]->dep_body = dep_body;
+		departure_groups[counter]->arr_body = arr_body;
+		departure_groups[counter]->num_departures = num_iterations;
+		departure_groups[counter]->system = ir_system;
 
+		calc_group_porkchop(departure_groups[counter], i-10, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
+		if (departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
+		else counter++;
+	}
+
+	printf("%d\n", counter);
 
 	gettimeofday(&end, NULL);  // Record the ending time
 	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
@@ -353,12 +363,12 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 
 
-	departures = departure_group->departures;
+	departures = departure_groups[pcgroup]->departures;
 	// remove departure dates with no valid itinerary
-	for(int i = 0; i < departure_group->num_departures; i++) {
+	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
 		if(departures[i] == NULL || departures[i]->num_next_nodes == 0) {
-			departure_group->num_departures--;
-			for(int j = i; j < departure_group->num_departures; j++) {
+			departure_groups[pcgroup]->num_departures--;
+			for(int j = i; j < departure_groups[pcgroup]->num_departures; j++) {
 				departures[j] = departures[j + 1];
 			}
 			i--;
@@ -366,14 +376,14 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 
 	int num_itins1 = 0; tot_num_itins = 0;
-	for(int i = 0; i < departure_group->num_departures; i++) num_itins1 += get_number_of_itineraries(departures[i]);
-	for(int i = 0; i < departure_group->num_departures; i++) tot_num_itins += get_total_number_of_stored_steps(departures[i]);
+	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) num_itins1 += get_number_of_itineraries(departures[i]);
+	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) tot_num_itins += get_total_number_of_stored_steps(departures[i]);
 
 	printf("\n%d itineraries found!\nNumber of Nodes: %d\n", num_itins1, tot_num_itins);
 
 	index = 0;
 	arrivals = (struct ItinStep**) malloc(num_itins1 * sizeof(struct ItinStep*));
-	for(int i = 0; i < departure_group->num_departures; i++) store_itineraries_in_array(departures[i], arrivals, &index);
+	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) store_itineraries_in_array(departures[i], arrivals, &index);
 	struct PorkchopAnalyzerPoint *pp1 = malloc(num_itins1 * sizeof(struct PorkchopAnalyzerPoint));
 	for(int i = 0; i < num_itins1; i++) {
 		pp1[i].data = create_porkchop_point(arrivals[i], get_first(arrivals[0])->body->atmo_alt + dep_periapsis, arrivals[0]->body->atmo_alt + dep_periapsis);
@@ -405,6 +415,184 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	data_array2_free(data_derivative);
 	data_array2_free(data_diff);
+	draw_screen(ir_screen0);
+	draw_screen(ir_screen1);
+}
+
+void resize_pcmesh_to_fit(Mesh2 mesh, double max_x, double max_y) {
+	Vector2 max = mesh.points[0]-> pos;
+	Vector2 min = mesh.points[0]-> pos;
+
+	for(int i = 0; i < mesh.num_points; i++) {
+		if(mesh.points[i]-> pos.x > max.x) max.x = mesh.points[i]-> pos.x;
+		if(mesh.points[i]-> pos.x < min.x) min.x = mesh.points[i]-> pos.x;
+		if(mesh.points[i]-> pos.y > max.y) max.y = mesh.points[i]-> pos.y;
+		if(mesh.points[i]-> pos.y < min.y) min.y = mesh.points[i]-> pos.y;
+	}
+
+	max.x += 0.1*(max.x-min.x);
+	min.x -= 0.1*(max.x-min.x);
+	max.y += 0.1*(max.y-min.y);
+	min.y -= 0.1*(max.y-min.y);
+
+	Vector2 gradient = {
+		max_x/(max.x-min.x),
+		max_y/(max.y-min.y)
+};
+
+
+	for(int i = 0; i < mesh.num_points; i++) {
+		mesh.points[i]-> pos.x -= min.x;
+		mesh.points[i]-> pos.x *= gradient.x;
+		mesh.points[i]-> pos.y -= min.y;
+		mesh.points[i]-> pos.y *= gradient.y;
+		mesh.points[i]-> pos.y  = max_y-mesh.points[i]-> pos.y;
+	}
+}
+
+void draw_mesh_triangle(cairo_t *cr, MeshTriangle2 triangle) {
+	cairo_set_source_rgb(cr, 1,1,1);
+	for(int i = 0; i < 3; i++) {
+		draw_stroke(cr, vec2(triangle.points[i]->pos.x, triangle.points[i]->pos.y), vec2(triangle.points[(i+1)%3]->pos.x, triangle.points[(i+1)%3]->pos.y));
+	}
+}
+
+void draw_mesh(cairo_t *cr, Mesh2 *mesh) {
+	struct timeval start, end;
+	gettimeofday(&start, NULL);
+	cairo_set_source_rgb(cr, 0.0, 1.0, 1.0);
+	for(int i = 0; i < mesh->num_triangles; i++) {
+		draw_mesh_triangle(cr, *mesh->triangles[i]);
+	}
+
+	gettimeofday(&end, NULL);
+	double duration = (end.tv_sec - start.tv_sec) +
+					  (end.tv_usec - start.tv_usec) / 1e6;
+	printf("Mesh Drawing: %.6f seconds\n", duration);
+	printf("Triangles drawn: %zu\n", mesh->num_triangles);
+}
+
+
+G_MODULE_EXPORT void on_calc_ir2() {
+	char *string;
+
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_mindepdate));
+	double min_dep = convert_date_JD(date_from_string(string, DATE_ISO));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdepdate));
+	double max_dep = convert_date_JD(date_from_string(string, DATE_ISO));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_mindur));
+	double min_dur = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdur));
+	double max_dur = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_tolerance));
+	double tolerance = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_numdeps));
+	double target_numdeps = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdv));
+	double max_dep_dv = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup));
+	int pcgroup = (int) strtod(string, NULL);
+
+	Body *dep_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_depbody))];
+	Body *arr_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_arrbody))];
+
+	double dep_periapsis = dep_body->atmo_alt + ir_dep_periapsis;
+
+	clear_screen(ir_screen0);
+	clear_screen(ir_screen1);
+
+	double jd_dep = min_dep;
+	int num_iterations = (int) target_numdeps;
+
+	struct timeval start, end;
+	double elapsed_time;
+	gettimeofday(&start, NULL);  // Record the ending time
+
+	int num_of_groups = 50;
+	DepartureGroup **departure_groups = malloc(num_of_groups*sizeof(DepartureGroup *));
+	int counter = 0;
+	for (int i = 0; i < num_of_groups; i++) {
+		departure_groups[counter] = malloc(sizeof(DepartureGroup));
+		departure_groups[counter]->dep_body = dep_body;
+		departure_groups[counter]->arr_body = arr_body;
+		departure_groups[counter]->num_departures = num_iterations;
+		departure_groups[counter]->system = ir_system;
+
+		calc_group_porkchop(departure_groups[counter], i-10, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
+		if (departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
+		else counter++;
+	}
+
+	printf("%d\n", counter);
+
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+
+
+	gettimeofday(&start, NULL);  // Record the ending time
+
+	struct ItinStep **steps = malloc(10000*sizeof(struct ItinStep *));
+	DataArray2 *step_pos = data_array2_create();
+	counter = 0;
+	for (int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
+		struct ItinStep *step = departure_groups[pcgroup]->departures[i];
+		for (int j = 0; j < step->num_next_nodes; j++) {
+			double x = step->date;
+			double y = step->next[j]->date - step->date;
+			data_array2_append_new(step_pos, x, y);
+			steps[counter] = step->next[j];
+		}
+	}
+
+
+	MeshGrid2 grid = create_mesh_grid(step_pos, (void**) steps);
+	Mesh2 mesh = create_mesh_from_grid(grid);
+
+
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+
+
+	resize_pcmesh_to_fit(mesh, ir_screen1->width, ir_screen1->height);
+	draw_mesh(ir_screen1->static_layer.cr, &mesh);
+
+
+
+
+	struct ItinStep **departures = departure_groups[pcgroup]->departures;
+	// remove departure dates with no valid itinerary
+	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
+		if(departures[i] == NULL || departures[i]->num_next_nodes == 0) {
+			departure_groups[pcgroup]->num_departures--;
+			for(int j = i; j < departure_groups[pcgroup]->num_departures; j++) {
+				departures[j] = departures[j + 1];
+			}
+			i--;
+		}
+	}
+
+	int num_itins1 = 0, tot_num_itins = 0;
+	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) num_itins1 += get_number_of_itineraries(departures[i]);
+	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) tot_num_itins += get_total_number_of_stored_steps(departures[i]);
+
+	printf("\n%d itineraries found!\nNumber of Nodes: %d\n", num_itins1, tot_num_itins);
+
+	int index = 0;
+	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins1 * sizeof(struct ItinStep*));
+	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) store_itineraries_in_array(departures[i], arrivals, &index);
+	struct PorkchopAnalyzerPoint *pp1 = malloc(num_itins1 * sizeof(struct PorkchopAnalyzerPoint));
+	for(int i = 0; i < num_itins1; i++) {
+		pp1[i].data = create_porkchop_point(arrivals[i], get_first(arrivals[0])->body->atmo_alt + dep_periapsis, arrivals[0]->body->atmo_alt + dep_periapsis);
+		pp1[i].inside_filter = 1;
+		pp1[i].group = NULL;
+	}
+	free(arrivals);
+
+	draw_porkchop(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, pp1, num_itins1, TF_FLYBY, 0);
+
+
 	draw_screen(ir_screen0);
 	draw_screen(ir_screen1);
 }

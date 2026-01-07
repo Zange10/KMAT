@@ -11,6 +11,10 @@ typedef struct DepartureGroup {
 	int num_departures;
 	Body *dep_body, *arr_body;
 	CelestSystem *system;
+	Vector2 boundary0_top;
+	Vector2 boundary0_bottom;
+	double boundary_gradient;
+	struct DepartureGroup **next_groups;
 } DepartureGroup;
 
 void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double max_depdv, double dep_periapsis, double *left_x, double *right_x);
