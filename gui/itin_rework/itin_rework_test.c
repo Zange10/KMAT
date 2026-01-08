@@ -472,6 +472,108 @@ void draw_mesh(cairo_t *cr, Mesh2 *mesh) {
 	printf("Triangles drawn: %zu\n", mesh->num_triangles);
 }
 
+void find_2dtriangle_minmax(MeshTriangle2 triangle, double *min_x, double *max_x, double *min_y, double *max_y) {
+	*min_x = triangle.points[0]->pos.x;
+	*max_x = triangle.points[0]->pos.x;
+	*min_y = triangle.points[0]->pos.y;
+	*max_y = triangle.points[0]->pos.y;
+
+	for(int i = 1; i < 3; i++) {
+		if(triangle.points[i]->pos.x < *min_x) *min_x = triangle.points[i]->pos.x;
+		if(triangle.points[i]->pos.x > *max_x) *max_x = triangle.points[i]->pos.x;
+		if(triangle.points[i]->pos.y < *min_y) *min_y = triangle.points[i]->pos.y;
+		if(triangle.points[i]->pos.y > *max_y) *max_y = triangle.points[i]->pos.y;
+	}
+}
+
+int is_inside_triangle(MeshTriangle2 triangle, Vector2 p) {
+	Vector2 a = triangle.points[0]->pos;
+	Vector2 b = triangle.points[1]->pos;
+	Vector2 c = triangle.points[2]->pos;
+	Vector2 v0 = subtract_vec2(c,a);
+	Vector2 v1 = subtract_vec2(b,a);
+	Vector2 v2 = subtract_vec2(p,a);
+
+	double d00 = dot_vec2(v0, v0);
+	double d01 = dot_vec2(v0, v1);
+	double d11 = dot_vec2(v1, v1);
+	double d20 = dot_vec2(v2, v0);
+	double d21 = dot_vec2(v2, v1);
+
+	double denom = d00*d11 - d01*d01;
+
+	double u = (d11*d20 - d01*d21) / denom;
+	double v = (d00*d21 - d01*d20) / denom;
+
+	return (u >= 0 && v >= 0 && u+v <= 1+1e-9);
+}
+
+
+
+void set_color_from_value(cairo_t *cr, double value) {
+	double r = value;
+	double g = 1-value;
+	double b = 4*pow(value-0.5,2);
+	cairo_set_source_rgb(cr, r,g,b);
+}
+
+
+
+double get_triangle_interpolated_value(Vector3 p0, Vector3 p1, Vector3 p2, Vector2 p) {
+	Vector2 a = vec2(p0.x, p0.y);
+	Vector2 b = vec2(p1.x, p1.y);
+	Vector2 c = vec2(p2.x, p2.y);
+	Vector2 v0 = subtract_vec2(c,a);
+	Vector2 v1 = subtract_vec2(b,a);
+	Vector2 v2 = subtract_vec2(p,a);
+
+	double d00 = dot_vec2(v0, v0);
+	double d01 = dot_vec2(v0, v1);
+	double d11 = dot_vec2(v1, v1);
+	double d20 = dot_vec2(v2, v0);
+	double d21 = dot_vec2(v2, v1);
+
+	double denom = d00*d11 - d01*d01;
+
+	double v = (d00*d21 - d01*d20) / denom;
+	double w = (d11*d20 - d01*d21) / denom;
+	double u = 1-v-w;
+
+	return u*p0.z + v*p1.z + w*p2.z;
+}
+
+
+void draw_mesh_interpolated_points(cairo_t *cr, Mesh2 mesh, int width, int height) {
+	int step = 1;
+
+	for(int i = 0; i < mesh.num_triangles; i++) {
+		double min_x, max_x, min_y, max_y;
+		MeshTriangle2 tri2d = *mesh.triangles[i];
+		find_2dtriangle_minmax(tri2d, &min_x, &max_x, &min_y, &max_y);
+		if(max_x < 0 || min_x > width || max_y < 0 || min_y > height) continue;
+		for(int x = (int)min_x+1; x <= max_x; x+=step) {
+			for(int y = (int)min_y+1; y <= max_y; y+=step) {
+				Vector2 p = vec2(x, y);
+				if(x >= 0 && x < width && y >= 0 && y < height && is_inside_triangle(tri2d, p)) {
+					Vector3 tri3[3];
+					for (int idx = 0; idx < 3; idx++) {
+						struct ItinStep *ptr = mesh.triangles[i]->points[idx]->data;
+						double vinf = mag_vec3(subtract_vec3(ptr->v_dep, ptr->prev->v_body));
+						double dv_dep = dv_circ(ptr->prev->body, ir_dep_periapsis+ptr->prev->body->radius, vinf);
+
+						tri3[idx].x = mesh.triangles[i]->points[idx]->pos.x;
+						tri3[idx].y = mesh.triangles[i]->points[idx]->pos.y;
+						tri3[idx].z = (dv_dep-4000)/6000;
+					}
+					double interpl_value = get_triangle_interpolated_value(tri3[0], tri3[1], tri3[2], p);
+					set_color_from_value(cr, interpl_value);
+					cairo_rectangle(cr, x, y, 1, 1);
+					cairo_fill(cr);
+				}
+			}
+		}
+	}
+}
 
 G_MODULE_EXPORT void on_calc_ir2() {
 	char *string;
@@ -557,22 +659,23 @@ G_MODULE_EXPORT void on_calc_ir2() {
 
 
 	MeshGrid2 grid = create_mesh_grid(step_pos, (void**) steps);
-	for (int i = 0; i < grid.num_cols; i++) {
-		if (grid.num_col_rows[i] == 0) {
-			printf("\n%4d:   ---", i); continue;
-		}
-		printf("\n%4d: ", i);
-		for (int j = 0; j < grid.num_col_rows[i]; j++) {
-			printf("%6.0f, ", grid.points[i][j]->pos.y);
-		}
-	}
-	printf("\n");
-	Mesh2 mesh = create_mesh_from_grid(grid);
+	// for (int i = 0; i < grid.num_cols; i++) {
+	// 	if (grid.num_col_rows[i] == 0) {
+	// 		printf("\n%4d:   ---", i); continue;
+	// 	}
+	// 	printf("\n%4d: ", i);
+	// 	for (int j = 0; j < grid.num_col_rows[i]; j++) {
+	// 		printf("%6.0f, ", grid.points[i][j]->pos.y);
+	// 	}
+	// }
+	// printf("\n");
+	// Mesh2 mesh = create_mesh_from_grid(grid);
+	Mesh2 mesh = create_mesh_from_grid_w_angled_guideline(grid, departure_groups[pcgroup]->boundary_gradient);
 
 
 	for(int i = 0; i < mesh.num_points; i++) {
 		MeshPoint2 *point = mesh.points[i];
-		struct ItinStep *step = (struct ItinStep *) point->data;
+		struct ItinStep *step = point->data;
 		point->pos.x = step->date;
 		point->pos.y = step->date - get_first(step)->date;
 	}
@@ -583,9 +686,8 @@ G_MODULE_EXPORT void on_calc_ir2() {
 
 
 	resize_pcmesh_to_fit(mesh, ir_screen1->width, ir_screen1->height);
-	draw_mesh(ir_screen1->static_layer.cr, &mesh);
-
-
+	draw_mesh_interpolated_points(ir_screen1->static_layer.cr, mesh, ir_screen1->width, ir_screen1->height);
+	draw_mesh(ir_screen0->static_layer.cr, &mesh);
 
 
 	struct ItinStep **departures = departure_groups[pcgroup]->departures;
@@ -607,7 +709,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	printf("\n%d itineraries found!\nNumber of Nodes: %d\n", num_itins1, tot_num_itins);
 
 	int index = 0;
-	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins1 * sizeof(struct ItinStep*));
+	struct ItinStep **arrivals = malloc(num_itins1 * sizeof(struct ItinStep*));
 	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) store_itineraries_in_array(departures[i], arrivals, &index);
 	struct PorkchopAnalyzerPoint *pp1 = malloc(num_itins1 * sizeof(struct PorkchopAnalyzerPoint));
 	for(int i = 0; i < num_itins1; i++) {
@@ -617,8 +719,26 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	}
 	free(arrivals);
 
-	draw_porkchop(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, pp1, num_itins1, TF_FLYBY, 0);
+	// draw_porkchop(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, pp1, num_itins1, TF_FLYBY, 0);
 
+	
+	DepartureGroup *departure_group = malloc(sizeof(DepartureGroup));
+	DataArray2 *vinf_array = NULL;
+	departure_group = malloc(sizeof(DepartureGroup));
+	departure_group->dep_body = dep_body;
+	departure_group->arr_body = arr_body;
+	departure_group->num_departures = num_iterations*10;
+	departure_group->system = ir_system;
+
+	vinf_array = calc_min_vinf_line(departure_group, pcgroup+1, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, 1);
+	if (departure_group->num_departures == 0) {free(departure_group);}
+	else counter++;
+	// print_data_array2(vinf_array, "dep_date", "vinf");
+	printf("size: %lu\n", data_array2_size(vinf_array));
+
+	ir_data0 = vinf_array;
+
+	// draw_scatter_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
 
 	draw_screen(ir_screen0);
 	draw_screen(ir_screen1);

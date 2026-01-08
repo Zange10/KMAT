@@ -245,3 +245,68 @@ Mesh2 create_mesh_from_grid(MeshGrid2 grid) {
 
 	return mesh;
 }
+
+Mesh2 create_mesh_from_grid_w_angled_guideline(MeshGrid2 grid, double gradient) {
+	Mesh2 mesh;
+	mesh.num_triangles = 0;
+	mesh.max_num_triangles = 1000000;
+	mesh.num_points = 0;
+	mesh.max_num_points = 1000000;
+	mesh.triangles = malloc(mesh.max_num_triangles*sizeof(MeshTriangle2*));
+	mesh.points = malloc(mesh.max_num_points*sizeof(MeshPoint2*));
+
+	for(int i = 0; i < grid.num_cols; i++) {
+		for(int j = 0; j < grid.num_col_rows[i]; j++) {
+			mesh.points[mesh.num_points] = grid.points[i][j];
+			mesh.num_points++;
+		}
+	}
+
+	for(int x_idx = 0; x_idx < grid.num_cols-1; x_idx++) {
+		if (x_idx < grid.num_cols-1 && grid.num_col_rows[x_idx+1] == 0) {x_idx++; continue;}
+		int y_idx0 = 0, y_idx1 = 0;
+		while(y_idx0 < grid.num_col_rows[x_idx] - 1 && y_idx1 < grid.num_col_rows[x_idx + 1] - 1) {
+			MeshPoint2 *p0 = grid.points[x_idx][y_idx0];
+			MeshPoint2 *p1 = grid.points[1 + x_idx][y_idx1];
+			MeshPoint2 *p2 = grid.points[x_idx][1 + y_idx0];
+			MeshPoint2 *p3 = grid.points[1 + x_idx][1 + y_idx1];
+
+			Vector2 p1_shifted = p1->pos;
+			Vector2 p3_shifted = p3->pos;
+			double dx = p1->pos.x - p0->pos.x;
+			p1_shifted.y += -gradient * dx;
+			p3_shifted.y += -gradient * dx;
+
+			double sq_dist03 = sq_mag_vec2(subtract_vec2(p0->pos, p3_shifted));
+			double sq_dist12 = sq_mag_vec2(subtract_vec2(p1_shifted, p2->pos));
+
+			if(sq_dist03 < sq_dist12) {
+				mesh.triangles[mesh.num_triangles] = create_triangle_from_three_points(p0, p1, p3);
+				y_idx1++;
+			} else {
+				mesh.triangles[mesh.num_triangles] = create_triangle_from_three_points(p0, p1, p2);
+				y_idx0++;
+			}
+			mesh.num_triangles++;
+
+		}
+
+		if(y_idx0 == grid.num_col_rows[x_idx] - 1) {
+			while(y_idx1 < grid.num_col_rows[x_idx + 1] - 1) {
+				mesh.triangles[mesh.num_triangles] = create_triangle_from_three_points(grid.points[x_idx][y_idx0], grid.points[x_idx + 1][y_idx1], grid.points[x_idx + 1][y_idx1 + 1]);
+				y_idx1++;
+				mesh.num_triangles++;
+			}
+		}
+
+		if(y_idx1 == grid.num_col_rows[x_idx + 1] - 1) {
+			while(y_idx0 < grid.num_col_rows[x_idx] - 1) {
+				mesh.triangles[mesh.num_triangles] = create_triangle_from_three_points(grid.points[x_idx][y_idx0], grid.points[x_idx][y_idx0 + 1], grid.points[x_idx + 1][y_idx1]);
+				y_idx0++;
+				mesh.num_triangles++;
+			}
+		}
+	}
+
+	return mesh;
+}
