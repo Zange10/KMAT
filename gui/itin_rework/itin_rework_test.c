@@ -537,18 +537,45 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	counter = 0;
 	for (int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
 		struct ItinStep *step = departure_groups[pcgroup]->departures[i];
+		if (step->num_next_nodes == -1) {
+			double x = -1e10;
+			double y = 0;
+			data_array2_append_new(step_pos, x, y);
+			steps[counter] = NULL;
+			counter++;
+		}
+		if (step->num_next_nodes < 0) step->num_next_nodes = 0;
+
 		for (int j = 0; j < step->num_next_nodes; j++) {
 			double x = step->date;
 			double y = step->next[j]->date - step->date;
 			data_array2_append_new(step_pos, x, y);
 			steps[counter] = step->next[j];
+			counter++;
 		}
 	}
 
 
 	MeshGrid2 grid = create_mesh_grid(step_pos, (void**) steps);
+	for (int i = 0; i < grid.num_cols; i++) {
+		if (grid.num_col_rows[i] == 0) {
+			printf("\n%4d:   ---", i); continue;
+		}
+		printf("\n%4d: ", i);
+		for (int j = 0; j < grid.num_col_rows[i]; j++) {
+			printf("%6.0f, ", grid.points[i][j]->pos.y);
+		}
+	}
+	printf("\n");
 	Mesh2 mesh = create_mesh_from_grid(grid);
 
+
+	for(int i = 0; i < mesh.num_points; i++) {
+		MeshPoint2 *point = mesh.points[i];
+		struct ItinStep *step = (struct ItinStep *) point->data;
+		point->pos.x = step->date;
+		point->pos.y = step->date - get_first(step)->date;
+	}
 
 	gettimeofday(&end, NULL);  // Record the ending time
 	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;

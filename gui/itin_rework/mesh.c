@@ -150,7 +150,15 @@ MeshGrid2 create_mesh_grid(DataArray2 *pos, void **data) {
 				temp = realloc(grid.num_col_rows, col_cap * sizeof(size_t));
 				if (temp) grid.num_col_rows = temp;
 			}
-
+			if (pos_data[i].x < -1e9) {
+				if (i+1 < data_array2_size(pos)) {
+					grid.points[grid.num_cols-1] = NULL;
+					grid.num_col_rows[grid.num_cols-1] = 0;
+				} else {
+					grid.num_cols--;
+				}
+				continue;
+			}
 			row_cap = 8;
 			grid.points[grid.num_cols-1] = malloc(row_cap * sizeof(MeshPoint2*));
 			grid.num_col_rows[grid.num_cols-1] = 0;
@@ -196,6 +204,7 @@ Mesh2 create_mesh_from_grid(MeshGrid2 grid) {
 	}
 
 	for(int x_idx = 0; x_idx < grid.num_cols-1; x_idx++) {
+		if (x_idx < grid.num_cols-1 && grid.num_col_rows[x_idx+1] == 0) {x_idx++; continue;}
 		int y_idx0 = 0, y_idx1 = 0;
 		while(y_idx0 < grid.num_col_rows[x_idx] - 1 && y_idx1 < grid.num_col_rows[x_idx + 1] - 1) {
 			MeshPoint2 *p0 = grid.points[x_idx][y_idx0];

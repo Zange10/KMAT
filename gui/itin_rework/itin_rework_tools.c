@@ -386,15 +386,30 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 			dt1 = next_conjunction_dt;
 		}
 
-		if(dt0 > max_dt) continue;
-		if(dt1 < min_dt) continue;
+		if(dt0 > max_dt || dt1 < min_dt) continue;
 
 		double left_x = 0, right_x = 0;
 
 		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x);
 
 		// printf("ROOT: %f   %f   (%f  %f)   (%f  %f)\n", left_x/86400, right_x/86400, dt0/86400, dt1/86400, opp_guess/86400, conj_guess/86400);
-		if (left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) continue;
+		if (left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
+			if (group->num_departures > 0) {
+				struct ItinStep *curr_step;
+				group->departures[group->num_departures] = malloc(sizeof(struct ItinStep));
+				curr_step = group->departures[group->num_departures];
+				curr_step->prev = NULL;
+				curr_step->next = NULL;
+				group->num_departures++;
+
+				if (group->departures[group->num_departures-2]->num_next_nodes < 0) {
+					group->departures[group->num_departures-1]->num_next_nodes = -2;
+				} else {
+					group->departures[group->num_departures-1]->num_next_nodes = -1;
+				}
+			}
+			continue;
+		}
 
 		if (left_x < dt0) left_x = dt0;
 		if (left_x < min_dur*86400) left_x = min_dur*86400;
