@@ -311,12 +311,7 @@ double calc_opposition_conjunction_gradient(Body *dep_body, Body *arr_body, Cele
 	Orbit orbit0 = constr_orbit_from_osv(osv0.r, osv0.v, system->cb);
 	Orbit orbit1 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
 
-	double rot_speed_dep_body = 2*M_PI/calc_orbital_period(orbit0);
-	double rot_speed_arr_body = 2*M_PI/calc_orbital_period(orbit1);
-	double rot_speed_relative = rot_speed_dep_body-rot_speed_arr_body;
-	double dydx = rot_speed_relative/(2*M_PI) * (calc_orbital_period(orbit1));
-
-	return dydx;
+	return calc_orbital_period(orbit1)/calc_orbital_period(orbit0) - 1;
 }
 
 void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
@@ -522,6 +517,37 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 
 
 
+double calc_time_to_next_an_dn_line_up(OSV osv_dep_body, OSV osv_arr_body, Body *cb, double *next_line_up_dt, double *next_opposite_line_up_dt) {
+	Plane3 orbital_plane_dep_body = constr_plane3(vec3(0,0,0), osv_dep_body.r, osv_dep_body.v);
+	Plane3 orbital_plane_arr_body = constr_plane3(vec3(0,0,0), osv_arr_body.r, osv_arr_body.v);
+	Vector3 plane_intersection = calc_intersecting_line_dir_plane3(orbital_plane_dep_body, orbital_plane_arr_body);
+
+	Orbit dep_body_orbit = constr_orbit_from_osv(osv_dep_body.r, osv_dep_body.v, cb);
+	double dep_body_orbit_period = calc_orbital_period(dep_body_orbit);
+	double tpe0 = calc_orbit_time_since_periapsis(dep_body_orbit);
+
+	double delta_true_anomaly = angle_vec3_vec3(osv_dep_body.r, plane_intersection);
+
+	if (dep_body_orbit.i < M_PI/2 && cross_vec3(osv_dep_body.r, plane_intersection).z < 0 ||
+		dep_body_orbit.i > M_PI/2 && cross_vec3(osv_dep_body.r, plane_intersection).z > 0) {
+		delta_true_anomaly = 2*M_PI - delta_true_anomaly - M_PI;
+	}
+
+	Orbit line_up_orbit = dep_body_orbit;
+	line_up_orbit.ta = pi_norm(line_up_orbit.ta + delta_true_anomaly);
+	double dt_line_up = calc_orbit_time_since_periapsis(line_up_orbit)-tpe0;
+
+	line_up_orbit.ta = pi_norm(line_up_orbit.ta + M_PI);
+	double dt_opp_line_up = calc_orbit_time_since_periapsis(line_up_orbit)-tpe0;
+
+	if(dt_line_up < 0)		dt_line_up += dep_body_orbit_period;
+	if(dt_opp_line_up < 0)	dt_opp_line_up += dep_body_orbit_period;
+
+	*next_line_up_dt = dt_line_up;
+	*next_opposite_line_up_dt = dt_opp_line_up;
+}
+
+
 DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double vinf_tolerance) {
 	DataArray2 *min_per_dep = data_array2_create();
 	int departures_cap = group->num_departures;
@@ -661,6 +687,29 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 	}
 
 	data_array2_free(data_dep);
+
+
+
+
+	double next_line_up_dt, next_opp_line_up_dt;
+	calc_time_to_next_an_dn_line_up(osv0, osv_arr0, group->system->cb, &next_line_up_dt, &next_opp_line_up_dt);
+
+	Orbit orbit0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb);
+	double period_dep = calc_orbital_period(orbit0);
+
+	double max_x = data_array2_get_data(min_per_dep)[data_array2_size(min_per_dep)-1].x;
+	double min_x = data_array2_get_data(min_per_dep)[0].x;
+
+	while (next_line_up_dt/86400 < max_x) {
+		if (next_opp_line_up_dt/86400 > min_x) {
+			for (int i = 0; i < 20; i++) {
+				data_array2_insert_new(min_per_dep, next_line_up_dt/86400, i*2000);
+				data_array2_insert_new(min_per_dep, next_opp_line_up_dt/86400, i*2000);
+			}
+		}
+		next_line_up_dt += period_dep;
+		next_opp_line_up_dt += period_dep;
+	}
 
 	return min_per_dep;
 }

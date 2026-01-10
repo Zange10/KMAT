@@ -438,7 +438,7 @@ void resize_pcmesh_to_fit(Mesh2 mesh, double max_x, double max_y) {
 	Vector2 gradient = {
 		max_x/(max.x-min.x),
 		max_y/(max.y-min.y)
-};
+	};
 
 
 	for(int i = 0; i < mesh.num_points; i++) {
@@ -573,6 +573,80 @@ void draw_mesh_interpolated_points(cairo_t *cr, Mesh2 mesh, int width, int heigh
 			}
 		}
 	}
+}
+
+
+void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double height, Mesh2 mesh, double tolerance) {
+	double step_dep = 0.5;
+	double step_dur = 0.5;
+	DataArray3 *absolute_error = data_array3_create();
+	DataArray3 *relative_error = data_array3_create();
+	DataArray2 *error_pos = data_array2_create();
+	data_array2_append_new(error_pos, 1e9, 1e9);
+	data_array2_append_new(error_pos, -1e9, -1e9);
+
+	int num_points = 0, num_errors = 0;
+
+	for(int i = 0; i < mesh.num_triangles; i++) {
+		double min_x, max_x, min_y, max_y;
+		MeshTriangle2 tri2d = *mesh.triangles[i];
+		find_2dtriangle_minmax(tri2d, &min_x, &max_x, &min_y, &max_y);
+
+		for(double jd_dep = min_x; jd_dep <= max_x; jd_dep += step_dep) {
+			for(double dur = min_y; dur <= max_y; dur += step_dur) {
+				Vector2 p = vec2(jd_dep, dur);
+				if(is_inside_triangle(tri2d, p)) {
+					Vector3 tri3[3];
+					struct ItinStep *ptr = NULL;
+					for (int idx = 0; idx < 3; idx++) {
+						ptr = mesh.triangles[i]->points[idx]->data;
+						double vinf = mag_vec3(subtract_vec3(ptr->v_dep, ptr->prev->v_body));
+						double dv_dep = dv_circ(ptr->prev->body, ir_dep_periapsis+ptr->prev->body->radius, vinf);
+
+						tri3[idx].x = mesh.triangles[i]->points[idx]->pos.x;
+						tri3[idx].y = mesh.triangles[i]->points[idx]->pos.y;
+						tri3[idx].z = dv_dep;
+					}
+					double interpl_value = get_triangle_interpolated_value(tri3[0], tri3[1], tri3[2], p);
+
+					Body *dep_body = ptr->prev->body;
+					Body *arr_body = ptr->body;
+					CelestSystem *system = ptr->body->orbit.cb->system;
+
+					OSV osv0 = system->prop_method == ORB_ELEMENTS ?
+						           osv_from_elements(dep_body->orbit, jd_dep) :
+						           osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, system->cb);
+
+					double jd_arr = jd_dep + dur;
+
+					OSV osv1 = system->prop_method == ORB_ELEMENTS ?
+								osv_from_elements(arr_body->orbit, jd_arr) :
+								osv_from_ephem(arr_body->ephem, arr_body->num_ephems, jd_arr, system->cb);
+
+					Lambert3 tf = calc_lambert3(osv0.r, osv1.r, (jd_arr - jd_dep) * 86400, system->cb);
+					double vinf = mag_vec3(subtract_vec3(tf.v0, osv0.v));
+					double dv_dep = dv_circ(ptr->prev->body, ir_dep_periapsis+ptr->prev->body->radius, vinf);
+
+					num_points++;
+					Vector2 *error_data = data_array2_get_data(error_pos);
+					if (jd_dep-2.43418e+06 < error_data[0].x) error_data[0].x = jd_dep-2.43418e+06;
+					if (dur < error_data[0].y) error_data[0].y = dur;
+					if (jd_dep-2.43418e+06 > error_data[1].x) error_data[1].x = jd_dep-2.43418e+06;
+					if (dur > error_data[1].y) error_data[1].y = dur;
+					if (fabs(dv_dep-interpl_value) > tolerance) {
+						num_errors++;
+						data_array2_append_new(error_pos, jd_dep-2.43418e+06, dur);
+						data_array3_append_new(absolute_error, jd_dep-2.43418e+06, dur, fabs(dv_dep-interpl_value));
+						data_array3_append_new(relative_error, jd_dep-2.43418e+06, dur, fabs(dv_dep-interpl_value)/dv_dep);
+					}
+				}
+			}
+		}
+	}
+	print_data_array3(relative_error, "dep", "dur", "rel_error");
+	// print_data_array3(error, "dep", "dur", "error");
+	printf(" %d / %d   (%.4f %%)\n", num_errors, num_points, (num_errors/(double)num_points)*100);
+	draw_scatter_from_data_array(cr, width, height, error_pos);
 }
 
 G_MODULE_EXPORT void on_calc_ir2() {
@@ -739,6 +813,116 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	ir_data0 = vinf_array;
 
 	// draw_scatter_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
+
+	draw_screen(ir_screen0);
+	draw_screen(ir_screen1);
+}
+
+
+G_MODULE_EXPORT void on_calc_ir3() {
+	char *string;
+
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_mindepdate));
+	double min_dep = convert_date_JD(date_from_string(string, DATE_ISO));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdepdate));
+	double max_dep = convert_date_JD(date_from_string(string, DATE_ISO));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_mindur));
+	double min_dur = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdur));
+	double max_dur = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_tolerance));
+	double tolerance = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_numdeps));
+	double target_numdeps = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdv));
+	double max_dep_dv = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup));
+	int pcgroup = (int) strtod(string, NULL);
+
+	Body *dep_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_depbody))];
+	Body *arr_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_arrbody))];
+
+	double dep_periapsis = dep_body->atmo_alt + ir_dep_periapsis;
+
+	clear_screen(ir_screen0);
+	clear_screen(ir_screen1);
+
+	double jd_dep = min_dep;
+	int num_iterations = (int) target_numdeps;
+
+	struct timeval start, end;
+	double elapsed_time;
+	gettimeofday(&start, NULL);  // Record the ending time
+
+	int num_of_groups = 50;
+	DepartureGroup **departure_groups = malloc(num_of_groups*sizeof(DepartureGroup *));
+	int counter = 0;
+	for (int i = 0; i < num_of_groups; i++) {
+		departure_groups[counter] = malloc(sizeof(DepartureGroup));
+		departure_groups[counter]->dep_body = dep_body;
+		departure_groups[counter]->arr_body = arr_body;
+		departure_groups[counter]->num_departures = num_iterations;
+		departure_groups[counter]->system = ir_system;
+
+		calc_group_porkchop(departure_groups[counter], i-10, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
+		if (departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
+		else counter++;
+	}
+
+	printf("%d\n", counter);
+
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+
+
+	gettimeofday(&start, NULL);  // Record the ending time
+
+	struct ItinStep **steps = malloc(10000*sizeof(struct ItinStep *));
+	DataArray2 *step_pos = data_array2_create();
+	counter = 0;
+	for (int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
+		struct ItinStep *step = departure_groups[pcgroup]->departures[i];
+		if (step->num_next_nodes == -1) {
+			double x = -1e10;
+			double y = 0;
+			data_array2_append_new(step_pos, x, y);
+			steps[counter] = NULL;
+			counter++;
+		}
+		if (step->num_next_nodes < 0) step->num_next_nodes = 0;
+
+		for (int j = 0; j < step->num_next_nodes; j++) {
+			double x = step->date;
+			double y = step->next[j]->date - step->date;
+			data_array2_append_new(step_pos, x, y);
+			steps[counter] = step->next[j];
+			counter++;
+		}
+	}
+
+
+	MeshGrid2 grid = create_mesh_grid(step_pos, (void**) steps);
+	Mesh2 mesh = create_mesh_from_grid_w_angled_guideline(grid, departure_groups[pcgroup]->boundary_gradient);
+
+
+	// for(int i = 0; i < mesh.num_points; i++) {
+	// 	MeshPoint2 *point = mesh.points[i];
+	// 	struct ItinStep *step = point->data;
+	// 	point->pos.x = step->date;
+	// 	point->pos.y = step->date - get_first(step)->date;
+	// }
+
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+
+
+	draw_mesh_interpolated_points_error(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, mesh, tolerance);
+
+	resize_pcmesh_to_fit(mesh, ir_screen1->width, ir_screen1->height);
+	// draw_mesh_interpolated_points(ir_screen1->static_layer.cr, mesh, ir_screen1->width, ir_screen1->height);
+	draw_mesh(ir_screen1->static_layer.cr, &mesh);
 
 	draw_screen(ir_screen0);
 	draw_screen(ir_screen1);
