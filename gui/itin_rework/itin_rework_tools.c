@@ -10,15 +10,15 @@ double calc_next_x_wrt_smoothness(DataArray2 *arr, int index_0, double tolerance
 	Vector2 *data = &(data_array2_get_data(arr)[index_0]);
 	size_t num_data = data_array2_size(arr)-index_0;
 
-	if (num_data == 3) return (data[1].x - data[0].x)/100 + data[0].x;
-	if (num_data == 4) return (data[1].x - data[0].x)/10 + data[0].x;
+	if(num_data == 3) return (data[1].x - data[0].x)/100 + data[0].x;
+	if(num_data == 4) return (data[1].x - data[0].x)/10 + data[0].x;
 
-	for (int i = 1; i < num_data-1; i++) {
-		if ((data[i+1].x - data[i].x) < 0.001) continue;
+	for(int i = 1; i < num_data-1; i++) {
+		if((data[i+1].x - data[i].x) < 0.001) continue;
 		double m = (data[i].y - data[i-1].y)/(data[i].x - data[i-1].x);
 		double ip_y = data[i].y + m*(data[i+1].x-data[i].x);
 
-		if (fabs(ip_y - data[i+1].y) > tolerance) {
+		if(fabs(ip_y - data[i+1].y) > tolerance) {
 			return (data[i].x + data[i+1].x)/2;
 		}
 	}
@@ -32,8 +32,8 @@ double calc_next_x_find_min(DataArray2 *arr, int index_0, double tolerance) {
 
 	int min_idx = (int) num_data-1;
 
-	for (int i = 0; i < num_data-1; i++) {
-		if (data[i].y < data[i+1].y) { min_idx = i; break; }
+	for(int i = 0; i < num_data-1; i++) {
+		if(data[i].y < data[i+1].y) { min_idx = i; break; }
 	}
 
 	double m_left = (data[min_idx].y - data[min_idx-1].y)/(data[min_idx].x - data[min_idx-1].x);
@@ -45,9 +45,9 @@ double calc_next_x_find_min(DataArray2 *arr, int index_0, double tolerance) {
 	double dleft = fabs(left_guess - data[min_idx-1].y);
 	double dright = fabs(right_guess - data[min_idx+1].y);
 
-	if (dleft < tolerance && dright < tolerance) {return -1;}
+	if(dleft < tolerance && dright < tolerance) {return -1;}
 
-	if (dleft > dright) return data[min_idx].x - (data[min_idx].x - data[min_idx-1].x)*0.2;
+	if(dleft > dright) return data[min_idx].x - (data[min_idx].x - data[min_idx-1].x)*0.2;
 	else return data[min_idx].x + (data[min_idx+1].x - data[min_idx].x)*0.2;
 }
 
@@ -61,7 +61,7 @@ void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, Celes
 	*right_x = 0;
 	bool left_branch = true;
 
-	if (dt0 < 100) dt0 = 100;	// transfer duration of 100s
+	if(dt0 < 100) dt0 = 100;	// transfer duration of 100s
 	dt = dt0;
 
 	for(int i = 0; i < 100; i++) {
@@ -80,7 +80,7 @@ void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, Celes
 				*left_x = dt;
 				last_dt = -1e20;
 				left_branch = false;
-				if (*right_x != 0) break;
+				if(*right_x != 0) break;
 			} else {
 				*right_x = dt;
 				break;
@@ -90,17 +90,17 @@ void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, Celes
 
 		data_array2_insert_new(data, dt, dv_dep - max_depdv);
 
-		if (i == 1) {
+		if(i == 1) {
 			Vector2 *values = data_array2_get_data(data);
-			if (values[0].y < 0) {
+			if(values[0].y < 0) {
 				*left_x = values[0].x;
-				if (values[1].y < 0) {
+				if(values[1].y < 0) {
 					*right_x = values[1].x;
 					break;
 				}
 				left_branch = false;
 			}
-			if (values[1].y < 0) {
+			if(values[1].y < 0) {
 				*right_x = values[1].x;
 			}
 		}
@@ -163,8 +163,8 @@ DataArray2 * calc_porkchop_line(struct ItinStep *departure_step, Body *dep_body,
 	double hohmann_dur = hohmann.dur/86400;
 	double min_duration = 0.4 * hohmann_dur;
 	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
-	if (max_duration < max_dur) max_dur = max_duration;
-	if (min_duration > min_dur) min_dur = min_duration;
+	if(max_duration < max_dur) max_dur = max_duration;
+	if(min_duration > min_dur) min_dur = min_duration;
 
 	int max_new_steps = 100000;
 	double min_dt = min_dur*86400;
@@ -188,17 +188,17 @@ DataArray2 * calc_porkchop_line(struct ItinStep *departure_step, Body *dep_body,
 		find_root(osv0, jd_dep, dep_body, arr_body, system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x);
 
 		// printf("ROOT: %f   %f   (%f  %f)\n", left_x/86400, right_x/86400, dt0/86400, dt1/86400);
-		if (left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
+		if(left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
 			double temp = dt1;
 			dt1 = dt0 + period_arr0;
 			dt0 = temp;
 			continue;
 		}
 
-		if (left_x < dt0) left_x = dt0;
-		if (left_x < min_dur*86400) left_x = min_dur*86400;
-		if (right_x > dt1) right_x = dt1;
-		if (right_x > max_dur*86400) right_x = max_dur*86400;
+		if(left_x < dt0) left_x = dt0;
+		if(left_x < min_dur*86400) left_x = min_dur*86400;
+		if(right_x > dt1) right_x = dt1;
+		if(right_x > max_dur*86400) right_x = max_dur*86400;
 		dt = left_x;
 		for(int i = 0; i < max_new_steps/10; i++) {
 			// printf("%f  %f  %f  %f  %f\n", min_dt, max_dt, dt0, dt1, dt);
@@ -236,13 +236,13 @@ DataArray2 * calc_porkchop_line(struct ItinStep *departure_step, Body *dep_body,
 			// printf("%f  %f   %f    %f   %f   %f\n", dt/86400, dv_dep, left_x/86400, right_x/86400, min_dur, max_dur);
 			counter++;
 
-			if (dt == left_x) dt = right_x;
-			else if (dt == right_x) dt = ( dt + data_array2_get_data(data)[index].x*86400 ) / 2;
+			if(dt == left_x) dt = right_x;
+			else if(dt == right_x) dt = ( dt + data_array2_get_data(data)[index].x*86400 ) / 2;
 			else {
 				double next_dep_x = calc_next_x_wrt_smoothness(data_dep, index, dv_tolerance)*86400;
 				double next_arr_x = calc_next_x_wrt_smoothness(data_arr, index, dv_tolerance)*86400;
-				if (next_dep_x < 0 && next_arr_x < 0) break;
-				if (next_dep_x > 0 && next_dep_x < next_arr_x || next_arr_x < 0) dt = next_dep_x;
+				if(next_dep_x < 0 && next_arr_x < 0) break;
+				if(next_dep_x > 0 && next_dep_x < next_arr_x || next_arr_x < 0) dt = next_dep_x;
 				else dt = next_arr_x;
 			}
 		}
@@ -255,7 +255,7 @@ DataArray2 * calc_porkchop_line(struct ItinStep *departure_step, Body *dep_body,
 	// printf("Total: %d\n", counter);
 	departure_step->num_next_nodes = counter;
 
-	if (data == data_arr) data_array2_free(data_dep);
+	if(data == data_arr) data_array2_free(data_dep);
 	else data_array2_free(data_arr);
 
 	return data;
@@ -278,8 +278,8 @@ DataArray2 * calc_porkchop_line_static(Body *dep_body, Body *arr_body, CelestSys
 	double hohmann_dur = hohmann.dur/86400;
 	double min_duration = 0.4 * hohmann_dur;
 	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
-	if (max_duration < max_dur) max_dur = max_duration;
-	if (min_duration > min_dur) min_dur = min_duration;
+	if(max_duration < max_dur) max_dur = max_duration;
+	if(min_duration > min_dur) min_dur = min_duration;
 
 	for(int i = 0; i < num_points; i++) {
 		double dur = (max_dur-min_dur)/num_points*i + min_dur;
@@ -320,7 +320,7 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 	group->departures = malloc(departures_cap * sizeof(struct ItinStep*));
 
 	double opp_conj_gradient = calc_opposition_conjunction_gradient(group->dep_body, group->arr_body, group->system, (jd_min_dep+jd_max_dep)/2);
-	if (opp_conj_gradient > 0) shift *= -1;
+	if(opp_conj_gradient > 0) shift *= -1;
 
 	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
 					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
@@ -336,7 +336,7 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 	double dt0, dt1;
 
 	// default shift from calc_time_to_next_conjunction_and_opposition is 1 (but we want values around 0 for start)
-	if (shift % 2 == 0) {
+	if(shift % 2 == 0) {
 		if(last_conjunction_dt > last_opposition_dt) last_conjunction_dt -= period_arr0;
 		else last_opposition_dt -= period_arr0;
 		shift++;
@@ -345,7 +345,7 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 	last_opposition_dt += period_arr0 * shift/2;
 	last_conjunction_dt += period_arr0 * shift/2;
 
-	if (last_opposition_dt < last_conjunction_dt) {
+	if(last_opposition_dt < last_conjunction_dt) {
 		group->boundary0_bottom = vec2(jd_min_dep, last_opposition_dt);
 		group->boundary0_top = vec2(jd_min_dep, last_conjunction_dt);
 	} else {
@@ -362,8 +362,8 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 	double hohmann_dur = hohmann.dur/86400;
 	double min_duration = 0.4 * hohmann_dur;
 	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
-	if (max_duration < max_dur) max_dur = max_duration;
-	if (min_duration > min_dur) min_dur = min_duration;
+	if(max_duration < max_dur) max_dur = max_duration;
+	if(min_duration > min_dur) min_dur = min_duration;
 
 	double min_dt = min_dur*86400;
 	double max_dt = max_dur*86400;
@@ -372,7 +372,7 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 	DataArray2 *data_dep = data_array2_create();
 	DataArray2 *data_arr = data_array2_create();
 
-	for (int i = 0; i < departures_cap; i++) {
+	for(int i = 0; i < departures_cap; i++) {
 		double jd_dep = jd_min_dep + jd_dep_step*i;
 
 		data_array2_clear(data_dep);
@@ -391,10 +391,10 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 		double opp_guess = last_opposition_dt + jd_dep_step*86400*opp_conj_gradient;
 		double conj_guess = last_conjunction_dt + jd_dep_step*86400*opp_conj_gradient;
 
-		while (opp_guess-next_opposition_dt   >  0.5 * period_arr0) next_opposition_dt  += period_arr0;
-		while (opp_guess-next_opposition_dt   < -0.5 * period_arr0) next_opposition_dt  -= period_arr0;
-		while (conj_guess-next_conjunction_dt >  0.5 * period_arr0) next_conjunction_dt += period_arr0;
-		while (conj_guess-next_conjunction_dt < -0.5 * period_arr0) next_conjunction_dt -= period_arr0;
+		while(opp_guess-next_opposition_dt   >  0.5 * period_arr0) next_opposition_dt  += period_arr0;
+		while(opp_guess-next_opposition_dt   < -0.5 * period_arr0) next_opposition_dt  -= period_arr0;
+		while(conj_guess-next_conjunction_dt >  0.5 * period_arr0) next_conjunction_dt += period_arr0;
+		while(conj_guess-next_conjunction_dt < -0.5 * period_arr0) next_conjunction_dt -= period_arr0;
 
 		last_opposition_dt = next_opposition_dt;
 		last_conjunction_dt = next_conjunction_dt;
@@ -413,8 +413,8 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x);
 
 		// printf("ROOT: %f   %f   (%f  %f)   (%f  %f)\n", left_x/86400, right_x/86400, dt0/86400, dt1/86400, opp_guess/86400, conj_guess/86400);
-		if (left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
-			if (group->num_departures > 0) {
+		if(left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
+			if(group->num_departures > 0) {
 				struct ItinStep *curr_step;
 				group->departures[group->num_departures] = malloc(sizeof(struct ItinStep));
 				curr_step = group->departures[group->num_departures];
@@ -422,7 +422,7 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 				curr_step->next = NULL;
 				group->num_departures++;
 
-				if (group->departures[group->num_departures-2]->num_next_nodes < 0) {
+				if(group->departures[group->num_departures-2]->num_next_nodes < 0) {
 					group->departures[group->num_departures-1]->num_next_nodes = -2;
 				} else {
 					group->departures[group->num_departures-1]->num_next_nodes = -1;
@@ -431,10 +431,10 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 			continue;
 		}
 
-		if (left_x < dt0) left_x = dt0;
-		if (left_x < min_dur*86400) left_x = min_dur*86400;
-		if (right_x > dt1) right_x = dt1;
-		if (right_x > max_dur*86400) right_x = max_dur*86400;
+		if(left_x < dt0) left_x = dt0;
+		if(left_x < min_dur*86400) left_x = min_dur*86400;
+		if(right_x > dt1) right_x = dt1;
+		if(right_x > max_dur*86400) right_x = max_dur*86400;
 		double dt = left_x;
 
 		struct ItinStep *curr_step;
@@ -474,11 +474,11 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 
 			// sort chronologically
 			int insert_index = counter;
-			while (insert_index > 0) {
-				if (curr_step->next[insert_index-1]->date < jd_arr) break;
+			while(insert_index > 0) {
+				if(curr_step->next[insert_index-1]->date < jd_arr) break;
 				insert_index--;
 			}
-			if (insert_index != counter) {
+			if(insert_index != counter) {
 				memmove(&curr_step->next[insert_index+1],
 					&curr_step->next[insert_index],
 					(counter+2 - insert_index) * sizeof(*curr_step->next));
@@ -499,13 +499,13 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 			curr_step->prev->num_next_nodes++;
 			counter++;
 
-			if (dt == left_x) dt = right_x;
-			else if (dt == right_x) dt = ( dt + data_array2_get_data(data_dep)[0].x*86400 ) / 2;
+			if(dt == left_x) dt = right_x;
+			else if(dt == right_x) dt = ( dt + data_array2_get_data(data_dep)[0].x*86400 ) / 2;
 			else {
 				double next_dep_x = calc_next_x_wrt_smoothness(data_dep, 0, dv_tolerance)*86400;
 				double next_arr_x = calc_next_x_wrt_smoothness(data_arr, 0, dv_tolerance)*86400;
-				if (next_dep_x < 0 && next_arr_x < 0) break;
-				if (next_dep_x > 0 && next_dep_x < next_arr_x || next_arr_x < 0) dt = next_dep_x;
+				if(next_dep_x < 0 && next_arr_x < 0) break;
+				if(next_dep_x > 0 && next_dep_x < next_arr_x || next_arr_x < 0) dt = next_dep_x;
 				else dt = next_arr_x;
 			}
 		}
@@ -528,7 +528,7 @@ double calc_time_to_next_an_dn_line_up(OSV osv_dep_body, OSV osv_arr_body, Body 
 
 	double delta_true_anomaly = angle_vec3_vec3(osv_dep_body.r, plane_intersection);
 
-	if (dep_body_orbit.i < M_PI/2 && cross_vec3(osv_dep_body.r, plane_intersection).z < 0 ||
+	if(dep_body_orbit.i < M_PI/2 && cross_vec3(osv_dep_body.r, plane_intersection).z < 0 ||
 		dep_body_orbit.i > M_PI/2 && cross_vec3(osv_dep_body.r, plane_intersection).z > 0) {
 		delta_true_anomaly = 2*M_PI - delta_true_anomaly - M_PI;
 	}
@@ -552,7 +552,7 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 	DataArray2 *min_per_dep = data_array2_create();
 	int departures_cap = group->num_departures;
 	double opp_conj_gradient = calc_opposition_conjunction_gradient(group->dep_body, group->arr_body, group->system, (jd_min_dep+jd_max_dep)/2);
-	if (opp_conj_gradient > 0) shift *= -1;
+	if(opp_conj_gradient > 0) shift *= -1;
 
 	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
 					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
@@ -568,7 +568,7 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 	double dt0, dt1;
 
 	// default shift from calc_time_to_next_conjunction_and_opposition is 1 (but we want values around 0 for start)
-	if (shift % 2 == 0) {
+	if(shift % 2 == 0) {
 		if(last_conjunction_dt > last_opposition_dt) last_conjunction_dt -= period_arr0;
 		else last_opposition_dt -= period_arr0;
 		shift++;
@@ -577,7 +577,7 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 	last_opposition_dt += period_arr0 * shift/2;
 	last_conjunction_dt += period_arr0 * shift/2;
 
-	if (last_opposition_dt < last_conjunction_dt) {
+	if(last_opposition_dt < last_conjunction_dt) {
 		group->boundary0_bottom = vec2(jd_min_dep, last_opposition_dt);
 		group->boundary0_top = vec2(jd_min_dep, last_conjunction_dt);
 	} else {
@@ -596,8 +596,8 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
 	min_duration /= 5;
 	max_duration *= 5;
-	if (max_duration < max_dur) max_dur = max_duration;
-	if (min_duration > min_dur) min_dur = min_duration;
+	if(max_duration < max_dur) max_dur = max_duration;
+	if(min_duration > min_dur) min_dur = min_duration;
 
 	double min_dt = min_dur*86400;
 	double max_dt = max_dur*86400;
@@ -605,7 +605,7 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 
 	DataArray2 *data_dep = data_array2_create();
 
-	for (int i = 0; i < departures_cap; i++) {
+	for(int i = 0; i < departures_cap; i++) {
 		double jd_dep = jd_min_dep + jd_dep_step*i;
 
 		data_array2_clear(data_dep);
@@ -623,10 +623,10 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 		double opp_guess = last_opposition_dt + jd_dep_step*86400*opp_conj_gradient;
 		double conj_guess = last_conjunction_dt + jd_dep_step*86400*opp_conj_gradient;
 
-		while (opp_guess-next_opposition_dt   >  0.5 * period_arr0) next_opposition_dt  += period_arr0;
-		while (opp_guess-next_opposition_dt   < -0.5 * period_arr0) next_opposition_dt  -= period_arr0;
-		while (conj_guess-next_conjunction_dt >  0.5 * period_arr0) next_conjunction_dt += period_arr0;
-		while (conj_guess-next_conjunction_dt < -0.5 * period_arr0) next_conjunction_dt -= period_arr0;
+		while(opp_guess-next_opposition_dt   >  0.5 * period_arr0) next_opposition_dt  += period_arr0;
+		while(opp_guess-next_opposition_dt   < -0.5 * period_arr0) next_opposition_dt  -= period_arr0;
+		while(conj_guess-next_conjunction_dt >  0.5 * period_arr0) next_conjunction_dt += period_arr0;
+		while(conj_guess-next_conjunction_dt < -0.5 * period_arr0) next_conjunction_dt -= period_arr0;
 
 		last_opposition_dt = next_opposition_dt;
 		last_conjunction_dt = next_conjunction_dt;
@@ -645,12 +645,12 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1e9, 1e9, &left_x, &right_x);
 
 		// printf("ROOT: %f   %f   (%f  %f)   (%f  %f)\n", left_x/86400, right_x/86400, dt0/86400, dt1/86400, opp_guess/86400, conj_guess/86400);
-		if (left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {continue;}
+		if(left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {continue;}
 
-		if (left_x < dt0) left_x = dt0;
-		if (left_x < min_dur*86400) left_x = min_dur*86400;
-		if (right_x > dt1) right_x = dt1;
-		if (right_x > max_dur*86400) right_x = max_dur*86400;
+		if(left_x < dt0) left_x = dt0;
+		if(left_x < min_dur*86400) left_x = min_dur*86400;
+		if(right_x > dt1) right_x = dt1;
+		if(right_x > max_dur*86400) right_x = max_dur*86400;
 		double dt = left_x;
 
 		for(int j = 0; j < 1000; j++) {
@@ -667,17 +667,17 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 			double vinf = fabs(mag_vec3(subtract_vec3(tf.v0, osv0.v)));
 			data_array2_insert_new(data_dep, dt/86400, vinf);
 
-			if (dt == left_x) dt = right_x;
-			else if (dt == right_x) dt = ( dt + data_array2_get_data(data_dep)[0].x*86400 ) / 2;
+			if(dt == left_x) dt = right_x;
+			else if(dt == right_x) dt = ( dt + data_array2_get_data(data_dep)[0].x*86400 ) / 2;
 			else {
 				double next_x = calc_next_x_find_min(data_dep, 0, vinf_tolerance)*86400;
 
-				if (next_x < 0) {
+				if(next_x < 0) {
 					Vector2 *data = data_array2_get_data(data_dep);
 					size_t num_data = data_array2_size(data_dep);
-					for (int idx = 0; idx < num_data-1; idx++) {
-						if (data[idx].y < data[idx+1].y) { data_array2_append_new(min_per_dep, jd_dep-jd_min_dep, data[idx].y); break; }
-						// if (data[idx].y < data[idx+1].y) { data_array2_append_new(min_per_dep, jd_dep-jd_min_dep, dt/86400); break; }
+					for(int idx = 0; idx < num_data-1; idx++) {
+						if(data[idx].y < data[idx+1].y) { data_array2_append_new(min_per_dep, jd_dep-jd_min_dep, data[idx].y); break; }
+						// if(data[idx].y < data[idx+1].y) { data_array2_append_new(min_per_dep, jd_dep-jd_min_dep, dt/86400); break; }
 					}
 					break;
 				}
@@ -700,9 +700,9 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 	double max_x = data_array2_get_data(min_per_dep)[data_array2_size(min_per_dep)-1].x;
 	double min_x = data_array2_get_data(min_per_dep)[0].x;
 
-	while (next_line_up_dt/86400 < max_x) {
-		if (next_opp_line_up_dt/86400 > min_x) {
-			for (int i = 0; i < 20; i++) {
+	while(next_line_up_dt/86400 < max_x) {
+		if(next_opp_line_up_dt/86400 > min_x) {
+			for(int i = 0; i < 20; i++) {
 				data_array2_insert_new(min_per_dep, next_line_up_dt/86400, i*2000);
 				data_array2_insert_new(min_per_dep, next_opp_line_up_dt/86400, i*2000);
 			}

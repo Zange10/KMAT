@@ -156,7 +156,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	int num_of_groups = 50;
 	DepartureGroup **departure_groups = malloc(num_of_groups*sizeof(DepartureGroup *));
 	int counter = 0;
-	for (int i = 0; i < num_of_groups; i++) {
+	for(int i = 0; i < num_of_groups; i++) {
 		departure_groups[counter] = malloc(sizeof(DepartureGroup));
 		departure_groups[counter]->dep_body = dep_body;
 		departure_groups[counter]->arr_body = arr_body;
@@ -164,7 +164,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		departure_groups[counter]->system = ir_system;
 
 		calc_group_porkchop(departure_groups[counter], i-10, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
-		if (departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
+		if(departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
 		else counter++;
 	}
 
@@ -182,9 +182,9 @@ G_MODULE_EXPORT void on_calc_ir() {
 	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
 	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
 	for(int i = 0; i < num_deps; i++) departures[i]->num_next_nodes = 0;
-	for (int i = 0; i < num_deps; i++) {
+	for(int i = 0; i < num_deps; i++) {
 		DataArray2 *temp_data = calc_porkchop_line(departures[i], dep_body, arr_body, ir_system, jd_dep+i*5, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
-		if (!new_data) new_data = temp_data;
+		if(!new_data) new_data = temp_data;
 		else data_array2_free(temp_data);
 	}
 
@@ -196,9 +196,9 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	int old_num_points = 500;
 	DataArray2 *old_data = NULL;
-	for (int i = num_iterations-1; i >= 0; i--) {
+	for(int i = num_iterations-1; i >= 0; i--) {
 		DataArray2 *temp_data = calc_porkchop_line_static(dep_body, arr_body, ir_system, jd_dep+i*5, min_dur, max_dur, dep_periapsis, old_num_points);
-		if (!old_data) old_data = temp_data;
+		if(!old_data) old_data = temp_data;
 		else data_array2_free(temp_data);
 	}
 	gettimeofday(&end, NULL);  // Record the ending time
@@ -212,7 +212,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	size_t num_data = data_array2_size(compare_data);
 	DataArray2 *data_derivative = data_array2_create();
 
-	for (int i = 0; i < num_data-1; i++) {
+	for(int i = 0; i < num_data-1; i++) {
 		double x = (data[i].x + data[i+1].x) / 2;
 		double dy = (data[i+1].y - data[i].y) / (data[i+1].x - data[i].x);
 		data_array2_append_new(data_derivative, x, dy);
@@ -221,12 +221,12 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	DataArray2 *data_diff = data_array2_create();
 	data = data_array2_get_data(new_data);
-	for (int i = 0; i < num_points; i++) {
+	for(int i = 0; i < num_points; i++) {
 		int index = 0;
 		double x = data_array2_get_data(compare_data)[i].x;
 		double y = data_array2_get_data(compare_data)[i].y;
-		for (int j = 0; j < data_array2_size(new_data)-1; j++) {
-			if (data[j+1].x > x) break;
+		for(int j = 0; j < data_array2_size(new_data)-1; j++) {
+			if(data[j+1].x > x) break;
 			index++;
 		}
 		double m = (data[index+1].y - data[index].y)/(data[index+1].x - data[index].x);
@@ -237,12 +237,12 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	DataArray2 *data_diff_old = data_array2_create();
 	data = data_array2_get_data(old_data);
-	for (int i = 0; i < num_points; i++) {
+	for(int i = 0; i < num_points; i++) {
 		int index = 0;
 		double x = data_array2_get_data(compare_data)[i].x;
 		double y = data_array2_get_data(compare_data)[i].y;
-		for (int j = 0; j < data_array2_size(old_data)-1; j++) {
-			if (data[j+1].x > x) break;
+		for(int j = 0; j < data_array2_size(old_data)-1; j++) {
+			if(data[j+1].x > x) break;
 			index++;
 		}
 		double m = (data[index+1].y - data[index].y)/(data[index+1].x - data[index].x);
@@ -262,7 +262,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	double opp_diff_avg = 0;
 	double last_conjunction_dt, last_opposition_dt;
 	int opp_counter = 0, conj_counter = 0;
-	for (int i = 0; i < num_iterations; i++) {
+	for(int i = 0; i < num_iterations; i++) {
 		double dx = 5;
 		double dep = min_dep + i*dx;
 		OSV osv0 = ir_system->prop_method == ORB_ELEMENTS ?
@@ -275,22 +275,22 @@ G_MODULE_EXPORT void on_calc_ir() {
 		double next_conjunction_dt, next_opposition_dt;
 		calc_time_to_next_conjunction_and_opposition(osv0.r, osv_arr0, ir_system->cb, &next_conjunction_dt, &next_opposition_dt);
 
-		if (i > 0) {
+		if(i > 0) {
 			double opp_guess = last_opposition_dt + dx*86400*opp_conj_gradient;
 			double conj_guess = last_conjunction_dt + dx*86400*opp_conj_gradient;
 			double period = calc_orbital_period(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, ir_system->cb));
 
-			while (opp_guess-next_opposition_dt   >  0.5 * period) next_opposition_dt  += period;
-			while (opp_guess-next_opposition_dt   < -0.5 * period) next_opposition_dt  -= period;
-			while (conj_guess-next_conjunction_dt >  0.5 * period) next_conjunction_dt += period;
-			while (conj_guess-next_conjunction_dt < -0.5 * period) next_conjunction_dt -= period;
+			while(opp_guess-next_opposition_dt   >  0.5 * period) next_opposition_dt  += period;
+			while(opp_guess-next_opposition_dt   < -0.5 * period) next_opposition_dt  -= period;
+			while(conj_guess-next_conjunction_dt >  0.5 * period) next_conjunction_dt += period;
+			while(conj_guess-next_conjunction_dt < -0.5 * period) next_conjunction_dt -= period;
 			data_array2_append_new(opp_err_data, dep-min_dep, (opp_guess-next_opposition_dt)/86400);
 			data_array2_append_new(conj_err_data, dep-min_dep, (conj_guess-next_conjunction_dt)/86400);
 		}
 		data_array2_append_new(opp_data, dep-min_dep, next_opposition_dt/86400);
 		data_array2_append_new(conj_data, dep-min_dep, next_conjunction_dt/86400);
 
-		if (i > 0) {
+		if(i > 0) {
 			Vector2 *data_v = data_array2_get_data(opp_data);
 			double dxdy = (data_v[i].y - data_v[i-1].y)/(data_v[i].x - data_v[i-1].x);
 
@@ -556,7 +556,7 @@ void draw_mesh_interpolated_points(cairo_t *cr, Mesh2 mesh, int width, int heigh
 				Vector2 p = vec2(x, y);
 				if(x >= 0 && x < width && y >= 0 && y < height && is_inside_triangle(tri2d, p)) {
 					Vector3 tri3[3];
-					for (int idx = 0; idx < 3; idx++) {
+					for(int idx = 0; idx < 3; idx++) {
 						struct ItinStep *ptr = mesh.triangles[i]->points[idx]->data;
 						double vinf = mag_vec3(subtract_vec3(ptr->v_dep, ptr->prev->v_body));
 						double dv_dep = dv_circ(ptr->prev->body, ir_dep_periapsis+ptr->prev->body->radius, vinf);
@@ -598,7 +598,7 @@ void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double heigh
 				if(is_inside_triangle(tri2d, p)) {
 					Vector3 tri3[3];
 					struct ItinStep *ptr = NULL;
-					for (int idx = 0; idx < 3; idx++) {
+					for(int idx = 0; idx < 3; idx++) {
 						ptr = mesh.triangles[i]->points[idx]->data;
 						double vinf = mag_vec3(subtract_vec3(ptr->v_dep, ptr->prev->v_body));
 						double dv_dep = dv_circ(ptr->prev->body, ir_dep_periapsis+ptr->prev->body->radius, vinf);
@@ -629,11 +629,11 @@ void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double heigh
 
 					num_points++;
 					Vector2 *error_data = data_array2_get_data(error_pos);
-					if (jd_dep-2.43418e+06 < error_data[0].x) error_data[0].x = jd_dep-2.43418e+06;
-					if (dur < error_data[0].y) error_data[0].y = dur;
-					if (jd_dep-2.43418e+06 > error_data[1].x) error_data[1].x = jd_dep-2.43418e+06;
-					if (dur > error_data[1].y) error_data[1].y = dur;
-					if (fabs(dv_dep-interpl_value) > tolerance) {
+					if(jd_dep-2.43418e+06 < error_data[0].x) error_data[0].x = jd_dep-2.43418e+06;
+					if(dur < error_data[0].y) error_data[0].y = dur;
+					if(jd_dep-2.43418e+06 > error_data[1].x) error_data[1].x = jd_dep-2.43418e+06;
+					if(dur > error_data[1].y) error_data[1].y = dur;
+					if(fabs(dv_dep-interpl_value) > tolerance) {
 						num_errors++;
 						data_array2_append_new(error_pos, jd_dep-2.43418e+06, dur);
 						data_array3_append_new(absolute_error, jd_dep-2.43418e+06, dur, fabs(dv_dep-interpl_value));
@@ -687,7 +687,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	int num_of_groups = 50;
 	DepartureGroup **departure_groups = malloc(num_of_groups*sizeof(DepartureGroup *));
 	int counter = 0;
-	for (int i = 0; i < num_of_groups; i++) {
+	for(int i = 0; i < num_of_groups; i++) {
 		departure_groups[counter] = malloc(sizeof(DepartureGroup));
 		departure_groups[counter]->dep_body = dep_body;
 		departure_groups[counter]->arr_body = arr_body;
@@ -695,7 +695,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 		departure_groups[counter]->system = ir_system;
 
 		calc_group_porkchop(departure_groups[counter], i-10, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
-		if (departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
+		if(departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
 		else counter++;
 	}
 
@@ -711,18 +711,18 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	struct ItinStep **steps = malloc(10000*sizeof(struct ItinStep *));
 	DataArray2 *step_pos = data_array2_create();
 	counter = 0;
-	for (int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
+	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
 		struct ItinStep *step = departure_groups[pcgroup]->departures[i];
-		if (step->num_next_nodes == -1) {
+		if(step->num_next_nodes == -1) {
 			double x = -1e10;
 			double y = 0;
 			data_array2_append_new(step_pos, x, y);
 			steps[counter] = NULL;
 			counter++;
 		}
-		if (step->num_next_nodes < 0) step->num_next_nodes = 0;
+		if(step->num_next_nodes < 0) step->num_next_nodes = 0;
 
-		for (int j = 0; j < step->num_next_nodes; j++) {
+		for(int j = 0; j < step->num_next_nodes; j++) {
 			double x = step->date;
 			double y = step->next[j]->date - step->date;
 			data_array2_append_new(step_pos, x, y);
@@ -733,12 +733,12 @@ G_MODULE_EXPORT void on_calc_ir2() {
 
 
 	MeshGrid2 grid = create_mesh_grid(step_pos, (void**) steps);
-	// for (int i = 0; i < grid.num_cols; i++) {
-	// 	if (grid.num_col_rows[i] == 0) {
+	// for(int i = 0; i < grid.num_cols; i++) {
+	// 	if(grid.num_col_rows[i] == 0) {
 	// 		printf("\n%4d:   ---", i); continue;
 	// 	}
 	// 	printf("\n%4d: ", i);
-	// 	for (int j = 0; j < grid.num_col_rows[i]; j++) {
+	// 	for(int j = 0; j < grid.num_col_rows[i]; j++) {
 	// 		printf("%6.0f, ", grid.points[i][j]->pos.y);
 	// 	}
 	// }
@@ -805,7 +805,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	departure_group->system = ir_system;
 
 	vinf_array = calc_min_vinf_line(departure_group, pcgroup+1, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, 1);
-	if (departure_group->num_departures == 0) {free(departure_group);}
+	if(departure_group->num_departures == 0) {free(departure_group);}
 	else counter++;
 	// print_data_array2(vinf_array, "dep_date", "vinf");
 	printf("size: %lu\n", data_array2_size(vinf_array));
@@ -818,6 +818,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	draw_screen(ir_screen1);
 }
 
+void remove_step_from_itinerary_void_ptr(void *ptr) { remove_step_from_itinerary(ptr); }
 
 G_MODULE_EXPORT void on_calc_ir3() {
 	char *string;
@@ -857,7 +858,7 @@ G_MODULE_EXPORT void on_calc_ir3() {
 	int num_of_groups = 50;
 	DepartureGroup **departure_groups = malloc(num_of_groups*sizeof(DepartureGroup *));
 	int counter = 0;
-	for (int i = 0; i < num_of_groups; i++) {
+	for(int i = 0; i < num_of_groups; i++) {
 		departure_groups[counter] = malloc(sizeof(DepartureGroup));
 		departure_groups[counter]->dep_body = dep_body;
 		departure_groups[counter]->arr_body = arr_body;
@@ -865,7 +866,7 @@ G_MODULE_EXPORT void on_calc_ir3() {
 		departure_groups[counter]->system = ir_system;
 
 		calc_group_porkchop(departure_groups[counter], i-10, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
-		if (departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
+		if(departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
 		else counter++;
 	}
 
@@ -878,24 +879,37 @@ G_MODULE_EXPORT void on_calc_ir3() {
 
 	gettimeofday(&start, NULL);  // Record the ending time
 
-	struct ItinStep **steps = malloc(10000*sizeof(struct ItinStep *));
+	int step_cap = 1000;
+	struct ItinStep **steps = malloc(step_cap*sizeof(struct ItinStep *));
 	DataArray2 *step_pos = data_array2_create();
 	counter = 0;
-	for (int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
+	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
 		struct ItinStep *step = departure_groups[pcgroup]->departures[i];
-		if (step->num_next_nodes == -1) {
+		if(step->num_next_nodes == -1) {
 			double x = -1e10;
 			double y = 0;
 			data_array2_append_new(step_pos, x, y);
+
+			if(counter == step_cap) {
+				step_cap *= 2;
+				struct ItinStep **temp = realloc(steps, sizeof(struct ItinStep) * step_cap);
+				if(temp) steps = temp;
+			}
 			steps[counter] = NULL;
 			counter++;
 		}
-		if (step->num_next_nodes < 0) step->num_next_nodes = 0;
+		if(step->num_next_nodes < 0) step->num_next_nodes = 0;
 
-		for (int j = 0; j < step->num_next_nodes; j++) {
+		for(int j = 0; j < step->num_next_nodes; j++) {
 			double x = step->date;
 			double y = step->next[j]->date - step->date;
 			data_array2_append_new(step_pos, x, y);
+
+			if(counter == step_cap) {
+				step_cap *= 2;
+				struct ItinStep **temp = realloc(steps, sizeof(struct ItinStep) * step_cap);
+				if(temp) steps = temp;
+			}
 			steps[counter] = step->next[j];
 			counter++;
 		}
@@ -904,6 +918,7 @@ G_MODULE_EXPORT void on_calc_ir3() {
 
 	MeshGrid2 grid = create_mesh_grid(step_pos, (void**) steps);
 	Mesh2 mesh = create_mesh_from_grid_w_angled_guideline(grid, departure_groups[pcgroup]->boundary_gradient);
+	free_grid_keep_points(&grid);
 
 
 	// for(int i = 0; i < mesh.num_points; i++) {
@@ -921,9 +936,10 @@ G_MODULE_EXPORT void on_calc_ir3() {
 	draw_mesh_interpolated_points_error(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, mesh, tolerance);
 
 	resize_pcmesh_to_fit(mesh, ir_screen1->width, ir_screen1->height);
-	// draw_mesh_interpolated_points(ir_screen1->static_layer.cr, mesh, ir_screen1->width, ir_screen1->height);
+	draw_mesh_interpolated_points(ir_screen1->static_layer.cr, mesh, ir_screen1->width, ir_screen1->height);
 	draw_mesh(ir_screen1->static_layer.cr, &mesh);
 
 	draw_screen(ir_screen0);
 	draw_screen(ir_screen1);
+	free_mesh(&mesh, &remove_step_from_itinerary_void_ptr);
 }
