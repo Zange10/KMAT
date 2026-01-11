@@ -1,6 +1,10 @@
 #include "mesh.h"
 
 
+bool triangle_is_edge(MeshTriangle2 *triangle) {
+	return !triangle->adj_triangles[0] || !triangle->adj_triangles[1] || !triangle->adj_triangles[2];
+}
+
 MeshTriangle2 * get_adj_triangle_from_two_points(MeshTriangle2 *original_triangle, MeshPoint2 *p0, MeshPoint2 *p1) {
 	for(int i = 0; i < p0->num_triangles; i++) {
 		for(int j = 0; j < 3; j++) {
@@ -31,8 +35,8 @@ void add_as_adjacent_triangle_from_two_points(MeshTriangle2 *triangle, MeshTrian
 
 	if(p0_idx == 0) {
 		if(p1_idx == 1)	triangle->adj_triangles[0] = triangle_to_add;	// 0 - 1
-		else				triangle->adj_triangles[2] = triangle_to_add;	// 2 - 0
-	} else					triangle->adj_triangles[1] = triangle_to_add;	// 1 - 2
+		else			triangle->adj_triangles[2] = triangle_to_add;	// 2 - 0
+	} else				triangle->adj_triangles[1] = triangle_to_add;	// 1 - 2
 }
 
 MeshTriangle2 * get_and_add_to_adjacent_triangle_from_two_points(MeshTriangle2 *center_triangle, MeshPoint2 *p0, MeshPoint2 *p1) {

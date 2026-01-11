@@ -31,8 +31,8 @@ Screen *ir_screen1;
 
 double ir_dep_periapsis = 50e3;
 
-DataArray2 *ir_data0;
-DataArray2 *ir_data1;
+DataArray2 *ir_data0 = NULL;
+DataArray2 *ir_data1 = NULL;
 
 void on_ir_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr);
 
@@ -145,278 +145,38 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	clear_screen(ir_screen0);
 	clear_screen(ir_screen1);
-
-	double jd_dep = min_dep;
-	int num_iterations = (int) target_numdeps;
+	data_array2_free(ir_data0);
 
 	struct timeval start, end;
 	double elapsed_time;
 	gettimeofday(&start, NULL);  // Record the ending time
 
-	int num_of_groups = 50;
-	DepartureGroup **departure_groups = malloc(num_of_groups*sizeof(DepartureGroup *));
-	int counter = 0;
-	for(int i = 0; i < num_of_groups; i++) {
-		departure_groups[counter] = malloc(sizeof(DepartureGroup));
-		departure_groups[counter]->dep_body = dep_body;
-		departure_groups[counter]->arr_body = arr_body;
-		departure_groups[counter]->num_departures = num_iterations;
-		departure_groups[counter]->system = ir_system;
 
-		calc_group_porkchop(departure_groups[counter], i-10, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
-		if(departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
-		else counter++;
-	}
+	DepartureGroup *departure_group = malloc(sizeof(DepartureGroup));
+	DataArray2 *vinf_array = NULL;
+	departure_group->dep_body = dep_body;
+	departure_group->arr_body = arr_body;
+	departure_group->num_departures = (int) target_numdeps;
+	departure_group->system = ir_system;
 
-	printf("%d\n", counter);
+	vinf_array = calc_min_vinf_line(departure_group, pcgroup+1, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, 1);
+
+
 
 	gettimeofday(&end, NULL);  // Record the ending time
 	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
 	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
 
+	print_data_array2(vinf_array, "dep_date", "vinf");
+	printf("size: %lu\n", data_array2_size(vinf_array));
 
-	gettimeofday(&start, NULL);  // Record the ending time
+	ir_data0 = vinf_array;
 
-	DataArray2 *new_data = NULL;
-	int num_deps = num_iterations;
-	struct ItinStep **departures = (struct ItinStep**) malloc(num_deps * sizeof(struct ItinStep*));
-	for(int i = 0; i < num_deps; i++) departures[i] = (struct ItinStep*) malloc(sizeof(struct ItinStep));
-	for(int i = 0; i < num_deps; i++) departures[i]->num_next_nodes = 0;
-	for(int i = 0; i < num_deps; i++) {
-		DataArray2 *temp_data = calc_porkchop_line(departures[i], dep_body, arr_body, ir_system, jd_dep+i*5, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
-		if(!new_data) new_data = temp_data;
-		else data_array2_free(temp_data);
-	}
-
-	gettimeofday(&end, NULL);  // Record the ending time
-	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
-
-	gettimeofday(&start, NULL);  // Record the ending time
-
-	int old_num_points = 500;
-	DataArray2 *old_data = NULL;
-	for(int i = num_iterations-1; i >= 0; i--) {
-		DataArray2 *temp_data = calc_porkchop_line_static(dep_body, arr_body, ir_system, jd_dep+i*5, min_dur, max_dur, dep_periapsis, old_num_points);
-		if(!old_data) old_data = temp_data;
-		else data_array2_free(temp_data);
-	}
-	gettimeofday(&end, NULL);  // Record the ending time
-	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
-
-	int num_points = 10000;
-	DataArray2 *compare_data = calc_porkchop_line_static(dep_body, arr_body, ir_system, jd_dep, min_dur, max_dur, dep_periapsis, num_points);
-
-	Vector2 *data = data_array2_get_data(compare_data);
-	size_t num_data = data_array2_size(compare_data);
-	DataArray2 *data_derivative = data_array2_create();
-
-	for(int i = 0; i < num_data-1; i++) {
-		double x = (data[i].x + data[i+1].x) / 2;
-		double dy = (data[i+1].y - data[i].y) / (data[i+1].x - data[i].x);
-		data_array2_append_new(data_derivative, x, dy);
-	}
+	draw_scatter_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
 
 
-	DataArray2 *data_diff = data_array2_create();
-	data = data_array2_get_data(new_data);
-	for(int i = 0; i < num_points; i++) {
-		int index = 0;
-		double x = data_array2_get_data(compare_data)[i].x;
-		double y = data_array2_get_data(compare_data)[i].y;
-		for(int j = 0; j < data_array2_size(new_data)-1; j++) {
-			if(data[j+1].x > x) break;
-			index++;
-		}
-		double m = (data[index+1].y - data[index].y)/(data[index+1].x - data[index].x);
-		double ip_y = data[index].y + m*(x-data[index].x);
-		data_array2_append_new(data_diff, x, ip_y-y);
-	}
-
-
-	DataArray2 *data_diff_old = data_array2_create();
-	data = data_array2_get_data(old_data);
-	for(int i = 0; i < num_points; i++) {
-		int index = 0;
-		double x = data_array2_get_data(compare_data)[i].x;
-		double y = data_array2_get_data(compare_data)[i].y;
-		for(int j = 0; j < data_array2_size(old_data)-1; j++) {
-			if(data[j+1].x > x) break;
-			index++;
-		}
-		double m = (data[index+1].y - data[index].y)/(data[index+1].x - data[index].x);
-		double ip_y = data[index].y + m*(x-data[index].x);
-		data_array2_append_new(data_diff_old, x, ip_y-y);
-	}
-
-	double opp_conj_gradient = calc_opposition_conjunction_gradient(dep_body, arr_body, ir_system, jd_dep);
-
-	DataArray2 *opp_data = data_array2_create();
-	DataArray2 *conj_data = data_array2_create();
-	DataArray2 *opp_diff_data = data_array2_create();
-	DataArray2 *conj_diff_data = data_array2_create();
-	DataArray2 *opp_err_data = data_array2_create();
-	DataArray2 *conj_err_data = data_array2_create();
-	double conj_diff_avg = 0;
-	double opp_diff_avg = 0;
-	double last_conjunction_dt, last_opposition_dt;
-	int opp_counter = 0, conj_counter = 0;
-	for(int i = 0; i < num_iterations; i++) {
-		double dx = 5;
-		double dep = min_dep + i*dx;
-		OSV osv0 = ir_system->prop_method == ORB_ELEMENTS ?
-					osv_from_elements(dep_body->orbit, dep) :
-					osv_from_ephem(dep_body->ephem, dep_body->num_ephems, dep, ir_system->cb);
-
-		OSV osv_arr0 = ir_system->prop_method == ORB_ELEMENTS ?
-					   osv_from_elements(arr_body->orbit, dep) :
-					   osv_from_ephem(arr_body->ephem, arr_body->num_ephems, dep, ir_system->cb);
-		double next_conjunction_dt, next_opposition_dt;
-		calc_time_to_next_conjunction_and_opposition(osv0.r, osv_arr0, ir_system->cb, &next_conjunction_dt, &next_opposition_dt);
-
-		if(i > 0) {
-			double opp_guess = last_opposition_dt + dx*86400*opp_conj_gradient;
-			double conj_guess = last_conjunction_dt + dx*86400*opp_conj_gradient;
-			double period = calc_orbital_period(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, ir_system->cb));
-
-			while(opp_guess-next_opposition_dt   >  0.5 * period) next_opposition_dt  += period;
-			while(opp_guess-next_opposition_dt   < -0.5 * period) next_opposition_dt  -= period;
-			while(conj_guess-next_conjunction_dt >  0.5 * period) next_conjunction_dt += period;
-			while(conj_guess-next_conjunction_dt < -0.5 * period) next_conjunction_dt -= period;
-			data_array2_append_new(opp_err_data, dep-min_dep, (opp_guess-next_opposition_dt)/86400);
-			data_array2_append_new(conj_err_data, dep-min_dep, (conj_guess-next_conjunction_dt)/86400);
-		}
-		data_array2_append_new(opp_data, dep-min_dep, next_opposition_dt/86400);
-		data_array2_append_new(conj_data, dep-min_dep, next_conjunction_dt/86400);
-
-		if(i > 0) {
-			Vector2 *data_v = data_array2_get_data(opp_data);
-			double dxdy = (data_v[i].y - data_v[i-1].y)/(data_v[i].x - data_v[i-1].x);
-
-			data_array2_append_new(opp_diff_data, dep-min_dep, dxdy);
-			opp_diff_avg += dxdy;
-			opp_counter++;
-
-			data_v = data_array2_get_data(conj_data);
-			dxdy = (data_v[i].y - data_v[i-1].y)/(data_v[i].x - data_v[i-1].x);
-			data_array2_append_new(conj_diff_data, dep-min_dep, dxdy);
-			conj_diff_avg += dxdy;
-			conj_counter++;
-		}
-		last_conjunction_dt = next_conjunction_dt;
-		last_opposition_dt = next_opposition_dt;
-	}
-
-	opp_diff_avg /= opp_counter;
-	conj_diff_avg /= conj_counter;
-
-	print_data_array2(opp_data, "dep", "opp");
-	print_data_array2(conj_data, "dep", "conj");
-	print_data_array2(opp_diff_data, "dep", "d_opp");
-	print_data_array2(conj_diff_data, "dep", "d_conj");
-	printf("%f   %f   %f\n", opp_diff_avg, conj_diff_avg, opp_conj_gradient);
-
-
-
-
-	// remove departure dates with no valid itinerary
-	for(int i = 0; i < num_deps; i++) {
-		if(departures[i] == NULL || departures[i]->num_next_nodes == 0) {
-			num_deps--;
-			for(int j = i; j < num_deps; j++) {
-				departures[j] = departures[j + 1];
-			}
-			i--;
-		}
-	}
-
-	int num_itins0 = 0, tot_num_itins = 0;
-	for(int i = 0; i < num_deps; i++) num_itins0 += get_number_of_itineraries(departures[i]);
-	for(int i = 0; i < num_deps; i++) tot_num_itins += get_total_number_of_stored_steps(departures[i]);
-
-	printf("\n%d itineraries found!\nNumber of Nodes: %d\n", num_itins0, tot_num_itins);
-
-	int index = 0;
-	struct ItinStep **arrivals = (struct ItinStep**) malloc(num_itins0 * sizeof(struct ItinStep*));
-	for(int i = 0; i < num_deps; i++) store_itineraries_in_array(departures[i], arrivals, &index);
-	struct PorkchopAnalyzerPoint *pp0 = malloc(num_itins0 * sizeof(struct PorkchopAnalyzerPoint));
-	for(int i = 0; i < num_itins0; i++) {
-		pp0[i].data = create_porkchop_point(arrivals[i], get_first(arrivals[0])->body->atmo_alt + dep_periapsis, arrivals[0]->body->atmo_alt + dep_periapsis);
-		pp0[i].inside_filter = 1;
-		pp0[i].group = NULL;
-	}
-	free(arrivals);
-
-
-
-	// remove departure dates with no valid itinerary
-	for(int i = 0; i < num_deps; i++) {
-		if(departures[i] == NULL || departures[i]->num_next_nodes == 0) {
-			num_deps--;
-			for(int j = i; j < num_deps; j++) {
-				departures[j] = departures[j + 1];
-			}
-			i--;
-		}
-	}
-
-
-
-	departures = departure_groups[pcgroup]->departures;
-	// remove departure dates with no valid itinerary
-	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
-		if(departures[i] == NULL || departures[i]->num_next_nodes == 0) {
-			departure_groups[pcgroup]->num_departures--;
-			for(int j = i; j < departure_groups[pcgroup]->num_departures; j++) {
-				departures[j] = departures[j + 1];
-			}
-			i--;
-		}
-	}
-
-	int num_itins1 = 0; tot_num_itins = 0;
-	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) num_itins1 += get_number_of_itineraries(departures[i]);
-	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) tot_num_itins += get_total_number_of_stored_steps(departures[i]);
-
-	printf("\n%d itineraries found!\nNumber of Nodes: %d\n", num_itins1, tot_num_itins);
-
-	index = 0;
-	arrivals = (struct ItinStep**) malloc(num_itins1 * sizeof(struct ItinStep*));
-	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) store_itineraries_in_array(departures[i], arrivals, &index);
-	struct PorkchopAnalyzerPoint *pp1 = malloc(num_itins1 * sizeof(struct PorkchopAnalyzerPoint));
-	for(int i = 0; i < num_itins1; i++) {
-		pp1[i].data = create_porkchop_point(arrivals[i], get_first(arrivals[0])->body->atmo_alt + dep_periapsis, arrivals[0]->body->atmo_alt + dep_periapsis);
-		pp1[i].inside_filter = 1;
-		pp1[i].group = NULL;
-	}
-	free(arrivals);
-
-	// ir_data0 = new_data;
-	// ir_data1 = data_diff;
-	// ir_data0 = new_data;
-	// ir_data1 = compare_data;
-	// ir_data0 = data_diff;
-	// ir_data1 = data_diff_old;
-	ir_data0 = opp_data;
-	// ir_data1 = conj_data;
-	// ir_data0 = opp_diff_data;
-	ir_data1 = opp_err_data;
-
-	// draw_plot_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
-	// draw_scatter_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
-
-	// draw_plot_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, ir_data1);
-	// draw_scatter_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, ir_data1);
-
-	draw_porkchop(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, pp1, num_itins1, TF_FLYBY, 0);
-	draw_porkchop(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, pp0, num_itins0, TF_FLYBY, 0);
-	// draw_plot_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, grad_data);
-
-	data_array2_free(data_derivative);
-	data_array2_free(data_diff);
 	draw_screen(ir_screen0);
-	draw_screen(ir_screen1);
+	free(departure_group);
 }
 
 void resize_pcmesh_to_fit(Mesh2 mesh, double max_x, double max_y) {
@@ -469,6 +229,34 @@ void draw_mesh(cairo_t *cr, Mesh2 *mesh) {
 	double duration = (end.tv_sec - start.tv_sec) +
 					  (end.tv_usec - start.tv_usec) / 1e6;
 	printf("Mesh Drawing: %.6f seconds\n", duration);
+	printf("Triangles drawn: %zu\n", mesh->num_triangles);
+}
+
+
+
+void draw_triangle_debug(cairo_t *cr, Mesh2 *mesh) {
+	struct timeval start, end;
+	gettimeofday(&start, NULL);
+
+	for(int i = 0; i < mesh->num_triangles; i++) {
+		if(triangle_is_edge(mesh->triangles[i])) cairo_set_source_rgb(cr, 0, 0.5, 1);
+		else cairo_set_source_rgb(cr, 0.3, 0.3, 0.3);
+
+		cairo_move_to(cr, mesh->triangles[i]->points[0]->pos.x, mesh->triangles[i]->points[0]->pos.y);
+		cairo_line_to(cr, mesh->triangles[i]->points[1]->pos.x, mesh->triangles[i]->points[1]->pos.y);
+		cairo_line_to(cr, mesh->triangles[i]->points[2]->pos.x, mesh->triangles[i]->points[2]->pos.y);
+		cairo_close_path(cr);
+
+		cairo_fill(cr);
+	}
+
+
+
+	gettimeofday(&end, NULL);
+	double duration = (end.tv_sec - start.tv_sec) +
+					  (end.tv_usec - start.tv_usec) / 1e6;
+	printf("Interpolation Drawing: %.6f seconds\n", duration);
+
 	printf("Triangles drawn: %zu\n", mesh->num_triangles);
 }
 
@@ -761,7 +549,8 @@ G_MODULE_EXPORT void on_calc_ir2() {
 
 	resize_pcmesh_to_fit(mesh, ir_screen1->width, ir_screen1->height);
 	draw_mesh_interpolated_points(ir_screen1->static_layer.cr, mesh, ir_screen1->width, ir_screen1->height);
-	draw_mesh(ir_screen0->static_layer.cr, &mesh);
+	// draw_mesh(ir_screen0->static_layer.cr, &mesh);
+	draw_triangle_debug(ir_screen0->static_layer.cr, &mesh);
 
 
 	struct ItinStep **departures = departure_groups[pcgroup]->departures;
@@ -937,7 +726,7 @@ G_MODULE_EXPORT void on_calc_ir3() {
 
 	resize_pcmesh_to_fit(mesh, ir_screen1->width, ir_screen1->height);
 	draw_mesh_interpolated_points(ir_screen1->static_layer.cr, mesh, ir_screen1->width, ir_screen1->height);
-	draw_mesh(ir_screen1->static_layer.cr, &mesh);
+	// draw_mesh(ir_screen1->static_layer.cr, &mesh);
 
 	draw_screen(ir_screen0);
 	draw_screen(ir_screen1);

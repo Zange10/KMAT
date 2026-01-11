@@ -26,9 +26,9 @@ double calc_next_x_wrt_smoothness(DataArray2 *arr, int index_0, double tolerance
 	return -1;
 }
 
-double calc_next_x_find_min(DataArray2 *arr, int index_0, double tolerance) {
-	Vector2 *data = &(data_array2_get_data(arr)[index_0]);
-	size_t num_data = data_array2_size(arr)-index_0;
+double calc_next_x_find_min(DataArray2 *arr, double tolerance) {
+	Vector2 *data = data_array2_get_data(arr);
+	size_t num_data = data_array2_size(arr);
 
 	int min_idx = (int) num_data-1;
 
@@ -45,7 +45,12 @@ double calc_next_x_find_min(DataArray2 *arr, int index_0, double tolerance) {
 	double dleft = fabs(left_guess - data[min_idx-1].y);
 	double dright = fabs(right_guess - data[min_idx+1].y);
 
-	if(dleft < tolerance && dright < tolerance) {return -1;}
+	if( min_idx == 0 && dright < tolerance ||
+		min_idx == num_data-1 && dleft < tolerance ||
+		dleft < tolerance && dright < tolerance) return -1;
+
+	if(min_idx == 0) return data[0].x + (data[1].x - data[0].x)*0.2;
+	if(min_idx == num_data-1) return data[num_data-1].x - (data[num_data-1].x - data[num_data-2].x)*0.2;
 
 	if(dleft > dright) return data[min_idx].x - (data[min_idx].x - data[min_idx-1].x)*0.2;
 	else return data[min_idx].x + (data[min_idx+1].x - data[min_idx].x)*0.2;
@@ -551,6 +556,7 @@ double calc_time_to_next_an_dn_line_up(OSV osv_dep_body, OSV osv_arr_body, Body 
 DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double vinf_tolerance) {
 	DataArray2 *min_per_dep = data_array2_create();
 	int departures_cap = group->num_departures;
+	group->num_departures = 0;
 	double opp_conj_gradient = calc_opposition_conjunction_gradient(group->dep_body, group->arr_body, group->system, (jd_min_dep+jd_max_dep)/2);
 	if(opp_conj_gradient > 0) shift *= -1;
 
@@ -643,15 +649,19 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 		double left_x = 0, right_x = 0;
 
 		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1e9, 1e9, &left_x, &right_x);
+		printf("%f   %f\n", left_x/86400, right_x/86400);
 
-		// printf("ROOT: %f   %f   (%f  %f)   (%f  %f)\n", left_x/86400, right_x/86400, dt0/86400, dt1/86400, opp_guess/86400, conj_guess/86400);
+		printf("%f   ROOT: %f   %f   (%f  %f)   (%f  %f)\n", jd_dep-jd_min_dep, left_x/86400, right_x/86400, dt0/86400, dt1/86400, opp_guess/86400, conj_guess/86400);
 		if(left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {continue;}
 
-		if(left_x < dt0) left_x = dt0;
+		double opp_conj_margin = 86400*0.2;
+
+		if(left_x < dt0+opp_conj_margin) left_x = dt0+opp_conj_margin;
 		if(left_x < min_dur*86400) left_x = min_dur*86400;
-		if(right_x > dt1) right_x = dt1;
+		if(right_x > dt1-opp_conj_margin) right_x = dt1-opp_conj_margin;
 		if(right_x > max_dur*86400) right_x = max_dur*86400;
 		double dt = left_x;
+		printf("%f   %f\n", left_x/86400, right_x/86400);
 
 		for(int j = 0; j < 1000; j++) {
 			// printf("%f  %f  %f  %f  %f\n", min_dt, max_dt, dt0, dt1, dt);
@@ -670,20 +680,23 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 			if(dt == left_x) dt = right_x;
 			else if(dt == right_x) dt = ( dt + data_array2_get_data(data_dep)[0].x*86400 ) / 2;
 			else {
-				double next_x = calc_next_x_find_min(data_dep, 0, vinf_tolerance)*86400;
+				double next_x = calc_next_x_find_min(data_dep, vinf_tolerance)*86400;
 
 				if(next_x < 0) {
 					Vector2 *data = data_array2_get_data(data_dep);
 					size_t num_data = data_array2_size(data_dep);
-					for(int idx = 0; idx < num_data-1; idx++) {
-						if(data[idx].y < data[idx+1].y) { data_array2_append_new(min_per_dep, jd_dep-jd_min_dep, data[idx].y); break; }
-						// if(data[idx].y < data[idx+1].y) { data_array2_append_new(min_per_dep, jd_dep-jd_min_dep, dt/86400); break; }
+					int min_idx = 0;
+					for(int idx = 1; idx < num_data; idx++) {
+						if(data[idx].y < data[min_idx].y) min_idx = idx;
 					}
+					data_array2_append_new(min_per_dep, jd_dep-jd_min_dep, data[min_idx].y);
+					// data_array2_append_new(min_per_dep, jd_dep-jd_min_dep, data[min_idx].x);
 					break;
 				}
 				dt = next_x;
 			}
 		}
+		print_data_array2(data_dep, "dep", "dv");
 	}
 
 	data_array2_free(data_dep);
@@ -691,25 +704,25 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 
 
 
-	double next_line_up_dt, next_opp_line_up_dt;
-	calc_time_to_next_an_dn_line_up(osv0, osv_arr0, group->system->cb, &next_line_up_dt, &next_opp_line_up_dt);
-
-	Orbit orbit0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb);
-	double period_dep = calc_orbital_period(orbit0);
-
-	double max_x = data_array2_get_data(min_per_dep)[data_array2_size(min_per_dep)-1].x;
-	double min_x = data_array2_get_data(min_per_dep)[0].x;
-
-	while(next_line_up_dt/86400 < max_x) {
-		if(next_opp_line_up_dt/86400 > min_x) {
-			for(int i = 0; i < 20; i++) {
-				data_array2_insert_new(min_per_dep, next_line_up_dt/86400, i*2000);
-				data_array2_insert_new(min_per_dep, next_opp_line_up_dt/86400, i*2000);
-			}
-		}
-		next_line_up_dt += period_dep;
-		next_opp_line_up_dt += period_dep;
-	}
+	// double next_line_up_dt, next_opp_line_up_dt;
+	// calc_time_to_next_an_dn_line_up(osv0, osv_arr0, group->system->cb, &next_line_up_dt, &next_opp_line_up_dt);
+	//
+	// Orbit orbit0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb);
+	// double period_dep = calc_orbital_period(orbit0);
+	//
+	// double max_x = data_array2_get_data(min_per_dep)[data_array2_size(min_per_dep)-1].x;
+	// double min_x = data_array2_get_data(min_per_dep)[0].x;
+	//
+	// while(next_line_up_dt/86400 < max_x) {
+	// 	if(next_opp_line_up_dt/86400 > min_x) {
+	// 		for(int i = 0; i < 20; i++) {
+	// 			data_array2_insert_new(min_per_dep, next_line_up_dt/86400, i*2000);
+	// 			data_array2_insert_new(min_per_dep, next_opp_line_up_dt/86400, i*2000);
+	// 		}
+	// 	}
+	// 	next_line_up_dt += period_dep;
+	// 	next_opp_line_up_dt += period_dep;
+	// }
 
 	return min_per_dep;
 }

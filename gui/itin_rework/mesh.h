@@ -39,7 +39,7 @@ struct Mesh2 {
 	size_t point_cap;
 };
 
-int is_triangle_edge(MeshTriangle2 triangle);
+bool triangle_is_edge(MeshTriangle2 *triangle);
 MeshGrid2 create_mesh_grid(DataArray2 *pos, void **data);
 Mesh2 create_mesh_from_grid(MeshGrid2 grid);
 Mesh2 create_mesh_from_grid_w_angled_guideline(MeshGrid2 grid, double gradient);
