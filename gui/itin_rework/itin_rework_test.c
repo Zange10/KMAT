@@ -178,7 +178,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	ir_data0 = vinf_array;
 
 	draw_scatter_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
-	plot_data(ir_coord_sys1, vinf_array);
+	plot_data2(ir_coord_sys1, vinf_array, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE);
 
 	draw_screen(ir_screen0);
 	free(departure_group);
