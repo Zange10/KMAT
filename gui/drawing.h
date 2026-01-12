@@ -24,6 +24,8 @@ void draw_trajectory_2d(cairo_t *cr, Vector2 center, double scale, struct ItinSt
 int get_porkchop_dur_yaxis_x();
 int get_porkchop_arrdate_yaxis_x();
 int get_porkchop_xaxis_y();
+void draw_center_aligned_text(cairo_t *cr, double x, double y, char *text);
+void draw_right_aligned_text(cairo_t *cr, double x, double y, double rotate_angle, char *text);
 void draw_porkchop(cairo_t *cr, double width, double height, struct PorkchopAnalyzerPoint *porkchop, int num_itins, enum LastTransferType last_transfer_type, int dur0arrdate1);
 void draw_plot(cairo_t *cr, double width, double height, double *x, double *y, int num_points);
 void draw_plot_from_data_array(cairo_t *cr, double width, double height, DataArray2 *data_array);

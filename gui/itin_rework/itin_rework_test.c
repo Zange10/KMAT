@@ -6,6 +6,7 @@
 #include "gui/drawing.h"
 #include "mesh.h"
 #include "geometrylib.h"
+#include "gui/gui_tools/coordinate_system.h"
 #include <math.h>
 #include <sys/time.h>
 
@@ -27,12 +28,14 @@ GObject *tf_ir_pcgroup;
 
 CelestSystem *ir_system;
 Screen *ir_screen0;
-Screen *ir_screen1;
+// Screen *ir_screen1;
+CoordinateSystem *ir_coord_sys1;
+
 
 double ir_dep_periapsis = 50e3;
 
 DataArray2 *ir_data0 = NULL;
-DataArray2 *ir_data1 = NULL;
+// DataArray2 *ir_data1 = NULL;
 
 void on_ir_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr);
 
@@ -69,13 +72,15 @@ void init_itin_rework_test(GtkBuilder *builder) {
 	}
 
 	ir_data0 = data_array2_create();
-	ir_data1 = data_array2_create();
+	// ir_data1 = data_array2_create();
 
 	ir_screen0 = new_screen(GTK_WIDGET(da_ir_graphing0), &on_ir_screen_resize, NULL, NULL, NULL, NULL);
 	set_screen_background_color(ir_screen0, 0.15, 0.15, 0.15);
 
-	ir_screen1 = new_screen(GTK_WIDGET(da_ir_graphing1), &on_ir_screen_resize, NULL, NULL, NULL, NULL);
-	set_screen_background_color(ir_screen1, 0.15, 0.15, 0.15);
+	// ir_screen1 = new_screen(GTK_WIDGET(da_ir_graphing1), &on_ir_screen_resize, NULL, NULL, NULL, NULL);
+	// set_screen_background_color(ir_screen1, 0.15, 0.15, 0.15);
+
+	ir_coord_sys1 = new_coordinate_system(GTK_WIDGET(da_ir_graphing1));
 }
 
 void on_ir_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr) {
@@ -86,12 +91,12 @@ void on_ir_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr) {
 		draw_screen(ir_screen0);
 	}
 
-	if((Screen*)ptr == ir_screen1) {
-		resize_screen(ir_screen1);
-		clear_screen(ir_screen1);
-		draw_plot_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, ir_data1);
-		draw_screen(ir_screen1);
-	}
+	// if((Screen*)ptr == ir_screen1) {
+	// 	resize_screen(ir_screen1);
+	// 	clear_screen(ir_screen1);
+	// 	draw_plot_from_data_array(ir_screen1->static_layer.cr, ir_screen1->width, ir_screen1->height, ir_data1);
+	// 	draw_screen(ir_screen1);
+	// }
 }
 
 G_MODULE_EXPORT void on_ir_system_change() {
@@ -144,7 +149,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	double dep_periapsis = dep_body->atmo_alt + ir_dep_periapsis;
 
 	clear_screen(ir_screen0);
-	clear_screen(ir_screen1);
+	// clear_screen(ir_screen1);
 	data_array2_free(ir_data0);
 
 	struct timeval start, end;
@@ -173,7 +178,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	ir_data0 = vinf_array;
 
 	draw_scatter_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
-
+	plot_data(ir_coord_sys1, vinf_array);
 
 	draw_screen(ir_screen0);
 	free(departure_group);
@@ -463,7 +468,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	double dep_periapsis = dep_body->atmo_alt + ir_dep_periapsis;
 
 	clear_screen(ir_screen0);
-	clear_screen(ir_screen1);
+	// clear_screen(ir_screen1);
 
 	double jd_dep = min_dep;
 	int num_iterations = (int) target_numdeps;
@@ -547,8 +552,8 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
 
 
-	resize_pcmesh_to_fit(mesh, ir_screen1->width, ir_screen1->height);
-	draw_mesh_interpolated_points(ir_screen1->static_layer.cr, mesh, ir_screen1->width, ir_screen1->height);
+	// resize_pcmesh_to_fit(mesh, ir_screen1->width, ir_screen1->height);
+	// draw_mesh_interpolated_points(ir_screen1->static_layer.cr, mesh, ir_screen1->width, ir_screen1->height);
 	// draw_mesh(ir_screen0->static_layer.cr, &mesh);
 	draw_triangle_debug(ir_screen0->static_layer.cr, &mesh);
 
@@ -604,7 +609,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	// draw_scatter_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
 
 	draw_screen(ir_screen0);
-	draw_screen(ir_screen1);
+	// draw_screen(ir_screen1);
 }
 
 void remove_step_from_itinerary_void_ptr(void *ptr) { remove_step_from_itinerary(ptr); }
@@ -635,7 +640,7 @@ G_MODULE_EXPORT void on_calc_ir3() {
 	double dep_periapsis = dep_body->atmo_alt + ir_dep_periapsis;
 
 	clear_screen(ir_screen0);
-	clear_screen(ir_screen1);
+	// clear_screen(ir_screen1);
 
 	double jd_dep = min_dep;
 	int num_iterations = (int) target_numdeps;
@@ -724,11 +729,11 @@ G_MODULE_EXPORT void on_calc_ir3() {
 
 	draw_mesh_interpolated_points_error(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, mesh, tolerance);
 
-	resize_pcmesh_to_fit(mesh, ir_screen1->width, ir_screen1->height);
-	draw_mesh_interpolated_points(ir_screen1->static_layer.cr, mesh, ir_screen1->width, ir_screen1->height);
+	// resize_pcmesh_to_fit(mesh, ir_screen1->width, ir_screen1->height);
+	// draw_mesh_interpolated_points(ir_screen1->static_layer.cr, mesh, ir_screen1->width, ir_screen1->height);
 	// draw_mesh(ir_screen1->static_layer.cr, &mesh);
 
 	draw_screen(ir_screen0);
-	draw_screen(ir_screen1);
+	// draw_screen(ir_screen1);
 	free_mesh(&mesh, &remove_step_from_itinerary_void_ptr);
 }

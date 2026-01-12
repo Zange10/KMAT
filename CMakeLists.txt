@@ -99,6 +99,8 @@ add_executable(KMAT
         gui/itin_rework/itin_rework_tools.h
         gui/itin_rework/mesh.c
         gui/itin_rework/mesh.h
+        gui/gui_tools/coordinate_system.c
+        gui/gui_tools/coordinate_system.h
 )
 
 # Platform-specific setup
