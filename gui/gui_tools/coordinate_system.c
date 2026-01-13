@@ -1,5 +1,6 @@
 #include "coordinate_system.h"
 #include "coordinate_system_drawing.h"
+#include <math.h>
 
 
 void on_coordinate_system();
@@ -143,7 +144,7 @@ void clear_coordinate_system(CoordinateSystem *coord_sys) {
 	coord_sys->num_point_groups = 0;
 }
 
-void add_data_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *data_array, CSDataPlotType plot_type) {
+void add_data2_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *data_array, CSDataPlotType plot_type) {
 	if(coord_sys->num_point_groups+1 >= coord_sys->point_group_cap) {
 		if(coord_sys->point_group_cap == 0) {
 			coord_sys->point_group_cap = 1;
@@ -165,7 +166,7 @@ void add_data_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *data
 	for(int i = 0; i < new_group->num_points; i++) {
 		new_group->points[i].x = data[i].x;
 		new_group->points[i].y = data[i].y;
-		new_group->points[i].color = (PixelColor) {1, 0.4, 0.1};
+		new_group->points[i].color = (PixelColor) {0, 0.8, 0.8};
 
 		if(coord_sys->num_point_groups == 0 && i == 0) {
 			coord_sys->min = vec2(data[i].x, data[i].y);
@@ -181,10 +182,91 @@ void add_data_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *data
 	coord_sys->groups[coord_sys->num_point_groups++] = new_group;
 }
 
-void plot_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_coord_system) {
-	if(clear_coord_system) clear_coordinate_system(coord_sys);
-	add_data_to_coordinate_system(coord_sys, data, CS_PLOT_TYPE_PLOT);
+void add_data3_to_coordinate_system(CoordinateSystem *coord_sys, DataArray3 *data_array, CSDataPlotType plot_type) {
+	if(coord_sys->num_point_groups+1 >= coord_sys->point_group_cap) {
+		if(coord_sys->point_group_cap == 0) {
+			coord_sys->point_group_cap = 1;
+			coord_sys->groups = malloc(coord_sys->point_group_cap * sizeof(CSDataPointGroup *));
+		} else {
+			coord_sys->point_group_cap *= 2;
+			CSDataPointGroup **temp = realloc(coord_sys->groups, coord_sys->point_group_cap * sizeof(CSDataPointGroup *));
+			if(temp) coord_sys->groups = temp;
+		}
+	}
+
+	CSDataPointGroup *new_group = malloc(sizeof(CSDataPointGroup));
+	new_group->plot_type = plot_type;
+	new_group->num_points = data_array3_size(data_array);
+	new_group->points = malloc(sizeof(CSDataPoint) * new_group->num_points);
+
+	Vector3 *data = data_array3_get_data(data_array);
+	double min_z = data[0].z, max_z = data[0].z;
+	for(int i = 1; i < new_group->num_points; i++) {
+		if(data[i].z < min_z) min_z = data[i].z;
+		if(data[i].z > max_z) max_z = data[i].z;
+	}
+
+	for(int i = 0; i < new_group->num_points; i++) {
+		new_group->points[i].x = data[i].x;
+		new_group->points[i].y = data[i].y;
+
+		double color_bias = (data[i].z - min_z) / (max_z - min_z);
+		double r = i == 0 ? 1 : color_bias;
+		double g = i == 0 ? 0 : 1-color_bias;
+		double b = i == 0 ? 0 : 4*pow(color_bias-0.5,2);
+		new_group->points[i].color = (PixelColor) {r, g, b};
+
+		if(coord_sys->num_point_groups == 0 && i == 0) {
+			coord_sys->min = vec2(data[i].x, data[i].y);
+			coord_sys->max = vec2(data[i].x, data[i].y);
+		}
+
+		if(data[i].x > coord_sys->max.x) coord_sys->max.x = data[i].x;
+		if(data[i].x < coord_sys->min.x) coord_sys->min.x = data[i].x;
+		if(data[i].y > coord_sys->max.y) coord_sys->max.y = data[i].y;
+		if(data[i].y < coord_sys->min.y) coord_sys->min.y = data[i].y;
+	}
+
+	coord_sys->groups[coord_sys->num_point_groups++] = new_group;
+}
+
+void plot_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data) {
+	if(clear_prev_data) clear_coordinate_system(coord_sys);
+	add_data2_to_coordinate_system(coord_sys, data, CS_PLOT_TYPE_PLOT);
 	coord_sys->x_axis_type = x_axis_type;
 	coord_sys->y_axis_type = y_axis_type;
 	draw_coordinate_system_data(coord_sys);
+}
+
+void scatter_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data) {
+	if(clear_prev_data) clear_coordinate_system(coord_sys);
+	add_data2_to_coordinate_system(coord_sys, data, CS_PLOT_TYPE_SCATTER);
+	coord_sys->x_axis_type = x_axis_type;
+	coord_sys->y_axis_type = y_axis_type;
+	draw_coordinate_system_data(coord_sys);
+}
+
+void plot_scatter_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data) {
+	if(clear_prev_data) clear_coordinate_system(coord_sys);
+	add_data2_to_coordinate_system(coord_sys, data, CS_PLOT_TYPE_PLOT_SCATTER);
+	coord_sys->x_axis_type = x_axis_type;
+	coord_sys->y_axis_type = y_axis_type;
+	draw_coordinate_system_data(coord_sys);
+}
+
+void scatter_data3(CoordinateSystem *coord_sys, DataArray3 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data) {
+	if(clear_prev_data) clear_coordinate_system(coord_sys);
+	add_data3_to_coordinate_system(coord_sys, data, CS_PLOT_TYPE_SCATTER);
+	coord_sys->x_axis_type = x_axis_type;
+	coord_sys->y_axis_type = y_axis_type;
+	draw_coordinate_system_data(coord_sys);
+}
+
+
+size_t get_coordinate_system_total_number_of_points(CoordinateSystem *coord_sys) {
+	size_t num_points = 0;
+	for(int i = 0; i < coord_sys->num_point_groups; i++) {
+		num_points+= coord_sys->groups[i]->num_points;
+	}
+	return num_points;
 }

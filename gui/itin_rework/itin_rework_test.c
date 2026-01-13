@@ -178,7 +178,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	ir_data0 = vinf_array;
 
 	draw_scatter_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
-	plot_data2(ir_coord_sys1, vinf_array, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE);
+	plot_scatter_data2(ir_coord_sys1, vinf_array, CS_AXIS_NUMBER, CS_AXIS_NUMBER, FALSE);
 
 	draw_screen(ir_screen0);
 	free(departure_group);
@@ -429,7 +429,8 @@ void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double heigh
 					if(fabs(dv_dep-interpl_value) > tolerance) {
 						num_errors++;
 						data_array2_append_new(error_pos, jd_dep-2.43418e+06, dur);
-						data_array3_append_new(absolute_error, jd_dep-2.43418e+06, dur, fabs(dv_dep-interpl_value));
+						// data_array3_append_new(absolute_error, jd_dep-2.43418e+06, dur, fabs(dv_dep-interpl_value));
+						data_array3_append_new(absolute_error, jd_dep, dur, fabs(dv_dep-interpl_value));
 						data_array3_append_new(relative_error, jd_dep-2.43418e+06, dur, fabs(dv_dep-interpl_value)/dv_dep);
 					}
 				}
@@ -439,6 +440,8 @@ void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double heigh
 	print_data_array3(relative_error, "dep", "dur", "rel_error");
 	// print_data_array3(error, "dep", "dur", "error");
 	printf(" %d / %d   (%.4f %%)\n", num_errors, num_points, (num_errors/(double)num_points)*100);
+
+	scatter_data3(ir_coord_sys1, absolute_error, CS_AXIS_DATE, CS_AXIS_DURATION, true);
 	draw_scatter_from_data_array(cr, width, height, error_pos);
 }
 

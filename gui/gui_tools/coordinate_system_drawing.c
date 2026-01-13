@@ -128,7 +128,7 @@ void draw_coordinate_system_axes(CoordinateSystem *coord_sys, int num_x_labels, 
 
 	// y-labels and y grid
 	for(int i = 0; i < num_y_labels; i++) {
-		double label = coord_sys->y_axis_type != COORD_LABEL_DATE ?
+		double label = coord_sys->y_axis_type != CS_AXIS_DATE ?
 					   min_y_label + i * y_label_tick :
 					   jd_change_date(min_y_label, i*y_date_label_tick.y, i*y_date_label_tick.m, i*y_date_label_tick.d, get_settings_datetime_type());
 		if(label < min.y) continue;
@@ -146,6 +146,53 @@ void draw_coordinate_system_axes(CoordinateSystem *coord_sys, int num_x_labels, 
 	}
 }
 
+void draw_line_into_coordinate_system(cairo_t *cr, Vector2 point0, Vector2 point1, Vector2 origin) {
+	if(point0.x < origin.x && point1.x < origin.x) return;
+	if(point0.y > origin.y && point1.y > origin.y) return;
+
+	if(point0.x < origin.x || point1.x < origin.x ||
+		point0.y > origin.y || point1.y > origin.y) {
+
+		double m = (point1.y - point0.y) / (point1.x - point0.x);
+
+		if(point0.x < origin.x) {
+			point0.y = (origin.x-point0.x)*m+point0.y;
+			point0.x = origin.x;
+		}
+		if(point0.y > origin.y) {
+			point0.x = (origin.y-point0.y)/m+point0.x;
+			point0.y = origin.y;
+		}
+
+		if(point1.x < origin.x) {
+			point1.y = (origin.x-point1.x)*m+point1.y;
+			point1.x = origin.x;
+		}
+		if(point1.y > origin.y) {
+			point1.x = (origin.y-point1.y)/m+point1.x;
+			point1.y = origin.y;
+		}
+	}
+
+	draw_stroke(cr, point0, point1);
+}
+
+void draw_coordinate_system_data_point(cairo_t *cr, double x, double y, double radius) {
+	if(radius > 3) {
+		cairo_arc(cr, x, y, radius,0,M_PI*2);
+		cairo_fill(cr);
+	} else {
+		cairo_rectangle(cr, x-radius, y-radius, radius, radius);
+		cairo_fill(cr);
+	}
+}
+
+void draw_point_into_coordinate_system(cairo_t *cr, Vector2 point, Vector2 origin, int width, double point_radius) {
+	if(point.x < origin.x || point.y > origin.y || point.x > width || point.y < 0) return;
+
+	draw_coordinate_system_data_point(cr, point.x, point.y, point_radius);
+}
+
 void draw_coordinate_system_data_group_plot(CoordinateSystem *coord_sys, CSDataPointGroup *group) {
 	cairo_t *cr = coord_sys->screen->static_layer.cr;
 
@@ -161,17 +208,31 @@ void draw_coordinate_system_data_group_plot(CoordinateSystem *coord_sys, CSDataP
 	m_x = (coord_sys->screen->width-origin.x)/dx;
 	m_y = -origin.y/dy; // negative, because positive is down
 
-	// data
-	cairo_set_source_rgb(cr, 0, 0.8, 0.8);
-	for(int i = 1; i < group->num_points; i++) {
-		Vector2 point0 = vec2(
-			origin.x + m_x*(group->points[i-1].x - min_x),
-			origin.y + m_y * (group->points[i-1].y - min_y));
-		Vector2 point1 = vec2(
-			origin.x + m_x*(group->points[i  ].x - min_x),
-			origin.y + m_y * (group->points[i  ].y - min_y));
+	size_t total_number_of_points = get_coordinate_system_total_number_of_points(coord_sys);
 
-		draw_stroke(cr, point0, point1);
+	// data
+	if(group->plot_type == CS_PLOT_TYPE_PLOT || group->plot_type == CS_PLOT_TYPE_PLOT_SCATTER) {
+		for(int i = 1; i < group->num_points; i++) {
+			cairo_set_source_rgb(cr, group->points[i].color.r, group->points[i].color.g, group->points[i].color.b);
+			Vector2 point0 = vec2(
+				origin.x + m_x*(group->points[i-1].x - min_x),
+				origin.y + m_y * (group->points[i-1].y - min_y));
+			Vector2 point1 = vec2(
+				origin.x + m_x*(group->points[i  ].x - min_x),
+				origin.y + m_y * (group->points[i  ].y - min_y));
+			draw_line_into_coordinate_system(cr, point0, point1, coord_sys->origin);
+		}
+	}
+	if(group->plot_type == CS_PLOT_TYPE_SCATTER || group->plot_type == CS_PLOT_TYPE_PLOT_SCATTER) {
+		for(int i = 0; i < group->num_points; i++) {
+			cairo_set_source_rgb(cr, group->points[i].color.r, group->points[i].color.g, group->points[i].color.b);
+			Vector2 point = vec2(
+				origin.x + m_x*(group->points[i  ].x - min_x),
+				origin.y + m_y * (group->points[i  ].y - min_y));
+			int radius = 2;
+			if(total_number_of_points < 10000) radius += 2;
+			draw_point_into_coordinate_system(cr, point, coord_sys->origin, coord_sys->screen->width, radius);
+		}
 	}
 }
 
