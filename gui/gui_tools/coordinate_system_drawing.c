@@ -156,14 +156,6 @@ void draw_coordinate_system_data_group_plot(CoordinateSystem *coord_sys, CSDataP
 	double dx = max_x-min_x;
 	double dy = max_y-min_y;
 
-
-	double margin = 0.05;
-
-	min_y = min_y != 0 ? min_y - dy * margin : 0;
-	max_y = max_y != 0 ? max_y + dy * margin : 0;
-	dy = max_y-min_y;
-
-
 	// gradients
 	double m_x, m_y;
 	m_x = (coord_sys->screen->width-origin.x)/dx;
@@ -172,8 +164,13 @@ void draw_coordinate_system_data_group_plot(CoordinateSystem *coord_sys, CSDataP
 	// data
 	cairo_set_source_rgb(cr, 0, 0.8, 0.8);
 	for(int i = 1; i < group->num_points; i++) {
-		Vector2 point0 = vec2(origin.x + m_x*(group->points[i-1].x - min_x), origin.y + m_y * (group->points[i-1].y - min_y));
-		Vector2 point1 = vec2(origin.x + m_x*(group->points[i  ].x - min_x), origin.y + m_y * (group->points[i  ].y - min_y));
+		Vector2 point0 = vec2(
+			origin.x + m_x*(group->points[i-1].x - min_x),
+			origin.y + m_y * (group->points[i-1].y - min_y));
+		Vector2 point1 = vec2(
+			origin.x + m_x*(group->points[i  ].x - min_x),
+			origin.y + m_y * (group->points[i  ].y - min_y));
+
 		draw_stroke(cr, point0, point1);
 	}
 }
@@ -181,9 +178,60 @@ void draw_coordinate_system_data_group_plot(CoordinateSystem *coord_sys, CSDataP
 
 void draw_coordinate_system_data(CoordinateSystem *coord_sys) {
 	clear_screen(coord_sys->screen);
-	draw_coordinate_system_axes(coord_sys, 10, 15);
-	printf("%lu\n", coord_sys->num_point_groups);
+	draw_coordinate_system_axes(coord_sys, 8, 10);
 	for(int i = 0; i < coord_sys->num_point_groups; i++)
 		draw_coordinate_system_data_group_plot(coord_sys, coord_sys->groups[i]);
 	draw_screen(coord_sys->screen);
+}
+
+void draw_hover_position(CoordinateSystem *coord_sys, Vector2 mouse_pos) {
+	cairo_t *cr = coord_sys->screen->dynamic_layer.cr;
+
+	// Set font options
+	cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+	cairo_set_font_size(cr, 14.0);
+	int half_font_size = 5;
+	double dx = coord_sys->max.x-coord_sys->min.x;
+	double dy = coord_sys->max.y-coord_sys->min.y;
+
+
+	// gradients
+	double m_x, m_y;
+	m_x = (coord_sys->screen->width-coord_sys->origin.x)/dx;
+	m_y = -coord_sys->origin.y/dy; // negative, because positive is down
+
+	Vector2 data_loc = vec2(
+	 (mouse_pos.x-coord_sys->origin.x)/m_x + coord_sys->min.x,
+	 (mouse_pos.y-coord_sys->origin.y)/m_y + coord_sys->min.y);
+
+	cairo_set_source_rgb(cr, 1, 0.2, 0.0);
+
+
+	draw_stroke(cr,
+		vec2(mouse_pos.x, 0),
+		vec2(mouse_pos.x, coord_sys->origin.y));
+	draw_stroke(cr,
+		vec2(coord_sys->origin.x, mouse_pos.y),
+		vec2(coord_sys->screen->width, mouse_pos.y));
+
+
+
+	double y_label_x = coord_sys->origin.x-5,	x_label_y = coord_sys->origin.y + 20;
+
+	char string[32];
+	if(coord_sys->x_axis_type == CS_AXIS_NUMBER)
+		sprintf(string, "%g", data_loc.x);
+	else if(coord_sys->x_axis_type == CS_AXIS_DURATION)
+		sprintf(string, "%g", get_settings_datetime_type() == DATE_KERBAL ? data_loc.x*4 : data_loc.x);
+	else if(coord_sys->x_axis_type == CS_AXIS_DATE)
+		date_to_string(convert_JD_date(data_loc.x, get_settings_datetime_type()), string, 0);
+	draw_center_aligned_text(cr, mouse_pos.x, x_label_y, string);
+	if(coord_sys->y_axis_type == CS_AXIS_NUMBER)
+		sprintf(string, "%g", data_loc.y);
+	else if(coord_sys->y_axis_type == CS_AXIS_DURATION)
+		sprintf(string, "%g", get_settings_datetime_type() == DATE_KERBAL ? data_loc.y*4 : data_loc.y);
+	else if(coord_sys->y_axis_type == CS_AXIS_DATE)
+		date_to_string(convert_JD_date(data_loc.y, get_settings_datetime_type()), string, 0);
+	draw_right_aligned_text(cr, y_label_x, mouse_pos.y+half_font_size, M_PI/4, string);
+
 }

@@ -3,8 +3,12 @@
 
 
 void on_coordinate_system();
-void on_coordinate_system_zoom();
+void on_coordinate_system_zoom(GtkWidget *widget, GdkEventScroll *event, CoordinateSystem *coord_sys);
 void on_resize_coordinate_system(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys);
+void on_coordinate_system_drag(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys);
+void update_coordinate_system_hover_position(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys);
+void enable_coordinate_system_show_hover_position(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys);
+void disable_coordinate_system_show_hover_position(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys);
 
 CoordinateSystem * new_coordinate_system(GtkWidget *drawing_area) {
 	CoordinateSystem *new_coordinate_system = malloc(sizeof(CoordinateSystem));
@@ -14,25 +18,121 @@ CoordinateSystem * new_coordinate_system(GtkWidget *drawing_area) {
 	new_coordinate_system->point_group_cap = 0;
 	new_coordinate_system->min = vec2(0, 0);
 	new_coordinate_system->max = vec2(0, 0);
+	new_coordinate_system->show_hover_position = false;
 	new_coordinate_system->x_axis_type = CS_AXIS_NUMBER;
 	new_coordinate_system->y_axis_type = CS_AXIS_NUMBER;
-	new_coordinate_system->screen = new_screen(drawing_area, NULL, NULL, NULL, NULL, NULL);
+	new_coordinate_system->screen = new_screen(drawing_area, NULL, &on_screen_button_press, &on_screen_button_release, NULL, NULL);
 	new_coordinate_system->origin = vec2(60, new_coordinate_system->screen->height-30);
 	set_screen_background_color(new_coordinate_system->screen, 0.15, 0.15, 0.15);
 
+	gtk_widget_add_events(drawing_area, GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK);
 	g_signal_connect(drawing_area, "size-allocate", G_CALLBACK(on_resize_coordinate_system), new_coordinate_system);
-	// if(button_press_func != NULL) 	g_signal_connect(drawing_area, "button-press-event", G_CALLBACK(button_press_func), new_screen);
-	// if(button_release_func != NULL)	g_signal_connect(drawing_area, "button-release-event", G_CALLBACK(button_release_func), new_screen);
-	// if(mouse_motion_func != NULL) 	g_signal_connect(drawing_area, "motion-notify-event", G_CALLBACK(mouse_motion_func), new_screen);
-	// if(scroll_func != NULL) 		g_signal_connect(drawing_area, "scroll-event", G_CALLBACK(scroll_func), new_screen);
+	// if(button_press_func != NULL) 	g_signal_connect(drawing_area, "button-press-event", G_CALLBACK(button_press_func), new_coordinate_system);
+	// if(button_release_func != NULL)	g_signal_connect(drawing_area, "button-release-event", G_CALLBACK(button_release_func), new_coordinate_system);
+	g_signal_connect(drawing_area, "motion-notify-event", G_CALLBACK(on_coordinate_system_drag), new_coordinate_system);
+	g_signal_connect(drawing_area, "motion-notify-event", G_CALLBACK(update_coordinate_system_hover_position), new_coordinate_system);
+	g_signal_connect(drawing_area, "enter-notify-event", G_CALLBACK(enable_coordinate_system_show_hover_position), new_coordinate_system);
+	g_signal_connect(drawing_area, "leave-notify-event", G_CALLBACK(disable_coordinate_system_show_hover_position), new_coordinate_system);
+	g_signal_connect(drawing_area, "scroll-event", G_CALLBACK(on_coordinate_system_zoom), new_coordinate_system);
 
 	return new_coordinate_system;
+}
+
+void on_coordinate_system_drag(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys) {
+	if(!coord_sys->screen->dragging) return;
+
+	Vector2 mouse_diff = {
+		event->x-coord_sys->screen->last_mouse_pos.x,
+		event->y-coord_sys->screen->last_mouse_pos.y
+	};
+
+	double dx = coord_sys->max.x-coord_sys->min.x;
+	double dy = coord_sys->max.y-coord_sys->min.y;
+
+	// gradients
+	double m_x, m_y;
+	m_x = (coord_sys->screen->width-coord_sys->origin.x)/dx;
+	m_y = -coord_sys->origin.y/dy; // negative, because positive is down
+
+	double x_diff = mouse_diff.x/m_x;
+	double y_diff = mouse_diff.y/m_y;
+
+
+	coord_sys->max.x -= x_diff;
+	coord_sys->min.x -= x_diff;
+	coord_sys->max.y -= y_diff;
+	coord_sys->min.y -= y_diff;
+
+	coord_sys->screen->last_mouse_pos.x = event->x;
+	coord_sys->screen->last_mouse_pos.y = event->y;
+
+	draw_coordinate_system_data(coord_sys);
+}
+
+void update_coordinate_system_hover_position(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys) {
+	clear_dynamic_screen_layer(coord_sys->screen);
+	Vector2 mouse = {event->x, event->y};
+
+	if(!coord_sys->show_hover_position || mouse.x < coord_sys->origin.x || mouse.y > coord_sys->origin.y) {
+		draw_screen(coord_sys->screen);
+		return;
+	}
+
+	draw_hover_position(coord_sys, mouse);
+
+	draw_screen(coord_sys->screen);
+}
+
+
+void on_coordinate_system_zoom(GtkWidget *widget, GdkEventScroll *event, CoordinateSystem *coord_sys) {
+	Vector2 mouse = {event->x, event->y};
+
+	double dx = coord_sys->max.x-coord_sys->min.x;
+	double dy = coord_sys->max.y-coord_sys->min.y;
+
+
+	// gradients
+	double m_x, m_y;
+	m_x = (coord_sys->screen->width-coord_sys->origin.x)/dx;
+	m_y = -coord_sys->origin.y/dy; // negative, because positive is down
+
+	Vector2 data_loc = vec2(
+	 (mouse.x-coord_sys->origin.x)/m_x + coord_sys->min.x,
+	 (mouse.y-coord_sys->origin.y)/m_y + coord_sys->min.y);
+
+	double x_ratio = (data_loc.x-coord_sys->min.x)/dx;
+	double y_ratio = (data_loc.y-coord_sys->min.y)/dy;
+
+
+	if(event->direction == GDK_SCROLL_UP) { dx /= 1.05; dy /= 1.05; }
+	if(event->direction == GDK_SCROLL_DOWN) { dx *= 1.05; dy *= 1.05; }
+
+	if(mouse.x >= coord_sys->origin.x) {
+		coord_sys->min.x = data_loc.x - x_ratio*dx;
+		coord_sys->max.x = coord_sys->min.x + dx;
+	}
+	if(mouse.y <= coord_sys->origin.y) {
+		coord_sys->min.y = data_loc.y - y_ratio*dy;
+		coord_sys->max.y = coord_sys->min.y + dy;
+	}
+
+	draw_coordinate_system_data(coord_sys);
 }
 
 void on_resize_coordinate_system(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys) {
 	resize_screen(coord_sys->screen);
 	coord_sys->origin = vec2(60, coord_sys->screen->height-30);
 	draw_coordinate_system_data(coord_sys);
+}
+
+void enable_coordinate_system_show_hover_position(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys) {
+	coord_sys->show_hover_position = true;
+}
+
+void disable_coordinate_system_show_hover_position(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys) {
+	coord_sys->show_hover_position = false;
+	clear_dynamic_screen_layer(coord_sys->screen);
+	draw_screen(coord_sys->screen);
 }
 
 void clear_coordinate_system(CoordinateSystem *coord_sys) {

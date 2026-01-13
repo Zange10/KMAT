@@ -35,6 +35,8 @@ struct CoordinateSystem {
 	Screen *screen;
 	Vector2 min, max;
 	Vector2 origin;
+	Vector2 mouse_hover_pos;
+	bool show_hover_position;
 	CSDataPointGroup **groups;
 	size_t num_point_groups, point_group_cap;
 	CSAxisLabelType x_axis_type, y_axis_type;
