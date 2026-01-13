@@ -39,20 +39,19 @@ void get_coordinate_system_axis_ticks(CSAxisLabelType axis_label_type, int num_l
 				}
 				tick = (Datetime) {(tick.y != 0)*tick_scale, (tick.m != 0)*tick_scale, (tick.d != 0)*tick_scale};
 				Datetime min_date = convert_JD_date(min_value, get_settings_datetime_type());
-				Datetime min_x_date_label = (Datetime) {
-						min_date.y,
-						tick.y == 0 && tick.m <6 ? min_date.m : 1,
-										(tick.y == 0 && tick.m == 0) ? min_date.d : 1,
-								.date_type = get_settings_datetime_type()
-				};
+				Datetime min_x_date_label = (Datetime) {.date_type = get_settings_datetime_type()};
+
+				if(tick.y > 0) min_x_date_label.y = (int) ceil((double)min_date.y/tick.y)*tick.y;
+				else min_x_date_label.y = min_date.y;
+
+				if(tick.m > 0 && tick.y == 0) min_x_date_label.m = (int) ceil((double)min_date.m/tick.m)*tick.m;
+				else if(tick.y > 0) min_x_date_label.m = 1;
+				else min_x_date_label.m = min_date.m;
+
+				if(tick.y == 0 && tick.m == 0) min_x_date_label.d = (int) ceil((double)min_date.d/tick.d)*tick.d;
+				else min_x_date_label.d = 1;
+
 				min_label = convert_date_JD(min_x_date_label);
-				min_label = jd_change_date(
-						min_label,
-						tick.y,
-						tick.m,
-						tick.d,
-						get_settings_datetime_type()
-				);
 				double max_label = jd_change_date(
 						min_label,
 						tick.y*num_labels,

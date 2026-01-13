@@ -504,7 +504,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 
 	gettimeofday(&start, NULL);  // Record the ending time
 
-	struct ItinStep **steps = malloc(10000*sizeof(struct ItinStep *));
+	struct ItinStep **steps = malloc(100000*sizeof(struct ItinStep *));
 	DataArray2 *step_pos = data_array2_create();
 	counter = 0;
 	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
@@ -589,6 +589,13 @@ G_MODULE_EXPORT void on_calc_ir2() {
 		pp1[i].group = NULL;
 	}
 	free(arrivals);
+
+	DataArray3 *porkchop_data = data_array3_create();
+	for(int i = 0; i <num_itins1; i++) {
+		data_array3_append_new(porkchop_data, pp1[i].data.dep_date, pp1[i].data.dur, pp1[i].data.dv_dep);
+	}
+	print_data_array3(porkchop_data, "date", "dur", "dep_dv");
+	scatter_data3(ir_coord_sys1, porkchop_data, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
 
 	// draw_porkchop(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, pp1, num_itins1, TF_FLYBY, 0);
 

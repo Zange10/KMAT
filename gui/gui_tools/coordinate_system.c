@@ -28,8 +28,6 @@ CoordinateSystem * new_coordinate_system(GtkWidget *drawing_area) {
 
 	gtk_widget_add_events(drawing_area, GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK);
 	g_signal_connect(drawing_area, "size-allocate", G_CALLBACK(on_resize_coordinate_system), new_coordinate_system);
-	// if(button_press_func != NULL) 	g_signal_connect(drawing_area, "button-press-event", G_CALLBACK(button_press_func), new_coordinate_system);
-	// if(button_release_func != NULL)	g_signal_connect(drawing_area, "button-release-event", G_CALLBACK(button_release_func), new_coordinate_system);
 	g_signal_connect(drawing_area, "motion-notify-event", G_CALLBACK(on_coordinate_system_drag), new_coordinate_system);
 	g_signal_connect(drawing_area, "motion-notify-event", G_CALLBACK(update_coordinate_system_hover_position), new_coordinate_system);
 	g_signal_connect(drawing_area, "enter-notify-event", G_CALLBACK(enable_coordinate_system_show_hover_position), new_coordinate_system);
@@ -127,7 +125,7 @@ void on_resize_coordinate_system(GtkWidget *widget, GdkEventButton *event, Coord
 }
 
 void enable_coordinate_system_show_hover_position(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys) {
-	coord_sys->show_hover_position = true;
+	if(coord_sys->num_point_groups > 0)	coord_sys->show_hover_position = true;
 }
 
 void disable_coordinate_system_show_hover_position(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys) {
@@ -142,9 +140,15 @@ void clear_coordinate_system(CoordinateSystem *coord_sys) {
 		free(coord_sys->groups[i]);
 	}
 	coord_sys->num_point_groups = 0;
+	coord_sys->min = vec2(0, 0);
+	coord_sys->max = vec2(0, 0);
+	coord_sys->x_axis_type = CS_AXIS_NUMBER;
+	coord_sys->y_axis_type = CS_AXIS_NUMBER;
 }
 
 void add_data2_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *data_array, CSDataPlotType plot_type) {
+	if(data_array2_size(data_array) == 0) return;
+
 	if(coord_sys->num_point_groups+1 >= coord_sys->point_group_cap) {
 		if(coord_sys->point_group_cap == 0) {
 			coord_sys->point_group_cap = 1;
@@ -183,6 +187,8 @@ void add_data2_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *dat
 }
 
 void add_data3_to_coordinate_system(CoordinateSystem *coord_sys, DataArray3 *data_array, CSDataPlotType plot_type) {
+	if(data_array3_size(data_array) == 0) return;
+
 	if(coord_sys->num_point_groups+1 >= coord_sys->point_group_cap) {
 		if(coord_sys->point_group_cap == 0) {
 			coord_sys->point_group_cap = 1;
