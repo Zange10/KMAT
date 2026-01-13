@@ -1,6 +1,7 @@
 #include "coordinate_system_drawing.h"
 #include "gui/drawing.h"
 #include "gui/settings.h"
+#include "gui/itin_rework/mesh_drawing.h"
 #include <math.h>
 
 
@@ -239,8 +240,25 @@ void draw_coordinate_system_data_group_plot(CoordinateSystem *coord_sys, CSDataP
 void draw_coordinate_system_data(CoordinateSystem *coord_sys) {
 	clear_screen(coord_sys->screen);
 	draw_coordinate_system_axes(coord_sys, 8, 10);
-	for(int i = 0; i < coord_sys->num_point_groups; i++)
-		draw_coordinate_system_data_group_plot(coord_sys, coord_sys->groups[i]);
+	if(coord_sys->num_point_groups > 0) {
+		switch(coord_sys->groups[0]->plot_type) {
+			case CS_PLOT_TYPE_PLOT:
+			case CS_PLOT_TYPE_SCATTER:
+			case CS_PLOT_TYPE_PLOT_SCATTER:
+				for(int i = 0; i < coord_sys->num_point_groups; i++)
+					draw_coordinate_system_data_group_plot(coord_sys, coord_sys->groups[i]);
+				break;
+			case CS_PLOT_TYPE_MESH_SKELETON:
+				draw_mesh_skeleton(coord_sys->groups[0]->mesh, coord_sys);
+				break;
+			case CS_PLOT_TYPE_MESH_INTERPOLATION:
+				draw_mesh_interpolated_points(coord_sys->groups[0]->mesh, coord_sys);
+				break;
+			default:
+				break;
+		}
+	}
+
 	draw_screen(coord_sys->screen);
 }
 

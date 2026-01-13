@@ -37,6 +37,32 @@ CoordinateSystem * new_coordinate_system(GtkWidget *drawing_area) {
 	return new_coordinate_system;
 }
 
+CoordinateSystem * new_coordinate_system_for_mesh(GtkWidget *drawing_area) {
+	CoordinateSystem *new_coordinate_system = malloc(sizeof(CoordinateSystem));
+
+	new_coordinate_system->groups = NULL;
+	new_coordinate_system->num_point_groups = 0;
+	new_coordinate_system->point_group_cap = 0;
+	new_coordinate_system->min = vec2(0, 0);
+	new_coordinate_system->max = vec2(0, 0);
+	new_coordinate_system->show_hover_position = false;
+	new_coordinate_system->x_axis_type = CS_AXIS_NUMBER;
+	new_coordinate_system->y_axis_type = CS_AXIS_NUMBER;
+	new_coordinate_system->screen = new_screen(drawing_area, NULL, &on_screen_button_press, &on_screen_button_release, NULL, NULL);
+	new_coordinate_system->origin = vec2(60, new_coordinate_system->screen->height-30);
+	set_screen_background_color(new_coordinate_system->screen, 0.15, 0.15, 0.15);
+
+	gtk_widget_add_events(drawing_area, GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK);
+	g_signal_connect(drawing_area, "size-allocate", G_CALLBACK(on_resize_coordinate_system), new_coordinate_system);
+	g_signal_connect(drawing_area, "motion-notify-event", G_CALLBACK(on_coordinate_system_drag), new_coordinate_system);
+	g_signal_connect(drawing_area, "motion-notify-event", G_CALLBACK(update_coordinate_system_hover_position), new_coordinate_system);
+	g_signal_connect(drawing_area, "enter-notify-event", G_CALLBACK(enable_coordinate_system_show_hover_position), new_coordinate_system);
+	g_signal_connect(drawing_area, "leave-notify-event", G_CALLBACK(disable_coordinate_system_show_hover_position), new_coordinate_system);
+	g_signal_connect(drawing_area, "scroll-event", G_CALLBACK(on_coordinate_system_zoom), new_coordinate_system);
+
+	return new_coordinate_system;
+}
+
 void on_coordinate_system_drag(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys) {
 	if(!coord_sys->screen->dragging) return;
 
@@ -136,8 +162,17 @@ void disable_coordinate_system_show_hover_position(GtkWidget *widget, GdkEventBu
 
 void clear_coordinate_system(CoordinateSystem *coord_sys) {
 	for(int i = 0; i < coord_sys->num_point_groups; i++) {
-		free(coord_sys->groups[i]->points);
-		free(coord_sys->groups[i]);
+		if(coord_sys->groups[i]->plot_type == CS_PLOT_TYPE_PLOT ||
+			coord_sys->groups[i]->plot_type == CS_PLOT_TYPE_SCATTER ||
+			coord_sys->groups[i]->plot_type == CS_PLOT_TYPE_PLOT_SCATTER) {
+
+			free(coord_sys->groups[i]->points);
+			free(coord_sys->groups[i]);
+		} else {
+			if(coord_sys->groups[i]->free_mesh_on_clear) {
+				free_mesh(coord_sys->groups[i]->mesh, coord_sys->groups[i]->free_mesh_data_func);
+			}
+		}
 	}
 	coord_sys->num_point_groups = 0;
 	coord_sys->min = vec2(0, 0);
@@ -164,6 +199,7 @@ void add_data2_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *dat
 	new_group->plot_type = plot_type;
 	new_group->num_points = data_array2_size(data_array);
 	new_group->points = malloc(sizeof(CSDataPoint) * new_group->num_points);
+	new_group->mesh = NULL;
 
 	Vector2 *data = data_array2_get_data(data_array);
 
@@ -204,6 +240,7 @@ void add_data3_to_coordinate_system(CoordinateSystem *coord_sys, DataArray3 *dat
 	new_group->plot_type = plot_type;
 	new_group->num_points = data_array3_size(data_array);
 	new_group->points = malloc(sizeof(CSDataPoint) * new_group->num_points);
+	new_group->mesh = NULL;
 
 	Vector3 *data = data_array3_get_data(data_array);
 	double min_z = data[0].z, max_z = data[0].z;
@@ -231,6 +268,38 @@ void add_data3_to_coordinate_system(CoordinateSystem *coord_sys, DataArray3 *dat
 		if(data[i].x < coord_sys->min.x) coord_sys->min.x = data[i].x;
 		if(data[i].y > coord_sys->max.y) coord_sys->max.y = data[i].y;
 		if(data[i].y < coord_sys->min.y) coord_sys->min.y = data[i].y;
+	}
+
+	coord_sys->groups[coord_sys->num_point_groups++] = new_group;
+}
+
+void add_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, bool free_mesh_on_clear, void (*free_data_func)(void *data)) {
+	if(coord_sys->num_point_groups+1 >= coord_sys->point_group_cap) {
+		if(coord_sys->point_group_cap == 0) {
+			coord_sys->point_group_cap = 1;
+			coord_sys->groups = malloc(coord_sys->point_group_cap * sizeof(CSDataPointGroup *));
+		} else {
+			coord_sys->point_group_cap *= 2;
+			CSDataPointGroup **temp = realloc(coord_sys->groups, coord_sys->point_group_cap * sizeof(CSDataPointGroup *));
+			if(temp) coord_sys->groups = temp;
+		}
+	}
+
+	CSDataPointGroup *new_group = malloc(sizeof(CSDataPointGroup));
+	new_group->plot_type = plot_type;
+	new_group->num_points = 0;
+	new_group->points = NULL;
+	new_group->mesh = mesh;
+	new_group->free_mesh_on_clear = free_mesh_on_clear;
+	new_group->free_mesh_data_func = free_data_func;
+
+	coord_sys->min = mesh->points[0]->pos;
+	coord_sys->max = mesh->points[0]->pos;
+	for(int i = 1; i < mesh->num_points; i++) {
+		if(mesh->points[i]->pos.x < coord_sys->min.x) coord_sys->min.x = mesh->points[i]->pos.x;
+		if(mesh->points[i]->pos.x > coord_sys->max.x) coord_sys->max.x = mesh->points[i]->pos.x;
+		if(mesh->points[i]->pos.y < coord_sys->min.y) coord_sys->min.y = mesh->points[i]->pos.y;
+		if(mesh->points[i]->pos.y > coord_sys->max.y) coord_sys->max.y = mesh->points[i]->pos.y;
 	}
 
 	coord_sys->groups[coord_sys->num_point_groups++] = new_group;
@@ -265,6 +334,15 @@ void scatter_data3(CoordinateSystem *coord_sys, DataArray3 *data, CSAxisLabelTyp
 	add_data3_to_coordinate_system(coord_sys, data, CS_PLOT_TYPE_SCATTER);
 	coord_sys->x_axis_type = x_axis_type;
 	coord_sys->y_axis_type = y_axis_type;
+	draw_coordinate_system_data(coord_sys);
+}
+
+void attach_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_mesh_on_clear, void (*free_data_func)(void *data)) {
+	clear_coordinate_system(coord_sys);
+	add_mesh_to_coordinate_system(coord_sys, mesh, plot_type, free_mesh_on_clear, free_data_func);
+	coord_sys->x_axis_type = x_axis_type;
+	coord_sys->y_axis_type = y_axis_type;
+
 	draw_coordinate_system_data(coord_sys);
 }
 

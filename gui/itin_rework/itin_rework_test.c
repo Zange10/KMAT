@@ -5,6 +5,7 @@
 #include "gui/gui_tools/screen.h"
 #include "gui/drawing.h"
 #include "mesh.h"
+#include "mesh_drawing.h"
 #include "geometrylib.h"
 #include "gui/gui_tools/coordinate_system.h"
 #include <math.h>
@@ -82,6 +83,8 @@ void init_itin_rework_test(GtkBuilder *builder) {
 
 	ir_coord_sys1 = new_coordinate_system(GTK_WIDGET(da_ir_graphing1));
 }
+
+void remove_step_from_itinerary_void_ptr(void *ptr) { remove_step_from_itinerary(ptr); }
 
 void on_ir_screen_resize(GtkWidget *widget, cairo_t *cr, gpointer *ptr) {
 	if((Screen*)ptr == ir_screen0) {
@@ -184,192 +187,10 @@ G_MODULE_EXPORT void on_calc_ir() {
 	free(departure_group);
 }
 
-void resize_pcmesh_to_fit(Mesh2 mesh, double max_x, double max_y) {
-	Vector2 max = mesh.points[0]-> pos;
-	Vector2 min = mesh.points[0]-> pos;
-
-	for(int i = 0; i < mesh.num_points; i++) {
-		if(mesh.points[i]-> pos.x > max.x) max.x = mesh.points[i]-> pos.x;
-		if(mesh.points[i]-> pos.x < min.x) min.x = mesh.points[i]-> pos.x;
-		if(mesh.points[i]-> pos.y > max.y) max.y = mesh.points[i]-> pos.y;
-		if(mesh.points[i]-> pos.y < min.y) min.y = mesh.points[i]-> pos.y;
-	}
-
-	max.x += 0.1*(max.x-min.x);
-	min.x -= 0.1*(max.x-min.x);
-	max.y += 0.1*(max.y-min.y);
-	min.y -= 0.1*(max.y-min.y);
-
-	Vector2 gradient = {
-		max_x/(max.x-min.x),
-		max_y/(max.y-min.y)
-	};
-
-
-	for(int i = 0; i < mesh.num_points; i++) {
-		mesh.points[i]-> pos.x -= min.x;
-		mesh.points[i]-> pos.x *= gradient.x;
-		mesh.points[i]-> pos.y -= min.y;
-		mesh.points[i]-> pos.y *= gradient.y;
-		mesh.points[i]-> pos.y  = max_y-mesh.points[i]-> pos.y;
-	}
-}
-
-void draw_mesh_triangle(cairo_t *cr, MeshTriangle2 triangle) {
-	cairo_set_source_rgb(cr, 1,1,1);
-	for(int i = 0; i < 3; i++) {
-		draw_stroke(cr, vec2(triangle.points[i]->pos.x, triangle.points[i]->pos.y), vec2(triangle.points[(i+1)%3]->pos.x, triangle.points[(i+1)%3]->pos.y));
-	}
-}
-
-void draw_mesh(cairo_t *cr, Mesh2 *mesh) {
-	struct timeval start, end;
-	gettimeofday(&start, NULL);
-	cairo_set_source_rgb(cr, 0.0, 1.0, 1.0);
-	for(int i = 0; i < mesh->num_triangles; i++) {
-		draw_mesh_triangle(cr, *mesh->triangles[i]);
-	}
-
-	gettimeofday(&end, NULL);
-	double duration = (end.tv_sec - start.tv_sec) +
-					  (end.tv_usec - start.tv_usec) / 1e6;
-	printf("Mesh Drawing: %.6f seconds\n", duration);
-	printf("Triangles drawn: %zu\n", mesh->num_triangles);
-}
 
 
 
-void draw_triangle_debug(cairo_t *cr, Mesh2 *mesh) {
-	struct timeval start, end;
-	gettimeofday(&start, NULL);
-
-	for(int i = 0; i < mesh->num_triangles; i++) {
-		if(triangle_is_edge(mesh->triangles[i])) cairo_set_source_rgb(cr, 0, 0.5, 1);
-		else cairo_set_source_rgb(cr, 0.3, 0.3, 0.3);
-
-		cairo_move_to(cr, mesh->triangles[i]->points[0]->pos.x, mesh->triangles[i]->points[0]->pos.y);
-		cairo_line_to(cr, mesh->triangles[i]->points[1]->pos.x, mesh->triangles[i]->points[1]->pos.y);
-		cairo_line_to(cr, mesh->triangles[i]->points[2]->pos.x, mesh->triangles[i]->points[2]->pos.y);
-		cairo_close_path(cr);
-
-		cairo_fill(cr);
-	}
-
-
-
-	gettimeofday(&end, NULL);
-	double duration = (end.tv_sec - start.tv_sec) +
-					  (end.tv_usec - start.tv_usec) / 1e6;
-	printf("Interpolation Drawing: %.6f seconds\n", duration);
-
-	printf("Triangles drawn: %zu\n", mesh->num_triangles);
-}
-
-void find_2dtriangle_minmax(MeshTriangle2 triangle, double *min_x, double *max_x, double *min_y, double *max_y) {
-	*min_x = triangle.points[0]->pos.x;
-	*max_x = triangle.points[0]->pos.x;
-	*min_y = triangle.points[0]->pos.y;
-	*max_y = triangle.points[0]->pos.y;
-
-	for(int i = 1; i < 3; i++) {
-		if(triangle.points[i]->pos.x < *min_x) *min_x = triangle.points[i]->pos.x;
-		if(triangle.points[i]->pos.x > *max_x) *max_x = triangle.points[i]->pos.x;
-		if(triangle.points[i]->pos.y < *min_y) *min_y = triangle.points[i]->pos.y;
-		if(triangle.points[i]->pos.y > *max_y) *max_y = triangle.points[i]->pos.y;
-	}
-}
-
-int is_inside_triangle(MeshTriangle2 triangle, Vector2 p) {
-	Vector2 a = triangle.points[0]->pos;
-	Vector2 b = triangle.points[1]->pos;
-	Vector2 c = triangle.points[2]->pos;
-	Vector2 v0 = subtract_vec2(c,a);
-	Vector2 v1 = subtract_vec2(b,a);
-	Vector2 v2 = subtract_vec2(p,a);
-
-	double d00 = dot_vec2(v0, v0);
-	double d01 = dot_vec2(v0, v1);
-	double d11 = dot_vec2(v1, v1);
-	double d20 = dot_vec2(v2, v0);
-	double d21 = dot_vec2(v2, v1);
-
-	double denom = d00*d11 - d01*d01;
-
-	double u = (d11*d20 - d01*d21) / denom;
-	double v = (d00*d21 - d01*d20) / denom;
-
-	return (u >= 0 && v >= 0 && u+v <= 1+1e-9);
-}
-
-
-
-void set_color_from_value(cairo_t *cr, double value) {
-	double r = value;
-	double g = 1-value;
-	double b = 4*pow(value-0.5,2);
-	cairo_set_source_rgb(cr, r,g,b);
-}
-
-
-
-double get_triangle_interpolated_value(Vector3 p0, Vector3 p1, Vector3 p2, Vector2 p) {
-	Vector2 a = vec2(p0.x, p0.y);
-	Vector2 b = vec2(p1.x, p1.y);
-	Vector2 c = vec2(p2.x, p2.y);
-	Vector2 v0 = subtract_vec2(c,a);
-	Vector2 v1 = subtract_vec2(b,a);
-	Vector2 v2 = subtract_vec2(p,a);
-
-	double d00 = dot_vec2(v0, v0);
-	double d01 = dot_vec2(v0, v1);
-	double d11 = dot_vec2(v1, v1);
-	double d20 = dot_vec2(v2, v0);
-	double d21 = dot_vec2(v2, v1);
-
-	double denom = d00*d11 - d01*d01;
-
-	double v = (d00*d21 - d01*d20) / denom;
-	double w = (d11*d20 - d01*d21) / denom;
-	double u = 1-v-w;
-
-	return u*p0.z + v*p1.z + w*p2.z;
-}
-
-
-void draw_mesh_interpolated_points(cairo_t *cr, Mesh2 mesh, int width, int height) {
-	int step = 1;
-
-	for(int i = 0; i < mesh.num_triangles; i++) {
-		double min_x, max_x, min_y, max_y;
-		MeshTriangle2 tri2d = *mesh.triangles[i];
-		find_2dtriangle_minmax(tri2d, &min_x, &max_x, &min_y, &max_y);
-		if(max_x < 0 || min_x > width || max_y < 0 || min_y > height) continue;
-		for(int x = (int)min_x+1; x <= max_x; x+=step) {
-			for(int y = (int)min_y+1; y <= max_y; y+=step) {
-				Vector2 p = vec2(x, y);
-				if(x >= 0 && x < width && y >= 0 && y < height && is_inside_triangle(tri2d, p)) {
-					Vector3 tri3[3];
-					for(int idx = 0; idx < 3; idx++) {
-						struct ItinStep *ptr = mesh.triangles[i]->points[idx]->data;
-						double vinf = mag_vec3(subtract_vec3(ptr->v_dep, ptr->prev->v_body));
-						double dv_dep = dv_circ(ptr->prev->body, ir_dep_periapsis+ptr->prev->body->radius, vinf);
-
-						tri3[idx].x = mesh.triangles[i]->points[idx]->pos.x;
-						tri3[idx].y = mesh.triangles[i]->points[idx]->pos.y;
-						tri3[idx].z = (dv_dep-4000)/6000;
-					}
-					double interpl_value = get_triangle_interpolated_value(tri3[0], tri3[1], tri3[2], p);
-					set_color_from_value(cr, interpl_value);
-					cairo_rectangle(cr, x, y, 1, 1);
-					cairo_fill(cr);
-				}
-			}
-		}
-	}
-}
-
-
-void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double height, Mesh2 mesh, double tolerance) {
+void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double height, Mesh2 *mesh, double tolerance) {
 	double step_dep = 0.5;
 	double step_dur = 0.5;
 	DataArray3 *absolute_error = data_array3_create();
@@ -380,9 +201,9 @@ void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double heigh
 
 	int num_points = 0, num_errors = 0;
 
-	for(int i = 0; i < mesh.num_triangles; i++) {
+	for(int i = 0; i < mesh->num_triangles; i++) {
 		double min_x, max_x, min_y, max_y;
-		MeshTriangle2 tri2d = *mesh.triangles[i];
+		MeshTriangle2 tri2d = *mesh->triangles[i];
 		find_2dtriangle_minmax(tri2d, &min_x, &max_x, &min_y, &max_y);
 
 		for(double jd_dep = min_x; jd_dep <= max_x; jd_dep += step_dep) {
@@ -392,12 +213,12 @@ void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double heigh
 					Vector3 tri3[3];
 					struct ItinStep *ptr = NULL;
 					for(int idx = 0; idx < 3; idx++) {
-						ptr = mesh.triangles[i]->points[idx]->data;
+						ptr = mesh->triangles[i]->points[idx]->data;
 						double vinf = mag_vec3(subtract_vec3(ptr->v_dep, ptr->prev->v_body));
 						double dv_dep = dv_circ(ptr->prev->body, ir_dep_periapsis+ptr->prev->body->radius, vinf);
 
-						tri3[idx].x = mesh.triangles[i]->points[idx]->pos.x;
-						tri3[idx].y = mesh.triangles[i]->points[idx]->pos.y;
+						tri3[idx].x = mesh->triangles[i]->points[idx]->pos.x;
+						tri3[idx].y = mesh->triangles[i]->points[idx]->pos.y;
 						tri3[idx].z = dv_dep;
 					}
 					double interpl_value = get_triangle_interpolated_value(tri3[0], tri3[1], tri3[2], p);
@@ -528,7 +349,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	}
 
 
-	MeshGrid2 grid = create_mesh_grid(step_pos, (void**) steps);
+	MeshGrid2 *grid = create_mesh_grid(step_pos, (void**) steps);
 	// for(int i = 0; i < grid.num_cols; i++) {
 	// 	if(grid.num_col_rows[i] == 0) {
 	// 		printf("\n%4d:   ---", i); continue;
@@ -540,11 +361,11 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	// }
 	// printf("\n");
 	// Mesh2 mesh = create_mesh_from_grid(grid);
-	Mesh2 mesh = create_mesh_from_grid_w_angled_guideline(grid, departure_groups[pcgroup]->boundary_gradient);
+	Mesh2 *mesh = create_mesh_from_grid_w_angled_guideline(grid, departure_groups[pcgroup]->boundary_gradient);
 
 
-	for(int i = 0; i < mesh.num_points; i++) {
-		MeshPoint2 *point = mesh.points[i];
+	for(int i = 0; i < mesh->num_points; i++) {
+		MeshPoint2 *point = mesh->points[i];
 		struct ItinStep *step = point->data;
 		point->pos.x = step->date;
 		point->pos.y = step->date - get_first(step)->date;
@@ -557,8 +378,8 @@ G_MODULE_EXPORT void on_calc_ir2() {
 
 	// resize_pcmesh_to_fit(mesh, ir_screen1->width, ir_screen1->height);
 	// draw_mesh_interpolated_points(ir_screen1->static_layer.cr, mesh, ir_screen1->width, ir_screen1->height);
-	// draw_mesh(ir_screen0->static_layer.cr, &mesh);
-	draw_triangle_debug(ir_screen0->static_layer.cr, &mesh);
+	attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr);
+	// draw_triangle_debug(ir_screen0->static_layer.cr, &mesh);
 
 
 	struct ItinStep **departures = departure_groups[pcgroup]->departures;
@@ -595,7 +416,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 		data_array3_append_new(porkchop_data, pp1[i].data.dep_date, pp1[i].data.dur, pp1[i].data.dv_dep);
 	}
 	print_data_array3(porkchop_data, "date", "dur", "dep_dv");
-	scatter_data3(ir_coord_sys1, porkchop_data, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
+	// scatter_data3(ir_coord_sys1, porkchop_data, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
 
 	// draw_porkchop(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, pp1, num_itins1, TF_FLYBY, 0);
 
@@ -621,8 +442,6 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	draw_screen(ir_screen0);
 	// draw_screen(ir_screen1);
 }
-
-void remove_step_from_itinerary_void_ptr(void *ptr) { remove_step_from_itinerary(ptr); }
 
 G_MODULE_EXPORT void on_calc_ir3() {
 	char *string;
@@ -720,9 +539,9 @@ G_MODULE_EXPORT void on_calc_ir3() {
 	}
 
 
-	MeshGrid2 grid = create_mesh_grid(step_pos, (void**) steps);
-	Mesh2 mesh = create_mesh_from_grid_w_angled_guideline(grid, departure_groups[pcgroup]->boundary_gradient);
-	free_grid_keep_points(&grid);
+	MeshGrid2 *grid = create_mesh_grid(step_pos, (void**) steps);
+	Mesh2 *mesh = create_mesh_from_grid_w_angled_guideline(grid, departure_groups[pcgroup]->boundary_gradient);
+	free_grid_keep_points(grid);
 
 
 	// for(int i = 0; i < mesh.num_points; i++) {
@@ -745,5 +564,5 @@ G_MODULE_EXPORT void on_calc_ir3() {
 
 	draw_screen(ir_screen0);
 	// draw_screen(ir_screen1);
-	free_mesh(&mesh, &remove_step_from_itinerary_void_ptr);
+	free_mesh(mesh, &remove_step_from_itinerary_void_ptr);
 }
