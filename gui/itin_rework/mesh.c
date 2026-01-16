@@ -1,28 +1,50 @@
 #include "mesh.h"
 
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
+
+
+Mesh2 * new_mesh() {
+	Mesh2 *mesh = malloc(sizeof(Mesh2));
+	mesh->num_triangles = 0;
+	mesh->triangle_cap = 64;
+	mesh->num_points = 0;
+	mesh->point_cap = 64;
+	mesh->triangles = malloc(mesh->triangle_cap*sizeof(MeshTriangle2*));
+	mesh->points = malloc(mesh->point_cap*sizeof(MeshPoint2*));
+	mesh->mesh_box = malloc(sizeof(MeshBox2));
+	mesh->mesh_box->type = MESHBOX_SUBBOXES;
+	mesh->mesh_box->subboxes.num = 0;
+	mesh->mesh_box->subboxes.cap = 4;
+	mesh->mesh_box->subboxes.boxes = malloc(mesh->mesh_box->subboxes.cap*sizeof(MeshBox2*));
+	mesh->mesh_box->min = vec2(NAN, NAN);
+	mesh->mesh_box->max = vec2(NAN, NAN);
+	return mesh;
+}
 
 bool triangle_is_edge(MeshTriangle2 *triangle) {
 	return !triangle->adj_triangles[0] || !triangle->adj_triangles[1] || !triangle->adj_triangles[2];
 }
 
-void find_2dtriangle_minmax(MeshTriangle2 triangle, double *min_x, double *max_x, double *min_y, double *max_y) {
-	*min_x = triangle.points[0]->pos.x;
-	*max_x = triangle.points[0]->pos.x;
-	*min_y = triangle.points[0]->pos.y;
-	*max_y = triangle.points[0]->pos.y;
+void find_2dtriangle_minmax(MeshTriangle2 *triangle, double *min_x, double *max_x, double *min_y, double *max_y) {
+	*min_x = triangle->points[0]->pos.x;
+	*max_x = triangle->points[0]->pos.x;
+	*min_y = triangle->points[0]->pos.y;
+	*max_y = triangle->points[0]->pos.y;
 
 	for(int i = 1; i < 3; i++) {
-		if(triangle.points[i]->pos.x < *min_x) *min_x = triangle.points[i]->pos.x;
-		if(triangle.points[i]->pos.x > *max_x) *max_x = triangle.points[i]->pos.x;
-		if(triangle.points[i]->pos.y < *min_y) *min_y = triangle.points[i]->pos.y;
-		if(triangle.points[i]->pos.y > *max_y) *max_y = triangle.points[i]->pos.y;
+		if(triangle->points[i]->pos.x < *min_x) *min_x = triangle->points[i]->pos.x;
+		if(triangle->points[i]->pos.x > *max_x) *max_x = triangle->points[i]->pos.x;
+		if(triangle->points[i]->pos.y < *min_y) *min_y = triangle->points[i]->pos.y;
+		if(triangle->points[i]->pos.y > *max_y) *max_y = triangle->points[i]->pos.y;
 	}
 }
 
-int is_inside_triangle(MeshTriangle2 triangle, Vector2 p) {
-	Vector2 a = triangle.points[0]->pos;
-	Vector2 b = triangle.points[1]->pos;
-	Vector2 c = triangle.points[2]->pos;
+int is_inside_triangle(MeshTriangle2 *triangle, Vector2 p) {
+	Vector2 a = triangle->points[0]->pos;
+	Vector2 b = triangle->points[1]->pos;
+	Vector2 c = triangle->points[2]->pos;
 	Vector2 v0 = subtract_vec2(c,a);
 	Vector2 v1 = subtract_vec2(b,a);
 	Vector2 v2 = subtract_vec2(p,a);
@@ -62,6 +84,38 @@ double get_triangle_interpolated_value(Vector3 p0, Vector3 p1, Vector3 p2, Vecto
 	double u = 1-v-w;
 
 	return u*p0.z + v*p1.z + w*p2.z;
+}
+
+MeshTriangle2 * get_mesh_triangle_at_position_from_box(MeshBox2 *box, Vector2 pos) {
+	if(box->type == MESHBOX_SUBBOXES) {
+		for(int i = 0; i < box->subboxes.num; i++) {
+			if(pos.x >= box->subboxes.boxes[i]->min.x && pos.x <= box->subboxes.boxes[i]->max.x &&
+				pos.y >= box->subboxes.boxes[i]->min.y && pos.y <= box->subboxes.boxes[i]->max.y) {
+				return get_mesh_triangle_at_position_from_box(box->subboxes.boxes[i], pos);
+			}
+		}
+	} else if(box->type == MESHBOX_TRIANGLES) {
+		for(int i = 0; i < box->tri.num; i++) {
+			if(is_inside_triangle(box->tri.triangles[i], pos)) return box->tri.triangles[i];
+		}
+	}
+	return NULL;
+}
+
+MeshTriangle2 * get_mesh_triangle_at_position(Mesh2 *mesh, Vector2 pos) {
+	return get_mesh_triangle_at_position_from_box(mesh->mesh_box, pos);
+}
+
+double get_mesh_interpolated_value(Mesh2 *mesh, Vector2 p) {
+	MeshTriangle2 *tri2 = get_mesh_triangle_at_position(mesh, p);
+	if(!tri2) return NAN;
+	Vector3 tri3[3];
+	for(int idx = 0; idx < 3; idx++) {
+		tri3[idx].x = tri2->points[idx]->pos.x;
+		tri3[idx].y = tri2->points[idx]->pos.y;
+		tri3[idx].z = tri2->points[idx]->val;
+	}
+	return get_triangle_interpolated_value(tri3[0], tri3[1], tri3[2], p);
 }
 
 MeshTriangle2 * get_adj_triangle_from_two_points(MeshTriangle2 *original_triangle, MeshPoint2 *p0, MeshPoint2 *p1) {
@@ -221,6 +275,38 @@ MeshGrid2 *create_mesh_grid(DataArray2 *pos, void **data) {
 	return grid;
 }
 
+bool is_point_inside_mesh_box(MeshBox2 box, Vector2 point) {
+	return (point.x >= box.min.x && point.x <= box.max.x && point.y >= box.min.y && point.y <= box.max.y);
+}
+
+void add_triangle_to_mesh_box(MeshBox2 *box, MeshTriangle2 *triangle) {
+	if(!box) return;
+	switch(box->type) {
+		case MESHBOX_SUBBOXES:
+			for(int i = 0; i < box->subboxes.num; i++) {
+				double min_x, min_y, max_x, max_y;
+				find_2dtriangle_minmax(triangle, &min_x, &max_x, &min_y, &max_y);
+				if(min_x < box->subboxes.boxes[i]->max.x && max_x > box->subboxes.boxes[i]->min.x &&
+					min_y < box->subboxes.boxes[i]->max.y && max_y > box->subboxes.boxes[i]->min.y)
+				{
+					add_triangle_to_mesh_box(box->subboxes.boxes[i], triangle);
+				}
+			}
+			break;
+		case MESHBOX_TRIANGLES:
+			if(box->tri.cap == 0) {
+				box->tri.cap = 8;
+				box->tri.triangles = malloc(box->tri.cap * sizeof(MeshTriangle2*));
+			} else if(box->tri.num == box->tri.cap) {
+				box->tri.cap *= 2;
+				MeshTriangle2 **temp = realloc(box->tri.triangles, box->tri.cap * sizeof(MeshTriangle2*));
+				if(temp) box->tri.triangles = temp;
+			}
+			box->tri.triangles[box->tri.num++] = triangle;
+			break;
+	}
+}
+
 void add_triangle_to_mesh(Mesh2 *mesh, MeshTriangle2 *triangle) {
 	if(mesh->num_triangles >= mesh->triangle_cap) {
 		mesh->triangle_cap *= 2;
@@ -229,6 +315,7 @@ void add_triangle_to_mesh(Mesh2 *mesh, MeshTriangle2 *triangle) {
 	}
 
 	mesh->triangles[mesh->num_triangles] = triangle;
+	add_triangle_to_mesh_box(mesh->mesh_box, triangle);
 	mesh->num_triangles++;
 }
 
@@ -244,13 +331,7 @@ void add_point_to_mesh(Mesh2 *mesh, MeshPoint2 *point) {
 }
 
 Mesh2 * create_mesh_from_grid(MeshGrid2 *grid) {
-	Mesh2 *mesh = malloc(sizeof(Mesh2));
-	mesh->num_triangles = 0;
-	mesh->triangle_cap = 64;
-	mesh->num_points = 0;
-	mesh->point_cap = 64;
-	mesh->triangles = malloc(mesh->triangle_cap*sizeof(MeshTriangle2*));
-	mesh->points = malloc(mesh->point_cap*sizeof(MeshPoint2*));
+	Mesh2 *mesh = new_mesh();
 
 	for(int i = 0; i < grid->num_cols; i++) {
 		for(int j = 0; j < grid->num_col_rows[i]; j++) {
@@ -304,17 +385,45 @@ Mesh2 * create_mesh_from_grid(MeshGrid2 *grid) {
 }
 
 Mesh2 * create_mesh_from_grid_w_angled_guideline(MeshGrid2 *grid, double gradient) {
-	Mesh2 *mesh = malloc(sizeof(Mesh2));
-	mesh->num_triangles = 0;
-	mesh->triangle_cap = 64;
-	mesh->num_points = 0;
-	mesh->point_cap = 64;
-	mesh->triangles = malloc(mesh->triangle_cap*sizeof(MeshTriangle2*));
-	mesh->points = malloc(mesh->point_cap*sizeof(MeshPoint2*));
+	Mesh2 *mesh = new_mesh();
+
+	Vector2 min = grid->points[0][0]->pos;
+	Vector2 max = grid->points[0][0]->pos;
 
 	for(int i = 0; i < grid->num_cols; i++) {
 		for(int j = 0; j < grid->num_col_rows[i]; j++) {
 			add_point_to_mesh(mesh, grid->points[i][j]);
+			if(grid->points[i][j]->pos.x < min.x) min.x = grid->points[i][j]->pos.x;
+			if(grid->points[i][j]->pos.x > max.x) max.x = grid->points[i][j]->pos.x;
+			if(grid->points[i][j]->pos.y < min.y) min.y = grid->points[i][j]->pos.y;
+			if(grid->points[i][j]->pos.y > max.y) max.y = grid->points[i][j]->pos.y;
+		}
+	}
+
+	int subbox_rows = 10, subbox_cols = 10;
+	mesh->mesh_box->min = min;
+	mesh->mesh_box->max = max;
+	mesh->mesh_box->subboxes.num = subbox_rows * subbox_cols;
+	mesh->mesh_box->subboxes.cap = subbox_rows * subbox_cols;
+	MeshBox2 **temp = realloc(mesh->mesh_box->subboxes.boxes, mesh->mesh_box->subboxes.num * sizeof(MeshBox2*));
+	if(temp) mesh->mesh_box->subboxes.boxes = temp;
+	// mesh->mesh_box->subboxes.boxes = malloc(mesh->mesh_box->subboxes.num * sizeof(MeshBox2*));
+	mesh->mesh_box->type = MESHBOX_SUBBOXES;
+	int idx = 0;
+	for(int col = 0; col < subbox_cols; col++) {
+		double min_x = min.x + col * (max.x - min.x) / subbox_cols;
+		double max_x = min.x + (col+1) * (max.x - min.x) / subbox_cols;
+		for(int row = 0; row < subbox_rows; row++) {
+			double min_y = min.y + row * (max.y - min.y) / subbox_rows;
+			double max_y = min.y + (row+1) * (max.y - min.y) / subbox_rows;
+			mesh->mesh_box->subboxes.boxes[idx] = malloc(sizeof(MeshBox2));
+			mesh->mesh_box->subboxes.boxes[idx]->min = vec2(min_x, min_y);
+			mesh->mesh_box->subboxes.boxes[idx]->max = vec2(max_x, max_y);
+			mesh->mesh_box->subboxes.boxes[idx]->type = MESHBOX_TRIANGLES;
+			mesh->mesh_box->subboxes.boxes[idx]->tri.cap = 0;
+			mesh->mesh_box->subboxes.boxes[idx]->tri.num = 0;
+			mesh->mesh_box->subboxes.boxes[idx]->tri.triangles = NULL;
+			idx++;
 		}
 	}
 
@@ -369,9 +478,133 @@ Mesh2 * create_mesh_from_grid_w_angled_guideline(MeshGrid2 *grid, double gradien
 	return mesh;
 }
 
+void free_mesh_box(MeshBox2 *box);
+
+bool is_triangle_bouding_box_inside_rectangle(MeshTriangle2 *triangle, Vector2 min, Vector2 max) {
+	double min_x, max_x, min_y, max_y;
+	find_2dtriangle_minmax(triangle, &min_x, &max_x, &min_y, &max_y);
+	if(max_x < min.x || min_x > max.x || max_y < min.y || min_y > max.y) return false;
+	return true;
+}
+
+void add_triangles_to_mesh_box(MeshBox2 *box, MeshTriangle2 **triangles, size_t num_triangles) {
+	for(int i = 0; i < num_triangles; i++) {
+		if(is_triangle_bouding_box_inside_rectangle(triangles[i], box->min, box->max)) {
+			if(box->tri.num == box->tri.cap) {
+				box->tri.cap *= 2;
+				MeshTriangle2 **temp = realloc(box->tri.triangles, box->tri.cap * sizeof(MeshTriangle2*));
+				if(temp) box->tri.triangles = temp;
+			}
+			box->tri.triangles[box->tri.num++] = triangles[i];
+		}
+	}
+}
+
+void subdivide_mesh_box(MeshBox2 **box_p, int num_rows, int num_cols, int level) {
+	MeshBox2 *box = *box_p;
+	MeshBox2 *new_box = malloc(sizeof(MeshBox2));
+	new_box->min = box->min;
+	new_box->max = box->max;
+	new_box->type = MESHBOX_SUBBOXES;
+	new_box->subboxes.num = 0;
+	new_box->subboxes.cap = num_rows*num_cols;
+	new_box->subboxes.boxes = malloc(num_rows*num_cols * sizeof(MeshBox2*));
+
+	for(int col = 0; col < num_cols; col++) {
+		double min_x = box->min.x + col * (box->max.x - box->min.x) / num_cols;
+		double max_x = box->min.x + (col+1) * (box->max.x - box->min.x) / num_cols;
+		for(int row = 0; row < num_rows; row++) {
+			double min_y = box->min.y + row * (box->max.y - box->min.y) / num_rows;
+			double max_y = box->min.y + (row+1) * (box->max.y - box->min.y) / num_rows;
+			int idx = (int) new_box->subboxes.num;
+			new_box->subboxes.boxes[idx] = malloc(sizeof(MeshBox2));
+			new_box->subboxes.boxes[idx]->min = vec2(min_x, min_y);
+			new_box->subboxes.boxes[idx]->max = vec2(max_x, max_y);
+			new_box->subboxes.boxes[idx]->type = MESHBOX_TRIANGLES;
+			new_box->subboxes.boxes[idx]->tri.cap = 8;
+			new_box->subboxes.boxes[idx]->tri.num = 0;
+			new_box->subboxes.boxes[idx]->tri.triangles = malloc(new_box->subboxes.boxes[idx]->tri.cap * sizeof(MeshTriangle2*));
+			add_triangles_to_mesh_box(new_box->subboxes.boxes[idx], box->tri.triangles, box->tri.num);
+			if(new_box->subboxes.boxes[idx]->tri.num == 0) {
+				free(new_box->subboxes.boxes[idx]->tri.triangles);
+				free(new_box->subboxes.boxes[idx]);
+				continue;
+			}
+			if(new_box->subboxes.boxes[idx]->tri.num > 100) {
+				if(level < 3)
+					subdivide_mesh_box(&new_box->subboxes.boxes[idx], num_rows, num_cols, level+1);
+			}
+			new_box->subboxes.num++;
+		}
+	}
+
+	free_mesh_box(box);
+	*box_p = new_box;
+}
+
+void rebuild_mesh_boxes(Mesh2 *mesh) {
+	MeshBox2 *new_box = malloc(sizeof(MeshBox2));
+	new_box->min = mesh->mesh_box->min;
+	new_box->max = mesh->mesh_box->max;
+	new_box->type = MESHBOX_TRIANGLES;
+	new_box->tri.num = mesh->num_triangles;
+	new_box->tri.cap = mesh->num_triangles;
+	new_box->tri.triangles = malloc(mesh->num_triangles * sizeof(MeshTriangle2*));
+	memcpy(new_box->tri.triangles, mesh->triangles, mesh->num_triangles * sizeof(MeshTriangle2*));
+
+	if(new_box->tri.num > 100) subdivide_mesh_box(&new_box, 5, 5, 0);
+
+	free_mesh_box(mesh->mesh_box);
+	mesh->mesh_box = new_box;
+}
+
+Mesh2 * combine_meshes(Mesh2 *mesh0, Mesh2 *mesh1) {
+	MeshPoint2 **temp_points = realloc(mesh0->points, (mesh0->num_points+mesh1->num_points) * sizeof(MeshPoint2*));
+	if(temp_points) mesh0->points = temp_points;
+	MeshTriangle2 **temp_triangles = realloc(mesh0->triangles, (mesh0->num_triangles+mesh1->num_triangles) * sizeof(MeshTriangle2*));
+	if(temp_triangles) mesh0->triangles = temp_triangles;
+	MeshBox2 **temp_boxes = realloc(mesh0->mesh_box->subboxes.boxes, (mesh0->mesh_box->subboxes.num + mesh1->mesh_box->subboxes.num) * sizeof(MeshBox2*));
+	if(temp_boxes) mesh0->mesh_box->subboxes.boxes = temp_boxes;
+
+	memcpy(mesh0->points+mesh0->num_points, mesh1->points, mesh1->num_points * sizeof(MeshPoint2*));
+	memcpy(mesh0->triangles+mesh0->num_triangles, mesh1->triangles, mesh1->num_triangles * sizeof(MeshTriangle2*));
+	memcpy(mesh0->mesh_box->subboxes.boxes + mesh0->mesh_box->subboxes.num, mesh1->mesh_box->subboxes.boxes, mesh1->mesh_box->subboxes.num * sizeof(MeshBox2*));
+
+	mesh0->num_points = mesh0->num_points + mesh1->num_points;
+	mesh0->num_triangles = mesh0->num_triangles + mesh1->num_triangles;
+	mesh0->mesh_box->subboxes.num = mesh0->mesh_box->subboxes.num + mesh1->mesh_box->subboxes.num;
+	mesh0->point_cap = mesh0->num_points;
+	mesh0->triangle_cap = mesh0->num_triangles;
+	mesh0->mesh_box->subboxes.cap = mesh0->mesh_box->subboxes.num;
+	mesh0->mesh_box->min.x = fmin(mesh0->mesh_box->min.x, mesh1->mesh_box->min.x);
+	mesh0->mesh_box->min.y = fmin(mesh0->mesh_box->min.y, mesh1->mesh_box->min.y);
+	mesh0->mesh_box->max.x = fmax(mesh0->mesh_box->max.x, mesh1->mesh_box->max.x);
+	mesh0->mesh_box->max.y = fmax(mesh0->mesh_box->max.y, mesh1->mesh_box->max.y);
+
+	free(mesh1->triangles);
+	free(mesh1->points);
+	free(mesh1->mesh_box->subboxes.boxes);
+	free(mesh1->mesh_box);
+	free(mesh1);
+
+	return mesh0;
+}
+
 void free_grid_keep_points(MeshGrid2 *grid) {
 	free(grid->num_col_rows);
 	free(grid);
+}
+
+void free_mesh_box(MeshBox2 *box) {
+	if(box->type == MESHBOX_SUBBOXES) {
+		for(int i = 0; i < box->subboxes.num; i++) {
+			free_mesh_box(box->subboxes.boxes[i]);
+		}
+		free(box->subboxes.boxes);
+	} else if(box->type == MESHBOX_TRIANGLES) {
+		free(box->tri.triangles);
+	}
+	free(box);
 }
 
 void free_mesh(Mesh2 *mesh, void (*free_data_func)(void *data)) {
@@ -382,5 +615,6 @@ void free_mesh(Mesh2 *mesh, void (*free_data_func)(void *data)) {
 		free(mesh->points[i]->triangles);
 		free(mesh->points[i]);
 	}
+	free_mesh_box(mesh->mesh_box);
 	free(mesh);
 }

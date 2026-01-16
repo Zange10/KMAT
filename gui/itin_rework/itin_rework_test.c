@@ -204,12 +204,12 @@ void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double heigh
 	for(int i = 0; i < mesh->num_triangles; i++) {
 		double min_x, max_x, min_y, max_y;
 		MeshTriangle2 tri2d = *mesh->triangles[i];
-		find_2dtriangle_minmax(tri2d, &min_x, &max_x, &min_y, &max_y);
+		find_2dtriangle_minmax(&tri2d, &min_x, &max_x, &min_y, &max_y);
 
 		for(double jd_dep = min_x; jd_dep <= max_x; jd_dep += step_dep) {
 			for(double dur = min_y; dur <= max_y; dur += step_dur) {
 				Vector2 p = vec2(jd_dep, dur);
-				if(is_inside_triangle(tri2d, p)) {
+				if(is_inside_triangle(&tri2d, p)) {
 					Vector3 tri3[3];
 					struct ItinStep *ptr = NULL;
 					for(int idx = 0; idx < 3; idx++) {
@@ -258,7 +258,7 @@ void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double heigh
 			}
 		}
 	}
-	print_data_array3(relative_error, "dep", "dur", "rel_error");
+	// print_data_array3(relative_error, "dep", "dur", "rel_error");
 	// print_data_array3(error, "dep", "dur", "error");
 	printf(" %d / %d   (%.4f %%)\n", num_errors, num_points, (num_errors/(double)num_points)*100);
 
@@ -317,127 +317,135 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	}
 
 	printf("%d\n", counter);
+	num_of_groups = counter;
 
 	gettimeofday(&end, NULL);  // Record the ending time
 	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+	printf("----- | Departure Porkchop: %.3f s | ---------\n", elapsed_time);
 
 
 	gettimeofday(&start, NULL);  // Record the ending time
 
+
+
+	Mesh2 *mesh = new_mesh();
 	struct ItinStep **steps = malloc(100000*sizeof(struct ItinStep *));
-	DataArray2 *step_pos = data_array2_create();
-	counter = 0;
-	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
-		struct ItinStep *step = departure_groups[pcgroup]->departures[i];
-		if(step->num_next_nodes == -1) {
-			double x = -1e10;
-			double y = 0;
-			data_array2_append_new(step_pos, x, y);
-			steps[counter] = NULL;
-			counter++;
-		}
-		if(step->num_next_nodes < 0) step->num_next_nodes = 0;
 
-		for(int j = 0; j < step->num_next_nodes; j++) {
-			double x = step->date;
-			double y = step->next[j]->date - step->date;
-			data_array2_append_new(step_pos, x, y);
-			steps[counter] = step->next[j];
-			counter++;
+	for(int group_id = 0; group_id < num_of_groups; group_id++) {
+		DataArray2 *step_pos = data_array2_create();
+		counter = 0;
+		for(int i = 0; i < departure_groups[group_id]->num_departures; i++) {
+			struct ItinStep *step = departure_groups[group_id]->departures[i];
+			if(step->num_next_nodes == -1) {
+				double x = -1e10;
+				double y = 0;
+				data_array2_append_new(step_pos, x, y);
+				steps[counter] = NULL;
+				counter++;
+			}
+			if(step->num_next_nodes < 0) step->num_next_nodes = 0;
+
+			for(int j = 0; j < step->num_next_nodes; j++) {
+				double x = step->date;
+				double y = step->next[j]->date - step->date;
+
+				data_array2_append_new(step_pos, x, y);
+				steps[counter] = step->next[j];
+				counter++;
+			}
 		}
+
+		MeshGrid2 *grid = create_mesh_grid(step_pos, (void**) steps);
+		Mesh2 *group_mesh = create_mesh_from_grid_w_angled_guideline(grid, departure_groups[group_id]->boundary_gradient);
+		mesh = combine_meshes(mesh, group_mesh);
+		free_grid_keep_points(grid);
+		data_array2_free(step_pos);
 	}
+	free(steps);
 
 
-	MeshGrid2 *grid = create_mesh_grid(step_pos, (void**) steps);
-	// for(int i = 0; i < grid.num_cols; i++) {
-	// 	if(grid.num_col_rows[i] == 0) {
-	// 		printf("\n%4d:   ---", i); continue;
-	// 	}
-	// 	printf("\n%4d: ", i);
-	// 	for(int j = 0; j < grid.num_col_rows[i]; j++) {
-	// 		printf("%6.0f, ", grid.points[i][j]->pos.y);
-	// 	}
+
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("----- | Building and Populating Mesh: %.3f s | ---------\n", elapsed_time);
+
+
+
+	gettimeofday(&start, NULL);  // Record the ending time
+
+	// for(int i = 0; i < mesh->num_points; i++) {
+	// 	MeshPoint2 *point = mesh->points[i];
+	// 	struct ItinStep *step = point->data;
+	// 	point->pos.x = step->date;
+	// 	point->pos.y = step->date - get_first(step)->date;
 	// }
-	// printf("\n");
-	// Mesh2 mesh = create_mesh_from_grid(grid);
-	Mesh2 *mesh = create_mesh_from_grid_w_angled_guideline(grid, departure_groups[pcgroup]->boundary_gradient);
-
 
 	for(int i = 0; i < mesh->num_points; i++) {
-		MeshPoint2 *point = mesh->points[i];
-		struct ItinStep *step = point->data;
-		point->pos.x = step->date;
-		point->pos.y = step->date - get_first(step)->date;
+		struct ItinStep *ptr = mesh->points[i]->data;
+		double vinf = mag_vec3(subtract_vec3(ptr->v_arr, ptr->v_body));
+		mesh->points[i]->val = vinf;
 	}
 
 	gettimeofday(&end, NULL);  // Record the ending time
 	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
-	printf("----- | Total elapsed time: %.3f s | ---------\n", elapsed_time);
+	printf("----- | Modifying Mesh: %.3f s | ---------\n", elapsed_time);
+
+	gettimeofday(&start, NULL);  // Record the ending time
+
+	rebuild_mesh_boxes(mesh);
+
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("----- | Rebuilding Boxes: %.3f s | ---------\n", elapsed_time);
+
+	// attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
+	attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
+	// attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_BOXES, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE, &remove_step_from_itinerary_void_ptr, FALSE);
+
+	gettimeofday(&start, NULL);  // Record the ending time
+
+	DepartureGroup *departure_group = malloc(sizeof(DepartureGroup));
+	DataArray2 *vinf_array = NULL;
+	departure_group->dep_body = arr_body;
+	departure_group->arr_body = get_body_by_name("Mars", ir_system);
+	departure_group->num_departures = (int) target_numdeps;
+	departure_group->system = ir_system;
+
+	// vinf_array = calc_min_vinf_line(departure_group, pcgroup+1, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, 1);
+	vinf_array = calc_min_vinf_line(departure_group, 3, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, 1);
 
 
-	// resize_pcmesh_to_fit(mesh, ir_screen1->width, ir_screen1->height);
-	// draw_mesh_interpolated_points(ir_screen1->static_layer.cr, mesh, ir_screen1->width, ir_screen1->height);
-	attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr);
-	// draw_triangle_debug(ir_screen0->static_layer.cr, &mesh);
 
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("----- | Vinf line: %.3f s | ---------\n", elapsed_time);
 
-	struct ItinStep **departures = departure_groups[pcgroup]->departures;
-	// remove departure dates with no valid itinerary
-	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
-		if(departures[i] == NULL || departures[i]->num_next_nodes == 0) {
-			departure_groups[pcgroup]->num_departures--;
-			for(int j = i; j < departure_groups[pcgroup]->num_departures; j++) {
-				departures[j] = departures[j + 1];
+	gettimeofday(&start, NULL);  // Record the ending time
+
+	int num_next_deps = (int) data_array2_size(vinf_array);
+
+	DataArray2 *vinf_fit = data_array2_create();
+
+	for(int i = 0; i < num_next_deps; i++) {
+		double jd_next_dep = data_array2_get_data(vinf_array)[i].x;
+		double jd_vinf_dep = data_array2_get_data(vinf_array)[i].y;
+
+		for(int dur = 50; dur < 300; dur+=10) {
+			double vinf_arr = get_mesh_interpolated_value(mesh, vec2(jd_next_dep, dur));
+			if(!isnan(vinf_arr) && jd_vinf_dep-tolerance < vinf_arr+tolerance) {
+				data_array2_append_new(vinf_fit, jd_next_dep, dur);
 			}
-			i--;
 		}
 	}
 
-	int num_itins1 = 0, tot_num_itins = 0;
-	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) num_itins1 += get_number_of_itineraries(departures[i]);
-	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) tot_num_itins += get_total_number_of_stored_steps(departures[i]);
 
-	printf("\n%d itineraries found!\nNumber of Nodes: %d\n", num_itins1, tot_num_itins);
+	gettimeofday(&end, NULL);  // Record the ending time
+	elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_usec - start.tv_usec) / 1000000.0;
+	printf("----- | Combine Porkchop with vinf line: %.3f s | ---------\n", elapsed_time);
 
-	int index = 0;
-	struct ItinStep **arrivals = malloc(num_itins1 * sizeof(struct ItinStep*));
-	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) store_itineraries_in_array(departures[i], arrivals, &index);
-	struct PorkchopAnalyzerPoint *pp1 = malloc(num_itins1 * sizeof(struct PorkchopAnalyzerPoint));
-	for(int i = 0; i < num_itins1; i++) {
-		pp1[i].data = create_porkchop_point(arrivals[i], get_first(arrivals[0])->body->atmo_alt + dep_periapsis, arrivals[0]->body->atmo_alt + dep_periapsis);
-		pp1[i].inside_filter = 1;
-		pp1[i].group = NULL;
-	}
-	free(arrivals);
-
-	DataArray3 *porkchop_data = data_array3_create();
-	for(int i = 0; i <num_itins1; i++) {
-		data_array3_append_new(porkchop_data, pp1[i].data.dep_date, pp1[i].data.dur, pp1[i].data.dv_dep);
-	}
-	print_data_array3(porkchop_data, "date", "dur", "dep_dv");
-	// scatter_data3(ir_coord_sys1, porkchop_data, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
-
-	// draw_porkchop(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, pp1, num_itins1, TF_FLYBY, 0);
-
-	
-	DepartureGroup *departure_group = malloc(sizeof(DepartureGroup));
-	DataArray2 *vinf_array = NULL;
-	departure_group = malloc(sizeof(DepartureGroup));
-	departure_group->dep_body = dep_body;
-	departure_group->arr_body = arr_body;
-	departure_group->num_departures = num_iterations*10;
-	departure_group->system = ir_system;
-
-	vinf_array = calc_min_vinf_line(departure_group, pcgroup+1, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, 1);
-	if(departure_group->num_departures == 0) {free(departure_group);}
-	else counter++;
-	// print_data_array2(vinf_array, "dep_date", "vinf");
-	printf("size: %lu\n", data_array2_size(vinf_array));
-
-	ir_data0 = vinf_array;
-
-	// draw_scatter_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, ir_data0);
+	ir_data0 = vinf_fit;
+	draw_scatter_from_data_array(ir_screen0->static_layer.cr, ir_screen0->width, ir_screen0->height, vinf_fit);
+	// scatter_data2(ir_coord_sys1, vinf_fit, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE);
 
 	draw_screen(ir_screen0);
 	// draw_screen(ir_screen1);

@@ -80,7 +80,7 @@ void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, Celes
 		double vinf = fabs(mag_vec3(subtract_vec3(new_transfer.v0, osv_dep.v)));
 		double dv_dep = dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf);
 
-		if(i > 3 && (fabs(dv_dep - max_depdv) < 1 || (i > 3 && fabs(dt-last_dt) < 1))) {
+		if(i > 3 && max_depdv - dv_dep > 0 && max_depdv - dv_dep < 1 || (i > 3 && fabs(dt-last_dt) < 1)) {
 			if(left_branch) {
 				*left_x = dt;
 				last_dt = -1e20;
@@ -474,35 +474,38 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 			double dv_arr = dv_capture(group->arr_body,alt2radius(group->arr_body, dep_periapsis),vinf);
 			data_array2_insert_new(data_dep, dt/86400, dv_dep);
 			data_array2_insert_new(data_arr, dt/86400, dv_arr);
+			if(dv_dep <= max_depdv) {
+				curr_step = get_first(curr_step);
 
-			curr_step = get_first(curr_step);
+				// sort chronologically
+				int insert_index = counter;
+				while(insert_index > 0) {
+					if(curr_step->next[insert_index-1]->date < jd_arr) break;
+					insert_index--;
+				}
+				if(insert_index != counter) {
+					memmove(&curr_step->next[insert_index+1],
+						&curr_step->next[insert_index],
+						(counter+2 - insert_index) * sizeof(*curr_step->next));
+				}
 
-			// sort chronologically
-			int insert_index = counter;
-			while(insert_index > 0) {
-				if(curr_step->next[insert_index-1]->date < jd_arr) break;
-				insert_index--;
+				curr_step->next[insert_index] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
+				curr_step->next[insert_index]->prev = curr_step;
+				curr_step->next[insert_index]->next = NULL;
+				curr_step = curr_step->next[insert_index];
+
+				curr_step->body = group->arr_body;
+				curr_step->date = jd_arr;
+				curr_step->r = osv1.r;
+				curr_step->v_dep = tf.v0;
+				curr_step->v_arr = tf.v1;
+				curr_step->v_body = osv1.v;
+				curr_step->num_next_nodes = 0;
+				curr_step->prev->num_next_nodes++;
+				counter++;
+			} else {
+				print_data_array2(data_dep, "dep", "dep_dv");
 			}
-			if(insert_index != counter) {
-				memmove(&curr_step->next[insert_index+1],
-					&curr_step->next[insert_index],
-					(counter+2 - insert_index) * sizeof(*curr_step->next));
-			}
-
-			curr_step->next[insert_index] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-			curr_step->next[insert_index]->prev = curr_step;
-			curr_step->next[insert_index]->next = NULL;
-			curr_step = curr_step->next[insert_index];
-
-			curr_step->body = group->arr_body;
-			curr_step->date = jd_arr;
-			curr_step->r = osv1.r;
-			curr_step->v_dep = tf.v0;
-			curr_step->v_arr = tf.v1;
-			curr_step->v_body = osv1.v;
-			curr_step->num_next_nodes = 0;
-			curr_step->prev->num_next_nodes++;
-			counter++;
 
 			if(dt == left_x) dt = right_x;
 			else if(dt == right_x) dt = ( dt + data_array2_get_data(data_dep)[0].x*86400 ) / 2;
@@ -649,9 +652,9 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 		double left_x = 0, right_x = 0;
 
 		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1e9, 1e9, &left_x, &right_x);
-		printf("%f   %f\n", left_x/86400, right_x/86400);
+		// printf("%f   %f\n", left_x/86400, right_x/86400);
 
-		printf("%f   ROOT: %f   %f   (%f  %f)   (%f  %f)\n", jd_dep-jd_min_dep, left_x/86400, right_x/86400, dt0/86400, dt1/86400, opp_guess/86400, conj_guess/86400);
+		// printf("%f   ROOT: %f   %f   (%f  %f)   (%f  %f)\n", jd_dep-jd_min_dep, left_x/86400, right_x/86400, dt0/86400, dt1/86400, opp_guess/86400, conj_guess/86400);
 		if(left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {continue;}
 
 		double opp_conj_margin = 86400*0.2;
@@ -661,7 +664,7 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 		if(right_x > dt1-opp_conj_margin) right_x = dt1-opp_conj_margin;
 		if(right_x > max_dur*86400) right_x = max_dur*86400;
 		double dt = left_x;
-		printf("%f   %f\n", left_x/86400, right_x/86400);
+		// printf("%f   %f\n", left_x/86400, right_x/86400);
 
 		for(int j = 0; j < 1000; j++) {
 			// printf("%f  %f  %f  %f  %f\n", min_dt, max_dt, dt0, dt1, dt);
@@ -689,14 +692,14 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 					for(int idx = 1; idx < num_data; idx++) {
 						if(data[idx].y < data[min_idx].y) min_idx = idx;
 					}
-					data_array2_append_new(min_per_dep, jd_dep-jd_min_dep, data[min_idx].y);
+					data_array2_append_new(min_per_dep, jd_dep, data[min_idx].y);
 					// data_array2_append_new(min_per_dep, jd_dep-jd_min_dep, data[min_idx].x);
 					break;
 				}
 				dt = next_x;
 			}
 		}
-		print_data_array2(data_dep, "dep", "dv");
+		// print_data_array2(data_dep, "dep", "dv");
 	}
 
 	data_array2_free(data_dep);

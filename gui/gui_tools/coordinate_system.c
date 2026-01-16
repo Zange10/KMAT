@@ -1,5 +1,6 @@
 #include "coordinate_system.h"
 #include "coordinate_system_drawing.h"
+#include "gui/itin_rework/mesh_drawing.h"
 #include <math.h>
 
 
@@ -17,8 +18,8 @@ CoordinateSystem * new_coordinate_system(GtkWidget *drawing_area) {
 	new_coordinate_system->groups = NULL;
 	new_coordinate_system->num_point_groups = 0;
 	new_coordinate_system->point_group_cap = 0;
-	new_coordinate_system->min = vec2(0, 0);
-	new_coordinate_system->max = vec2(0, 0);
+	new_coordinate_system->min = vec3(0, 0, 0);
+	new_coordinate_system->max = vec3(0, 0, 0);
 	new_coordinate_system->show_hover_position = false;
 	new_coordinate_system->x_axis_type = CS_AXIS_NUMBER;
 	new_coordinate_system->y_axis_type = CS_AXIS_NUMBER;
@@ -43,8 +44,8 @@ CoordinateSystem * new_coordinate_system_for_mesh(GtkWidget *drawing_area) {
 	new_coordinate_system->groups = NULL;
 	new_coordinate_system->num_point_groups = 0;
 	new_coordinate_system->point_group_cap = 0;
-	new_coordinate_system->min = vec2(0, 0);
-	new_coordinate_system->max = vec2(0, 0);
+	new_coordinate_system->min = vec3(0, 0, 0);
+	new_coordinate_system->max = vec3(0, 0, 0);
 	new_coordinate_system->show_hover_position = false;
 	new_coordinate_system->x_axis_type = CS_AXIS_NUMBER;
 	new_coordinate_system->y_axis_type = CS_AXIS_NUMBER;
@@ -101,6 +102,10 @@ void update_coordinate_system_hover_position(GtkWidget *widget, GdkEventButton *
 	if(!coord_sys->show_hover_position || mouse.x < coord_sys->origin.x || mouse.y > coord_sys->origin.y) {
 		draw_screen(coord_sys->screen);
 		return;
+	}
+
+	if(coord_sys->groups[0]->plot_type >= CS_PLOT_TYPE_MESH_INTERPOLATION) {
+		draw_triangle_checks(coord_sys, mouse);
 	}
 
 	draw_hover_position(coord_sys, mouse);
@@ -175,8 +180,8 @@ void clear_coordinate_system(CoordinateSystem *coord_sys) {
 		}
 	}
 	coord_sys->num_point_groups = 0;
-	coord_sys->min = vec2(0, 0);
-	coord_sys->max = vec2(0, 0);
+	coord_sys->min = vec3(0, 0, 0);
+	coord_sys->max = vec3(0, 0, 0);
 	coord_sys->x_axis_type = CS_AXIS_NUMBER;
 	coord_sys->y_axis_type = CS_AXIS_NUMBER;
 }
@@ -209,8 +214,8 @@ void add_data2_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *dat
 		new_group->points[i].color = (PixelColor) {0, 0.8, 0.8};
 
 		if(coord_sys->num_point_groups == 0 && i == 0) {
-			coord_sys->min = vec2(data[i].x, data[i].y);
-			coord_sys->max = vec2(data[i].x, data[i].y);
+			coord_sys->min = vec3(data[i].x, data[i].y, 0);
+			coord_sys->max = vec3(data[i].x, data[i].y, 0);
 		}
 
 		if(data[i].x > coord_sys->max.x) coord_sys->max.x = data[i].x;
@@ -260,8 +265,8 @@ void add_data3_to_coordinate_system(CoordinateSystem *coord_sys, DataArray3 *dat
 		new_group->points[i].color = (PixelColor) {r, g, b};
 
 		if(coord_sys->num_point_groups == 0 && i == 0) {
-			coord_sys->min = vec2(data[i].x, data[i].y);
-			coord_sys->max = vec2(data[i].x, data[i].y);
+			coord_sys->min = vec3(data[i].x, data[i].y, 0);
+			coord_sys->max = vec3(data[i].x, data[i].y, 0);
 		}
 
 		if(data[i].x > coord_sys->max.x) coord_sys->max.x = data[i].x;
@@ -293,13 +298,15 @@ void add_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSD
 	new_group->free_mesh_on_clear = free_mesh_on_clear;
 	new_group->free_mesh_data_func = free_data_func;
 
-	coord_sys->min = mesh->points[0]->pos;
-	coord_sys->max = mesh->points[0]->pos;
+	coord_sys->min = vec3(mesh->points[0]->pos.x, mesh->points[0]->pos.y, mesh->points[0]->val);
+	coord_sys->max = vec3(mesh->points[0]->pos.x, mesh->points[0]->pos.y, mesh->points[0]->val);
 	for(int i = 1; i < mesh->num_points; i++) {
 		if(mesh->points[i]->pos.x < coord_sys->min.x) coord_sys->min.x = mesh->points[i]->pos.x;
 		if(mesh->points[i]->pos.x > coord_sys->max.x) coord_sys->max.x = mesh->points[i]->pos.x;
 		if(mesh->points[i]->pos.y < coord_sys->min.y) coord_sys->min.y = mesh->points[i]->pos.y;
 		if(mesh->points[i]->pos.y > coord_sys->max.y) coord_sys->max.y = mesh->points[i]->pos.y;
+		if(mesh->points[i]->val	  < coord_sys->min.z) coord_sys->min.z = mesh->points[i]->val;
+		if(mesh->points[i]->val   > coord_sys->max.z) coord_sys->max.z = mesh->points[i]->val;
 	}
 
 	coord_sys->groups[coord_sys->num_point_groups++] = new_group;
@@ -337,8 +344,8 @@ void scatter_data3(CoordinateSystem *coord_sys, DataArray3 *data, CSAxisLabelTyp
 	draw_coordinate_system_data(coord_sys);
 }
 
-void attach_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_mesh_on_clear, void (*free_data_func)(void *data)) {
-	clear_coordinate_system(coord_sys);
+void attach_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_mesh_on_clear, void (*free_data_func)(void *data), bool free_prev_data) {
+	if(free_prev_data) clear_coordinate_system(coord_sys);
 	add_mesh_to_coordinate_system(coord_sys, mesh, plot_type, free_mesh_on_clear, free_data_func);
 	coord_sys->x_axis_type = x_axis_type;
 	coord_sys->y_axis_type = y_axis_type;
@@ -353,4 +360,22 @@ size_t get_coordinate_system_total_number_of_points(CoordinateSystem *coord_sys)
 		num_points+= coord_sys->groups[i]->num_points;
 	}
 	return num_points;
+}
+
+Vector2 to_coordinate_system_space(Vector2 val, CoordinateSystem *coord_sys) {
+	Vector2 coord;
+	coord.x = (val.x - coord_sys->min.x)/(coord_sys->max.x - coord_sys->min.x) *
+				(coord_sys->screen->width - coord_sys->origin.x) + coord_sys->origin.x;
+	coord.y = -(val.y - coord_sys->min.y)/(coord_sys->max.y - coord_sys->min.y) *
+				coord_sys->origin.y + coord_sys->origin.y;
+	return coord;
+}
+
+Vector2 from_coordinate_system_space(Vector2 pos, CoordinateSystem *coord_sys) {
+	Vector2 val;
+	val.x = (pos.x - coord_sys->origin.x)/(coord_sys->screen->width - coord_sys->origin.x) *
+				(coord_sys->max.x - coord_sys->min.x) + coord_sys->min.x;
+	val.y = -(pos.y-coord_sys->origin.y)/coord_sys->origin.y *
+				(coord_sys->max.y - coord_sys->min.y) + coord_sys->min.y;
+	return val;
 }

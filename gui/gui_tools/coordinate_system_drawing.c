@@ -71,7 +71,8 @@ void get_coordinate_system_axis_ticks(CSAxisLabelType axis_label_type, int num_l
 
 void draw_coordinate_system_axes(CoordinateSystem *coord_sys, int num_x_labels, int num_y_labels) {
 	cairo_t *cr = coord_sys->screen->static_layer.cr;
-	Vector2 min = coord_sys->min, max = coord_sys->max, origin = coord_sys->origin;
+	Vector3 min = coord_sys->min, max = coord_sys->max;
+	Vector2 origin = coord_sys->origin;
 	// Set text color
 	cairo_set_source_rgb(cr, 1, 1, 1);
 	// Set font options
@@ -240,19 +241,21 @@ void draw_coordinate_system_data_group_plot(CoordinateSystem *coord_sys, CSDataP
 void draw_coordinate_system_data(CoordinateSystem *coord_sys) {
 	clear_screen(coord_sys->screen);
 	draw_coordinate_system_axes(coord_sys, 8, 10);
-	if(coord_sys->num_point_groups > 0) {
-		switch(coord_sys->groups[0]->plot_type) {
+	for(int i = 0; i < coord_sys->num_point_groups; i++) {
+		switch(coord_sys->groups[i]->plot_type) {
 			case CS_PLOT_TYPE_PLOT:
 			case CS_PLOT_TYPE_SCATTER:
 			case CS_PLOT_TYPE_PLOT_SCATTER:
-				for(int i = 0; i < coord_sys->num_point_groups; i++)
-					draw_coordinate_system_data_group_plot(coord_sys, coord_sys->groups[i]);
+				draw_coordinate_system_data_group_plot(coord_sys, coord_sys->groups[i]);
 				break;
 			case CS_PLOT_TYPE_MESH_SKELETON:
-				draw_mesh_skeleton(coord_sys->groups[0]->mesh, coord_sys);
+				draw_mesh_skeleton(coord_sys->groups[i]->mesh, coord_sys);
 				break;
 			case CS_PLOT_TYPE_MESH_INTERPOLATION:
-				draw_mesh_interpolated_points(coord_sys->groups[0]->mesh, coord_sys);
+				draw_mesh_interpolated_points(coord_sys->groups[i]->mesh, coord_sys);
+				break;
+			case CS_PLOT_TYPE_MESH_BOXES:
+				draw_mesh_boxes(coord_sys->groups[i]->mesh, coord_sys);
 				break;
 			default:
 				break;
