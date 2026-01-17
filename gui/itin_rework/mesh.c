@@ -590,6 +590,18 @@ Mesh2 * combine_meshes(Mesh2 *mesh0, Mesh2 *mesh1) {
 	return mesh0;
 }
 
+void update_mesh_minmax(Mesh2 *mesh) {
+	mesh->mesh_box->min = mesh->points[0]->pos;
+	mesh->mesh_box->max = mesh->points[0]->pos;
+
+	for(int i = 0; i < mesh->num_points; i++) {
+		if(mesh->points[i]->pos.x < mesh->mesh_box->min.x) mesh->mesh_box->min.x = mesh->points[i]->pos.x;
+		if(mesh->points[i]->pos.y < mesh->mesh_box->min.y) mesh->mesh_box->min.y = mesh->points[i]->pos.y;
+		if(mesh->points[i]->pos.x > mesh->mesh_box->max.x) mesh->mesh_box->max.x = mesh->points[i]->pos.x;
+		if(mesh->points[i]->pos.y > mesh->mesh_box->max.y) mesh->mesh_box->max.y = mesh->points[i]->pos.y;
+	}
+}
+
 void free_grid_keep_points(MeshGrid2 *grid) {
 	free(grid->num_col_rows);
 	free(grid);

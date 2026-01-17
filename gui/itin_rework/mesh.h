@@ -79,6 +79,7 @@ Mesh2 *create_mesh_from_grid_w_angled_guideline(MeshGrid2 *grid, double gradient
 Mesh2 * combine_meshes(Mesh2 *mesh0, Mesh2 *mesh1);
 void rebuild_mesh_boxes(Mesh2 *mesh);
 void remove_triangle_from_mesh(Mesh2 *mesh, int tri_idx);
+void update_mesh_minmax(Mesh2 *mesh);
 void free_grid_keep_points(MeshGrid2 *grid);
 void free_mesh(Mesh2 *mesh, void (*free_data_func)(void *data));
 
