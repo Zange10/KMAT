@@ -15,6 +15,7 @@ typedef struct DepartureGroup {
 	Vector2 boundary0_bottom;
 	double boundary_gradient;
 	struct DepartureGroup **next_groups;
+	enum DepartureGroupBoundaryType {DEPARTURE_GROUP_BOUNDARY_TOP_OPP, DEPARTURE_GROUP_BOUNDARY_TOP_CONJ} top_boundary_type;
 } DepartureGroup;
 
 void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double max_depdv, double dep_periapsis, double *left_x, double *right_x);

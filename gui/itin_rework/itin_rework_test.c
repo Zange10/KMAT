@@ -74,11 +74,11 @@ void print_timing_measurements(TimingMeasurements tm) {
 	double total_time = get_total_timing_time(tm);
 	TimingMeasurement *ptr = tm.first;
 	while(ptr) {
-		printf("|%50s:  %.3fs  (%.2f %%)\n", ptr->name, ptr->elapsed_time, ptr->elapsed_time/total_time*100);
+		printf("|%50s:%10.3fms  (%.2f %%)\n", ptr->name, ptr->elapsed_time*1000, ptr->elapsed_time/total_time*100);
 		ptr = ptr->next;
 	}
 	print_separator(100);
-	printf("|%50s:  %.3fs\n", "TOTAL TIME", total_time);
+	printf("|%50s:  %.3fms\n", "TOTAL TIME", total_time*1000);
 	print_separator(100);
 }
 
@@ -97,6 +97,14 @@ void end_time_measurement(TimingMeasurements *tm, char *name) {
 	ptr->next = NULL;
 	ptr->elapsed_time = (tm->end.tv_sec - tm->start.tv_sec) + (tm->end.tv_usec - tm->start.tv_usec) / 1000000.0;
 	sprintf(ptr->name, "%s", name);
+}
+
+TimingMeasurement *get_last_timing_measurement(TimingMeasurements tm) {
+	TimingMeasurement *ptr = tm.first;
+	while(ptr->next) {
+		ptr = ptr->next;
+	}
+	return ptr;
 }
 
 void free_timing_measurements(TimingMeasurements *tm) {
@@ -329,6 +337,34 @@ DataArray2 * get_dur_limits_for_dep_from_point_list(DataArray2 *edges_array, dou
 	return limits;
 }
 
+double root_finder_almost_monot_deriv_next_x(DataArray2 *arr, int branch) {
+	// branch = 0 for left branch, 1 for right branch
+	Vector2 *data = data_array2_get_data(arr);
+	int num_data = (int) data_array2_size(arr);
+
+	int index;
+
+	// left branch
+	if(branch == 0) {
+		index = 0;
+		for(int i = 1; i < num_data; i++) {
+			if(data[i].y < 0)	{ index = i; break; }
+			else 				{ index = i; }
+		}
+
+		// right branch
+	} else {
+		index = num_data-1;
+		for(int i = num_data-2; i >= 0; i--) {
+			if(data[i].y < 0)	{ index =   i; break; }
+			else 				{ index =   i; }
+		}
+	}
+
+	if(branch == 0) return (data[index].x + data[index-1].x)/2;
+	else 			return (data[index].x + data[index+1].x)/2;
+}
+
 void get_dur_limit_wrt_vinf(Mesh2 *mesh, double jd_dep, double min_vinf, DataArray2 *init_limit_array, DataArray2 *new_limits, double tolerance) {
 	Vector2 *init_lim = data_array2_get_data(init_limit_array);
 	size_t num_init_lim = data_array2_size(init_limit_array);
@@ -338,6 +374,7 @@ void get_dur_limit_wrt_vinf(Mesh2 *mesh, double jd_dep, double min_vinf, DataArr
 		if(dvinf > 0) data_array2_insert_new(new_limits, init_lim[0].x, init_lim[0].y);
 		return;
 	}
+	DataArray2 *new_limits_inv = data_array2_create();
 
 	bool left_branch = true;
 	DataArray2 *data = data_array2_create();
@@ -348,10 +385,10 @@ void get_dur_limit_wrt_vinf(Mesh2 *mesh, double jd_dep, double min_vinf, DataArr
 
 		double dur = lim0;
 
-		for(int i = 0; i < 1000; i++) {
+		for(int i = 0; i < 100; i++) {
 			double dvinf = get_mesh_interpolated_value(mesh, vec2(jd_dep, dur)) - min_vinf;
 			if(i > 3 && dvinf > 0 && dvinf < tolerance) {
-				data_array2_insert_new(new_limits, jd_dep, dur);
+				data_array2_insert_new(new_limits_inv, dur, jd_dep);
 				if(left_branch && data_array2_get_data(data)[data_array2_size(data)-1].y > 0) {
 					left_branch = false;
 				} else {
@@ -363,7 +400,7 @@ void get_dur_limit_wrt_vinf(Mesh2 *mesh, double jd_dep, double min_vinf, DataArr
 
 			if(i == 0) {
 				if(dvinf > 0) {
-					data_array2_insert_new(new_limits, jd_dep, dur);
+					data_array2_insert_new(new_limits_inv, dur, jd_dep);
 				} else {
 					left_branch = false;
 				}
@@ -371,13 +408,97 @@ void get_dur_limit_wrt_vinf(Mesh2 *mesh, double jd_dep, double min_vinf, DataArr
 				continue;
 			}
 			if(i == 1) {
-				if(dvinf > 0) data_array2_insert_new(new_limits, jd_dep, dur);
+				if(dvinf > 0) data_array2_insert_new(new_limits_inv, dur, jd_dep);
 				else if(!left_branch) break;
 			}
 			if(!can_be_negative_monot_deriv(data)) break;
-			dur = root_finder_monot_deriv_next_x(data, !left_branch);
+			if(i < 30) dur = root_finder_monot_deriv_next_x(data, !left_branch);
+			else dur = root_finder_almost_monot_deriv_next_x(data, !left_branch);
 		}
 	}
+
+	for(int i = 0; i < data_array2_size(new_limits_inv); i++) {
+		data_array2_append_new(new_limits, data_array2_get_data(new_limits_inv)[i].y, data_array2_get_data(new_limits_inv)[i].x);
+	}
+	data_array2_free(data);
+	data_array2_free(new_limits_inv);
+}
+
+Vector3 get_varr_from_mesh(Mesh2 *mesh, double jd_arr, double dur) {
+	MeshTriangle2 *triangle = get_mesh_triangle_at_position(mesh, vec2(jd_arr, dur));
+	if(!triangle) return vec3(NAN, NAN, NAN);
+
+	Vector3 tri_varrx[3];
+	Vector3 tri_varry[3];
+	Vector3 tri_varrz[3];
+
+	for(int i = 0; i < 3; i++) {
+		struct ItinStep *step = triangle->points[i]->data;
+		tri_varrx[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_arr.x);
+		tri_varry[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_arr.y);
+		tri_varrz[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_arr.z);
+	}
+	double varrx = get_triangle_interpolated_value(tri_varrx[0], tri_varrx[1], tri_varrx[2], vec2(jd_arr, dur));
+	double varry = get_triangle_interpolated_value(tri_varry[0], tri_varry[1], tri_varry[2], vec2(jd_arr, dur));
+	double varrz = get_triangle_interpolated_value(tri_varrz[0], tri_varrz[1], tri_varrz[2], vec2(jd_arr, dur));
+	return vec3(varrx, varry, varrz);
+}
+
+struct ItinStep * get_next_step_from_vinf(DepartureGroup *group, double v_inf, double jd_dep, double min_dur_dt, double max_dur_dt, bool leftside, double tolerance) {
+	OSV osv_dep = group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(group->dep_body->orbit, jd_dep) :
+					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
+
+	double dt0 = min_dur_dt, dt1 = max_dur_dt;
+
+	// print_date(convert_JD_date(jd_dep, DATE_ISO), 0);
+	// printf("       %f  |   %f     %f  |    %f     %f\n", jd_dep, dt0/86400, dt1/86400, dt0, dt1);
+
+	// x: dt, y: diff_vinf
+	DataArray2 *data = data_array2_create();
+
+	double t0 = jd_dep;
+	double last_dt, dt = dt0, t1, diff_vinf;
+
+	for(int i = 0; i < 100; i++) {
+		if(i == 0) dt = dt0;
+
+		t1 = t0 + dt / 86400;
+
+		OSV osv_arr = group->system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(group->arr_body->orbit, t1) :
+				osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, t1, group->system->cb);
+
+		Lambert3 new_transfer = calc_lambert3(osv_dep.r, osv_arr.r, dt, group->system->cb);
+		Vector3 v_dep = subtract_vec3(new_transfer.v0, osv_dep.v);
+		diff_vinf = mag_vec3(v_dep) - v_inf;
+
+		if(fabs(diff_vinf) < tolerance) {
+			struct ItinStep *new_step = malloc(sizeof(struct ItinStep));
+			new_step->body = group->dep_body;
+			new_step->date = t0;
+			new_step->r = osv_dep.r;
+			new_step->v_dep = new_transfer.v0;
+			new_step->v_arr = new_transfer.v1;
+			new_step->v_body = osv_dep.v;
+			new_step->num_next_nodes = 0;
+			new_step->prev = NULL;
+			new_step->next = NULL;
+			return new_step;
+		}
+
+		data_array2_insert_new(data, dt, diff_vinf);
+
+		if(!can_be_negative_monot_deriv(data)) break;
+		last_dt = dt;
+		if(i == 0) dt = dt1;
+		else dt = root_finder_monot_deriv_next_x(data, !leftside);
+		if(i > 3 && dt == last_dt) break;	// step size 0 (imprecision)
+		if(isnan(dt) || isinf(dt)) break;
+	}
+
+	data_array2_free(data);
+	return NULL;
 }
 
 G_MODULE_EXPORT void on_calc_ir() {
@@ -411,23 +532,31 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	start_time_measurement(&tm);
 
-	int num_of_groups = 50;
-	DepartureGroup **departure_groups = malloc(num_of_groups*sizeof(DepartureGroup *));
-	int counter = 0;
-	for(int i = 0; i < num_of_groups; i++) {
-		departure_groups[counter] = malloc(sizeof(DepartureGroup));
-		departure_groups[counter]->dep_body = dep_body;
-		departure_groups[counter]->arr_body = arr_body;
-		departure_groups[counter]->num_departures = num_iterations;
-		departure_groups[counter]->system = ir_system;
+	// int num_of_groups = 50;
+	// DepartureGroup **departure_groups = malloc(num_of_groups*sizeof(DepartureGroup *));
+	// int counter = 0;
+	// for(int i = 0; i < num_of_groups; i++) {
+	// 	departure_groups[counter] = malloc(sizeof(DepartureGroup));
+	// 	departure_groups[counter]->dep_body = dep_body;
+	// 	departure_groups[counter]->arr_body = arr_body;
+	// 	departure_groups[counter]->num_departures = num_iterations;
+	// 	departure_groups[counter]->system = ir_system;
+	//
+	// 	calc_group_porkchop(departure_groups[counter], i-10, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
+	// 	if(departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
+	// 	else counter++;
+	// }
+	//
+	// printf("%d\n", counter);
+	// num_of_groups = counter;
 
-		calc_group_porkchop(departure_groups[counter], i-10, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
-		if(departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
-		else counter++;
-	}
+	DepartureGroup *departure_groups = malloc(sizeof(DepartureGroup));
+	departure_groups->dep_body = dep_body;
+	departure_groups->arr_body = arr_body;
+	departure_groups->num_departures = num_iterations;
+	departure_groups->system = ir_system;
 
-	printf("%d\n", counter);
-	num_of_groups = counter;
+	calc_group_porkchop(departure_groups, 6, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
 
 	end_time_measurement(&tm, "Departure Porkchop");
 
@@ -437,11 +566,10 @@ G_MODULE_EXPORT void on_calc_ir() {
 	Mesh2 *mesh = new_mesh();
 	struct ItinStep **steps = malloc(100000*sizeof(struct ItinStep *));
 
-	int group_id = 4;
 	DataArray2 *step_pos = data_array2_create();
-	counter = 0;
-	for(int i = 0; i < departure_groups[group_id]->num_departures; i++) {
-		struct ItinStep *step = departure_groups[group_id]->departures[i];
+	int counter = 0;
+	for(int i = 0; i < departure_groups->num_departures; i++) {
+		struct ItinStep *step = departure_groups->departures[i];
 		if(step->num_next_nodes == -1) {
 			double x = -1e10;
 			double y = 0;
@@ -462,7 +590,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 
 	MeshGrid2 *grid = create_mesh_grid(step_pos, (void**) steps);
-	Mesh2 *group_mesh = create_mesh_from_grid_w_angled_guideline(grid, departure_groups[group_id]->boundary_gradient);
+	Mesh2 *group_mesh = create_mesh_from_grid_w_angled_guideline(grid, departure_groups->boundary_gradient);
 	mesh = combine_meshes(mesh, group_mesh);
 	free_grid_keep_points(grid);
 	data_array2_free(step_pos);
@@ -497,7 +625,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 
 	attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
-	// attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
+	// attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE, &remove_step_from_itinerary_void_ptr, FALSE);
 	// attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_BOXES, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE, &remove_step_from_itinerary_void_ptr, FALSE);
 
 	start_time_measurement(&tm);
@@ -518,30 +646,237 @@ G_MODULE_EXPORT void on_calc_ir() {
 	int num_deps = 1000;
 
 	DataArray2 *edges_array = get_dur_limits_from_edge_triangles(mesh);
+
+	end_time_measurement(&tm, "Dur limits from Edges");
+
+	start_time_measurement(&tm);
+
 	DataArray2 *outer_limits_all = data_array2_create();
 	DataArray2 *vinf_limits_all = data_array2_create();
+	DataArray2 *vinf_limit_jd_dep = data_array2_create();
+	DataArray2 *valid_fb = data_array2_create();
+	DataArray2 *min_dv2 = data_array2_create();
 
-	for(int i = 0; i < num_deps; i++) {
-		double jd_next_dep = mesh->mesh_box->min.x + (mesh->mesh_box->max.x-mesh->mesh_box->min.x)*i/(num_deps-1);
+	double epsilon = 1e-6;
+	double step = (mesh->mesh_box->max.x - mesh->mesh_box->min.x)/num_deps;
+	double jd_next_dep = mesh->mesh_box->min.x+epsilon;
+
+	while(jd_next_dep < mesh->mesh_box->max.x) {
 		DataArray2 *limits = get_dur_limits_for_dep_from_point_list(edges_array, jd_next_dep);
 		for(int j = 0; j < data_array2_size(limits); j++) {
 			data_array2_append_new(outer_limits_all, data_array2_get_data(limits)[j].x, data_array2_get_data(limits)[j].y);
 		}
 
 		double jd_vinf_dep = interpolate_from_sorted_data_array(vinf_array, jd_next_dep);
-		if(isnan(jd_vinf_dep)) continue;
 
-		get_dur_limit_wrt_vinf(mesh, jd_next_dep, jd_vinf_dep-tolerance*2, limits, vinf_limits_all, 1);
+		if(isnan(jd_vinf_dep)) {
+			jd_next_dep += step;
+			continue;
+		}
+		data_array2_clear(vinf_limit_jd_dep);
+		get_dur_limit_wrt_vinf(mesh, jd_next_dep, jd_vinf_dep-tolerance*2, limits, vinf_limit_jd_dep, 1);
+
+		if(data_array2_size(vinf_limit_jd_dep)%2 != 0) {
+			jd_next_dep += epsilon;
+			continue;
+		}
+
+		if(data_array2_size(vinf_limit_jd_dep) == 0) {
+			// add a flagged pair
+			// print_date(convert_JD_date(jd_next_dep, DATE_ISO), 1);
+			data_array2_append_new(vinf_limits_all, jd_next_dep, NAN);
+			data_array2_append_new(vinf_limits_all, jd_next_dep, NAN);
+		}
+
+		for(int j = 0; j < data_array2_size(vinf_limit_jd_dep); j++) {
+			data_array2_append_new(vinf_limits_all, data_array2_get_data(vinf_limit_jd_dep)[j].x, data_array2_get_data(vinf_limit_jd_dep)[j].y);
+		}
+		if(jd_next_dep + step >= mesh->mesh_box->max.x && mesh->mesh_box->max.x - jd_next_dep >= 2*epsilon) {
+			jd_next_dep = mesh->mesh_box->max.x - epsilon;
+		} else jd_next_dep += step;
 	}
 
-
 	end_time_measurement(&tm, "Combine Porkchop with vinf line");
+	start_time_measurement(&tm);
+
+
+	int num_limits = (int) data_array2_size(vinf_limits_all)/2;
+	Vector2 *limit_data = data_array2_get_data(vinf_limits_all);
+	double min_jd_next_dep = limit_data[0].x;
+	double max_jd_next_dep = limit_data[num_limits*2-1].x;
+	double max_ddur = 0;
+
+	DataArray1 *num_interval_change = data_array1_create();
+	int last_num_intervals = 0;
+	int interval_count = 0;
+	data_array1_append_new(num_interval_change, limit_data[0].x);
+	for(int i = 0; i < num_limits-1; i++) {
+		bool empty_limit = isnan(data_array2_get_data(vinf_limits_all)[i*2].y);
+		if(!empty_limit) {
+			double ddur = limit_data[i*2+1].y - limit_data[i*2].y;
+			if(ddur > max_ddur) max_ddur = ddur;
+			interval_count++;
+		}
+		if(limit_data[(i+1)*2].x != limit_data[i*2].x){
+			if(interval_count != last_num_intervals) {
+				if(i != 0 && empty_limit) {
+					data_array1_append_new(num_interval_change, limit_data[(i-1)*2].x);
+					data_array1_append_new(num_interval_change, limit_data[i*2].x);
+				} else if(i-interval_count >= 0) {
+					data_array1_append_new(num_interval_change, limit_data[(i-interval_count)*2].x);
+					data_array1_append_new(num_interval_change, limit_data[i*2].x);
+				}
+			}
+			last_num_intervals = interval_count;
+			interval_count = 0;
+		}
+	}
+	// catch edges with (for some reason) a single point
+	data_array1_append_new(num_interval_change, limit_data[(num_limits-1)*2-1].x);
+	data_array1_append_new(num_interval_change, limit_data[num_limits*2-1].x);
+	for(int i = 1; i < data_array1_size(num_interval_change); i += 3) {
+		data_array1_insert_new(num_interval_change, (data_array1_get_data(num_interval_change)[i-1] + data_array1_get_data(num_interval_change)[i])/2);
+	}
+	for(int i = 0; i < data_array1_size(num_interval_change); i++) {
+		print_date(convert_JD_date(data_array1_get_data(num_interval_change)[i], DATE_ISO), 1);
+	}
+
+	double jd_step = (max_jd_next_dep - min_jd_next_dep) / 50;
+	double dur_step = max_ddur/10;
+	int limit_idx = 0;
+	counter = 0;
+	double next_jd = limit_data[0].x;
+
+
+
+	jd_dep = limit_data[0].x;
+	OSV osv_dep = departure_group->system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(departure_group->dep_body->orbit, jd_dep) :
+				osv_from_ephem(departure_group->dep_body->ephem, departure_group->dep_body->num_ephems, jd_dep, departure_group->system->cb);
+	OSV osv_arr0 = departure_group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(departure_group->arr_body->orbit, jd_dep) :
+					osv_from_ephem(departure_group->arr_body->ephem, departure_group->arr_body->num_ephems, jd_dep, departure_group->system->cb);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, departure_group->system->cb);
+	double period_arr0 = calc_orbital_period(arr0);
+	double next_conjunction_dt, next_opposition_dt, last_conjunction_dt, last_opposition_dt;
+	calc_time_to_next_conjunction_and_opposition(osv_dep.r, osv_arr0, departure_group->system->cb, &next_conjunction_dt, &next_opposition_dt);
+
+	double opp_guess, conj_guess;
+	if(departure_group->top_boundary_type == DEPARTURE_GROUP_BOUNDARY_TOP_CONJ) {
+		conj_guess = departure_group->boundary0_top.y + (jd_dep - departure_group->boundary0_top.x) * 86400 * departure_group->boundary_gradient;
+		opp_guess = departure_group->boundary0_bottom.y + (jd_dep - departure_group->boundary0_bottom.x) * 86400 * departure_group->boundary_gradient;
+	} else {
+		opp_guess = departure_group->boundary0_top.y + (jd_dep - departure_group->boundary0_top.x) * 86400 * departure_group->boundary_gradient;
+		conj_guess = departure_group->boundary0_bottom.y + (jd_dep - departure_group->boundary0_bottom.x) * 86400 * departure_group->boundary_gradient;
+	}
+
+	while(opp_guess-next_opposition_dt   >  0.5 * period_arr0) next_opposition_dt  += period_arr0;
+	while(opp_guess-next_opposition_dt   < -0.5 * period_arr0) next_opposition_dt  -= period_arr0;
+	while(conj_guess-next_conjunction_dt >  0.5 * period_arr0) next_conjunction_dt += period_arr0;
+	while(conj_guess-next_conjunction_dt < -0.5 * period_arr0) next_conjunction_dt -= period_arr0;
+
+
+	last_opposition_dt = next_opposition_dt;
+	last_conjunction_dt = next_conjunction_dt;
+
+	double last_jd_dep = jd_dep;
+
+
+	while(limit_idx < num_limits) {
+		jd_dep = limit_data[limit_idx*2].x;
+
+		osv_dep = departure_group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(departure_group->dep_body->orbit, jd_dep) :
+					osv_from_ephem(departure_group->dep_body->ephem, departure_group->dep_body->num_ephems, jd_dep, departure_group->system->cb);
+
+		osv_arr0 = departure_group->system->prop_method == ORB_ELEMENTS ?
+					   osv_from_elements(departure_group->arr_body->orbit, jd_dep) :
+					   osv_from_ephem(departure_group->arr_body->ephem, departure_group->arr_body->num_ephems, jd_dep, departure_group->system->cb);
+		calc_time_to_next_conjunction_and_opposition(osv_dep.r, osv_arr0, departure_group->system->cb, &next_conjunction_dt, &next_opposition_dt);
+
+		opp_guess = last_opposition_dt + (jd_dep-last_jd_dep)*86400*departure_group->boundary_gradient;
+		conj_guess = last_conjunction_dt + (jd_dep-last_jd_dep)*86400*departure_group->boundary_gradient;
+
+		while(opp_guess-next_opposition_dt   >  0.5 * period_arr0) next_opposition_dt  += period_arr0;
+		while(opp_guess-next_opposition_dt   < -0.5 * period_arr0) next_opposition_dt  -= period_arr0;
+		while(conj_guess-next_conjunction_dt >  0.5 * period_arr0) next_conjunction_dt += period_arr0;
+		while(conj_guess-next_conjunction_dt < -0.5 * period_arr0) next_conjunction_dt -= period_arr0;
+
+		last_opposition_dt = next_opposition_dt;
+		last_conjunction_dt = next_conjunction_dt;
+		last_jd_dep = jd_dep;
+
+
+		double min_dur_dt, max_dur_dt;
+		if(next_conjunction_dt < next_opposition_dt) {
+			min_dur_dt = next_conjunction_dt;
+			max_dur_dt = next_opposition_dt;
+		} else {
+			min_dur_dt = next_opposition_dt;
+			max_dur_dt = next_conjunction_dt;
+		}
+
+		if(min_dur_dt < 86400*10) min_dur_dt = 86400*10;
+
+		if(jd_dep < next_jd) {
+			bool relevant_interval = false;
+			for(int i = 0; i < data_array1_size(num_interval_change); i++) {
+				if(jd_dep == data_array1_get_data(num_interval_change)[i] ||
+					(data_array1_get_data(num_interval_change)[i] < limit_data[limit_idx*2].x &&
+					data_array1_get_data(num_interval_change)[i] > limit_data[(limit_idx-1)*2].x)) {
+					relevant_interval = true;
+					break;
+				}
+			}
+			if(!relevant_interval) { limit_idx++; continue; }
+		}
+		next_jd = jd_dep+jd_step;
+		if(next_jd > max_jd_next_dep) next_jd = max_jd_next_dep;
+
+		while(limit_data[limit_idx*2].x == jd_dep && limit_idx < num_limits) {
+			if(isnan(data_array2_get_data(vinf_limits_all)[limit_idx*2].y)) {limit_idx++; break;}
+			double min_dur_temp = data_array2_get_data(vinf_limits_all)[limit_idx*2].y+1e-3;
+			double max_dur_temp = data_array2_get_data(vinf_limits_all)[limit_idx*2+1].y-1e-3;
+			int num_tests = (int) ((max_dur_temp - min_dur_temp)/dur_step) + 2;
+			for(int i = 0; i < num_tests; i++) {
+				double dur_temp = min_dur_temp + (max_dur_temp - min_dur_temp)*i/(num_tests-1);
+				double vinf = get_mesh_interpolated_value(mesh, vec2(jd_dep, dur_temp));
+				Vector3 v_arr = get_varr_from_mesh(mesh, jd_dep, dur_temp);
+				if(isnan(v_arr.x)) continue;
+				counter++;
+				struct ItinStep *next_step = NULL;
+				double next_step_tolerance = 1;
+				do {
+					next_step = get_next_step_from_vinf(departure_group, vinf, jd_dep, min_dur_dt, max_dur_dt, true, next_step_tolerance);
+					if(next_step) {
+						// double r_pe = get_flyby_periapsis(v_arr, next_step->v_dep, next_step->v_body, next_step->body);
+						// if(r_pe/next_step->body->radius > 0.8) {
+						// 	// print_vec3(subtract_vec3(v_arr, next_step->v_body));
+						// 	// print_vec3(subtract_vec3(next_step->v_dep, next_step->v_body));
+						// 	// printf("%d  %f   %f   (%s)\n", j, vinf, r_pe, next_step->body->name);
+						// }
+						free(next_step);
+						data_array2_append_new(valid_fb, jd_dep, dur_temp);
+					} else {
+						next_step_tolerance += tolerance;
+					}
+				} while(!next_step);
+			}
+			limit_idx++;
+		}
+	}
+
+	printf("%d  %lu\n", counter, mesh->num_points);
+	end_time_measurement(&tm, "Reduce range with rpe");
 	print_timing_measurements(tm);
 	free_timing_measurements(&tm);
 
 	// scatter_data2(ir_coord_sys0, outer_limits_all, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
 	scatter_data2(ir_coord_sys0, vinf_limits_all, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
-	scatter_data2(ir_coord_sys1, vinf_limits_all, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE);
+	scatter_data2(ir_coord_sys0, valid_fb, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
+	scatter_data2(ir_coord_sys1, valid_fb, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE);
+	// scatter_data2(ir_coord_sys1, vinf_limits_all, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE);
+	// scatter_data2(ir_coord_sys1, min_dv2, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE);
 	// plot_scatter_data2(ir_coord_sys0, dur_limit_top, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
 	// plot_scatter_data2(ir_coord_sys0, dur_limit_bottom, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE);
 }

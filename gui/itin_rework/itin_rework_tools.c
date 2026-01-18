@@ -353,9 +353,11 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 	if(last_opposition_dt < last_conjunction_dt) {
 		group->boundary0_bottom = vec2(jd_min_dep, last_opposition_dt);
 		group->boundary0_top = vec2(jd_min_dep, last_conjunction_dt);
+		group->top_boundary_type = DEPARTURE_GROUP_BOUNDARY_TOP_CONJ;
 	} else {
 		group->boundary0_bottom = vec2(jd_min_dep, last_conjunction_dt);
 		group->boundary0_top = vec2(jd_min_dep, last_opposition_dt);
+		group->top_boundary_type = DEPARTURE_GROUP_BOUNDARY_TOP_OPP;
 	}
 
 	group->boundary_gradient = opp_conj_gradient;
@@ -693,6 +695,8 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 						if(data[idx].y < data[min_idx].y) min_idx = idx;
 					}
 					data_array2_append_new(min_per_dep, jd_dep, data[min_idx].y);
+					// print_date(convert_JD_date(jd_dep, DATE_ISO), 0);
+					// printf("      %f  |   %f    %f    %f  |    %f    %f    %f\n", jd_dep, dt/86400, left_x/86400, right_x/86400, dt, left_x, right_x);
 					// data_array2_append_new(min_per_dep, jd_dep-jd_min_dep, data[min_idx].x);
 					break;
 				}
