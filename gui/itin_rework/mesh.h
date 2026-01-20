@@ -39,6 +39,7 @@ typedef enum {
 
 struct MeshBox2 {
 	Vector2 min, max;
+	MeshBox2 *parent;
 	MeshBoxType type;
 
 	union {
@@ -73,9 +74,10 @@ int is_inside_triangle(MeshTriangle2 *triangle, Vector2 p);
 double get_triangle_interpolated_value(Vector3 p0, Vector3 p1, Vector3 p2, Vector2 p);
 MeshTriangle2 * get_mesh_triangle_at_position(Mesh2 *mesh, Vector2 pos);
 double get_mesh_interpolated_value(Mesh2 *mesh, Vector2 p);
-MeshGrid2 *create_mesh_grid(DataArray2 *pos, void **data);
-Mesh2 *create_mesh_from_grid(MeshGrid2 *grid);
-Mesh2 *create_mesh_from_grid_w_angled_guideline(MeshGrid2 *grid, double gradient);
+MeshGrid2 * create_mesh_grid(DataArray2 *pos, void **data);
+Mesh2 * create_mesh_from_grid(MeshGrid2 *grid);
+Mesh2 * create_mesh_from_grid_w_angled_guideline(MeshGrid2 *grid, double gradient);
+Mesh2 * create_mesh_from_multiple_grids_w_angled_guideline(MeshGrid2 ***grid, int num_cols, int *num_cols_row, double gradient);
 Mesh2 * combine_meshes(Mesh2 *mesh0, Mesh2 *mesh1);
 void rebuild_mesh_boxes(Mesh2 *mesh);
 void remove_triangle_from_mesh(Mesh2 *mesh, int tri_idx);

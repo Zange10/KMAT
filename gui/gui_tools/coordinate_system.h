@@ -53,6 +53,7 @@ struct CoordinateSystem {
 
 CoordinateSystem * new_coordinate_system(GtkWidget *drawing_area);
 
+void clear_coordinate_system(CoordinateSystem *coord_sys);
 void plot_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);
 void scatter_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);
 void plot_scatter_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);

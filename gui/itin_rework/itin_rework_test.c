@@ -11,6 +11,7 @@
 #include <math.h>
 #include <sys/time.h>
 
+#include "gui/gui_tools/coordinate_system_drawing.h"
 #include "tools/tool_funcs.h"
 
 GObject *ir_window;
@@ -444,6 +445,26 @@ Vector3 get_varr_from_mesh(Mesh2 *mesh, double jd_arr, double dur) {
 	return vec3(varrx, varry, varrz);
 }
 
+Vector3 get_vbody_from_mesh(Mesh2 *mesh, double jd_arr, double dur) {
+	MeshTriangle2 *triangle = get_mesh_triangle_at_position(mesh, vec2(jd_arr, dur));
+	if(!triangle) return vec3(NAN, NAN, NAN);
+
+	Vector3 tri_varrx[3];
+	Vector3 tri_varry[3];
+	Vector3 tri_varrz[3];
+
+	for(int i = 0; i < 3; i++) {
+		struct ItinStep *step = triangle->points[i]->data;
+		tri_varrx[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_body.x);
+		tri_varry[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_body.y);
+		tri_varrz[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_body.z);
+	}
+	double varrx = get_triangle_interpolated_value(tri_varrx[0], tri_varrx[1], tri_varrx[2], vec2(jd_arr, dur));
+	double varry = get_triangle_interpolated_value(tri_varry[0], tri_varry[1], tri_varry[2], vec2(jd_arr, dur));
+	double varrz = get_triangle_interpolated_value(tri_varrz[0], tri_varrz[1], tri_varrz[2], vec2(jd_arr, dur));
+	return vec3(varrx, varry, varrz);
+}
+
 struct ItinStep * get_next_step_from_vinf(DepartureGroup *group, double v_inf, double jd_dep, double min_dur_dt, double max_dur_dt, bool leftside, double tolerance) {
 	OSV osv_dep = group->system->prop_method == ORB_ELEMENTS ?
 					osv_from_elements(group->dep_body->orbit, jd_dep) :
@@ -475,12 +496,12 @@ struct ItinStep * get_next_step_from_vinf(DepartureGroup *group, double v_inf, d
 
 		if(fabs(diff_vinf) < tolerance) {
 			struct ItinStep *new_step = malloc(sizeof(struct ItinStep));
-			new_step->body = group->dep_body;
-			new_step->date = t0;
-			new_step->r = osv_dep.r;
+			new_step->body = group->arr_body;
+			new_step->date = t1;
+			new_step->r = osv_arr.r;
 			new_step->v_dep = new_transfer.v0;
 			new_step->v_arr = new_transfer.v1;
-			new_step->v_body = osv_dep.v;
+			new_step->v_body = osv_arr.v;
 			new_step->num_next_nodes = 0;
 			new_step->prev = NULL;
 			new_step->next = NULL;
@@ -499,6 +520,22 @@ struct ItinStep * get_next_step_from_vinf(DepartureGroup *group, double v_inf, d
 
 	data_array2_free(data);
 	return NULL;
+}
+
+typedef struct FlyByGroup {
+	DataArray2 *dep_dur;
+	struct ItinStep **steps;
+} FlyByGroup;
+
+int get_num_interval_per_dep(Vector2 *limits, int limit_idx0) {
+	if(isnan(limits[limit_idx0*2].y)) return 0;
+	int num_interval = 1;
+	int limit_idx = limit_idx0+1;
+	while(limits[limit_idx0*2].x == limits[limit_idx*2].x) {
+		num_interval++;
+		limit_idx++;
+	}
+	return num_interval;
 }
 
 G_MODULE_EXPORT void on_calc_ir() {
@@ -742,7 +779,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 
 	double jd_step = (max_jd_next_dep - min_jd_next_dep) / 50;
-	double dur_step = max_ddur/10;
+	double dur_step = max_ddur/20;
 	int limit_idx = 0;
 	counter = 0;
 	double next_jd = limit_data[0].x;
@@ -780,6 +817,12 @@ G_MODULE_EXPORT void on_calc_ir() {
 	last_conjunction_dt = next_conjunction_dt;
 
 	double last_jd_dep = jd_dep;
+
+
+	FlyByGroup fb_group[100][10];
+	int fb_num_groups_dep[100] = {0};
+	int fb_group_x = -1; // is set to 0 during first loop
+	int num_last_interval = 0;
 
 
 	while(limit_idx < num_limits) {
@@ -833,6 +876,19 @@ G_MODULE_EXPORT void on_calc_ir() {
 		next_jd = jd_dep+jd_step;
 		if(next_jd > max_jd_next_dep) next_jd = max_jd_next_dep;
 
+		int num_interval = get_num_interval_per_dep(limit_data, limit_idx);
+		if(num_last_interval != num_interval) {
+			fb_group_x++;
+			num_last_interval = num_interval;
+			fb_num_groups_dep[fb_group_x] = num_interval;
+			for(int i = 0; i < num_interval; i++) {
+				fb_group[fb_group_x][i].dep_dur = data_array2_create();
+				fb_group[fb_group_x][i].steps = malloc(1000*sizeof(struct ItinStep*));
+			}
+		}
+
+		int fb_group_y = 0;
+
 		while(limit_data[limit_idx*2].x == jd_dep && limit_idx < num_limits) {
 			if(isnan(data_array2_get_data(vinf_limits_all)[limit_idx*2].y)) {limit_idx++; break;}
 			double min_dur_temp = data_array2_get_data(vinf_limits_all)[limit_idx*2].y+1e-3;
@@ -842,38 +898,103 @@ G_MODULE_EXPORT void on_calc_ir() {
 				double dur_temp = min_dur_temp + (max_dur_temp - min_dur_temp)*i/(num_tests-1);
 				double vinf = get_mesh_interpolated_value(mesh, vec2(jd_dep, dur_temp));
 				Vector3 v_arr = get_varr_from_mesh(mesh, jd_dep, dur_temp);
-				if(isnan(v_arr.x)) continue;
+				Vector3 v_body = get_vbody_from_mesh(mesh, jd_dep, dur_temp);
+				if(isnan(v_arr.x), isnan(v_body.x)) continue;
 				counter++;
 				struct ItinStep *next_step = NULL;
 				double next_step_tolerance = 1;
 				do {
 					next_step = get_next_step_from_vinf(departure_group, vinf, jd_dep, min_dur_dt, max_dur_dt, true, next_step_tolerance);
 					if(next_step) {
-						// double r_pe = get_flyby_periapsis(v_arr, next_step->v_dep, next_step->v_body, next_step->body);
-						// if(r_pe/next_step->body->radius > 0.8) {
-						// 	// print_vec3(subtract_vec3(v_arr, next_step->v_body));
-						// 	// print_vec3(subtract_vec3(next_step->v_dep, next_step->v_body));
-						// 	// printf("%d  %f   %f   (%s)\n", j, vinf, r_pe, next_step->body->name);
-						// }
-						free(next_step);
-						data_array2_append_new(valid_fb, jd_dep, dur_temp);
+						double r_pe = get_flyby_periapsis(v_arr, next_step->v_dep, v_body, departure_groups->arr_body);
+						if(r_pe/departure_groups->arr_body->radius > 0.8) {
+							print_vec3(subtract_vec3(v_arr, v_body));
+							print_vec3(subtract_vec3(next_step->v_dep, v_body));
+							printf("%f   %f   (%s)\n", vinf, r_pe, departure_groups->arr_body->name);
+							data_array2_append_new(valid_fb, jd_dep, dur_temp);
+						}
+						int step_idx = (int) data_array2_size(fb_group[fb_group_x][fb_group_y].dep_dur);
+						fb_group[fb_group_x][fb_group_y].steps[step_idx] = next_step;
+						data_array2_append_new(fb_group[fb_group_x][fb_group_y].dep_dur, jd_dep, dur_temp);
 					} else {
 						next_step_tolerance += tolerance;
 					}
 				} while(!next_step);
 			}
 			limit_idx++;
+			fb_group_y++;
 		}
 	}
 
 	printf("%d  %lu\n", counter, mesh->num_points);
+	end_time_measurement(&tm, "Coarse meshing of next step");
+	start_time_measurement(&tm);
+
+	MeshGrid2 ***grids = malloc(100*sizeof(MeshGrid2**));
+	for(int i = 0; i < 100; i++) {
+		grids[i] = malloc(10*sizeof(MeshGrid2*));
+	}
+
+	if(fb_num_groups_dep[0] != 0) {
+		for(int x_idx = 0; x_idx < 100; x_idx++) {
+			for(int y_idx = 0; y_idx < fb_num_groups_dep[x_idx]; y_idx++) {
+				grids[x_idx][y_idx] = create_mesh_grid(fb_group[x_idx][y_idx].dep_dur, (void*) fb_group[x_idx][y_idx].steps);
+			}
+		}
+		Mesh2 *new_mesh = create_mesh_from_multiple_grids_w_angled_guideline(grids, 100, fb_num_groups_dep, departure_groups->boundary_gradient);
+
+		// printf("---------_____-------\n");
+		for(int i = 0; i < new_mesh->num_points; i++) {
+			struct ItinStep *ptr = new_mesh->points[i]->data;
+			jd_dep = new_mesh->points[i]->pos.x;
+			double dur = new_mesh->points[i]->pos.y;
+			double vinf = get_mesh_interpolated_value(new_mesh, vec2(jd_dep, dur));
+			Vector3 v_arr = get_varr_from_mesh(mesh, jd_dep, dur);
+			Vector3 v_body = get_vbody_from_mesh(mesh, jd_dep, dur);
+			double r_pe = get_flyby_periapsis(v_arr, ptr->v_dep, v_body, departure_groups->arr_body);
+			if(r_pe/departure_groups->arr_body->radius > 0.8) {
+				print_vec3(subtract_vec3(v_arr, v_body));
+				print_vec3(subtract_vec3(ptr->v_dep, v_body));
+				printf("%f   %f   (%s)\n", vinf, (r_pe-departure_groups->arr_body->radius)/1000, departure_groups->arr_body->name);
+			}
+			new_mesh->points[i]->val = -r_pe;
+		}
+
+		end_time_measurement(&tm, "Calculate rpe for next step");
+		start_time_measurement(&tm);
+
+		for(int i = 0; i < new_mesh->num_triangles; i++) {
+			bool remove_tri = true;
+			// printf("%d / %d\n", i, new_mesh->num_triangles);
+			for(int j = 0; j < 3; j++) {
+				// printf("(");
+				// print_date(convert_JD_date(new_mesh->triangles[i]->points[j]->pos.x, DATE_ISO), 0);
+				// printf("  %f)  %f  |   ", new_mesh->triangles[i]->points[j]->pos.y, new_mesh->triangles[i]->points[j]->val/(-departure_groups->arr_body->radius));
+				if(new_mesh->triangles[i]->points[j]->val/(-departure_groups->arr_body->radius) > 0.8) {
+					remove_tri = false;
+					break;
+				}
+			}
+			// printf("   %s\n", remove_tri ? "true":"false");
+			if(!remove_tri) continue;
+			remove_triangle_from_mesh(new_mesh, i);
+			i--;
+		}
+		update_mesh_minmax(new_mesh);
+		rebuild_mesh_boxes(new_mesh);
+		attach_mesh_to_coordinate_system(ir_coord_sys0, new_mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, NULL, TRUE);
+	} else {
+		clear_coordinate_system(ir_coord_sys0);
+		draw_coordinate_system_data(ir_coord_sys0);
+	}
 	end_time_measurement(&tm, "Reduce range with rpe");
 	print_timing_measurements(tm);
 	free_timing_measurements(&tm);
 
 	// scatter_data2(ir_coord_sys0, outer_limits_all, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
-	scatter_data2(ir_coord_sys0, vinf_limits_all, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
-	scatter_data2(ir_coord_sys0, valid_fb, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
+	// scatter_data2(ir_coord_sys0, vinf_limits_all, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
+	// scatter_data2(ir_coord_sys0, valid_fb, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
+	scatter_data2(ir_coord_sys0, valid_fb, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE);
 	scatter_data2(ir_coord_sys1, valid_fb, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE);
 	// scatter_data2(ir_coord_sys1, vinf_limits_all, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE);
 	// scatter_data2(ir_coord_sys1, min_dv2, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE);
