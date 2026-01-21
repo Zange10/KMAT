@@ -21,7 +21,8 @@ typedef struct DepartureGroup {
 
 typedef struct FlyByGroup {
 	DataArray2 *dep_dur;
-	struct ItinStep **steps;
+	struct ItinStep **left_steps;
+	struct ItinStep **right_steps;
 	int step_cap;
 } FlyByGroup;
 
@@ -49,7 +50,7 @@ Vector3 get_vbody_from_mesh(Mesh2 *mesh, double jd_arr, double dur);
 struct ItinStep * get_next_step_from_vinf(DepartureGroup *group, double v_inf, double jd_dep, double min_dur_dt, double max_dur_dt, bool leftside, double tolerance);
 DataArray2 * get_vinf_limits(Mesh2 *mesh, DataArray2 *vinf_array, double tolerance);
 FlyByGroups * get_flyby_groups_wrt_vinf(Mesh2 *mesh, DepartureGroup *departure_group, DataArray2 *vinf_limits, double tolerance);
-Mesh2 * get_rpe_mesh_from_fb_groups(FlyByGroups *fb_groups, Mesh2 *prev_mesh, DepartureGroup *prev_departure_group);
+Mesh2 * get_rpe_mesh_from_fb_groups(FlyByGroups *fb_groups, Mesh2 *prev_mesh, DepartureGroup *prev_departure_group, bool left_side);
 
 
 #endif //KMAT_ITIN_REWORK_TOOLS_H

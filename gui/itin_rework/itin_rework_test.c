@@ -305,8 +305,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 	end_time_measurement(&tm, "Rebuilding Boxes");
 
 
-	attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
-	// attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE, &remove_step_from_itinerary_void_ptr, FALSE);
+	// attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
+	attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
 
 	start_time_measurement(&tm);
 
@@ -333,7 +333,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	start_time_measurement(&tm);
 
 	if(fb_groups->num_groups != 0) {
-		Mesh2 *new_mesh = get_rpe_mesh_from_fb_groups(fb_groups, mesh, departure_groups);
+		Mesh2 *new_mesh = get_rpe_mesh_from_fb_groups(fb_groups, mesh, departure_groups, true);
 
 		end_time_measurement(&tm, "Calculate rpe for next step");
 		start_time_measurement(&tm);

@@ -1285,7 +1285,8 @@ FlyByGroups * get_flyby_groups_wrt_vinf(Mesh2 *mesh, DepartureGroup *departure_g
 			for(int i = 0; i < num_interval; i++) {
 				fb_groups->groups[fb_group_x][i].dep_dur = data_array2_create();
 				fb_groups->groups[fb_group_x][i].step_cap = 8;
-				fb_groups->groups[fb_group_x][i].steps = malloc(fb_groups->groups[fb_group_x][i].step_cap*sizeof(struct ItinStep*));
+				fb_groups->groups[fb_group_x][i].left_steps = malloc(fb_groups->groups[fb_group_x][i].step_cap*sizeof(struct ItinStep*));
+				fb_groups->groups[fb_group_x][i].right_steps = malloc(fb_groups->groups[fb_group_x][i].step_cap*sizeof(struct ItinStep*));
 			}
 		}
 
@@ -1302,23 +1303,32 @@ FlyByGroups * get_flyby_groups_wrt_vinf(Mesh2 *mesh, DepartureGroup *departure_g
 				Vector3 v_arr = get_varr_from_mesh(mesh, jd_dep, dur_temp);
 				Vector3 v_body = get_vbody_from_mesh(mesh, jd_dep, dur_temp);
 				if(isnan(v_arr.x), isnan(v_body.x)) continue;
-				struct ItinStep *next_step = NULL;
+				struct ItinStep *left_step = NULL;
+				struct ItinStep *right_step = NULL;
 				double next_step_tolerance = 1;
 				do {
-					next_step = get_next_step_from_vinf(departure_group, vinf, jd_dep, min_dur_dt, max_dur_dt, true, next_step_tolerance);
-					if(next_step) {
-						int step_idx = (int) data_array2_size(fb_groups->groups[fb_group_x][fb_group_y].dep_dur);
-						if(step_idx == fb_groups->groups[fb_group_x][fb_group_y].step_cap) {
-							fb_groups->groups[fb_group_x][fb_group_y].step_cap *= 2;
-							struct ItinStep **steps = realloc(fb_groups->groups[fb_group_x][fb_group_y].steps, fb_groups->groups[fb_group_x][fb_group_y].step_cap*sizeof(struct ItinStep*));
-							if(steps) fb_groups->groups[fb_group_x][fb_group_y].steps = steps;
-						}
-						fb_groups->groups[fb_group_x][fb_group_y].steps[step_idx] = next_step;
-						data_array2_append_new(fb_groups->groups[fb_group_x][fb_group_y].dep_dur, jd_dep, dur_temp);
-					} else {
-						next_step_tolerance += tolerance;
-					}
-				} while(!next_step);
+					left_step = get_next_step_from_vinf(departure_group, vinf, jd_dep, min_dur_dt, max_dur_dt, true, next_step_tolerance);
+					if(left_step) break;
+					next_step_tolerance += tolerance;
+				} while(!left_step);
+				next_step_tolerance = 1;
+				do {
+					right_step = get_next_step_from_vinf(departure_group, vinf, jd_dep, min_dur_dt, max_dur_dt, false, next_step_tolerance);
+					if(right_step) break;
+					next_step_tolerance += tolerance;
+				} while(!right_step);
+
+				int step_idx = (int) data_array2_size(fb_groups->groups[fb_group_x][fb_group_y].dep_dur);
+				if(step_idx == fb_groups->groups[fb_group_x][fb_group_y].step_cap) {
+					fb_groups->groups[fb_group_x][fb_group_y].step_cap *= 2;
+					struct ItinStep **left_steps = realloc(fb_groups->groups[fb_group_x][fb_group_y].left_steps, fb_groups->groups[fb_group_x][fb_group_y].step_cap*sizeof(struct ItinStep*));
+					if(left_steps) fb_groups->groups[fb_group_x][fb_group_y].left_steps = left_steps;
+					struct ItinStep **right_steps = realloc(fb_groups->groups[fb_group_x][fb_group_y].right_steps, fb_groups->groups[fb_group_x][fb_group_y].step_cap*sizeof(struct ItinStep*));
+					if(right_steps) fb_groups->groups[fb_group_x][fb_group_y].right_steps = right_steps;
+				}
+				fb_groups->groups[fb_group_x][fb_group_y].left_steps[step_idx] = left_step;
+				fb_groups->groups[fb_group_x][fb_group_y].right_steps[step_idx] = right_step;
+				data_array2_append_new(fb_groups->groups[fb_group_x][fb_group_y].dep_dur, jd_dep, dur_temp);
 			}
 			limit_idx++;
 			fb_group_y++;
@@ -1328,7 +1338,7 @@ FlyByGroups * get_flyby_groups_wrt_vinf(Mesh2 *mesh, DepartureGroup *departure_g
 	return fb_groups;
 }
 
-Mesh2 * get_rpe_mesh_from_fb_groups(FlyByGroups *fb_groups, Mesh2 *prev_mesh, DepartureGroup *prev_departure_group) {
+Mesh2 * get_rpe_mesh_from_fb_groups(FlyByGroups *fb_groups, Mesh2 *prev_mesh, DepartureGroup *prev_departure_group, bool left_side) {
 	MeshGrid2 ***grids = malloc(fb_groups->num_groups*sizeof(MeshGrid2**));
 	for(int i = 0; i < fb_groups->num_groups; i++) {
 		grids[i] = malloc(fb_groups->num_groups_dep[i]*sizeof(MeshGrid2*));
@@ -1336,7 +1346,8 @@ Mesh2 * get_rpe_mesh_from_fb_groups(FlyByGroups *fb_groups, Mesh2 *prev_mesh, De
 
 	for(int x_idx = 0; x_idx < fb_groups->num_groups; x_idx++) {
 		for(int y_idx = 0; y_idx < fb_groups->num_groups_dep[x_idx]; y_idx++) {
-			grids[x_idx][y_idx] = create_mesh_grid(fb_groups->groups[x_idx][y_idx].dep_dur, (void*) fb_groups->groups[x_idx][y_idx].steps);
+			void *steps = (void*) (left_side ? fb_groups->groups[x_idx][y_idx].left_steps : fb_groups->groups[x_idx][y_idx].right_steps);
+			grids[x_idx][y_idx] = create_mesh_grid(fb_groups->groups[x_idx][y_idx].dep_dur, steps);
 		}
 	}
 	Mesh2 *rpe_mesh = create_mesh_from_multiple_grids_w_angled_guideline(grids, fb_groups->num_groups, fb_groups->num_groups_dep, prev_departure_group->boundary_gradient);
