@@ -239,7 +239,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	departure_groups->num_departures = num_iterations;
 	departure_groups->system = ir_system;
 
-	calc_group_porkchop(departure_groups, 6, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
+	calc_group_porkchop(departure_groups, 5, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
 
 	end_time_measurement(&tm, "Departure Porkchop");
 
@@ -332,8 +332,10 @@ G_MODULE_EXPORT void on_calc_ir() {
 	end_time_measurement(&tm, "Coarse meshing of next step");
 	start_time_measurement(&tm);
 
+	Mesh2 *new_mesh = NULL;
+
 	if(fb_groups->num_groups != 0) {
-		Mesh2 *new_mesh = get_rpe_mesh_from_fb_groups(fb_groups, mesh, departure_groups, true);
+		new_mesh = get_rpe_mesh_from_fb_groups(fb_groups, mesh, departure_groups, true);
 
 		end_time_measurement(&tm, "Calculate rpe for next step");
 		start_time_measurement(&tm);
@@ -352,16 +354,134 @@ G_MODULE_EXPORT void on_calc_ir() {
 		}
 		update_mesh_minmax(new_mesh);
 		rebuild_mesh_boxes(new_mesh);
-		attach_mesh_to_coordinate_system(ir_coord_sys0, new_mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
-		attach_mesh_to_coordinate_system(ir_coord_sys0, new_mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE, NULL, FALSE);
 	} else {
 		clear_coordinate_system(ir_coord_sys0);
 		draw_coordinate_system_data(ir_coord_sys0);
 	}
 
 	end_time_measurement(&tm, "Reduce range with rpe");
+	start_time_measurement(&tm);
+
+	for(int i = 0; i < mesh->num_points; i++) {
+		MeshPoint2 *point = mesh->points[i];
+		point->pos.x -= point->pos.y;
+	}
+	update_mesh_minmax(mesh);
+	rebuild_mesh_boxes(mesh);
+	for(int i = 0; i < new_mesh->num_points; i++) {
+		MeshPoint2 *point = new_mesh->points[i];
+		point->pos.x -= point->pos.y;
+	}
+	update_mesh_minmax(new_mesh);
+	rebuild_mesh_boxes(new_mesh);
+	end_time_measurement(&tm, "Modifying Meshes");
+
+
+	start_time_measurement(&tm);
+
+	int counter0 = 0;
+	int counter1 = 0;
+	for(int i = 0; i < mesh->num_triangles; i++) {
+		if(is_triangle_bouding_box_inside_rectangle(mesh->triangles[i], new_mesh->mesh_box->min, new_mesh->mesh_box->max)) {
+			for(int j = 0; j < new_mesh->num_triangles; j++) {
+				Vector2 min, max;
+				find_2dtriangle_minmax(new_mesh->triangles[j], &min, &max);
+				if(is_triangle_bouding_box_inside_rectangle(mesh->triangles[i], min, max)) {counter0++; remove_triangle_from_mesh(mesh, i); i--; break;}
+			}
+		} else counter1++;
+	}
+
+	DataArray2 *edges_array = get_dur_limits_from_edge_triangles(new_mesh);
+	double epsilon = 1e-6;
+	int num_deps = 200;
+	double step = (new_mesh->mesh_box->max.x - new_mesh->mesh_box->min.x)/num_deps;
+	jd_dep = new_mesh->mesh_box->min.x+epsilon;
+
+	DataArray2 *limits = data_array2_create();
+
+	while(jd_dep < new_mesh->mesh_box->max.x) {
+		DataArray2 *limits_dep = get_dur_limits_for_dep_from_point_list(edges_array, jd_dep);
+		for(int i = 0; i < data_array2_size(limits_dep); i++) {
+			data_array2_append_new(limits, data_array2_get_data(limits_dep)[i].x, data_array2_get_data(limits_dep)[i].y);
+		}
+		data_array2_free(limits_dep);
+		jd_dep += step;
+	}
+
+	fb_groups = get_refined_departure_groups(departure_groups, limits, dep_periapsis, max_dep_dv, 1);
+	Mesh2 *refined_mesh = get_dep_mesh_from_fb_groups(fb_groups, departure_groups);
+
+	end_time_measurement(&tm, "Mesh Refinement");
+		start_time_measurement(&tm);
+
+	for(int i = 0; i < refined_mesh->num_points; i++) {
+		MeshPoint2 *point = refined_mesh->points[i];
+		struct ItinStep *step = point->data;
+		point->pos.x = step->date;
+		point->pos.y = step->date - get_first(step)->date;
+	}
+
+	update_mesh_minmax(refined_mesh);
+	rebuild_mesh_boxes(refined_mesh);
+	// for(int i = 0; i < refined_mesh->num_points; i++) {
+	// 	struct ItinStep *ptr = refined_mesh->points[i]->data;
+	// 	double vinf = mag_vec3(subtract_vec3(ptr->v_arr, ptr->v_body));
+	// 	mesh->points[i]->val = vinf;
+	// }
+
+
+	vinf_limits = get_vinf_limits(refined_mesh, vinf_array, 1);
+	print_data_array2(vinf_limits, "dep", "dur");
+
+	DataArray2 *temp_vinf_limit = data_array2_create();
+	for(int i = 0; i < data_array2_size(vinf_limits); i++) {
+		if(isnan(data_array2_get_data(vinf_limits)[i].y)) continue;
+		data_array2_append_new(temp_vinf_limit, data_array2_get_data(vinf_limits)[i].x, data_array2_get_data(vinf_limits)[i].y);
+	}
+
+	fb_groups = get_flyby_groups_wrt_vinf(refined_mesh, departure_group, vinf_limits, 10);
+
+
+
+	new_mesh = NULL;
+
+		new_mesh = get_rpe_mesh_from_fb_groups(fb_groups, refined_mesh, departure_groups, true);
+
+		end_time_measurement(&tm, "Calculate rpe for next step");
+		start_time_measurement(&tm);
+
+		for(int i = 0; i < new_mesh->num_triangles; i++) {
+			bool remove_tri = true;
+			for(int j = 0; j < 3; j++) {
+				if(new_mesh->triangles[i]->points[j]->val/departure_groups->arr_body->radius > 1) {
+					printf("%f\n", new_mesh->triangles[i]->points[j]->val/departure_groups->arr_body->radius);
+					remove_tri = false;
+					break;
+				}
+			}
+			if(!remove_tri) continue;
+			remove_triangle_from_mesh(new_mesh, i);
+			i--;
+		}
+		update_mesh_minmax(new_mesh);
+		rebuild_mesh_boxes(new_mesh);
+
+
+
+	end_time_measurement(&tm, "Coarse meshing of next step");
 	print_timing_measurements(tm);
 	free_timing_measurements(&tm);
+
+	scatter_data2(ir_coord_sys0, vinf_array, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE);
+
+
+	if(new_mesh) {
+		attach_mesh_to_coordinate_system(ir_coord_sys0, new_mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
+		attach_mesh_to_coordinate_system(ir_coord_sys1, refined_mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, NULL, TRUE);
+		// attach_mesh_to_coordinate_system(ir_coord_sys0, new_mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE, NULL, FALSE);
+	}
+	// scatter_data2(ir_coord_sys1, limits, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE);
+	scatter_data2(ir_coord_sys1, temp_vinf_limit, CS_AXIS_DATE, CS_AXIS_NUMBER, FALSE);
 }
 
 
@@ -379,12 +499,12 @@ void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double heigh
 	int num_points = 0, num_errors = 0;
 
 	for(int i = 0; i < mesh->num_triangles; i++) {
-		double min_x, max_x, min_y, max_y;
+		Vector2 min, max;
 		MeshTriangle2 tri2d = *mesh->triangles[i];
-		find_2dtriangle_minmax(&tri2d, &min_x, &max_x, &min_y, &max_y);
+		find_2dtriangle_minmax(&tri2d, &min, &max);
 
-		for(double jd_dep = min_x; jd_dep <= max_x; jd_dep += step_dep) {
-			for(double dur = min_y; dur <= max_y; dur += step_dur) {
+		for(double jd_dep = min.x; jd_dep <= max.x; jd_dep += step_dep) {
+			for(double dur = min.y; dur <= max.y; dur += step_dur) {
 				Vector2 p = vec2(jd_dep, dur);
 				if(is_inside_triangle(&tri2d, p)) {
 					Vector3 tri3[3];

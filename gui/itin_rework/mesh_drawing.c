@@ -128,17 +128,17 @@ void draw_mesh_interpolated_points(Mesh2 *mesh, CoordinateSystem *coord_sys) {
 	for(int i = 0; i < 3; i++) tri2d.points[i] = malloc(sizeof(MeshPoint2));
 
 	for(int i = 0; i < mesh->num_triangles; i++) {
-		double min_x, max_x, min_y, max_y;
+		Vector2 min, max;
 		for(int j = 0; j < 3; j++) {
 			tri2d.points[j]->pos.x = (mesh->triangles[i]->points[j]->pos.x - coord_sys->min.x)/(coord_sys->max.x - coord_sys->min.x) *
 				(coord_sys->screen->width - coord_sys->origin.x) + coord_sys->origin.x;
 			tri2d.points[j]->pos.y = -(mesh->triangles[i]->points[j]->pos.y - coord_sys->min.y)/(coord_sys->max.y - coord_sys->min.y) *
 				coord_sys->origin.y + coord_sys->origin.y;
 		}
-		find_2dtriangle_minmax(&tri2d, &min_x, &max_x, &min_y, &max_y);
-		if(max_x < coord_sys->origin.x || min_x > width || max_y < 0 || min_y > coord_sys->origin.y) continue;
-		for(int x = (int)min_x+1; x <= max_x; x+=step) {
-			for(int y = (int)min_y+1; y <= max_y; y+=step) {
+		find_2dtriangle_minmax(&tri2d, &min, &max);
+		if(max.x < coord_sys->origin.x || min.x > width || max.y < 0 || min.y > coord_sys->origin.y) continue;
+		for(int x = (int)min.x+1; x <= max.x; x+=step) {
+			for(int y = (int)min.y+1; y <= max.y; y+=step) {
 				Vector2 p = vec2(x, y);
 				if(x > coord_sys->origin.x && x < width && y >= 0 && y < coord_sys->origin.y && is_inside_triangle(&tri2d, p)) {
 					Vector3 tri3[3];

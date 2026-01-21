@@ -29,23 +29,23 @@ bool triangle_is_edge(MeshTriangle2 *triangle) {
 }
 
 bool is_triangle_bouding_box_inside_rectangle(MeshTriangle2 *triangle, Vector2 min, Vector2 max) {
-	double min_x, max_x, min_y, max_y;
-	find_2dtriangle_minmax(triangle, &min_x, &max_x, &min_y, &max_y);
-	if(max_x < min.x || min_x > max.x || max_y < min.y || min_y > max.y) return false;
+	Vector2 tri_min, tri_max;
+	find_2dtriangle_minmax(triangle, &tri_min, &tri_max);
+	if(tri_max.x < min.x || tri_min.x > max.x || tri_max.y < min.y || tri_min.y > max.y) return false;
 	return true;
 }
 
-void find_2dtriangle_minmax(MeshTriangle2 *triangle, double *min_x, double *max_x, double *min_y, double *max_y) {
-	*min_x = triangle->points[0]->pos.x;
-	*max_x = triangle->points[0]->pos.x;
-	*min_y = triangle->points[0]->pos.y;
-	*max_y = triangle->points[0]->pos.y;
+void find_2dtriangle_minmax(MeshTriangle2 *triangle, Vector2 *min, Vector2 *max) {
+	min->x = triangle->points[0]->pos.x;
+	max->x = triangle->points[0]->pos.x;
+	min->y = triangle->points[0]->pos.y;
+	max->y = triangle->points[0]->pos.y;
 
 	for(int i = 1; i < 3; i++) {
-		if(triangle->points[i]->pos.x < *min_x) *min_x = triangle->points[i]->pos.x;
-		if(triangle->points[i]->pos.x > *max_x) *max_x = triangle->points[i]->pos.x;
-		if(triangle->points[i]->pos.y < *min_y) *min_y = triangle->points[i]->pos.y;
-		if(triangle->points[i]->pos.y > *max_y) *max_y = triangle->points[i]->pos.y;
+		if(triangle->points[i]->pos.x < min->x) min->x = triangle->points[i]->pos.x;
+		if(triangle->points[i]->pos.x > max->x) max->x = triangle->points[i]->pos.x;
+		if(triangle->points[i]->pos.y < min->y) min->y = triangle->points[i]->pos.y;
+		if(triangle->points[i]->pos.y > max->y) max->y = triangle->points[i]->pos.y;
 	}
 }
 
@@ -335,7 +335,6 @@ MeshGrid2 *create_mesh_grid(DataArray2 *pos, void **data) {
 		grid->points[col][row]->triangles = NULL;
 		grid->num_col_rows[col]++;
 	}
-
 	return grid;
 }
 
@@ -398,10 +397,10 @@ void add_triangle_to_mesh_box(MeshBox2 *box, MeshTriangle2 *triangle) {
 	switch(box->type) {
 		case MESHBOX_SUBBOXES:
 			for(int i = 0; i < box->subboxes.num; i++) {
-				double min_x, min_y, max_x, max_y;
-				find_2dtriangle_minmax(triangle, &min_x, &max_x, &min_y, &max_y);
-				if(min_x < box->subboxes.boxes[i]->max.x && max_x > box->subboxes.boxes[i]->min.x &&
-					min_y < box->subboxes.boxes[i]->max.y && max_y > box->subboxes.boxes[i]->min.y)
+				Vector2 min, max;
+				find_2dtriangle_minmax(triangle, &min, &max);
+				if(min.x < box->subboxes.boxes[i]->max.x && max.x > box->subboxes.boxes[i]->min.x &&
+					min.y < box->subboxes.boxes[i]->max.y && max.y > box->subboxes.boxes[i]->min.y)
 				{
 					add_triangle_to_mesh_box(box->subboxes.boxes[i], triangle);
 				}
@@ -679,7 +678,7 @@ Mesh2 * create_mesh_from_multiple_grids_w_angled_guideline(MeshGrid2 ***grid, in
 		stitch_num /= 2;
 
 		for(int i = 0; i < stitch_num; i++) {
-			MeshPoint2 **stitch_points = malloc(1000 * sizeof(MeshPoint2 *));
+			MeshPoint2 **stitch_points = malloc(10000 * sizeof(MeshPoint2 *));
 			int point_idx = 0;
 			for(int row = stitch_idx[i][0][0]; row <= stitch_idx[i][1][0]; row++) {
 				for(int j = 0; j < grid[col][row]->num_col_rows[grid[col][row]->num_cols-1]; j++) {
@@ -799,6 +798,8 @@ void update_mesh_box_relationsships(MeshBox2 *box) {
 }
 
 Mesh2 * combine_meshes(Mesh2 *mesh0, Mesh2 *mesh1) {
+	if(!mesh0) return mesh1;
+	if(!mesh1) return mesh0;
 	MeshPoint2 **temp_points = realloc(mesh0->points, (mesh0->num_points+mesh1->num_points) * sizeof(MeshPoint2*));
 	if(temp_points) mesh0->points = temp_points;
 	MeshTriangle2 **temp_triangles = realloc(mesh0->triangles, (mesh0->num_triangles+mesh1->num_triangles) * sizeof(MeshTriangle2*));

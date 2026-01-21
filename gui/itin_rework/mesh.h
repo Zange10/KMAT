@@ -69,7 +69,8 @@ struct Mesh2 {
 
 Mesh2 * new_mesh();
 bool triangle_is_edge(MeshTriangle2 *triangle);
-void find_2dtriangle_minmax(MeshTriangle2 *triangle, double *min_x, double *max_x, double *min_y, double *max_y);
+bool is_triangle_bouding_box_inside_rectangle(MeshTriangle2 *triangle, Vector2 min, Vector2 max);
+void find_2dtriangle_minmax(MeshTriangle2 *triangle, Vector2 *min, Vector2 *max);
 int is_inside_triangle(MeshTriangle2 *triangle, Vector2 p);
 double get_triangle_interpolated_value(Vector3 p0, Vector3 p1, Vector3 p2, Vector2 p);
 MeshTriangle2 * get_mesh_triangle_at_position(Mesh2 *mesh, Vector2 pos);

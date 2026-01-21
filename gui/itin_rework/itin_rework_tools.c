@@ -266,42 +266,88 @@ DataArray2 * calc_porkchop_line(struct ItinStep *departure_step, Body *dep_body,
 	return data;
 }
 
-DataArray2 * calc_porkchop_line_static(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep, double min_dur, double max_dur, double dep_periapsis, int num_points) {
-	DataArray2 *data = data_array2_create();
-
+void calc_bounded_porkchop_line(struct ItinStep *departure_step, Body *arr_body, CelestSystem *system, double min_dt, double max_dt, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	Body *dep_body = departure_step->body;
+	double jd_dep = departure_step->date;
 	OSV osv0 = system->prop_method == ORB_ELEMENTS ?
 					osv_from_elements(dep_body->orbit, jd_dep) :
 					osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, system->cb);
 
-	OSV osv_arr0 = system->prop_method == ORB_ELEMENTS ?
-				   osv_from_elements(arr_body->orbit, jd_dep) :
-				   osv_from_ephem(arr_body->ephem, arr_body->num_ephems, jd_dep, system->cb);
+	double dt = min_dt;
 
-	double r0 = mag_vec3(osv0.r), r1 = mag_vec3(osv_arr0.r);
-	double r_ratio =  r1/r0;
-	Hohmann hohmann = calc_hohmann_transfer(r0, r1, system->cb);
-	double hohmann_dur = hohmann.dur/86400;
-	double min_duration = 0.4 * hohmann_dur;
-	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
-	if(max_duration < max_dur) max_dur = max_duration;
-	if(min_duration > min_dur) min_dur = min_duration;
+	DataArray2 *data_dep = data_array2_create();
+	DataArray2 *data_arr = data_array2_create();
 
-	for(int i = 0; i < num_points; i++) {
-		double dur = (max_dur-min_dur)/num_points*i + min_dur;
-		double jd_arr = jd_dep + dur;
-		OSV osv1 = system->prop_method == ORB_ELEMENTS ?
+	struct ItinStep *curr_step = departure_step;
+	curr_step->r = osv0.r;
+	curr_step->v_body = osv0.v;
+	curr_step->v_dep = vec3(0, 0, 0);
+	curr_step->v_arr = vec3(0, 0, 0);
+	curr_step->num_next_nodes = 0;
+	curr_step->prev = NULL;
+	curr_step->next = (struct ItinStep **) malloc(1000 * sizeof(struct ItinStep *));
+	int counter = 0;
+
+	for(int j = 0; j < 1000; j++) {
+		// printf("%f  %f  %f  %f  %f\n", min_dt, max_dt, dt0, dt1, dt);
+
+		double jd_arr = jd_dep + dt / 86400;
+
+		OSV osv_arr = system->prop_method == ORB_ELEMENTS ?
 					osv_from_elements(arr_body->orbit, jd_arr) :
 					osv_from_ephem(arr_body->ephem, arr_body->num_ephems, jd_arr, system->cb);
 
-		Lambert3 tf = calc_lambert3(osv0.r, osv1.r, (jd_arr - jd_dep) * 86400, system->cb);
+		Lambert3 tf = calc_lambert3(osv0.r, osv_arr.r, (jd_arr - jd_dep) * 86400, system->cb);
 
-		double vinf = fabs(mag_vec3(subtract_vec3(tf.v0, osv0.v)));
-		double dv_dep = dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf);
+		double vinf_dep = fabs(mag_vec3(subtract_vec3(tf.v0, osv0.v)));
+		double dv_dep = dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf_dep);
+		double vinf_arr = fabs(mag_vec3(subtract_vec3(tf.v1, osv_arr.v)));
 
-		data_array2_append_new(data, dur, dv_dep);
+		if(dv_dep <= max_depdv) {
+			curr_step = get_first(curr_step);
+			// sort chronologically
+			int insert_index = counter;
+			while(insert_index > 0) {
+				if(curr_step->next[insert_index-1]->date < jd_arr) break;
+				insert_index--;
+			}
+			if(insert_index != counter) {
+				memmove(&curr_step->next[insert_index+1],
+					&curr_step->next[insert_index],
+					(counter+2 - insert_index) * sizeof(*curr_step->next));
+			}
+
+			curr_step->next[insert_index] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
+			curr_step->next[insert_index]->prev = curr_step;
+			curr_step->next[insert_index]->next = NULL;
+			curr_step = curr_step->next[insert_index];
+
+			curr_step->body = arr_body;
+			curr_step->date = jd_arr;
+			curr_step->r = osv_arr.r;
+			curr_step->v_dep = tf.v0;
+			curr_step->v_arr = tf.v1;
+			curr_step->v_body = osv_arr.v;
+			curr_step->num_next_nodes = 0;
+			curr_step->prev->num_next_nodes++;
+			counter++;
+		}
+
+		data_array2_insert_new(data_dep, dt/86400, dv_dep);
+		data_array2_insert_new(data_arr, dt/86400, vinf_arr);
+
+		if(dt == min_dt) dt = max_dt;
+		else if(dt == max_dt) dt = ( dt + data_array2_get_data(data_dep)[0].x*86400 ) / 2;
+		else {
+			double next_dep_x = calc_next_x_wrt_smoothness(data_dep, 0, dv_tolerance)*86400;
+			double next_arr_x = calc_next_x_wrt_smoothness(data_arr, 0, dv_tolerance)*86400;
+			if(next_dep_x < 0 && next_arr_x < 0) break;
+			if(next_dep_x > 0 && next_dep_x < next_arr_x || next_arr_x < 0) dt = next_dep_x;
+			else dt = next_arr_x;
+		}
 	}
-
-	return data;
+	data_array2_free(data_dep);
+	data_array2_free(data_arr);
 }
 
 
@@ -376,14 +422,8 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 	double max_dt = max_dur*86400;
 	double jd_dep_step = (jd_max_dep-jd_min_dep)/(departures_cap-1);
 
-	DataArray2 *data_dep = data_array2_create();
-	DataArray2 *data_arr = data_array2_create();
-
 	for(int i = 0; i < departures_cap; i++) {
 		double jd_dep = jd_min_dep + jd_dep_step*i;
-
-		data_array2_clear(data_dep);
-		data_array2_clear(data_arr);
 
 		osv0 = group->system->prop_method == ORB_ELEMENTS ?
 					osv_from_elements(group->dep_body->orbit, jd_dep) :
@@ -442,87 +482,16 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 		if(left_x < min_dur*86400) left_x = min_dur*86400;
 		if(right_x > dt1) right_x = dt1;
 		if(right_x > max_dur*86400) right_x = max_dur*86400;
-		double dt = left_x;
 
 		struct ItinStep *curr_step;
 		group->departures[group->num_departures] = malloc(sizeof(struct ItinStep));
 		curr_step = group->departures[group->num_departures];
 		curr_step->body = group->dep_body;
 		curr_step->date = jd_dep;
-		curr_step->r = osv0.r;
-		curr_step->v_body = osv0.v;
-		curr_step->v_dep = vec3(0, 0, 0);
-		curr_step->v_arr = vec3(0, 0, 0);
-		curr_step->num_next_nodes = 0;
-		curr_step->prev = NULL;
-		curr_step->next = (struct ItinStep **) malloc(1000 * sizeof(struct ItinStep *));
 		group->num_departures++;
-		int counter = 0;
 
-		for(int j = 0; j < 1000; j++) {
-			// printf("%f  %f  %f  %f  %f\n", min_dt, max_dt, dt0, dt1, dt);
-
-			double jd_arr = jd_dep + dt / 86400;
-
-			OSV osv1 = group->system->prop_method == ORB_ELEMENTS ?
-						osv_from_elements(group->arr_body->orbit, jd_arr) :
-						osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_arr, group->system->cb);
-
-			Lambert3 tf = calc_lambert3(osv0.r, osv1.r, (jd_arr - jd_dep) * 86400, group->system->cb);
-
-			double vinf = fabs(mag_vec3(subtract_vec3(tf.v0, osv0.v)));
-			double dv_dep = dv_circ(group->dep_body,alt2radius(group->dep_body, dep_periapsis),vinf);
-			vinf = fabs(mag_vec3(subtract_vec3(tf.v1, osv1.v)));
-			double dv_arr = dv_capture(group->arr_body,alt2radius(group->arr_body, dep_periapsis),vinf);
-			data_array2_insert_new(data_dep, dt/86400, dv_dep);
-			data_array2_insert_new(data_arr, dt/86400, dv_arr);
-			if(dv_dep <= max_depdv) {
-				curr_step = get_first(curr_step);
-
-				// sort chronologically
-				int insert_index = counter;
-				while(insert_index > 0) {
-					if(curr_step->next[insert_index-1]->date < jd_arr) break;
-					insert_index--;
-				}
-				if(insert_index != counter) {
-					memmove(&curr_step->next[insert_index+1],
-						&curr_step->next[insert_index],
-						(counter+2 - insert_index) * sizeof(*curr_step->next));
-				}
-
-				curr_step->next[insert_index] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-				curr_step->next[insert_index]->prev = curr_step;
-				curr_step->next[insert_index]->next = NULL;
-				curr_step = curr_step->next[insert_index];
-
-				curr_step->body = group->arr_body;
-				curr_step->date = jd_arr;
-				curr_step->r = osv1.r;
-				curr_step->v_dep = tf.v0;
-				curr_step->v_arr = tf.v1;
-				curr_step->v_body = osv1.v;
-				curr_step->num_next_nodes = 0;
-				curr_step->prev->num_next_nodes++;
-				counter++;
-			} else {
-				print_data_array2(data_dep, "dep", "dep_dv");
-			}
-
-			if(dt == left_x) dt = right_x;
-			else if(dt == right_x) dt = ( dt + data_array2_get_data(data_dep)[0].x*86400 ) / 2;
-			else {
-				double next_dep_x = calc_next_x_wrt_smoothness(data_dep, 0, dv_tolerance)*86400;
-				double next_arr_x = calc_next_x_wrt_smoothness(data_arr, 0, dv_tolerance)*86400;
-				if(next_dep_x < 0 && next_arr_x < 0) break;
-				if(next_dep_x > 0 && next_dep_x < next_arr_x || next_arr_x < 0) dt = next_dep_x;
-				else dt = next_arr_x;
-			}
-		}
+		calc_bounded_porkchop_line(group->departures[group->num_departures-1], group->arr_body, group->system, left_x, right_x, dep_periapsis, max_depdv, dv_tolerance);
 	}
-
-	data_array2_free(data_dep);
-	data_array2_free(data_arr);
 }
 
 
@@ -746,7 +715,7 @@ void get_dur_limits_from_departure_date(MeshBox2 *box, double jd_dep, DataArray2
 		for(int i = 0; i < box->tri.num; i++) {
 			if(triangle_is_edge(box->tri.triangles[i])) {
 				Vector2 min, max;
-				find_2dtriangle_minmax(box->tri.triangles[i], &min.x, &max.x, &min.y, &max.y);
+				find_2dtriangle_minmax(box->tri.triangles[i], &min, &max);
 				if(min.x > jd_dep || max.x < jd_dep) continue;
 				for(int edge_idx = 0; edge_idx < 3; edge_idx++) {
 					if(!box->tri.triangles[i]->adj_triangles[edge_idx]) {
@@ -798,8 +767,8 @@ DataArray2 * get_dur_limits_from_edge_triangles(Mesh2 *mesh) {
 		if(!triangle->adj_triangles[edge_idx]) {
 			first_point = triangle->points[edge_idx];
 			current_point = triangle->points[(edge_idx+1)%3];
-			data_array2_insert_new(data_array, first_point->pos.x, first_point->pos.y);
-			data_array2_insert_new(data_array, current_point->pos.x, current_point->pos.y);
+			data_array2_append_new(data_array, first_point->pos.x, first_point->pos.y);
+			data_array2_append_new(data_array, current_point->pos.x, current_point->pos.y);
 		}
 	}
 
@@ -815,7 +784,7 @@ DataArray2 * get_dur_limits_from_edge_triangles(Mesh2 *mesh) {
 							current_point = current_point->triangles[i]->points[(edge_idx+1)%3];
 							if(current_point == first_point) return data_array;
 							data_array2_append_new(data_array, current_point->pos.x, current_point->pos.y);
-							i = current_point->num_triangles;	// break loop outside loop
+							i = current_point->num_triangles;	// break outside loop
 							break;
 						}
 						if(current_point == current_point->triangles[i]->points[(edge_idx+1)%3] && prev_point != current_point->triangles[i]->points[edge_idx]) {
@@ -823,7 +792,7 @@ DataArray2 * get_dur_limits_from_edge_triangles(Mesh2 *mesh) {
 							current_point = current_point->triangles[i]->points[edge_idx];
 							if(current_point == first_point) return data_array;
 							data_array2_append_new(data_array, current_point->pos.x, current_point->pos.y);
-							i = current_point->num_triangles;	// break loop outside loop
+							i = current_point->num_triangles;	// break outside loop
 							break;
 						}
 					}
@@ -1372,3 +1341,194 @@ Mesh2 * get_rpe_mesh_from_fb_groups(FlyByGroups *fb_groups, Mesh2 *prev_mesh, De
 
 	return rpe_mesh;
 }
+
+
+
+
+FlyByGroups * get_refined_departure_groups(DepartureGroup *departure_group, DataArray2 *limits, double dep_periapsis, double max_dep_dv, double dv_tolerance) {
+	int num_limits = (int) data_array2_size(limits)/2;
+	Vector2 *limit_data = data_array2_get_data(limits);
+	double min_jd_dep = limit_data[0].x;
+	double max_jd_dep = limit_data[num_limits*2-1].x;
+	double max_ddur = 0;
+
+	DataArray1 *num_interval_change = data_array1_create();
+	int last_num_intervals = 0;
+	int interval_count = 0;
+	data_array1_append_new(num_interval_change, limit_data[0].x);
+	for(int i = 0; i < num_limits-1; i++) {
+		bool empty_limit = isnan(data_array2_get_data(limits)[i*2].y);
+		if(!empty_limit) {
+			double ddur = limit_data[i*2+1].y - limit_data[i*2].y;
+			if(ddur > max_ddur) max_ddur = ddur;
+			interval_count++;
+		}
+		if(limit_data[(i+1)*2].x != limit_data[i*2].x){
+			if(interval_count != last_num_intervals) {
+				if(i != 0 && empty_limit) {
+					data_array1_append_new(num_interval_change, limit_data[(i-1)*2].x);
+					data_array1_append_new(num_interval_change, limit_data[i*2].x);
+				} else if(i-interval_count >= 0) {
+					data_array1_append_new(num_interval_change, limit_data[(i-interval_count)*2].x);
+					data_array1_append_new(num_interval_change, limit_data[i*2].x);
+				}
+			}
+			last_num_intervals = interval_count;
+			interval_count = 0;
+		}
+	}
+	// catch edges with (for some reason) a single point
+	data_array1_append_new(num_interval_change, limit_data[(num_limits-1)*2-1].x);
+	data_array1_append_new(num_interval_change, limit_data[num_limits*2-1].x);
+	for(int i = 1; i < data_array1_size(num_interval_change); i += 3) {
+		data_array1_insert_new(num_interval_change, (data_array1_get_data(num_interval_change)[i-1] + data_array1_get_data(num_interval_change)[i])/2);
+	}
+
+	double jd_step = (max_jd_dep - min_jd_dep) / 500;
+	int limit_idx = 0;
+	double next_jd = limit_data[0].x;
+	double jd_dep = limit_data[0].x;
+
+	FlyByGroups *fb_groups = malloc(sizeof(FlyByGroups));
+	fb_groups->group_cap = 0;
+	fb_groups->num_groups = 0;
+	fb_groups->groups = NULL;
+	fb_groups->num_groups_dep = NULL;
+
+	int fb_group_x = -1; // is set to 0 during first loop
+	int num_last_interval = 0;
+
+
+	while(limit_idx < num_limits) {
+		jd_dep = limit_data[limit_idx*2].x;
+
+		if(jd_dep < next_jd) {
+			bool relevant_interval = false;
+			for(int i = 0; i < data_array1_size(num_interval_change); i++) {
+				if(jd_dep == data_array1_get_data(num_interval_change)[i] ||
+					(data_array1_get_data(num_interval_change)[i] < limit_data[limit_idx*2].x &&
+					data_array1_get_data(num_interval_change)[i] > limit_data[(limit_idx-1)*2].x)) {
+					relevant_interval = true;
+					break;
+				}
+			}
+			if(!relevant_interval) { limit_idx++; continue; }
+		}
+		next_jd = jd_dep+jd_step;
+		if(next_jd > max_jd_dep) next_jd = max_jd_dep;
+
+		int num_interval = get_num_interval_per_dep(limit_data, limit_idx);
+		if(num_last_interval != num_interval) {
+			fb_group_x++;
+			fb_groups->num_groups++;
+			if(fb_group_x == fb_groups->group_cap) {
+				increase_fbgroups_capacity(fb_groups);
+			}
+			num_last_interval = num_interval;
+			fb_groups->num_groups_dep[fb_group_x] = num_interval;
+			fb_groups->groups[fb_group_x] = malloc(num_interval*sizeof(FlyByGroup));
+			for(int i = 0; i < num_interval; i++) {
+				fb_groups->groups[fb_group_x][i].dep_dur = data_array2_create();
+				fb_groups->groups[fb_group_x][i].step_cap = 8;
+				fb_groups->groups[fb_group_x][i].left_steps = malloc(fb_groups->groups[fb_group_x][i].step_cap*sizeof(struct ItinStep*));
+			}
+		}
+
+		int fb_group_y = 0;
+
+		while(limit_data[limit_idx*2].x == jd_dep && limit_idx < num_limits) {
+			if(isnan(data_array2_get_data(limits)[limit_idx*2].y)) {limit_idx++; break;}
+			double min_dt = limit_data[limit_idx*2].y*86400;
+			double max_dt = limit_data[limit_idx*2+1].y*86400;
+
+			struct ItinStep *departure = malloc(sizeof(struct ItinStep));
+			departure->date = limit_data[limit_idx*2].x;
+			departure->body = departure_group->dep_body;
+			calc_bounded_porkchop_line(departure, departure_group->arr_body, departure_group->system, min_dt, max_dt, dep_periapsis, max_dep_dv, dv_tolerance);
+			int step_idx = (int) data_array2_size(fb_groups->groups[fb_group_x][fb_group_y].dep_dur);
+			if(step_idx + departure->num_next_nodes > fb_groups->groups[fb_group_x][fb_group_y].step_cap) {
+				while(step_idx + departure->num_next_nodes > fb_groups->groups[fb_group_x][fb_group_y].step_cap)
+					fb_groups->groups[fb_group_x][fb_group_y].step_cap *= 2;
+				struct ItinStep **left_steps = realloc(fb_groups->groups[fb_group_x][fb_group_y].left_steps, fb_groups->groups[fb_group_x][fb_group_y].step_cap*sizeof(struct ItinStep*));
+				if(left_steps) fb_groups->groups[fb_group_x][fb_group_y].left_steps = left_steps;
+			}
+			memcpy(fb_groups->groups[fb_group_x][fb_group_y].left_steps+step_idx, departure->next, departure->num_next_nodes*sizeof(struct ItinStep*));
+
+			for(int j = 0; j < departure->num_next_nodes; j++) {
+				double x = departure->date;
+				double y = departure->next[j]->date - x;
+				data_array2_append_new(fb_groups->groups[fb_group_x][fb_group_y].dep_dur, x, y);
+			}
+			limit_idx++;
+			fb_group_y++;
+		}
+	}
+
+	return fb_groups;
+}
+
+Mesh2 * get_dep_mesh_from_fb_groups(FlyByGroups *fb_groups, DepartureGroup *departure_group) {
+	MeshGrid2 ***grids = malloc(fb_groups->num_groups*sizeof(MeshGrid2**));
+	for(int i = 0; i < fb_groups->num_groups; i++) {
+		grids[i] = malloc(fb_groups->num_groups_dep[i]*sizeof(MeshGrid2*));
+	}
+
+	for(int x_idx = 0; x_idx < fb_groups->num_groups; x_idx++) {
+		for(int y_idx = 0; y_idx < fb_groups->num_groups_dep[x_idx]; y_idx++) {
+			void *steps = (void*) fb_groups->groups[x_idx][y_idx].left_steps;
+			grids[x_idx][y_idx] = create_mesh_grid(fb_groups->groups[x_idx][y_idx].dep_dur, steps);
+		}
+	}
+	Mesh2 *mesh = create_mesh_from_multiple_grids_w_angled_guideline(grids, fb_groups->num_groups, fb_groups->num_groups_dep, departure_group->boundary_gradient);
+
+	for(int x_idx = 0; x_idx < fb_groups->num_groups; x_idx++) {
+		for(int y_idx = 0; y_idx < fb_groups->num_groups_dep[x_idx]; y_idx++) {
+			free_grid_keep_points(grids[x_idx][y_idx]);
+		}
+		free(grids[x_idx]);
+	}
+	free(grids);
+
+	for(int i = 0; i < mesh->num_points; i++) {
+		struct ItinStep *ptr = mesh->points[i]->data;
+		double vinf = mag_vec3(subtract_vec3(ptr->v_arr, ptr->v_body));
+		mesh->points[i]->val = vinf;
+	}
+
+	return mesh;
+}
+
+// Mesh2 * get_refined_mesh_from_departures(struct ItinStep ***departures, int num_departures, int *num_groups_per_departure) {
+// 	MeshGrid2 ***grids = malloc(num_departures*sizeof(MeshGrid2**));
+// 	for(int i = 0; i < num_departures; i++) {
+// 		grids[i] = malloc(num_groups_per_departure[i]*sizeof(MeshGrid2*));
+// 	}
+//
+// 	for(int x_idx = 0; x_idx < num_departures; x_idx++) {
+// 		for(int y_idx = 0; y_idx < num_groups_per_departure[x_idx]; y_idx++) {
+// 			void *steps = (void*) departures[x_idx][y_idx].;
+// 			grids[x_idx][y_idx] = create_mesh_grid(fb_groups->groups[x_idx][y_idx].dep_dur, steps);
+// 		}
+// 	}
+// 	Mesh2 *rpe_mesh = create_mesh_from_multiple_grids_w_angled_guideline(grids, fb_groups->num_groups, fb_groups->num_groups_dep, prev_departure_group->boundary_gradient);
+//
+// 	for(int x_idx = 0; x_idx < fb_groups->num_groups; x_idx++) {
+// 		for(int y_idx = 0; y_idx < fb_groups->num_groups_dep[x_idx]; y_idx++) {
+// 			free_grid_keep_points(grids[x_idx][y_idx]);
+// 		}
+// 		free(grids[x_idx]);
+// 	}
+// 	free(grids);
+//
+// 	for(int i = 0; i < rpe_mesh->num_points; i++) {
+// 		struct ItinStep *ptr = rpe_mesh->points[i]->data;
+// 		double jd_dep = rpe_mesh->points[i]->pos.x;
+// 		double dur = rpe_mesh->points[i]->pos.y;
+// 		Vector3 v_arr = get_varr_from_mesh(prev_mesh, jd_dep, dur);
+// 		Vector3 v_body = get_vbody_from_mesh(prev_mesh, jd_dep, dur);
+// 		double r_pe = get_flyby_periapsis(v_arr, ptr->v_dep, v_body, prev_departure_group->arr_body);
+// 		rpe_mesh->points[i]->val = r_pe;
+// 	}
+//
+// 	return rpe_mesh;
+// }
