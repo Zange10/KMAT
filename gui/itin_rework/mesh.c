@@ -15,10 +15,10 @@ Mesh2 * new_mesh() {
 	mesh->points = malloc(mesh->point_cap*sizeof(MeshPoint2*));
 	mesh->mesh_box = malloc(sizeof(MeshBox2));
 	mesh->mesh_box->parent = NULL;
-	mesh->mesh_box->type = MESHBOX_SUBBOXES;
-	mesh->mesh_box->subboxes.num = 0;
-	mesh->mesh_box->subboxes.cap = 4;
-	mesh->mesh_box->subboxes.boxes = malloc(mesh->mesh_box->subboxes.cap*sizeof(MeshBox2*));
+	mesh->mesh_box->type = MESHBOX_TRIANGLES;
+	mesh->mesh_box->tri.num = 0;
+	mesh->mesh_box->tri.cap = 0;
+	mesh->mesh_box->tri.triangles = NULL;
 	mesh->mesh_box->min = vec2(NAN, NAN);
 	mesh->mesh_box->max = vec2(NAN, NAN);
 	return mesh;
@@ -302,7 +302,7 @@ MeshGrid2 *create_mesh_grid(DataArray2 *pos, void **data) {
 				temp = realloc(grid->num_col_rows, col_cap * sizeof(size_t));
 				if(temp) grid->num_col_rows = temp;
 			}
-			if(pos_data[i].x < -1e9) {
+			if(isnan(pos_data[i].x)) {
 				if(i+1 < data_array2_size(pos)) {
 					grid->points[grid->num_cols-1] = NULL;
 					grid->num_col_rows[grid->num_cols-1] = 0;
@@ -452,39 +452,16 @@ Mesh2 * create_mesh_from_grid(MeshGrid2 *grid) {
 	for(int i = 0; i < grid->num_cols; i++) {
 		for(int j = 0; j < grid->num_col_rows[i]; j++) {
 			add_point_to_mesh(mesh, grid->points[i][j]);
+			if(isnan(grid->points[i][j]->pos.x) || isnan(grid->points[i][j]->pos.y)) continue;
 			if(grid->points[i][j]->pos.x < min.x) min.x = grid->points[i][j]->pos.x;
 			if(grid->points[i][j]->pos.x > max.x) max.x = grid->points[i][j]->pos.x;
 			if(grid->points[i][j]->pos.y < min.y) min.y = grid->points[i][j]->pos.y;
 			if(grid->points[i][j]->pos.y > max.y) max.y = grid->points[i][j]->pos.y;
 		}
 	}
-	int subbox_rows = 10, subbox_cols = 10;
-	mesh->mesh_box->parent = NULL;
+
 	mesh->mesh_box->min = min;
 	mesh->mesh_box->max = max;
-	mesh->mesh_box->subboxes.num = subbox_rows * subbox_cols;
-	mesh->mesh_box->subboxes.cap = subbox_rows * subbox_cols;
-	MeshBox2 **temp = realloc(mesh->mesh_box->subboxes.boxes, mesh->mesh_box->subboxes.num * sizeof(MeshBox2*));
-	if(temp) mesh->mesh_box->subboxes.boxes = temp;
-	// mesh->mesh_box->subboxes.boxes = malloc(mesh->mesh_box->subboxes.num * sizeof(MeshBox2*));
-	mesh->mesh_box->type = MESHBOX_SUBBOXES;
-	int idx = 0;
-	for(int col = 0; col < subbox_cols; col++) {
-		double min_x = min.x + col * (max.x - min.x) / subbox_cols;
-		double max_x = min.x + (col+1) * (max.x - min.x) / subbox_cols;
-		for(int row = 0; row < subbox_rows; row++) {
-			double min_y = min.y + row * (max.y - min.y) / subbox_rows;
-			double max_y = min.y + (row+1) * (max.y - min.y) / subbox_rows;
-			mesh->mesh_box->subboxes.boxes[idx] = malloc(sizeof(MeshBox2));
-			mesh->mesh_box->subboxes.boxes[idx]->min = vec2(min_x, min_y);
-			mesh->mesh_box->subboxes.boxes[idx]->max = vec2(max_x, max_y);
-			mesh->mesh_box->subboxes.boxes[idx]->type = MESHBOX_TRIANGLES;
-			mesh->mesh_box->subboxes.boxes[idx]->tri.cap = 0;
-			mesh->mesh_box->subboxes.boxes[idx]->tri.num = 0;
-			mesh->mesh_box->subboxes.boxes[idx]->tri.triangles = NULL;
-			idx++;
-		}
-	}
 
 	for(int x_idx = 0; x_idx < grid->num_cols-1; x_idx++) {
 		if(x_idx < grid->num_cols-1 && grid->num_col_rows[x_idx+1] == 0) {x_idx++; continue;}
@@ -528,6 +505,7 @@ Mesh2 * create_mesh_from_grid(MeshGrid2 *grid) {
 		}
 	}
 
+	rebuild_mesh_boxes(mesh);
 	return mesh;
 }
 
@@ -541,6 +519,7 @@ Mesh2 * create_mesh_from_grid_w_angled_guideline(MeshGrid2 *grid, double gradien
 	for(int i = 0; i < grid->num_cols; i++) {
 		for(int j = 0; j < grid->num_col_rows[i]; j++) {
 			add_point_to_mesh(mesh, grid->points[i][j]);
+			if(isnan(grid->points[i][j]->pos.x) || isnan(grid->points[i][j]->pos.y)) continue;
 			if(grid->points[i][j]->pos.x < min.x) min.x = grid->points[i][j]->pos.x;
 			if(grid->points[i][j]->pos.x > max.x) max.x = grid->points[i][j]->pos.x;
 			if(grid->points[i][j]->pos.y < min.y) min.y = grid->points[i][j]->pos.y;
@@ -548,34 +527,8 @@ Mesh2 * create_mesh_from_grid_w_angled_guideline(MeshGrid2 *grid, double gradien
 		}
 	}
 
-	int subbox_rows = 10, subbox_cols = 10;
-	mesh->mesh_box->parent = NULL;
 	mesh->mesh_box->min = min;
 	mesh->mesh_box->max = max;
-	mesh->mesh_box->subboxes.num = subbox_rows * subbox_cols;
-	mesh->mesh_box->subboxes.cap = subbox_rows * subbox_cols;
-	MeshBox2 **temp = realloc(mesh->mesh_box->subboxes.boxes, mesh->mesh_box->subboxes.num * sizeof(MeshBox2*));
-	if(temp) mesh->mesh_box->subboxes.boxes = temp;
-	// mesh->mesh_box->subboxes.boxes = malloc(mesh->mesh_box->subboxes.num * sizeof(MeshBox2*));
-	mesh->mesh_box->type = MESHBOX_SUBBOXES;
-	int idx = 0;
-	for(int col = 0; col < subbox_cols; col++) {
-		double min_x = min.x + col * (max.x - min.x) / subbox_cols;
-		double max_x = min.x + (col+1) * (max.x - min.x) / subbox_cols;
-		for(int row = 0; row < subbox_rows; row++) {
-			double min_y = min.y + row * (max.y - min.y) / subbox_rows;
-			double max_y = min.y + (row+1) * (max.y - min.y) / subbox_rows;
-			mesh->mesh_box->subboxes.boxes[idx] = malloc(sizeof(MeshBox2));
-			mesh->mesh_box->subboxes.boxes[idx]->parent = mesh->mesh_box;
-			mesh->mesh_box->subboxes.boxes[idx]->min = vec2(min_x, min_y);
-			mesh->mesh_box->subboxes.boxes[idx]->max = vec2(max_x, max_y);
-			mesh->mesh_box->subboxes.boxes[idx]->type = MESHBOX_TRIANGLES;
-			mesh->mesh_box->subboxes.boxes[idx]->tri.cap = 0;
-			mesh->mesh_box->subboxes.boxes[idx]->tri.num = 0;
-			mesh->mesh_box->subboxes.boxes[idx]->tri.triangles = NULL;
-			idx++;
-		}
-	}
 
 	for(int x_idx = 0; x_idx < grid->num_cols-1; x_idx++) {
 		if(x_idx < grid->num_cols-1 && grid->num_col_rows[x_idx+1] == 0) {x_idx++; continue;}
@@ -625,6 +578,7 @@ Mesh2 * create_mesh_from_grid_w_angled_guideline(MeshGrid2 *grid, double gradien
 		}
 	}
 
+	rebuild_mesh_boxes(mesh);
 	return mesh;
 }
 
@@ -771,6 +725,7 @@ void subdivide_mesh_box(MeshBox2 **box_p, int num_rows, int num_cols, int level)
 
 void rebuild_mesh_boxes(Mesh2 *mesh) {
 	if(!mesh || mesh->num_points == 0) return;
+
 	MeshBox2 *new_box = malloc(sizeof(MeshBox2));
 	new_box->parent = NULL;
 	new_box->min = mesh->mesh_box->min;
@@ -783,7 +738,7 @@ void rebuild_mesh_boxes(Mesh2 *mesh) {
 
 	if(new_box->tri.num > 100) subdivide_mesh_box(&new_box, 5, 5, 0);
 
-	free_mesh_box(mesh->mesh_box);
+	if(mesh->mesh_box) free_mesh_box(mesh->mesh_box);
 	mesh->mesh_box = new_box;
 }
 

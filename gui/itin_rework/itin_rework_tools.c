@@ -365,10 +365,8 @@ double calc_opposition_conjunction_gradient(Body *dep_body, Body *arr_body, Cele
 	return calc_orbital_period(orbit1)/calc_orbital_period(orbit0) - 1;
 }
 
-void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
-	int departures_cap = group->num_departures;
-	group->num_departures = 0;
-	group->departures = malloc(departures_cap * sizeof(struct ItinStep*));
+void calc_group_porkchop(SegmentGroup *group, int shift, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	group->segment_steps = malloc(departure_cap * sizeof(struct ItinStep*));
 
 	double opp_conj_gradient = calc_opposition_conjunction_gradient(group->dep_body, group->arr_body, group->system, (jd_min_dep+jd_max_dep)/2);
 	if(opp_conj_gradient > 0) shift *= -1;
@@ -420,9 +418,9 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 
 	double min_dt = min_dur*86400;
 	double max_dt = max_dur*86400;
-	double jd_dep_step = (jd_max_dep-jd_min_dep)/(departures_cap-1);
+	double jd_dep_step = (jd_max_dep-jd_min_dep)/(departure_cap-1);
 
-	for(int i = 0; i < departures_cap; i++) {
+	for(int i = 0; i < departure_cap; i++) {
 		double jd_dep = jd_min_dep + jd_dep_step*i;
 
 		osv0 = group->system->prop_method == ORB_ELEMENTS ?
@@ -459,21 +457,11 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 
 		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x);
 
-		// printf("ROOT: %f   %f   (%f  %f)   (%f  %f)\n", left_x/86400, right_x/86400, dt0/86400, dt1/86400, opp_guess/86400, conj_guess/86400);
+		// No departure possible within given constraints
 		if(left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
-			if(group->num_departures > 0) {
-				struct ItinStep *curr_step;
-				group->departures[group->num_departures] = malloc(sizeof(struct ItinStep));
-				curr_step = group->departures[group->num_departures];
-				curr_step->prev = NULL;
-				curr_step->next = NULL;
-				group->num_departures++;
-
-				if(group->departures[group->num_departures-2]->num_next_nodes < 0) {
-					group->departures[group->num_departures-1]->num_next_nodes = -2;
-				} else {
-					group->departures[group->num_departures-1]->num_next_nodes = -1;
-				}
+			if(group->num_steps > 0 && group->segment_steps[group->num_steps-1] != NULL) {
+				group->segment_steps[group->num_steps] = NULL;
+				group->num_steps++;
 			}
 			continue;
 		}
@@ -483,14 +471,11 @@ void calc_group_porkchop(DepartureGroup *group, int shift, double jd_min_dep, do
 		if(right_x > dt1) right_x = dt1;
 		if(right_x > max_dur*86400) right_x = max_dur*86400;
 
-		struct ItinStep *curr_step;
-		group->departures[group->num_departures] = malloc(sizeof(struct ItinStep));
-		curr_step = group->departures[group->num_departures];
-		curr_step->body = group->dep_body;
-		curr_step->date = jd_dep;
-		group->num_departures++;
-
-		calc_bounded_porkchop_line(group->departures[group->num_departures-1], group->arr_body, group->system, left_x, right_x, dep_periapsis, max_depdv, dv_tolerance);
+		group->segment_steps[group->num_steps] = malloc(sizeof(struct ItinStep));
+		group->segment_steps[group->num_steps]->body = group->dep_body;
+		group->segment_steps[group->num_steps]->date = jd_dep;
+		calc_bounded_porkchop_line(group->segment_steps[group->num_steps], group->arr_body, group->system, left_x, right_x, dep_periapsis, max_depdv, dv_tolerance);
+		group->num_steps++;
 	}
 }
 
@@ -527,10 +512,10 @@ double calc_time_to_next_an_dn_line_up(OSV osv_dep_body, OSV osv_arr_body, Body 
 }
 
 
-DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double vinf_tolerance) {
+DataArray2 * calc_min_vinf_line(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double vinf_tolerance) {
 	DataArray2 *min_per_dep = data_array2_create();
-	int departures_cap = group->num_departures;
-	group->num_departures = 0;
+	int departures_cap = group->num_steps;
+	group->num_steps = 0;
 	double opp_conj_gradient = calc_opposition_conjunction_gradient(group->dep_body, group->arr_body, group->system, (jd_min_dep+jd_max_dep)/2);
 	if(opp_conj_gradient > 0) shift *= -1;
 
@@ -972,7 +957,7 @@ Vector3 get_vbody_from_mesh(Mesh2 *mesh, double jd_arr, double dur) {
 	return vec3(varrx, varry, varrz);
 }
 
-struct ItinStep * get_next_step_from_vinf(DepartureGroup *group, double v_inf, double jd_dep, double min_dur_dt, double max_dur_dt, bool leftside, double tolerance) {
+struct ItinStep * get_next_step_from_vinf(SegmentGroup *group, double v_inf, double jd_dep, double min_dur_dt, double max_dur_dt, bool leftside, double tolerance) {
 	OSV osv_dep = group->system->prop_method == ORB_ELEMENTS ?
 					osv_from_elements(group->dep_body->orbit, jd_dep) :
 					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
@@ -1101,7 +1086,7 @@ void increase_fbgroups_capacity(FlyByGroups *fb_groups) {
 	}
 }
 
-FlyByGroups * get_flyby_groups_wrt_vinf(Mesh2 *mesh, DepartureGroup *departure_group, DataArray2 *vinf_limits, double tolerance) {
+FlyByGroups * get_flyby_groups_wrt_vinf(Mesh2 *mesh, SegmentGroup *departure_group, DataArray2 *vinf_limits, double tolerance) {
 	int num_limits = (int) data_array2_size(vinf_limits)/2;
 	Vector2 *limit_data = data_array2_get_data(vinf_limits);
 	double min_jd_next_dep = limit_data[0].x;
@@ -1307,7 +1292,7 @@ FlyByGroups * get_flyby_groups_wrt_vinf(Mesh2 *mesh, DepartureGroup *departure_g
 	return fb_groups;
 }
 
-Mesh2 * get_rpe_mesh_from_fb_groups(FlyByGroups *fb_groups, Mesh2 *prev_mesh, DepartureGroup *prev_departure_group, bool left_side) {
+Mesh2 * get_rpe_mesh_from_fb_groups(FlyByGroups *fb_groups, Mesh2 *prev_mesh, SegmentGroup *prev_departure_group, bool left_side) {
 	MeshGrid2 ***grids = malloc(fb_groups->num_groups*sizeof(MeshGrid2**));
 	for(int i = 0; i < fb_groups->num_groups; i++) {
 		grids[i] = malloc(fb_groups->num_groups_dep[i]*sizeof(MeshGrid2*));
@@ -1345,7 +1330,7 @@ Mesh2 * get_rpe_mesh_from_fb_groups(FlyByGroups *fb_groups, Mesh2 *prev_mesh, De
 
 
 
-FlyByGroups * get_refined_departure_groups(DepartureGroup *departure_group, DataArray2 *limits, double dep_periapsis, double max_dep_dv, double dv_tolerance) {
+FlyByGroups * get_refined_departure_groups(SegmentGroup *departure_group, DataArray2 *limits, double dep_periapsis, double max_dep_dv, double dv_tolerance) {
 	int num_limits = (int) data_array2_size(limits)/2;
 	Vector2 *limit_data = data_array2_get_data(limits);
 	double min_jd_dep = limit_data[0].x;
@@ -1467,7 +1452,7 @@ FlyByGroups * get_refined_departure_groups(DepartureGroup *departure_group, Data
 	return fb_groups;
 }
 
-Mesh2 * get_dep_mesh_from_fb_groups(FlyByGroups *fb_groups, DepartureGroup *departure_group) {
+Mesh2 * get_dep_mesh_from_fb_groups(FlyByGroups *fb_groups, SegmentGroup *departure_group) {
 	MeshGrid2 ***grids = malloc(fb_groups->num_groups*sizeof(MeshGrid2**));
 	for(int i = 0; i < fb_groups->num_groups; i++) {
 		grids[i] = malloc(fb_groups->num_groups_dep[i]*sizeof(MeshGrid2*));

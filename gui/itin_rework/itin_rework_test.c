@@ -28,7 +28,9 @@ GObject *tf_ir_maxdur;
 GObject *tf_ir_tolerance;
 GObject *tf_ir_numdeps;
 GObject *tf_ir_maxdv;
-GObject *tf_ir_pcgroup;
+GObject *tf_ir_pcgroup0;
+GObject *tf_ir_pcgroup1;
+GObject *tf_ir_pcgroup2;
 
 CelestSystem *ir_system;
 CoordinateSystem *ir_coord_sys0;
@@ -138,7 +140,9 @@ void init_itin_rework_test(GtkBuilder *builder) {
 	tf_ir_tolerance = gtk_builder_get_object(builder, "tf_ir_tolerance");
 	tf_ir_numdeps = gtk_builder_get_object(builder, "tf_ir_numdeps");
 	tf_ir_maxdv = gtk_builder_get_object(builder, "tf_ir_maxdv");
-	tf_ir_pcgroup = gtk_builder_get_object(builder, "tf_ir_pcgroup");
+	tf_ir_pcgroup0 = gtk_builder_get_object(builder, "tf_ir_pcgroup0");
+	tf_ir_pcgroup1 = gtk_builder_get_object(builder, "tf_ir_pcgroup1");
+	tf_ir_pcgroup2 = gtk_builder_get_object(builder, "tf_ir_pcgroup2");
 
 	ir_system = NULL;
 
@@ -185,6 +189,7 @@ G_MODULE_EXPORT void on_ir_central_body_change() {
 }
 
 G_MODULE_EXPORT void on_calc_ir() {
+	return;
 	TimingMeasurements tm = init_timing_measurements();
 	char *string;
 
@@ -202,7 +207,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	double target_numdeps = strtod(string, NULL);
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdv));
 	double max_dep_dv = strtod(string, NULL);
-	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup0));
 	int pcgroup = (int) strtod(string, NULL);
 
 	Body *dep_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_depbody))];
@@ -233,13 +238,13 @@ G_MODULE_EXPORT void on_calc_ir() {
 	// printf("%d\n", counter);
 	// num_of_groups = counter;
 
-	DepartureGroup *departure_groups = malloc(sizeof(DepartureGroup));
+	SegmentGroup *departure_groups = malloc(sizeof(SegmentGroup));
 	departure_groups->dep_body = dep_body;
 	departure_groups->arr_body = arr_body;
-	departure_groups->num_departures = num_iterations;
+	departure_groups->num_steps = num_iterations;
 	departure_groups->system = ir_system;
 
-	calc_group_porkchop(departure_groups, 5, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
+	calc_group_porkchop(departure_groups, 5, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
 
 	end_time_measurement(&tm, "Departure Porkchop");
 
@@ -251,8 +256,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	DataArray2 *step_pos = data_array2_create();
 	int counter = 0;
-	for(int i = 0; i < departure_groups->num_departures; i++) {
-		struct ItinStep *step = departure_groups->departures[i];
+	for(int i = 0; i < departure_groups->num_steps; i++) {
+		struct ItinStep *step = departure_groups->segment_steps[i];
 		if(step->num_next_nodes == -1) {
 			double x = -1e10;
 			double y = 0;
@@ -310,11 +315,11 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	start_time_measurement(&tm);
 
-	DepartureGroup *departure_group = malloc(sizeof(DepartureGroup));
+	SegmentGroup *departure_group = malloc(sizeof(SegmentGroup));
 	DataArray2 *vinf_array = NULL;
 	departure_group->dep_body = arr_body;
 	departure_group->arr_body = get_body_by_name("Mars", ir_system);
-	departure_group->num_departures = (int) target_numdeps;
+	departure_group->num_steps = (int) target_numdeps;
 	departure_group->system = ir_system;
 
 	vinf_array = calc_min_vinf_line(departure_group, pcgroup, mesh->mesh_box->min.x, mesh->mesh_box->max.x, max_dep+max_dur, min_dur, max_dur, 1);
@@ -580,148 +585,111 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_numdeps));
 	double target_numdeps = strtod(string, NULL);
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdv));
-	double max_dep_dv = strtod(string, NULL);
-	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup));
-	int pcgroup = (int) strtod(string, NULL);
+	double max_depdv = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup0));
+	int pcgroup0 = (int) strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup1));
+	int pcgroup1 = (int) strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup2));
+	int pcgroup2 = (int) strtod(string, NULL);
 
 	Body *dep_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_depbody))];
 	Body *arr_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_arrbody))];
 
 	double dep_periapsis = dep_body->atmo_alt + ir_dep_periapsis;
 
-	double jd_dep = min_dep;
 	int num_iterations = (int) target_numdeps;
 
 	start_time_measurement(&tm);
 
-	int num_of_groups = 50;
-	DepartureGroup **departure_groups = malloc(num_of_groups*sizeof(DepartureGroup *));
-	int counter = 0;
-	for(int i = 0; i < num_of_groups; i++) {
-		departure_groups[counter] = malloc(sizeof(DepartureGroup));
-		departure_groups[counter]->dep_body = dep_body;
-		departure_groups[counter]->arr_body = arr_body;
-		departure_groups[counter]->num_departures = num_iterations;
-		departure_groups[counter]->system = ir_system;
+	DepartureGroup departure;
+	departure.dep_body = dep_body;
+	departure.num_next_groups = 0;
+	departure.group_cap = 8;
+	departure.segment_groups = malloc(departure.group_cap * sizeof(SegmentGroup *));
+	// for loop to be exchanged with some sort of boundary check
+	for(int i = 0; i < 50; i++) {
+		SegmentGroup *new_group = malloc(sizeof(SegmentGroup));
+		new_group->dep_body = dep_body;
+		new_group->arr_body = arr_body;
+		new_group->num_steps = 0;
+		new_group->system = ir_system;
+		new_group->num_next_groups = 0;
+		new_group->group_cap = 0;
+		new_group->next = NULL;
+		new_group->prev = NULL;
 
-		calc_group_porkchop(departure_groups[counter], i-10, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
-		if(departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
-		else counter++;
+		calc_group_porkchop(new_group, i-10, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance);
+		if(new_group->num_steps != 0) {
+			if(departure.num_next_groups == departure.group_cap) {
+				departure.group_cap *= 2;
+				SegmentGroup **temp_groups = realloc(departure.segment_groups, departure.group_cap * sizeof(SegmentGroup *));
+				if(temp_groups) departure.segment_groups = temp_groups;
+			}
+			departure.segment_groups[departure.num_next_groups++] = new_group;
+		} else free(new_group);
 	}
+	printf("Number of Departure Groups: %d\n\n", departure.num_next_groups);
 
-	printf("%d\n", counter);
-	num_of_groups = counter;
-
-	end_time_measurement(&tm, "Departure Porkchop");
-
+	end_time_measurement(&tm, "Porkchopping Departure Groups");
 	start_time_measurement(&tm);
 
-
-	Mesh2 *mesh = new_mesh();
-	struct ItinStep **steps = malloc(100000*sizeof(struct ItinStep *));
-
-	for(int group_id = 0; group_id < num_of_groups; group_id++) {
+	for(int group_idx = 0; group_idx < departure.num_next_groups; group_idx++) {
+		struct ItinStep **segment_steps = malloc(100000*sizeof(struct ItinStep *));
 		DataArray2 *step_pos = data_array2_create();
-		counter = 0;
-		for(int i = 0; i < departure_groups[group_id]->num_departures; i++) {
-			struct ItinStep *step = departure_groups[group_id]->departures[i];
-			if(step->num_next_nodes == -1) {
-				double x = -1e10;
-				double y = 0;
-				data_array2_append_new(step_pos, x, y);
-				steps[counter] = NULL;
+		int counter = 0;
+		SegmentGroup *group = departure.segment_groups[group_idx];
+		for(int i = 0; i < group->num_steps; i++) {
+			struct ItinStep *step = group->segment_steps[i];
+			if(!step) {
+				data_array2_append_new(step_pos, NAN, NAN);
+				segment_steps[counter] = NULL;
 				counter++;
+				continue;
 			}
-			if(step->num_next_nodes < 0) step->num_next_nodes = 0;
 
 			for(int j = 0; j < step->num_next_nodes; j++) {
 				double x = step->date;
 				double y = step->next[j]->date - step->date;
 
 				data_array2_append_new(step_pos, x, y);
-				steps[counter] = step->next[j];
+				segment_steps[counter] = step->next[j];
 				counter++;
 			}
 		}
-
-		MeshGrid2 *grid = create_mesh_grid(step_pos, (void**) steps);
-		Mesh2 *group_mesh = create_mesh_from_grid_w_angled_guideline(grid, departure_groups[group_id]->boundary_gradient);
-		mesh = combine_meshes(mesh, group_mesh);
+		MeshGrid2 *grid = create_mesh_grid(step_pos, (void**) segment_steps);
+		group->mesh = new_mesh();
+		group->mesh = create_mesh_from_grid_w_angled_guideline(grid, group->boundary_gradient);
 		free_grid_keep_points(grid);
 		data_array2_free(step_pos);
-	}
-	free(steps);
-
-
-
-	end_time_measurement(&tm, "Building and Populating Mesh");
-
-	start_time_measurement(&tm);
-
-	for(int i = 0; i < mesh->num_points; i++) {
-		MeshPoint2 *point = mesh->points[i];
-		struct ItinStep *step = point->data;
-		point->pos.x = step->date;
-		point->pos.y = step->date - get_first(step)->date;
+		free(segment_steps);
 	}
 
-	for(int i = 0; i < mesh->num_points; i++) {
-		struct ItinStep *ptr = mesh->points[i]->data;
-		double vinf = mag_vec3(subtract_vec3(ptr->v_arr, ptr->v_body));
-		mesh->points[i]->val = vinf;
-	}
-	update_mesh_minmax(mesh);
-
-	end_time_measurement(&tm, "Modifying Mesh");
-
-	start_time_measurement(&tm);
-	rebuild_mesh_boxes(mesh);
-	end_time_measurement(&tm, "Rebuilding Boxes");
-
-
-	// attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
-	attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
-	// attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_BOXES, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE, &remove_step_from_itinerary_void_ptr, FALSE);
-
+	end_time_measurement(&tm, "Building Departure Meshes");
 	start_time_measurement(&tm);
 
-	DepartureGroup *departure_group = malloc(sizeof(DepartureGroup));
-	DataArray2 *vinf_array = NULL;
-	departure_group->dep_body = arr_body;
-	departure_group->arr_body = get_body_by_name("Mars", ir_system);
-	departure_group->num_departures = (int) target_numdeps;
-	departure_group->system = ir_system;
-
-	// vinf_array = calc_min_vinf_line(departure_group, pcgroup+1, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, 1);
-	vinf_array = calc_min_vinf_line(departure_group, pcgroup, mesh->mesh_box->min.x, mesh->mesh_box->max.x, mesh->mesh_box->max.x+max_dur, min_dur, max_dur, 1);
-	plot_scatter_data2(ir_coord_sys0, vinf_array, CS_AXIS_DATE, CS_AXIS_NUMBER, FALSE);
-	return;
-
-	end_time_measurement(&tm, "Vinf line");
-
-	start_time_measurement(&tm);
-
-	DataArray2 *vinf_fit = data_array2_create();
-
-	for(int i = 0; i < 1000; i++) {
-		double jd_next_dep = mesh->mesh_box->min.x + (mesh->mesh_box->max.x-mesh->mesh_box->min.x)*i/1000;
-		double jd_vinf_dep = interpolate_from_sorted_data_array(vinf_array, jd_next_dep);
-		if(isnan(jd_vinf_dep)) continue;
-
-		for(int dur = 50; dur < 300; dur+=1) {
-			double vinf_arr = get_mesh_interpolated_value(mesh, vec2(jd_next_dep, dur));
-			if(!isnan(vinf_arr) && jd_vinf_dep-tolerance < vinf_arr+tolerance) {
-				data_array2_append_new(vinf_fit, jd_next_dep, dur);
-			}
+	for(int group_idx = 0; group_idx < departure.num_next_groups; group_idx++) {
+		Mesh2 *mesh = departure.segment_groups[pcgroup0]->mesh;
+		for(int i = 0; i < mesh->num_points; i++) {
+			struct ItinStep *ptr = mesh->points[i]->data;
+			double vinf = mag_vec3(subtract_vec3(ptr->v_arr, ptr->v_body));
+			mesh->points[i]->val = vinf;
 		}
 	}
 
+	end_time_measurement(&tm, "Setting Mesh Values to Vinf of first Fly-By");
 
-	end_time_measurement(&tm, "Combine Porkchop with vinf line");
+
+
+	attach_mesh_to_coordinate_system(ir_coord_sys0, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
+
+
+
+
+	for(int i = 0; i < departure.num_next_groups; i++) free(departure.segment_groups[i]);
+	free(departure.segment_groups);
 	print_timing_measurements(tm);
 	free_timing_measurements(&tm);
-
-	scatter_data2(ir_coord_sys0, vinf_fit, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE);
 }
 
 G_MODULE_EXPORT void on_calc_ir3() {
@@ -741,7 +709,7 @@ G_MODULE_EXPORT void on_calc_ir3() {
 	double target_numdeps = strtod(string, NULL);
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdv));
 	double max_dep_dv = strtod(string, NULL);
-	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup0));
 	int pcgroup = (int) strtod(string, NULL);
 
 	Body *dep_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_depbody))];
@@ -757,17 +725,17 @@ G_MODULE_EXPORT void on_calc_ir3() {
 	gettimeofday(&start, NULL);  // Record the ending time
 
 	int num_of_groups = 50;
-	DepartureGroup **departure_groups = malloc(num_of_groups*sizeof(DepartureGroup *));
+	SegmentGroup **departure_groups = malloc(num_of_groups*sizeof(SegmentGroup *));
 	int counter = 0;
 	for(int i = 0; i < num_of_groups; i++) {
-		departure_groups[counter] = malloc(sizeof(DepartureGroup));
+		departure_groups[counter] = malloc(sizeof(SegmentGroup));
 		departure_groups[counter]->dep_body = dep_body;
 		departure_groups[counter]->arr_body = arr_body;
-		departure_groups[counter]->num_departures = num_iterations;
+		departure_groups[counter]->num_steps = num_iterations;
 		departure_groups[counter]->system = ir_system;
 
-		calc_group_porkchop(departure_groups[counter], i-10, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
-		if(departure_groups[counter]->num_departures == 0) {free(departure_groups[counter]);}
+		calc_group_porkchop(departure_groups[counter], i-10, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
+		if(departure_groups[counter]->num_steps == 0) {free(departure_groups[counter]);}
 		else counter++;
 	}
 
@@ -784,8 +752,8 @@ G_MODULE_EXPORT void on_calc_ir3() {
 	struct ItinStep **steps = malloc(step_cap*sizeof(struct ItinStep *));
 	DataArray2 *step_pos = data_array2_create();
 	counter = 0;
-	for(int i = 0; i < departure_groups[pcgroup]->num_departures; i++) {
-		struct ItinStep *step = departure_groups[pcgroup]->departures[i];
+	for(int i = 0; i < departure_groups[pcgroup]->num_steps; i++) {
+		struct ItinStep *step = departure_groups[pcgroup]->segment_steps[i];
 		if(step->num_next_nodes == -1) {
 			double x = -1e10;
 			double y = 0;

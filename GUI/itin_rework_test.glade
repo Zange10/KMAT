@@ -136,7 +136,7 @@
               </packing>
             </child>
             <child>
-              <!-- n-columns=2 n-rows=8 -->
+              <!-- n-columns=2 n-rows=10 -->
               <object class="GtkGrid">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
@@ -323,7 +323,7 @@
                     <property name="visible">True</property>
                     <property name="can-focus">False</property>
                     <property name="halign">end</property>
-                    <property name="label" translatable="yes">Group:</property>
+                    <property name="label" translatable="yes">Group 0:</property>
                   </object>
                   <packing>
                     <property name="left-attach">0</property>
@@ -331,7 +331,44 @@
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkEntry" id="tf_ir_pcgroup">
+                  <object class="GtkEntry" id="tf_ir_pcgroup0">
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="has-frame">False</property>
+                    <property name="text" translatable="yes">4</property>
+                    <property name="xalign">0.5</property>
+                  </object>
+                  <packing>
+                    <property name="left-attach">1</property>
+                    <property name="top-attach">7</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="halign">end</property>
+                    <property name="label" translatable="yes">Group 1:</property>
+                  </object>
+                  <packing>
+                    <property name="left-attach">0</property>
+                    <property name="top-attach">8</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="halign">end</property>
+                    <property name="label" translatable="yes">Group 2:</property>
+                  </object>
+                  <packing>
+                    <property name="left-attach">0</property>
+                    <property name="top-attach">9</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkEntry" id="tf_ir_pcgroup1">
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="has-frame">False</property>
@@ -340,7 +377,20 @@
                   </object>
                   <packing>
                     <property name="left-attach">1</property>
-                    <property name="top-attach">7</property>
+                    <property name="top-attach">8</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkEntry" id="tf_ir_pcgroup2">
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="has-frame">False</property>
+                    <property name="text" translatable="yes">0</property>
+                    <property name="xalign">0.5</property>
+                  </object>
+                  <packing>
+                    <property name="left-attach">1</property>
+                    <property name="top-attach">9</property>
                   </packing>
                 </child>
               </object>

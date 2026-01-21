@@ -74,8 +74,8 @@ void draw_mesh_skeleton(Mesh2 *mesh, CoordinateSystem *coord_sys) {
 	gettimeofday(&end, NULL);
 	double duration = (end.tv_sec - start.tv_sec) +
 					  (end.tv_usec - start.tv_usec) / 1e6;
-	printf("Mesh Drawing: %.6f seconds\n", duration);
-	printf("Triangles drawn: %zu\n", mesh->num_triangles);
+	// printf("Mesh Drawing: %.6f seconds\n", duration);
+	// printf("Triangles drawn: %zu\n", mesh->num_triangles);
 }
 
 
@@ -101,9 +101,9 @@ void draw_triangle_debug(cairo_t *cr, Mesh2 *mesh) {
 	gettimeofday(&end, NULL);
 	double duration = (end.tv_sec - start.tv_sec) +
 					  (end.tv_usec - start.tv_usec) / 1e6;
-	printf("Interpolation Drawing: %.6f seconds\n", duration);
-
-	printf("Triangles drawn: %zu\n", mesh->num_triangles);
+	// printf("Interpolation Drawing: %.6f seconds\n", duration);
+	//
+	// printf("Triangles drawn: %zu\n", mesh->num_triangles);
 }
 
 
@@ -163,8 +163,8 @@ void draw_mesh_interpolated_points(Mesh2 *mesh, CoordinateSystem *coord_sys) {
 	gettimeofday(&end, NULL);
 	double duration = (end.tv_sec - start.tv_sec) +
 					  (end.tv_usec - start.tv_usec) / 1e6;
-	printf("Interpolated Mesh Drawing: %.6f seconds\n", duration);
-	printf("Pixels drawn: %d\n", pixel_counter);
+	// printf("Interpolated Mesh Drawing: %.6f seconds\n", duration);
+	// printf("Pixels drawn: %d\n", pixel_counter);
 }
 
 void draw_mesh_box(MeshBox2 *box, CoordinateSystem *coord_sys, int level, bool static_layer) {
@@ -223,8 +223,8 @@ void draw_mesh_boxes(Mesh2 *mesh, CoordinateSystem *coord_sys) {
 	gettimeofday(&end, NULL);
 	double duration = (end.tv_sec - start.tv_sec) +
 					  (end.tv_usec - start.tv_usec) / 1e6;
-	printf("Mesh Boxes Drawing: %.6f seconds\n", duration);
-	printf("Boxes drawn: %d\n", num_boxes_drawn);
+	// printf("Mesh Boxes Drawing: %.6f seconds\n", duration);
+	// printf("Boxes drawn: %d\n", num_boxes_drawn);
 }
 
 void draw_mesh_triangle_and_boxes_for_position_lookup(MeshBox2 *box, Vector2 pos, int level, CoordinateSystem *coord_sys) {
