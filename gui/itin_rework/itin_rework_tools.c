@@ -733,3 +733,631 @@ DataArray2 * calc_min_vinf_line(DepartureGroup *group, int shift, double jd_min_
 
 	return min_per_dep;
 }
+
+
+void get_dur_limits_from_departure_date(MeshBox2 *box, double jd_dep, DataArray2 *data_array) {
+	if(box->min.x > jd_dep || box->max.x < jd_dep) return;
+
+	if(box->type == MESHBOX_SUBBOXES) {
+		for(int i = 0; i < box->subboxes.num; i++) {
+			get_dur_limits_from_departure_date(box->subboxes.boxes[i], jd_dep, data_array);
+		}
+	} else if(box->type == MESHBOX_TRIANGLES) {
+		for(int i = 0; i < box->tri.num; i++) {
+			if(triangle_is_edge(box->tri.triangles[i])) {
+				Vector2 min, max;
+				find_2dtriangle_minmax(box->tri.triangles[i], &min.x, &max.x, &min.y, &max.y);
+				if(min.x > jd_dep || max.x < jd_dep) continue;
+				for(int edge_idx = 0; edge_idx < 3; edge_idx++) {
+					if(!box->tri.triangles[i]->adj_triangles[edge_idx]) {
+						Vector2 p0 = box->tri.triangles[i]->points[edge_idx]->pos;
+						Vector2 p1 = box->tri.triangles[i]->points[(edge_idx+1)%3]->pos;
+
+						if(p0.x < jd_dep == p1.x < jd_dep && p0.x != jd_dep && p1.x != jd_dep) continue;
+
+						double m = (p1.y-p0.y) / (p1.x-p0.x);
+						double dur = (jd_dep-p0.x)*m+p0.y;
+						data_array2_insert_new(data_array, jd_dep, dur);
+					}
+				}
+			}
+		}
+	}
+}
+
+void get_dur_limits_from_all_triangles(Mesh2 *mesh, DataArray2 *data_array) {
+	for(int i = 0; i < mesh->num_triangles; i++) {
+		for(int edge_idx = 0; edge_idx < 3; edge_idx++) {
+			if(!mesh->triangles[i]->adj_triangles[edge_idx]) {
+				Vector2 p0 = mesh->triangles[i]->points[edge_idx]->pos;
+				Vector2 p1 = mesh->triangles[i]->points[(edge_idx+1)%3]->pos;
+				data_array2_insert_new(data_array, p0.x, p0.y);
+				data_array2_insert_new(data_array, p1.x, p1.y);
+			}
+		}
+	}
+}
+
+
+
+DataArray2 * get_dur_limits_from_edge_triangles(Mesh2 *mesh) {
+	DataArray2 *data_array = data_array2_create();
+	MeshTriangle2 *triangle = NULL;
+	for(int i = 0; i < mesh->num_triangles; i++) {
+		if(triangle_is_edge(mesh->triangles[i])) {
+			triangle = mesh->triangles[i]; break;
+		}
+	}
+
+	if(triangle == NULL) {return data_array;}
+	MeshPoint2 *first_point = NULL;
+	MeshPoint2 *prev_point = NULL;
+	MeshPoint2 *current_point = NULL;
+
+	for(int edge_idx = 0; edge_idx < 3; edge_idx++) {
+		if(!triangle->adj_triangles[edge_idx]) {
+			first_point = triangle->points[edge_idx];
+			current_point = triangle->points[(edge_idx+1)%3];
+			data_array2_insert_new(data_array, first_point->pos.x, first_point->pos.y);
+			data_array2_insert_new(data_array, current_point->pos.x, current_point->pos.y);
+		}
+	}
+
+	prev_point = first_point;
+
+	do {
+		for(int i = 0; i < current_point->num_triangles; i++) {
+			if(triangle_is_edge(current_point->triangles[i])) {
+				for(int edge_idx = 0; edge_idx < 3; edge_idx++) {
+					if(!current_point->triangles[i]->adj_triangles[edge_idx]) {
+						if(current_point == current_point->triangles[i]->points[edge_idx] && prev_point != current_point->triangles[i]->points[(edge_idx+1)%3]) {
+							prev_point = current_point;
+							current_point = current_point->triangles[i]->points[(edge_idx+1)%3];
+							if(current_point == first_point) return data_array;
+							data_array2_append_new(data_array, current_point->pos.x, current_point->pos.y);
+							i = current_point->num_triangles;	// break loop outside loop
+							break;
+						}
+						if(current_point == current_point->triangles[i]->points[(edge_idx+1)%3] && prev_point != current_point->triangles[i]->points[edge_idx]) {
+							prev_point = current_point;
+							current_point = current_point->triangles[i]->points[edge_idx];
+							if(current_point == first_point) return data_array;
+							data_array2_append_new(data_array, current_point->pos.x, current_point->pos.y);
+							i = current_point->num_triangles;	// break loop outside loop
+							break;
+						}
+					}
+				}
+			}
+		}
+	} while(current_point != first_point);
+	return data_array;
+}
+
+DataArray2 * get_dur_limits_for_dep_from_point_list(DataArray2 *edges_array, double jd_dep) {
+	DataArray2 *limits_inv = data_array2_create();
+	Vector2 *edges = data_array2_get_data(edges_array);
+	for(int i = 0; i < data_array2_size(edges_array); i++) {
+		Vector2 p0 = edges[i];
+		Vector2 p1 = edges[(i+1)%data_array2_size(edges_array)];
+
+		if(p1.x < p0.x) {
+			Vector2 temp = p0;
+			p0 = p1;
+			p1 = temp;
+		}
+
+		if(p0.x > jd_dep || p1.x < jd_dep) continue;
+		if(p0.x == jd_dep) {
+			data_array2_insert_new(limits_inv, p0.y, p0.x);
+			continue;
+		}
+		if(p1.x == jd_dep) {
+			data_array2_insert_new(limits_inv, p1.y, p1.x);
+			continue;
+		}
+
+		double m = (p1.y-p0.y)/(p1.x-p0.x);
+		double dur = (jd_dep - p0.x)*m + p0.y;
+		data_array2_insert_new(limits_inv, dur, jd_dep);
+	}
+
+	DataArray2 *limits = data_array2_create();
+	Vector2 *limits_inv_data = data_array2_get_data(limits_inv);
+	double last = NAN;
+	for(int i = 0; i < data_array2_size(limits_inv); i++) {
+		if(limits_inv_data[i].x != last) {
+			data_array2_insert_new(limits, jd_dep, limits_inv_data[i].x);
+			last = limits_inv_data[i].x;
+		}
+	}
+	data_array2_free(limits_inv);
+
+	return limits;
+}
+
+double root_finder_almost_monot_deriv_next_x(DataArray2 *arr, int branch) {
+	// branch = 0 for left branch, 1 for right branch
+	Vector2 *data = data_array2_get_data(arr);
+	int num_data = (int) data_array2_size(arr);
+
+	int index;
+
+	// left branch
+	if(branch == 0) {
+		index = 0;
+		for(int i = 1; i < num_data; i++) {
+			if(data[i].y < 0)	{ index = i; break; }
+			else 				{ index = i; }
+		}
+
+		// right branch
+	} else {
+		index = num_data-1;
+		for(int i = num_data-2; i >= 0; i--) {
+			if(data[i].y < 0)	{ index =   i; break; }
+			else 				{ index =   i; }
+		}
+	}
+
+	if(branch == 0) return (data[index].x + data[index-1].x)/2;
+	else 			return (data[index].x + data[index+1].x)/2;
+}
+
+void get_dur_limit_wrt_vinf(Mesh2 *mesh, double jd_dep, double min_vinf, DataArray2 *init_limit_array, DataArray2 *new_limits, double tolerance) {
+	Vector2 *init_lim = data_array2_get_data(init_limit_array);
+	size_t num_init_lim = data_array2_size(init_limit_array);
+	if(num_init_lim == 0) return;
+	if(num_init_lim == 1) {
+		double dvinf = get_mesh_interpolated_value(mesh, vec2(jd_dep, init_lim[0].y)) - min_vinf;
+		if(dvinf > 0) data_array2_insert_new(new_limits, init_lim[0].x, init_lim[0].y);
+		return;
+	}
+	DataArray2 *new_limits_inv = data_array2_create();
+
+	bool left_branch = true;
+	DataArray2 *data = data_array2_create();
+
+	for(int lim_idx = 0; lim_idx < num_init_lim; lim_idx+=2) {
+		double lim0 = init_lim[lim_idx].y+1e-9;		// floating precision
+		double lim1 = init_lim[lim_idx+1].y-1e-9;	// floating precision
+
+		double dur = lim0;
+
+		for(int i = 0; i < 100; i++) {
+			double dvinf = get_mesh_interpolated_value(mesh, vec2(jd_dep, dur)) - min_vinf;
+			if(i > 3 && dvinf > 0 && dvinf < tolerance) {
+				data_array2_insert_new(new_limits_inv, dur, jd_dep);
+				if(left_branch && data_array2_get_data(data)[data_array2_size(data)-1].y > 0) {
+					left_branch = false;
+				} else {
+					break;
+				}
+			}
+
+			data_array2_insert_new(data, dur, dvinf);
+
+			if(i == 0) {
+				if(dvinf > 0) {
+					data_array2_insert_new(new_limits_inv, dur, jd_dep);
+				} else {
+					left_branch = false;
+				}
+				dur = lim1;
+				continue;
+			}
+			if(i == 1) {
+				if(dvinf > 0) data_array2_insert_new(new_limits_inv, dur, jd_dep);
+				else if(!left_branch) break;
+			}
+			if(!can_be_negative_monot_deriv(data)) break;
+			if(i < 30) dur = root_finder_monot_deriv_next_x(data, !left_branch);
+			else dur = root_finder_almost_monot_deriv_next_x(data, !left_branch);
+		}
+	}
+
+	for(int i = 0; i < data_array2_size(new_limits_inv); i++) {
+		data_array2_append_new(new_limits, data_array2_get_data(new_limits_inv)[i].y, data_array2_get_data(new_limits_inv)[i].x);
+	}
+	data_array2_free(data);
+	data_array2_free(new_limits_inv);
+}
+
+Vector3 get_varr_from_mesh(Mesh2 *mesh, double jd_arr, double dur) {
+	MeshTriangle2 *triangle = get_mesh_triangle_at_position(mesh, vec2(jd_arr, dur));
+	if(!triangle) return vec3(NAN, NAN, NAN);
+
+	Vector3 tri_varrx[3];
+	Vector3 tri_varry[3];
+	Vector3 tri_varrz[3];
+
+	for(int i = 0; i < 3; i++) {
+		struct ItinStep *step = triangle->points[i]->data;
+		tri_varrx[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_arr.x);
+		tri_varry[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_arr.y);
+		tri_varrz[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_arr.z);
+	}
+	double varrx = get_triangle_interpolated_value(tri_varrx[0], tri_varrx[1], tri_varrx[2], vec2(jd_arr, dur));
+	double varry = get_triangle_interpolated_value(tri_varry[0], tri_varry[1], tri_varry[2], vec2(jd_arr, dur));
+	double varrz = get_triangle_interpolated_value(tri_varrz[0], tri_varrz[1], tri_varrz[2], vec2(jd_arr, dur));
+	return vec3(varrx, varry, varrz);
+}
+
+Vector3 get_vbody_from_mesh(Mesh2 *mesh, double jd_arr, double dur) {
+	MeshTriangle2 *triangle = get_mesh_triangle_at_position(mesh, vec2(jd_arr, dur));
+	if(!triangle) return vec3(NAN, NAN, NAN);
+
+	Vector3 tri_varrx[3];
+	Vector3 tri_varry[3];
+	Vector3 tri_varrz[3];
+
+	for(int i = 0; i < 3; i++) {
+		struct ItinStep *step = triangle->points[i]->data;
+		tri_varrx[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_body.x);
+		tri_varry[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_body.y);
+		tri_varrz[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_body.z);
+	}
+	double varrx = get_triangle_interpolated_value(tri_varrx[0], tri_varrx[1], tri_varrx[2], vec2(jd_arr, dur));
+	double varry = get_triangle_interpolated_value(tri_varry[0], tri_varry[1], tri_varry[2], vec2(jd_arr, dur));
+	double varrz = get_triangle_interpolated_value(tri_varrz[0], tri_varrz[1], tri_varrz[2], vec2(jd_arr, dur));
+	return vec3(varrx, varry, varrz);
+}
+
+struct ItinStep * get_next_step_from_vinf(DepartureGroup *group, double v_inf, double jd_dep, double min_dur_dt, double max_dur_dt, bool leftside, double tolerance) {
+	OSV osv_dep = group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(group->dep_body->orbit, jd_dep) :
+					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
+
+	double dt0 = min_dur_dt, dt1 = max_dur_dt;
+
+	// x: dt, y: diff_vinf
+	DataArray2 *data = data_array2_create();
+
+	double t0 = jd_dep;
+	double last_dt, dt = dt0, t1, diff_vinf;
+
+	for(int i = 0; i < 100; i++) {
+		if(i == 0) dt = dt0;
+
+		t1 = t0 + dt / 86400;
+
+		OSV osv_arr = group->system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(group->arr_body->orbit, t1) :
+				osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, t1, group->system->cb);
+
+		Lambert3 new_transfer = calc_lambert3(osv_dep.r, osv_arr.r, dt, group->system->cb);
+		Vector3 v_dep = subtract_vec3(new_transfer.v0, osv_dep.v);
+		diff_vinf = mag_vec3(v_dep) - v_inf;
+
+		if(fabs(diff_vinf) < tolerance) {
+			struct ItinStep *new_step = malloc(sizeof(struct ItinStep));
+			new_step->body = group->arr_body;
+			new_step->date = t1;
+			new_step->r = osv_arr.r;
+			new_step->v_dep = new_transfer.v0;
+			new_step->v_arr = new_transfer.v1;
+			new_step->v_body = osv_arr.v;
+			new_step->num_next_nodes = 0;
+			new_step->prev = NULL;
+			new_step->next = NULL;
+			return new_step;
+		}
+
+		data_array2_insert_new(data, dt, diff_vinf);
+
+		if(!can_be_negative_monot_deriv(data)) break;
+		last_dt = dt;
+		if(i == 0) dt = dt1;
+		else dt = root_finder_monot_deriv_next_x(data, !leftside);
+		if(i > 3 && dt == last_dt) break;	// step size 0 (imprecision)
+		if(isnan(dt) || isinf(dt)) break;
+	}
+
+	data_array2_free(data);
+	return NULL;
+}
+
+
+DataArray2 * get_vinf_limits(Mesh2 *mesh, DataArray2 *vinf_array, double tolerance) {
+	int num_deps = 1000;
+
+	DataArray2 *edges_array = get_dur_limits_from_edge_triangles(mesh);
+
+	DataArray2 *vinf_limits_all = data_array2_create();
+	DataArray2 *vinf_limit_jd_dep = data_array2_create();
+
+	double epsilon = 1e-6;
+	double step = (mesh->mesh_box->max.x - mesh->mesh_box->min.x)/num_deps;
+	double jd_dep = mesh->mesh_box->min.x+epsilon;
+
+	while(jd_dep < mesh->mesh_box->max.x) {
+		double jd_vinf_dep = interpolate_from_sorted_data_array(vinf_array, jd_dep);
+
+		if(isnan(jd_vinf_dep)) {
+			jd_dep += step;
+			continue;
+		}
+		data_array2_clear(vinf_limit_jd_dep);
+		DataArray2 *limits = get_dur_limits_for_dep_from_point_list(edges_array, jd_dep);
+		get_dur_limit_wrt_vinf(mesh, jd_dep, jd_vinf_dep-tolerance*2, limits, vinf_limit_jd_dep, 1);
+		data_array2_free(limits);
+
+		if(data_array2_size(vinf_limit_jd_dep)%2 != 0) {
+			jd_dep += epsilon;
+			continue;
+		}
+
+		if(data_array2_size(vinf_limit_jd_dep) == 0) {
+			// add a flagged pair
+			data_array2_append_new(vinf_limits_all, jd_dep, NAN);
+			data_array2_append_new(vinf_limits_all, jd_dep, NAN);
+		}
+
+		for(int j = 0; j < data_array2_size(vinf_limit_jd_dep); j++) {
+			data_array2_append_new(vinf_limits_all, data_array2_get_data(vinf_limit_jd_dep)[j].x, data_array2_get_data(vinf_limit_jd_dep)[j].y);
+		}
+		if(jd_dep + step >= mesh->mesh_box->max.x && mesh->mesh_box->max.x - jd_dep >= 2*epsilon) {
+			jd_dep = mesh->mesh_box->max.x - epsilon;
+		} else jd_dep += step;
+	}
+
+	data_array2_free(edges_array);
+	data_array2_free(vinf_limit_jd_dep);
+
+	return vinf_limits_all;
+}
+
+int get_num_interval_per_dep(Vector2 *limits, int limit_idx0) {
+	if(isnan(limits[limit_idx0*2].y)) return 0;
+	int num_interval = 1;
+	int limit_idx = limit_idx0+1;
+	while(limits[limit_idx0*2].x == limits[limit_idx*2].x) {
+		num_interval++;
+		limit_idx++;
+	}
+	return num_interval;
+}
+
+void increase_fbgroups_capacity(FlyByGroups *fb_groups) {
+	if(fb_groups->group_cap == 0) {
+		fb_groups->group_cap = 8;
+		fb_groups->groups = malloc(fb_groups->group_cap*sizeof(FlyByGroup*));
+		fb_groups->num_groups_dep = calloc(fb_groups->group_cap, sizeof(int));
+	} else {
+		fb_groups->group_cap *= 2;
+		FlyByGroup **groups = realloc(fb_groups->groups, fb_groups->group_cap*sizeof(FlyByGroup*));
+		if(groups) fb_groups->groups = groups;
+		int *num_groups_dep = realloc(fb_groups->num_groups_dep, fb_groups->group_cap*sizeof(int));
+		if(num_groups_dep) fb_groups->num_groups_dep = num_groups_dep;
+	}
+}
+
+FlyByGroups * get_flyby_groups_wrt_vinf(Mesh2 *mesh, DepartureGroup *departure_group, DataArray2 *vinf_limits, double tolerance) {
+	int num_limits = (int) data_array2_size(vinf_limits)/2;
+	Vector2 *limit_data = data_array2_get_data(vinf_limits);
+	double min_jd_next_dep = limit_data[0].x;
+	double max_jd_next_dep = limit_data[num_limits*2-1].x;
+	double max_ddur = 0;
+
+	DataArray1 *num_interval_change = data_array1_create();
+	int last_num_intervals = 0;
+	int interval_count = 0;
+	data_array1_append_new(num_interval_change, limit_data[0].x);
+	for(int i = 0; i < num_limits-1; i++) {
+		bool empty_limit = isnan(data_array2_get_data(vinf_limits)[i*2].y);
+		if(!empty_limit) {
+			double ddur = limit_data[i*2+1].y - limit_data[i*2].y;
+			if(ddur > max_ddur) max_ddur = ddur;
+			interval_count++;
+		}
+		if(limit_data[(i+1)*2].x != limit_data[i*2].x){
+			if(interval_count != last_num_intervals) {
+				if(i != 0 && empty_limit) {
+					data_array1_append_new(num_interval_change, limit_data[(i-1)*2].x);
+					data_array1_append_new(num_interval_change, limit_data[i*2].x);
+				} else if(i-interval_count >= 0) {
+					data_array1_append_new(num_interval_change, limit_data[(i-interval_count)*2].x);
+					data_array1_append_new(num_interval_change, limit_data[i*2].x);
+				}
+			}
+			last_num_intervals = interval_count;
+			interval_count = 0;
+		}
+	}
+	// catch edges with (for some reason) a single point
+	data_array1_append_new(num_interval_change, limit_data[(num_limits-1)*2-1].x);
+	data_array1_append_new(num_interval_change, limit_data[num_limits*2-1].x);
+	for(int i = 1; i < data_array1_size(num_interval_change); i += 3) {
+		data_array1_insert_new(num_interval_change, (data_array1_get_data(num_interval_change)[i-1] + data_array1_get_data(num_interval_change)[i])/2);
+	}
+
+	double jd_step = (max_jd_next_dep - min_jd_next_dep) / 50;
+	double dur_step = max_ddur/20;
+	int limit_idx = 0;
+	double next_jd = limit_data[0].x;
+
+
+
+	double jd_dep = limit_data[0].x;
+	OSV osv_dep = departure_group->system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(departure_group->dep_body->orbit, jd_dep) :
+				osv_from_ephem(departure_group->dep_body->ephem, departure_group->dep_body->num_ephems, jd_dep, departure_group->system->cb);
+	OSV osv_arr0 = departure_group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(departure_group->arr_body->orbit, jd_dep) :
+					osv_from_ephem(departure_group->arr_body->ephem, departure_group->arr_body->num_ephems, jd_dep, departure_group->system->cb);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, departure_group->system->cb);
+	double period_arr0 = calc_orbital_period(arr0);
+	double next_conjunction_dt, next_opposition_dt, last_conjunction_dt, last_opposition_dt;
+	calc_time_to_next_conjunction_and_opposition(osv_dep.r, osv_arr0, departure_group->system->cb, &next_conjunction_dt, &next_opposition_dt);
+
+	double opp_guess, conj_guess;
+	if(departure_group->top_boundary_type == DEPARTURE_GROUP_BOUNDARY_TOP_CONJ) {
+		conj_guess = departure_group->boundary0_top.y + (jd_dep - departure_group->boundary0_top.x) * 86400 * departure_group->boundary_gradient;
+		opp_guess = departure_group->boundary0_bottom.y + (jd_dep - departure_group->boundary0_bottom.x) * 86400 * departure_group->boundary_gradient;
+	} else {
+		opp_guess = departure_group->boundary0_top.y + (jd_dep - departure_group->boundary0_top.x) * 86400 * departure_group->boundary_gradient;
+		conj_guess = departure_group->boundary0_bottom.y + (jd_dep - departure_group->boundary0_bottom.x) * 86400 * departure_group->boundary_gradient;
+	}
+
+	while(opp_guess-next_opposition_dt   >  0.5 * period_arr0) next_opposition_dt  += period_arr0;
+	while(opp_guess-next_opposition_dt   < -0.5 * period_arr0) next_opposition_dt  -= period_arr0;
+	while(conj_guess-next_conjunction_dt >  0.5 * period_arr0) next_conjunction_dt += period_arr0;
+	while(conj_guess-next_conjunction_dt < -0.5 * period_arr0) next_conjunction_dt -= period_arr0;
+
+
+	last_opposition_dt = next_opposition_dt;
+	last_conjunction_dt = next_conjunction_dt;
+
+	double last_jd_dep = jd_dep;
+
+
+	FlyByGroups *fb_groups = malloc(sizeof(FlyByGroups));
+	fb_groups->group_cap = 0;
+	fb_groups->num_groups = 0;
+	fb_groups->groups = NULL;
+	fb_groups->num_groups_dep = NULL;
+
+	int fb_group_x = -1; // is set to 0 during first loop
+	int num_last_interval = 0;
+
+
+	while(limit_idx < num_limits) {
+		jd_dep = limit_data[limit_idx*2].x;
+
+		osv_dep = departure_group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(departure_group->dep_body->orbit, jd_dep) :
+					osv_from_ephem(departure_group->dep_body->ephem, departure_group->dep_body->num_ephems, jd_dep, departure_group->system->cb);
+
+		osv_arr0 = departure_group->system->prop_method == ORB_ELEMENTS ?
+					   osv_from_elements(departure_group->arr_body->orbit, jd_dep) :
+					   osv_from_ephem(departure_group->arr_body->ephem, departure_group->arr_body->num_ephems, jd_dep, departure_group->system->cb);
+		calc_time_to_next_conjunction_and_opposition(osv_dep.r, osv_arr0, departure_group->system->cb, &next_conjunction_dt, &next_opposition_dt);
+
+		opp_guess = last_opposition_dt + (jd_dep-last_jd_dep)*86400*departure_group->boundary_gradient;
+		conj_guess = last_conjunction_dt + (jd_dep-last_jd_dep)*86400*departure_group->boundary_gradient;
+
+		while(opp_guess-next_opposition_dt   >  0.5 * period_arr0) next_opposition_dt  += period_arr0;
+		while(opp_guess-next_opposition_dt   < -0.5 * period_arr0) next_opposition_dt  -= period_arr0;
+		while(conj_guess-next_conjunction_dt >  0.5 * period_arr0) next_conjunction_dt += period_arr0;
+		while(conj_guess-next_conjunction_dt < -0.5 * period_arr0) next_conjunction_dt -= period_arr0;
+
+		last_opposition_dt = next_opposition_dt;
+		last_conjunction_dt = next_conjunction_dt;
+		last_jd_dep = jd_dep;
+
+
+		double min_dur_dt, max_dur_dt;
+		if(next_conjunction_dt < next_opposition_dt) {
+			min_dur_dt = next_conjunction_dt;
+			max_dur_dt = next_opposition_dt;
+		} else {
+			min_dur_dt = next_opposition_dt;
+			max_dur_dt = next_conjunction_dt;
+		}
+
+		if(min_dur_dt < 86400*10) min_dur_dt = 86400*10;
+
+		if(jd_dep < next_jd) {
+			bool relevant_interval = false;
+			for(int i = 0; i < data_array1_size(num_interval_change); i++) {
+				if(jd_dep == data_array1_get_data(num_interval_change)[i] ||
+					(data_array1_get_data(num_interval_change)[i] < limit_data[limit_idx*2].x &&
+					data_array1_get_data(num_interval_change)[i] > limit_data[(limit_idx-1)*2].x)) {
+					relevant_interval = true;
+					break;
+				}
+			}
+			if(!relevant_interval) { limit_idx++; continue; }
+		}
+		next_jd = jd_dep+jd_step;
+		if(next_jd > max_jd_next_dep) next_jd = max_jd_next_dep;
+
+		int num_interval = get_num_interval_per_dep(limit_data, limit_idx);
+		if(num_last_interval != num_interval) {
+			fb_group_x++;
+			fb_groups->num_groups++;
+			if(fb_group_x == fb_groups->group_cap) {
+				increase_fbgroups_capacity(fb_groups);
+			}
+			num_last_interval = num_interval;
+			fb_groups->num_groups_dep[fb_group_x] = num_interval;
+			fb_groups->groups[fb_group_x] = malloc(num_interval*sizeof(FlyByGroup));
+			for(int i = 0; i < num_interval; i++) {
+				fb_groups->groups[fb_group_x][i].dep_dur = data_array2_create();
+				fb_groups->groups[fb_group_x][i].step_cap = 8;
+				fb_groups->groups[fb_group_x][i].steps = malloc(fb_groups->groups[fb_group_x][i].step_cap*sizeof(struct ItinStep*));
+			}
+		}
+
+		int fb_group_y = 0;
+
+		while(limit_data[limit_idx*2].x == jd_dep && limit_idx < num_limits) {
+			if(isnan(data_array2_get_data(vinf_limits)[limit_idx*2].y)) {limit_idx++; break;}
+			double min_dur_temp = data_array2_get_data(vinf_limits)[limit_idx*2].y+1e-3;
+			double max_dur_temp = data_array2_get_data(vinf_limits)[limit_idx*2+1].y-1e-3;
+			int num_tests = (int) ((max_dur_temp - min_dur_temp)/dur_step) + 2;
+			for(int i = 0; i < num_tests; i++) {
+				double dur_temp = min_dur_temp + (max_dur_temp - min_dur_temp)*i/(num_tests-1);
+				double vinf = get_mesh_interpolated_value(mesh, vec2(jd_dep, dur_temp));
+				Vector3 v_arr = get_varr_from_mesh(mesh, jd_dep, dur_temp);
+				Vector3 v_body = get_vbody_from_mesh(mesh, jd_dep, dur_temp);
+				if(isnan(v_arr.x), isnan(v_body.x)) continue;
+				struct ItinStep *next_step = NULL;
+				double next_step_tolerance = 1;
+				do {
+					next_step = get_next_step_from_vinf(departure_group, vinf, jd_dep, min_dur_dt, max_dur_dt, true, next_step_tolerance);
+					if(next_step) {
+						int step_idx = (int) data_array2_size(fb_groups->groups[fb_group_x][fb_group_y].dep_dur);
+						if(step_idx == fb_groups->groups[fb_group_x][fb_group_y].step_cap) {
+							fb_groups->groups[fb_group_x][fb_group_y].step_cap *= 2;
+							struct ItinStep **steps = realloc(fb_groups->groups[fb_group_x][fb_group_y].steps, fb_groups->groups[fb_group_x][fb_group_y].step_cap*sizeof(struct ItinStep*));
+							if(steps) fb_groups->groups[fb_group_x][fb_group_y].steps = steps;
+						}
+						fb_groups->groups[fb_group_x][fb_group_y].steps[step_idx] = next_step;
+						data_array2_append_new(fb_groups->groups[fb_group_x][fb_group_y].dep_dur, jd_dep, dur_temp);
+					} else {
+						next_step_tolerance += tolerance;
+					}
+				} while(!next_step);
+			}
+			limit_idx++;
+			fb_group_y++;
+		}
+	}
+
+	return fb_groups;
+}
+
+Mesh2 * get_rpe_mesh_from_fb_groups(FlyByGroups *fb_groups, Mesh2 *prev_mesh, DepartureGroup *prev_departure_group) {
+	MeshGrid2 ***grids = malloc(fb_groups->num_groups*sizeof(MeshGrid2**));
+	for(int i = 0; i < fb_groups->num_groups; i++) {
+		grids[i] = malloc(fb_groups->num_groups_dep[i]*sizeof(MeshGrid2*));
+	}
+
+	for(int x_idx = 0; x_idx < fb_groups->num_groups; x_idx++) {
+		for(int y_idx = 0; y_idx < fb_groups->num_groups_dep[x_idx]; y_idx++) {
+			grids[x_idx][y_idx] = create_mesh_grid(fb_groups->groups[x_idx][y_idx].dep_dur, (void*) fb_groups->groups[x_idx][y_idx].steps);
+		}
+	}
+	Mesh2 *rpe_mesh = create_mesh_from_multiple_grids_w_angled_guideline(grids, fb_groups->num_groups, fb_groups->num_groups_dep, prev_departure_group->boundary_gradient);
+
+	for(int x_idx = 0; x_idx < fb_groups->num_groups; x_idx++) {
+		for(int y_idx = 0; y_idx < fb_groups->num_groups_dep[x_idx]; y_idx++) {
+			free_grid_keep_points(grids[x_idx][y_idx]);
+		}
+		free(grids[x_idx]);
+	}
+	free(grids);
+
+	for(int i = 0; i < rpe_mesh->num_points; i++) {
+		struct ItinStep *ptr = rpe_mesh->points[i]->data;
+		double jd_dep = rpe_mesh->points[i]->pos.x;
+		double dur = rpe_mesh->points[i]->pos.y;
+		Vector3 v_arr = get_varr_from_mesh(prev_mesh, jd_dep, dur);
+		Vector3 v_body = get_vbody_from_mesh(prev_mesh, jd_dep, dur);
+		double r_pe = get_flyby_periapsis(v_arr, ptr->v_dep, v_body, prev_departure_group->arr_body);
+		rpe_mesh->points[i]->val = r_pe;
+	}
+
+	return rpe_mesh;
+}

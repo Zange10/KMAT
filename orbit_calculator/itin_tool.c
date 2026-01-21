@@ -892,6 +892,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 
 void remove_step_from_itinerary(struct ItinStep *step) {
 	struct ItinStep *prev = step->prev;
+	if(prev == NULL) {free_itinerary(step); return;}
 
 	while(prev->num_next_nodes == 1 && step->prev->prev != NULL) {
 		step = prev;
