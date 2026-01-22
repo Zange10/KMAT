@@ -21,12 +21,15 @@ typedef struct SegmentGroup {
 	int num_steps;
 	Body *dep_body, *arr_body;
 	CelestSystem *system;
-	Vector2 boundary0_top;
-	Vector2 boundary0_bottom;
+	// Vector2 boundary0_top;
+	// Vector2 boundary0_bottom;
 	double boundary_gradient;
+	DataArray2 *upper_boundary;
+	DataArray2 *lower_boundary;
 	int num_next_groups;
 	int group_cap;
 	Mesh2 *mesh;
+	DataArray2 *vinf_array;
 	struct SegmentGroup *prev;
 	struct SegmentGroup **next;
 	enum DepartureGroupBoundaryType {DEPARTURE_GROUP_BOUNDARY_TOP_OPP, DEPARTURE_GROUP_BOUNDARY_TOP_CONJ} top_boundary_type;
@@ -50,10 +53,11 @@ void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, Celes
 
 DataArray2 * calc_porkchop_line(struct ItinStep *step, Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
 void calc_bounded_porkchop_line(struct ItinStep *departure_step, Body *arr_body, CelestSystem *system, double min_dt, double max_dt, double dep_periapsis, double max_depdv, double dv_tolerance);
-void calc_group_porkchop(SegmentGroup *group, int shift, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
-DataArray2 * calc_min_vinf_line(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double vinf_tolerance);
+void calc_group_porkchop(SegmentGroup *group, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
+DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double vinf_tolerance);
 
 double calc_opposition_conjunction_gradient(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep);
+void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep);
 
 DataArray2 * get_dur_limits_from_edge_triangles(Mesh2 *mesh);
 DataArray2 * get_dur_limits_for_dep_from_point_list(DataArray2 *edges_array, double jd_dep);

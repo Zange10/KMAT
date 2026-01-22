@@ -244,7 +244,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	departure_groups->num_steps = num_iterations;
 	departure_groups->system = ir_system;
 
-	calc_group_porkchop(departure_groups, 5, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
+	// calc_group_porkchop(departure_groups, 5, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
 
 	end_time_measurement(&tm, "Departure Porkchop");
 
@@ -322,7 +322,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	departure_group->num_steps = (int) target_numdeps;
 	departure_group->system = ir_system;
 
-	vinf_array = calc_min_vinf_line(departure_group, pcgroup, mesh->mesh_box->min.x, mesh->mesh_box->max.x, max_dep+max_dur, min_dur, max_dur, 1);
+	// vinf_array = calc_min_vinf_line(departure_group, pcgroup, mesh->mesh_box->min.x, mesh->mesh_box->max.x, max_dep+max_dur, min_dur, max_dur, 1);
 
 	end_time_measurement(&tm, "Vinf line");
 	start_time_measurement(&tm);
@@ -607,6 +607,8 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	departure.num_next_groups = 0;
 	departure.group_cap = 8;
 	departure.segment_groups = malloc(departure.group_cap * sizeof(SegmentGroup *));
+
+
 	// for loop to be exchanged with some sort of boundary check
 	for(int i = 0; i < 50; i++) {
 		SegmentGroup *new_group = malloc(sizeof(SegmentGroup));
@@ -618,8 +620,10 @@ G_MODULE_EXPORT void on_calc_ir2() {
 		new_group->group_cap = 0;
 		new_group->next = NULL;
 		new_group->prev = NULL;
+		new_group->vinf_array = NULL;
+		set_opposition_conjunction_group_boundary(new_group, i-10, min_dep, max_dep);
 
-		calc_group_porkchop(new_group, i-10, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance);
+		calc_group_porkchop(new_group, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance);
 		if(new_group->num_steps != 0) {
 			if(departure.num_next_groups == departure.group_cap) {
 				departure.group_cap *= 2;
@@ -669,7 +673,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	start_time_measurement(&tm);
 
 	for(int group_idx = 0; group_idx < departure.num_next_groups; group_idx++) {
-		Mesh2 *mesh = departure.segment_groups[pcgroup0]->mesh;
+		Mesh2 *mesh = departure.segment_groups[group_idx]->mesh;
 		for(int i = 0; i < mesh->num_points; i++) {
 			struct ItinStep *ptr = mesh->points[i]->data;
 			double vinf = mag_vec3(subtract_vec3(ptr->v_arr, ptr->v_body));
@@ -678,11 +682,57 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	}
 
 	end_time_measurement(&tm, "Setting Mesh Values to Vinf of first Fly-By");
+	start_time_measurement(&tm);
 
+	for(int group_idx = 0; group_idx < departure.num_next_groups; group_idx++) {
+		SegmentGroup *group = departure.segment_groups[group_idx];
+		Mesh2 *mesh = group->mesh;
+		double min_fb_jd = NAN;
+		double max_fb_jd = NAN;
+		for(int i = 0; i < mesh->num_points; i++) {
+			struct ItinStep *ptr = mesh->points[i]->data;
+			if(ptr->date < min_fb_jd || isnan(min_fb_jd)) min_fb_jd = ptr->date;
+			if(ptr->date > max_fb_jd || isnan(max_fb_jd)) max_fb_jd = ptr->date;
+		}
+		// tbd something with boundary
+		for(int i = -20; i < 30; i++) {
+			SegmentGroup *new_group = malloc(sizeof(SegmentGroup));
+			new_group->dep_body = arr_body;
+			new_group->arr_body = get_body_by_name("Mars", ir_system);
+			new_group->num_steps = 0;
+			new_group->system = ir_system;
+			new_group->num_next_groups = 0;
+			new_group->group_cap = 0;
+			new_group->next = NULL;
+			new_group->prev = departure.segment_groups[group_idx];
+			set_opposition_conjunction_group_boundary(new_group, i, min_fb_jd, max_fb_jd);
+			new_group->vinf_array = calc_min_vinf_line(new_group, min_fb_jd, max_fb_jd, max_dep+max_dur, min_dur, max_dur, tolerance);
+			if(data_array2_size(new_group->vinf_array) == 0) {
+				data_array2_free(new_group->vinf_array);
+				free(new_group);
+				continue;
+			}
+			if(group->group_cap == 0) {
+				group->group_cap = 8;
+				group->next = malloc(group->group_cap * sizeof(SegmentGroup*));
+			} else if(group->num_next_groups == group->group_cap) {
+				group->group_cap *= 2;
+				SegmentGroup **temp_next_groups = realloc(group->next, group->group_cap * sizeof(SegmentGroup*));
+				if(temp_next_groups) group->next = temp_next_groups;
+			}
+			group->next[group->num_next_groups++] = new_group;
+		}
+		printf("Number of fb groups: %d\n", group->num_next_groups);
+	}
+
+
+	end_time_measurement(&tm, "Determine Vinf lines");
 
 
 	attach_mesh_to_coordinate_system(ir_coord_sys0, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
-
+	plot_scatter_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->next[pcgroup1]->vinf_array, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE);
+	// plot_scatter_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->next[pcgroup1]->lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE);
+	// plot_scatter_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->next[pcgroup1]->upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, FALSE);
 
 
 
@@ -734,7 +784,7 @@ G_MODULE_EXPORT void on_calc_ir3() {
 		departure_groups[counter]->num_steps = num_iterations;
 		departure_groups[counter]->system = ir_system;
 
-		calc_group_porkchop(departure_groups[counter], i-10, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
+		// calc_group_porkchop(departure_groups[counter], i-10, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_dep_dv, tolerance);
 		if(departure_groups[counter]->num_steps == 0) {free(departure_groups[counter]);}
 		else counter++;
 	}

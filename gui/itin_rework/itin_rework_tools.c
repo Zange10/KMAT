@@ -365,10 +365,46 @@ double calc_opposition_conjunction_gradient(Body *dep_body, Body *arr_body, Cele
 	return calc_orbital_period(orbit1)/calc_orbital_period(orbit0) - 1;
 }
 
-void calc_group_porkchop(SegmentGroup *group, int shift, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
-	group->segment_steps = malloc(departure_cap * sizeof(struct ItinStep*));
+void get_upper_and_lower_boundary_at_jd_dep(SegmentGroup *group, double jd_dep, double *lower_boundary, double *upper_boundary) {
+	double next_opposition_dt, next_conjunction_dt, opp_guess, conj_guess;
+	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(group->dep_body->orbit, jd_dep) :
+				osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
+
+	OSV osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(group->arr_body->orbit, jd_dep) :
+				   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_dep, group->system->cb);
+	double period_arr0 = calc_orbital_period(constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb));
+	calc_time_to_next_conjunction_and_opposition(osv0.r, osv_arr0, group->system->cb, &next_conjunction_dt, &next_opposition_dt);
+
+	if(group->top_boundary_type == DEPARTURE_GROUP_BOUNDARY_TOP_OPP) {
+		opp_guess = interpolate_from_sorted_data_array(group->upper_boundary, jd_dep)*86400;
+		conj_guess = interpolate_from_sorted_data_array(group->lower_boundary, jd_dep)*86400;
+	} else {
+		conj_guess = interpolate_from_sorted_data_array(group->upper_boundary, jd_dep)*86400;
+		opp_guess = interpolate_from_sorted_data_array(group->lower_boundary, jd_dep)*86400;
+	}
+
+	while(opp_guess-next_opposition_dt   >  0.5 * period_arr0) next_opposition_dt  += period_arr0;
+	while(opp_guess-next_opposition_dt   < -0.5 * period_arr0) next_opposition_dt  -= period_arr0;
+	while(conj_guess-next_conjunction_dt >  0.5 * period_arr0) next_conjunction_dt += period_arr0;
+	while(conj_guess-next_conjunction_dt < -0.5 * period_arr0) next_conjunction_dt -= period_arr0;
+
+	if(next_conjunction_dt < next_opposition_dt) {
+		*lower_boundary = next_conjunction_dt;
+		*upper_boundary = next_opposition_dt;
+	} else {
+		*lower_boundary = next_opposition_dt;
+		*upper_boundary = next_conjunction_dt;
+	}
+}
+
+void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep) {
+	group->lower_boundary = data_array2_create();
+	group->upper_boundary = data_array2_create();
 
 	double opp_conj_gradient = calc_opposition_conjunction_gradient(group->dep_body, group->arr_body, group->system, (jd_min_dep+jd_max_dep)/2);
+	group->boundary_gradient = opp_conj_gradient;
 	if(opp_conj_gradient > 0) shift *= -1;
 
 	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
@@ -382,7 +418,8 @@ void calc_group_porkchop(SegmentGroup *group, int shift, int departure_cap, doub
 	calc_time_to_next_conjunction_and_opposition(osv0.r, osv_arr0, group->system->cb, &last_conjunction_dt, &last_opposition_dt);
 	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
 	double period_arr0 = calc_orbital_period(arr0);
-	double dt0, dt1;
+	Orbit dep_orbit = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
+	double period_dep = calc_orbital_period(dep_orbit);
 
 	// default shift from calc_time_to_next_conjunction_and_opposition is 1 (but we want values around 0 for start)
 	if(shift % 2 == 0) {
@@ -394,38 +431,12 @@ void calc_group_porkchop(SegmentGroup *group, int shift, int departure_cap, doub
 	last_opposition_dt += period_arr0 * shift/2;
 	last_conjunction_dt += period_arr0 * shift/2;
 
-	if(last_opposition_dt < last_conjunction_dt) {
-		group->boundary0_bottom = vec2(jd_min_dep, last_opposition_dt);
-		group->boundary0_top = vec2(jd_min_dep, last_conjunction_dt);
-		group->top_boundary_type = DEPARTURE_GROUP_BOUNDARY_TOP_CONJ;
-	} else {
-		group->boundary0_bottom = vec2(jd_min_dep, last_conjunction_dt);
-		group->boundary0_top = vec2(jd_min_dep, last_opposition_dt);
-		group->top_boundary_type = DEPARTURE_GROUP_BOUNDARY_TOP_OPP;
-	}
-
-	group->boundary_gradient = opp_conj_gradient;
-
-
-	double r0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb).a, r1 = arr0.a;
-	double r_ratio =  r1/r0;
-	Hohmann hohmann = calc_hohmann_transfer(r0, r1, group->system->cb);
-	double hohmann_dur = hohmann.dur/86400;
-	double min_duration = 0.4 * hohmann_dur;
-	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
-	if(max_duration < max_dur) max_dur = max_duration;
-	if(min_duration > min_dur) min_dur = min_duration;
-
-	double min_dt = min_dur*86400;
-	double max_dt = max_dur*86400;
-	double jd_dep_step = (jd_max_dep-jd_min_dep)/(departure_cap-1);
-
-	for(int i = 0; i < departure_cap; i++) {
-		double jd_dep = jd_min_dep + jd_dep_step*i;
-
+	double jd_dep = jd_min_dep;
+	double jd_dep_step = period_dep/86400/fabs(opp_conj_gradient)/10;
+	while(jd_dep <= jd_max_dep+jd_dep_step) {
 		osv0 = group->system->prop_method == ORB_ELEMENTS ?
-					osv_from_elements(group->dep_body->orbit, jd_dep) :
-					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
+						osv_from_elements(group->dep_body->orbit, jd_dep) :
+						osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
 
 		osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
 					   osv_from_elements(group->arr_body->orbit, jd_dep) :
@@ -444,17 +455,58 @@ void calc_group_porkchop(SegmentGroup *group, int shift, int departure_cap, doub
 		last_opposition_dt = next_opposition_dt;
 		last_conjunction_dt = next_conjunction_dt;
 		if(next_conjunction_dt < next_opposition_dt) {
-			dt0 = next_conjunction_dt;
-			dt1 = next_opposition_dt;
+			data_array2_append_new(group->lower_boundary, jd_dep, next_conjunction_dt/86400);
+			data_array2_append_new(group->upper_boundary, jd_dep, next_opposition_dt/86400);
 		} else {
-			dt0 = next_opposition_dt;
-			dt1 = next_conjunction_dt;
+			data_array2_append_new(group->lower_boundary, jd_dep, next_opposition_dt/86400);
+			data_array2_append_new(group->upper_boundary, jd_dep, next_conjunction_dt/86400);
 		}
+
+		jd_dep += jd_dep_step;
+	}
+	group->top_boundary_type = next_conjunction_dt < next_opposition_dt ?
+	DEPARTURE_GROUP_BOUNDARY_TOP_OPP : DEPARTURE_GROUP_BOUNDARY_TOP_CONJ;
+}
+
+
+void calc_group_porkchop(SegmentGroup *group, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	group->segment_steps = malloc(departure_cap * sizeof(struct ItinStep*));
+
+	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
+					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_min_dep, group->system->cb);
+
+	OSV osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(group->arr_body->orbit, jd_min_dep) :
+				   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_min_dep, group->system->cb);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
+	double dt0, dt1;
+
+
+	double r0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb).a, r1 = arr0.a;
+	double r_ratio =  r1/r0;
+	Hohmann hohmann = calc_hohmann_transfer(r0, r1, group->system->cb);
+	double hohmann_dur = hohmann.dur/86400;
+	double min_duration = 0.4 * hohmann_dur;
+	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+	if(max_duration < max_dur) max_dur = max_duration;
+	if(min_duration > min_dur) min_dur = min_duration;
+
+	double min_dt = min_dur*86400;
+	double max_dt = max_dur*86400;
+	double jd_dep_step = (jd_max_dep-jd_min_dep)/(departure_cap-1);
+
+	for(int i = 0; i < departure_cap; i++) {
+		double jd_dep = jd_min_dep + jd_dep_step*i;
+
+		get_upper_and_lower_boundary_at_jd_dep(group, jd_dep, &dt0, &dt1);
 
 		if(dt0 > max_dt || dt1 < min_dt) continue;
 
 		double left_x = 0, right_x = 0;
-
+		osv0 = group->system->prop_method == ORB_ELEMENTS ?
+							osv_from_elements(group->dep_body->orbit, jd_dep) :
+							osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
 		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x);
 
 		// No departure possible within given constraints
@@ -511,13 +563,9 @@ double calc_time_to_next_an_dn_line_up(OSV osv_dep_body, OSV osv_arr_body, Body 
 	*next_opposite_line_up_dt = dt_opp_line_up;
 }
 
-
-DataArray2 * calc_min_vinf_line(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double vinf_tolerance) {
+DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double vinf_tolerance) {
 	DataArray2 *min_per_dep = data_array2_create();
-	int departures_cap = group->num_steps;
 	group->num_steps = 0;
-	double opp_conj_gradient = calc_opposition_conjunction_gradient(group->dep_body, group->arr_body, group->system, (jd_min_dep+jd_max_dep)/2);
-	if(opp_conj_gradient > 0) shift *= -1;
 
 	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
 					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
@@ -526,84 +574,39 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, int shift, double jd_min_de
 	OSV osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
 				   osv_from_elements(group->arr_body->orbit, jd_min_dep) :
 				   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_min_dep, group->system->cb);
-	double next_conjunction_dt, next_opposition_dt, last_conjunction_dt, last_opposition_dt;
-	calc_time_to_next_conjunction_and_opposition(osv0.r, osv_arr0, group->system->cb, &last_conjunction_dt, &last_opposition_dt);
-	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
-	double period_arr0 = calc_orbital_period(arr0);
-	double dt0, dt1;
-
-	// default shift from calc_time_to_next_conjunction_and_opposition is 1 (but we want values around 0 for start)
-	if(shift % 2 == 0) {
-		if(last_conjunction_dt > last_opposition_dt) last_conjunction_dt -= period_arr0;
-		else last_opposition_dt -= period_arr0;
-		shift++;
-	}
-	shift--;
-	last_opposition_dt += period_arr0 * shift/2;
-	last_conjunction_dt += period_arr0 * shift/2;
-
-	if(last_opposition_dt < last_conjunction_dt) {
-		group->boundary0_bottom = vec2(jd_min_dep, last_opposition_dt);
-		group->boundary0_top = vec2(jd_min_dep, last_conjunction_dt);
-	} else {
-		group->boundary0_bottom = vec2(jd_min_dep, last_conjunction_dt);
-		group->boundary0_top = vec2(jd_min_dep, last_opposition_dt);
-	}
-
-	group->boundary_gradient = opp_conj_gradient;
-
-
-	double r0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb).a, r1 = arr0.a;
-	double r_ratio =  r1/r0;
-	Hohmann hohmann = calc_hohmann_transfer(r0, r1, group->system->cb);
-	double hohmann_dur = hohmann.dur/86400;
-	double min_duration = 0.4 * hohmann_dur;
-	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
-	min_duration /= 5;
-	max_duration *= 5;
-	if(max_duration < max_dur) max_dur = max_duration;
-	if(min_duration > min_dur) min_dur = min_duration;
+	Orbit orbit0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb);
+	double period_dep = calc_orbital_period(orbit0);
+	double next_line_up_dt, next_opp_line_up_dt;
+	calc_time_to_next_an_dn_line_up(osv0, osv_arr0, group->system->cb, &next_line_up_dt, &next_opp_line_up_dt);
 
 	double min_dt = min_dur*86400;
 	double max_dt = max_dur*86400;
-	double jd_dep_step = (jd_max_dep-jd_min_dep)/(departures_cap-1);
-
 	DataArray2 *data_dep = data_array2_create();
 
-	for(int i = 0; i < departures_cap; i++) {
-		double jd_dep = jd_min_dep + jd_dep_step*i;
+	double min_dep = jd_min_dep;
+	double max_dep = jd_min_dep + next_line_up_dt/86400;
+	if(max_dep > jd_max_dep) max_dep = jd_max_dep;
+	double jd_dep = min_dep;
+	int index0 = 0;
+	double max_jd_step = (next_opp_line_up_dt-next_line_up_dt)/86400/5;
 
+	while(min_dep < jd_max_dep) {
 		data_array2_clear(data_dep);
+		double dt0, dt1;
+		get_upper_and_lower_boundary_at_jd_dep(group, jd_dep, &dt0, &dt1);
 
-		osv0 = group->system->prop_method == ORB_ELEMENTS ?
-					osv_from_elements(group->dep_body->orbit, jd_dep) :
-					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
-
-		osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
-					   osv_from_elements(group->arr_body->orbit, jd_dep) :
-					   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_dep, group->system->cb);
-		calc_time_to_next_conjunction_and_opposition(osv0.r, osv_arr0, group->system->cb, &next_conjunction_dt, &next_opposition_dt);
-
-
-		double opp_guess = last_opposition_dt + jd_dep_step*86400*opp_conj_gradient;
-		double conj_guess = last_conjunction_dt + jd_dep_step*86400*opp_conj_gradient;
-
-		while(opp_guess-next_opposition_dt   >  0.5 * period_arr0) next_opposition_dt  += period_arr0;
-		while(opp_guess-next_opposition_dt   < -0.5 * period_arr0) next_opposition_dt  -= period_arr0;
-		while(conj_guess-next_conjunction_dt >  0.5 * period_arr0) next_conjunction_dt += period_arr0;
-		while(conj_guess-next_conjunction_dt < -0.5 * period_arr0) next_conjunction_dt -= period_arr0;
-
-		last_opposition_dt = next_opposition_dt;
-		last_conjunction_dt = next_conjunction_dt;
-		if(next_conjunction_dt < next_opposition_dt) {
-			dt0 = next_conjunction_dt;
-			dt1 = next_opposition_dt;
-		} else {
-			dt0 = next_opposition_dt;
-			dt1 = next_conjunction_dt;
+		if(dt0 > max_dt || dt1 < min_dt) {
+			double temp = min_dep;
+			min_dep = max_dep;
+			max_dep = temp + period_dep/86400;
+			if(max_dep > jd_max_dep) max_dep = jd_max_dep;
+			jd_dep = min_dep;
+			continue;
 		}
 
-		if(dt0 > max_dt || dt1 < min_dt) continue;
+		osv0 = group->system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(group->dep_body->orbit, jd_dep) :
+				osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
 
 		double left_x = 0, right_x = 0;
 
@@ -639,7 +642,7 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, int shift, double jd_min_de
 			if(dt == left_x) dt = right_x;
 			else if(dt == right_x) dt = ( dt + data_array2_get_data(data_dep)[0].x*86400 ) / 2;
 			else {
-				double next_x = calc_next_x_find_min(data_dep, vinf_tolerance)*86400;
+				double next_x = calc_next_x_find_min(data_dep, vinf_tolerance/2)*86400;
 
 				if(next_x < 0) {
 					Vector2 *data = data_array2_get_data(data_dep);
@@ -648,7 +651,7 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, int shift, double jd_min_de
 					for(int idx = 1; idx < num_data; idx++) {
 						if(data[idx].y < data[min_idx].y) min_idx = idx;
 					}
-					data_array2_append_new(min_per_dep, jd_dep, data[min_idx].y);
+					data_array2_insert_new(min_per_dep, jd_dep, data[min_idx].y);
 					// print_date(convert_JD_date(jd_dep, DATE_ISO), 0);
 					// printf("      %f  |   %f    %f    %f  |    %f    %f    %f\n", jd_dep, dt/86400, left_x/86400, right_x/86400, dt, left_x, right_x);
 					// data_array2_append_new(min_per_dep, jd_dep-jd_min_dep, data[min_idx].x);
@@ -658,32 +661,27 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, int shift, double jd_min_de
 			}
 		}
 		// print_data_array2(data_dep, "dep", "dv");
+		// print_data_array2(min_per_dep, "dep", "dv");
+
+		if(jd_dep == min_dep) {jd_dep = max_dep; continue;}
+		if(jd_dep == max_dep) {jd_dep = (min_dep + max_dep)/2; continue;}
+		double next_dep = calc_next_x_wrt_smoothness(min_per_dep, index0, vinf_tolerance/2);
+		if(next_dep > 0) {
+			if(next_dep - jd_dep > max_jd_step) {jd_dep += max_jd_step; continue;}
+			jd_dep = next_dep; continue;
+		}
+
+		if(max_dep - jd_dep > max_jd_step) {jd_dep += max_jd_step; continue;}
+
+		double temp = min_dep;
+		min_dep = max_dep;
+		max_dep = temp + period_dep/86400;
+		if(max_dep > jd_max_dep) max_dep = jd_max_dep;
+		jd_dep = max_dep;
+		index0 = (int) data_array2_size(min_per_dep)-1;
 	}
 
 	data_array2_free(data_dep);
-
-
-
-
-	// double next_line_up_dt, next_opp_line_up_dt;
-	// calc_time_to_next_an_dn_line_up(osv0, osv_arr0, group->system->cb, &next_line_up_dt, &next_opp_line_up_dt);
-	//
-	// Orbit orbit0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb);
-	// double period_dep = calc_orbital_period(orbit0);
-	//
-	// double max_x = data_array2_get_data(min_per_dep)[data_array2_size(min_per_dep)-1].x;
-	// double min_x = data_array2_get_data(min_per_dep)[0].x;
-	//
-	// while(next_line_up_dt/86400 < max_x) {
-	// 	if(next_opp_line_up_dt/86400 > min_x) {
-	// 		for(int i = 0; i < 20; i++) {
-	// 			data_array2_insert_new(min_per_dep, next_line_up_dt/86400, i*2000);
-	// 			data_array2_insert_new(min_per_dep, next_opp_line_up_dt/86400, i*2000);
-	// 		}
-	// 	}
-	// 	next_line_up_dt += period_dep;
-	// 	next_opp_line_up_dt += period_dep;
-	// }
 
 	return min_per_dep;
 }
@@ -1144,14 +1142,15 @@ FlyByGroups * get_flyby_groups_wrt_vinf(Mesh2 *mesh, SegmentGroup *departure_gro
 	double next_conjunction_dt, next_opposition_dt, last_conjunction_dt, last_opposition_dt;
 	calc_time_to_next_conjunction_and_opposition(osv_dep.r, osv_arr0, departure_group->system->cb, &next_conjunction_dt, &next_opposition_dt);
 
+	// TODO change
 	double opp_guess, conj_guess;
-	if(departure_group->top_boundary_type == DEPARTURE_GROUP_BOUNDARY_TOP_CONJ) {
-		conj_guess = departure_group->boundary0_top.y + (jd_dep - departure_group->boundary0_top.x) * 86400 * departure_group->boundary_gradient;
-		opp_guess = departure_group->boundary0_bottom.y + (jd_dep - departure_group->boundary0_bottom.x) * 86400 * departure_group->boundary_gradient;
-	} else {
-		opp_guess = departure_group->boundary0_top.y + (jd_dep - departure_group->boundary0_top.x) * 86400 * departure_group->boundary_gradient;
-		conj_guess = departure_group->boundary0_bottom.y + (jd_dep - departure_group->boundary0_bottom.x) * 86400 * departure_group->boundary_gradient;
-	}
+	// if(departure_group->top_boundary_type == DEPARTURE_GROUP_BOUNDARY_TOP_CONJ) {
+	// 	conj_guess = departure_group->boundary0_top.y + (jd_dep - departure_group->boundary0_top.x) * 86400 * departure_group->boundary_gradient;
+	// 	opp_guess = departure_group->boundary0_bottom.y + (jd_dep - departure_group->boundary0_bottom.x) * 86400 * departure_group->boundary_gradient;
+	// } else {
+	// 	opp_guess = departure_group->boundary0_top.y + (jd_dep - departure_group->boundary0_top.x) * 86400 * departure_group->boundary_gradient;
+	// 	conj_guess = departure_group->boundary0_bottom.y + (jd_dep - departure_group->boundary0_bottom.x) * 86400 * departure_group->boundary_gradient;
+	// }
 
 	while(opp_guess-next_opposition_dt   >  0.5 * period_arr0) next_opposition_dt  += period_arr0;
 	while(opp_guess-next_opposition_dt   < -0.5 * period_arr0) next_opposition_dt  -= period_arr0;
@@ -1187,8 +1186,9 @@ FlyByGroups * get_flyby_groups_wrt_vinf(Mesh2 *mesh, SegmentGroup *departure_gro
 					   osv_from_ephem(departure_group->arr_body->ephem, departure_group->arr_body->num_ephems, jd_dep, departure_group->system->cb);
 		calc_time_to_next_conjunction_and_opposition(osv_dep.r, osv_arr0, departure_group->system->cb, &next_conjunction_dt, &next_opposition_dt);
 
-		opp_guess = last_opposition_dt + (jd_dep-last_jd_dep)*86400*departure_group->boundary_gradient;
-		conj_guess = last_conjunction_dt + (jd_dep-last_jd_dep)*86400*departure_group->boundary_gradient;
+		// TODO change
+		// opp_guess = last_opposition_dt + (jd_dep-last_jd_dep)*86400*departure_group->boundary_gradient;
+		// conj_guess = last_conjunction_dt + (jd_dep-last_jd_dep)*86400*departure_group->boundary_gradient;
 
 		while(opp_guess-next_opposition_dt   >  0.5 * period_arr0) next_opposition_dt  += period_arr0;
 		while(opp_guess-next_opposition_dt   < -0.5 * period_arr0) next_opposition_dt  -= period_arr0;
