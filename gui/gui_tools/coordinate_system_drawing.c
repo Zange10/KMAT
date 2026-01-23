@@ -257,6 +257,9 @@ void draw_coordinate_system_data(CoordinateSystem *coord_sys) {
 			case CS_PLOT_TYPE_MESH_BOXES:
 				draw_mesh_boxes(coord_sys->groups[i]->mesh, coord_sys);
 				break;
+			case CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG:
+				draw_triangle_debug(coord_sys->groups[i]->mesh, coord_sys);
+				break;
 			default:
 				break;
 		}

@@ -350,6 +350,51 @@ void calc_bounded_porkchop_line(struct ItinStep *departure_step, Body *arr_body,
 	data_array2_free(data_arr);
 }
 
+void calc_coarse_bounded_porkchop_line(struct ItinStep *departure_step, Body *arr_body, CelestSystem *system, double min_dt, double max_dt, double dt_step, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	Body *dep_body = departure_step->body;
+	double jd_dep = departure_step->date;
+	OSV osv0 = system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(dep_body->orbit, jd_dep) :
+				osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, system->cb);
+
+	int num_steps = (int) (max_dt-min_dt)/dt_step + 2;
+
+	struct ItinStep *curr_step = departure_step;
+	curr_step->r = osv0.r;
+	curr_step->v_body = osv0.v;
+	curr_step->v_dep = vec3(0, 0, 0);
+	curr_step->v_arr = vec3(0, 0, 0);
+	curr_step->num_next_nodes = 0;
+	curr_step->prev = NULL;
+	curr_step->next = (struct ItinStep **) malloc(num_steps * sizeof(struct ItinStep *));
+
+	for(int i = 0; i < num_steps; i++) {
+		double dt = min_dt + (max_dt-min_dt) * ((double) i/(num_steps-1));
+		double jd_arr = jd_dep + dt / 86400;
+
+		OSV osv_arr = system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(arr_body->orbit, jd_arr) :
+					osv_from_ephem(arr_body->ephem, arr_body->num_ephems, jd_arr, system->cb);
+
+		Lambert3 tf = calc_lambert3(osv0.r, osv_arr.r, (jd_arr - jd_dep) * 86400, system->cb);
+
+		curr_step = get_first(curr_step);
+		curr_step->next[i] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
+		curr_step->next[i]->prev = curr_step;
+		curr_step->next[i]->next = NULL;
+		curr_step = curr_step->next[i];
+
+		curr_step->body = arr_body;
+		curr_step->date = jd_arr;
+		curr_step->r = osv_arr.r;
+		curr_step->v_dep = tf.v0;
+		curr_step->v_arr = tf.v1;
+		curr_step->v_body = osv_arr.v;
+		curr_step->num_next_nodes = 0;
+		curr_step->prev->num_next_nodes++;
+	}
+}
+
 
 double calc_opposition_conjunction_gradient(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep) {
 	OSV osv0 = system->prop_method == ORB_ELEMENTS ?
@@ -466,6 +511,273 @@ void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, d
 	}
 	group->top_boundary_type = next_conjunction_dt < next_opposition_dt ?
 	DEPARTURE_GROUP_BOUNDARY_TOP_OPP : DEPARTURE_GROUP_BOUNDARY_TOP_CONJ;
+}
+
+void calc_coarse_group_porkchop(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, int num_duration_steps, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	group->segment_steps = malloc(10000 * sizeof(struct ItinStep*));
+
+	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
+					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_min_dep, group->system->cb);
+
+	OSV osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(group->arr_body->orbit, jd_min_dep) :
+				   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_min_dep, group->system->cb);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
+	double dt0, dt1;
+
+
+	double r0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb).a, r1 = arr0.a;
+	double r_ratio =  r1/r0;
+	Hohmann hohmann = calc_hohmann_transfer(r0, r1, group->system->cb);
+	double hohmann_dur = hohmann.dur/86400;
+	double min_duration = 0.4 * hohmann_dur;
+	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+	if(max_duration < max_dur) max_dur = max_duration;
+	if(min_duration > min_dur) min_dur = min_duration;
+
+	double min_dt = min_dur*86400;
+	double max_dt = max_dur*86400;
+	double jd_dep_step = 5;
+	double jd_dep = jd_min_dep;
+
+	while(jd_dep < jd_max_dep) {
+		// print_date(convert_JD_date(jd_min_dep, DATE_ISO), 0);
+		// printf("\t");
+		// print_date(convert_JD_date(jd_dep, DATE_ISO), 0);
+		// printf("\t");
+		// print_date(convert_JD_date(jd_max_dep, DATE_ISO), 1);
+		get_upper_and_lower_boundary_at_jd_dep(group, jd_dep, &dt0, &dt1);
+		double dt_step = (dt1-dt0) / num_duration_steps;
+
+		if(dt0 > max_dt || dt1 < min_dt) {jd_dep += jd_dep_step; continue;}
+
+		if(dt0 < min_dur*86400) dt0 = min_dur*86400;
+		if(dt1 > max_dur*86400) dt1 = max_dur*86400;
+
+		group->segment_steps[group->num_steps] = malloc(sizeof(struct ItinStep));
+		group->segment_steps[group->num_steps]->body = group->dep_body;
+		group->segment_steps[group->num_steps]->date = jd_dep;
+		calc_coarse_bounded_porkchop_line(group->segment_steps[group->num_steps], group->arr_body, group->system, dt0, dt1, dt_step, dep_periapsis, max_depdv, dv_tolerance);
+		group->num_steps++;
+		if(jd_dep >= jd_max_dep) break;
+		jd_dep += dt_step/fabs(group->boundary_gradient)/86400;
+		if(jd_dep >= jd_max_dep) jd_dep = jd_max_dep;
+	}
+}
+
+MeshPoint2 * create_mesh_point_for_porkchop_mesh(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep, double dur) {
+	double jd_arr = jd_dep + dur;
+	OSV osv0 = system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(dep_body->orbit, jd_dep) :
+				osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, system->cb);
+	struct ItinStep *curr_step = malloc(sizeof(struct ItinStep));
+	curr_step->body = dep_body;
+	curr_step->date = jd_dep;
+	curr_step->r = osv0.r;
+	curr_step->v_body = osv0.v;
+	curr_step->v_dep = vec3(0, 0, 0);
+	curr_step->v_arr = vec3(0, 0, 0);
+	curr_step->num_next_nodes = 0;
+	curr_step->prev = NULL;
+	curr_step->next = (struct ItinStep **) malloc(sizeof(struct ItinStep *));
+
+	OSV osv_arr = system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(arr_body->orbit, jd_arr) :
+				osv_from_ephem(arr_body->ephem, arr_body->num_ephems, jd_arr, system->cb);
+
+	Lambert3 tf = calc_lambert3(osv0.r, osv_arr.r, (jd_arr - jd_dep) * 86400, system->cb);
+
+	curr_step->next[0] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
+	curr_step->next[0]->prev = curr_step;
+	curr_step->next[0]->next = NULL;
+	curr_step = curr_step->next[0];
+
+	curr_step->body = arr_body;
+	curr_step->date = jd_arr;
+	curr_step->r = osv_arr.r;
+	curr_step->v_dep = tf.v0;
+	curr_step->v_arr = tf.v1;
+	curr_step->v_body = osv_arr.v;
+	curr_step->num_next_nodes = 0;
+	curr_step->prev->num_next_nodes++;
+
+	MeshPoint2 *new_point = malloc(sizeof(MeshPoint2));
+	new_point->pos = vec2(jd_dep, dur);
+	new_point->val = 0;
+	new_point->data = curr_step;
+	new_point->num_triangles = 0;
+	new_point->triangle_cap = 0;
+	new_point->triangles = NULL;
+
+	return new_point;
+}
+
+MeshTriangleBoundaryCondition get_triangle_dep_dv_boundary_condition(MeshTriangle2 *triangle, Body *dep_body, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	bool inside[3] = {false, false, false};
+	for(int i = 0; i < 3; i++) {
+		struct ItinStep *ptr = triangle->points[i]->data;
+		double vinf = mag_vec3(subtract_vec3(ptr->v_arr, ptr->v_body));
+		double depdv = dv_circ(dep_body, dep_body->radius+dep_periapsis, vinf);
+		if(depdv < max_depdv+dv_tolerance) inside[i] = true;
+	}
+	if( inside[0] &&  inside[1] &&  inside[2]) return TRIANGLE_INSIDE_BOUNDARY;
+	if(!inside[0] && !inside[1] && !inside[2]) return TRIANGLE_OUTSIDE_BOUNDARY;
+	return TRIANGLE_CROSSING_BOUNDARY;
+}
+
+MeshTriangleBoundaryCondition get_triangle_group_boundary_condition(MeshTriangle2 *triangle, SegmentGroup *group) {
+	bool inside[3] = {false, false, false};
+	for(int i = 0; i < 3; i++) {
+		struct ItinStep *ptr = triangle->points[i]->data;
+		double jd_dep = get_first(ptr)->date;
+		double dur = ptr->date - jd_dep;
+		double upper_dur_boundary = interpolate_from_sorted_data_array(group->upper_boundary, jd_dep);
+		double lower_dur_boundary = interpolate_from_sorted_data_array(group->lower_boundary, jd_dep);
+		if(dur <= upper_dur_boundary && dur >= lower_dur_boundary) inside[i] = true;
+	}
+	if( inside[0] &&  inside[1] &&  inside[2]) return TRIANGLE_INSIDE_BOUNDARY;
+	if(!inside[0] && !inside[1] && !inside[2]) return TRIANGLE_OUTSIDE_BOUNDARY;
+	return TRIANGLE_CROSSING_BOUNDARY;
+}
+
+// bool triangle_needs_dvdep_error_refinement(MeshTriangle2 *triangle, Body *dep_body, double dep_periapsis, double max_depdv, double dv_tolerance) {
+//
+// }
+
+void split_mesh_triangle(Mesh2 *mesh, MeshTriangle2 *triangle, SegmentGroup *group) {
+	int side_idx = 0;
+	double max_side_lengths_sq = 0;
+
+	for(int i = 0; i < 3; i++) {
+		double side_length_sq = sq_mag_vec2(subtract_vec2(triangle->points[i]->pos, triangle->points[(i+1)%3]->pos));
+		if(side_length_sq > max_side_lengths_sq) { max_side_lengths_sq = side_length_sq; side_idx = i; }
+	}
+
+	MeshTriangle2 *adj_triangle = triangle->adj_triangles[side_idx];
+	if(adj_triangle && adj_triangle->rf_level == adj_triangle->target_rf_level) return;
+
+	MeshPoint2 *t0p0 = triangle->points[side_idx];
+	MeshPoint2 *t0p1 = triangle->points[(side_idx+1)%3];
+	MeshPoint2 *t0p_opp = triangle->points[(side_idx+2)%3];
+
+	Vector2 new_point_pos = scale_vec2(add_vec2(t0p0->pos, t0p1->pos), 0.5);
+	MeshPoint2 *new_point = create_mesh_point_for_porkchop_mesh(group->dep_body, group->arr_body, group->system, new_point_pos.x, new_point_pos.y);
+	add_point_to_mesh(mesh, new_point);
+
+	remove_triangle_from_mesh(mesh, triangle, false);
+	add_triangle_to_mesh(mesh, create_triangle_from_three_points_with_rf_level(new_point, t0p_opp, t0p0, triangle->rf_level+1, triangle->target_rf_level));
+	add_triangle_to_mesh(mesh, create_triangle_from_three_points_with_rf_level(new_point, t0p_opp, t0p1, triangle->rf_level+1, triangle->target_rf_level));
+
+	if(!adj_triangle) return;
+	int adj_tri_opp_point_idx = 0;
+	for(int i = 0; i < 3; i++) {
+		if(adj_triangle->points[i] != t0p0 && adj_triangle->points[i] != t0p1) {
+			adj_tri_opp_point_idx = i;
+			break;
+		}
+	}
+
+	MeshPoint2 *t1p0 = adj_triangle->points[(adj_tri_opp_point_idx+1)%3];
+	MeshPoint2 *t1p1 = adj_triangle->points[(adj_tri_opp_point_idx+2)%3];
+	MeshPoint2 *t1p_opp = adj_triangle->points[adj_tri_opp_point_idx];
+
+	remove_triangle_from_mesh(mesh, adj_triangle, false);
+	add_triangle_to_mesh(mesh, create_triangle_from_three_points_with_rf_level(new_point, t1p_opp, t1p0, adj_triangle->rf_level, adj_triangle->target_rf_level));
+	add_triangle_to_mesh(mesh, create_triangle_from_three_points_with_rf_level(new_point, t1p_opp, t1p1, adj_triangle->rf_level, adj_triangle->target_rf_level));
+}
+
+int max_num_refines = 0;
+int num_refines = 0;
+
+void refine_porkchop_mesh_box(SegmentGroup *group, MeshBox2 *box, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	if(box->type == MESHBOX_SUBBOXES) {
+		int num_subboxes = (int) box->subboxes.num;
+		for(int i = 0; i < box->subboxes.num; i++) {
+			refine_porkchop_mesh_box(group, box->subboxes.boxes[i], dep_periapsis, max_depdv, dv_tolerance);
+			if(box->subboxes.num != num_subboxes) { i--; num_subboxes = (int) box->subboxes.num; }
+		}
+	} else if(box->type == MESHBOX_TRIANGLES) {
+		for(int i = 0; i < box->tri.num; i++) {
+			MeshTriangle2 *triangle = box->tri.triangles[i];
+			MeshTriangleBoundaryCondition bc_depdv = get_triangle_dep_dv_boundary_condition(triangle, group->dep_body, dep_periapsis, max_depdv, dv_tolerance);
+			MeshTriangleBoundaryCondition bc_group_boundary = get_triangle_group_boundary_condition(triangle, group);
+
+			if(bc_depdv == TRIANGLE_OUTSIDE_BOUNDARY || bc_group_boundary == TRIANGLE_OUTSIDE_BOUNDARY) {
+				set_mesh_tri_flag(triangle, TRI_FLAG_INACTIVE);
+			} else if(bc_depdv == TRIANGLE_CROSSING_BOUNDARY || bc_group_boundary == TRIANGLE_CROSSING_BOUNDARY) {
+				set_mesh_tri_flag(triangle, TRI_FLAG_WANTS_REFINEMENT);
+				triangle->target_rf_level = triangle->rf_level+1;
+			}
+		}
+	}
+}
+
+void refine_porkchop_mesh(SegmentGroup *group, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	num_refines = 0;
+	Mesh2 *mesh = group->mesh;
+	// refine_porkchop_mesh_box(group, mesh->mesh_box, dep_periapsis, max_depdv, dv_tolerance);
+	int max_level = 0;
+
+	for(int c = 0; c < max_num_refines; c++) {
+		for(int i = 0; i < mesh->num_triangles; i++) {
+			MeshTriangle2 *triangle = mesh->triangles[i];
+			MeshTriangleBoundaryCondition bc_depdv = get_triangle_dep_dv_boundary_condition(triangle, group->dep_body, dep_periapsis, max_depdv, dv_tolerance);
+			MeshTriangleBoundaryCondition bc_group_boundary = get_triangle_group_boundary_condition(triangle, group);
+
+			remove_mesh_tri_flag(triangle, TRI_FLAG_WANTS_REFINEMENT);
+			triangle->target_rf_level = triangle->rf_level;
+
+			if(bc_depdv == TRIANGLE_OUTSIDE_BOUNDARY || bc_group_boundary == TRIANGLE_OUTSIDE_BOUNDARY) {
+				set_mesh_tri_flag(triangle, TRI_FLAG_INACTIVE);
+			} else if(bc_depdv == TRIANGLE_CROSSING_BOUNDARY || bc_group_boundary == TRIANGLE_CROSSING_BOUNDARY) {
+				set_mesh_tri_flag(triangle, TRI_FLAG_WANTS_REFINEMENT);
+				triangle->target_rf_level = triangle->rf_level+1;
+				if(triangle->rf_level > max_level) { max_level = triangle->rf_level; }
+			}
+		}
+
+		bool has_changed = false;
+		do {
+			has_changed = false;
+			for(int i = 0; i < mesh->num_triangles; i++) {
+				MeshTriangle2 *triangle = mesh->triangles[i];
+				for(int j = 0; j < 3; j++) {
+					if(triangle->adj_triangles[j]) {
+						if(triangle->adj_triangles[j]->target_rf_level-1 > triangle->target_rf_level) {
+							triangle->target_rf_level = triangle->adj_triangles[j]->target_rf_level-1;
+							set_mesh_tri_flag(triangle, TRI_FLAG_WANTS_REFINEMENT);
+							has_changed = true;
+						}
+					}
+				}
+			}
+		} while(has_changed);
+
+		for(int level = 0; level <= max_level; level++) {
+			for(int i = 0; i < mesh->num_triangles; i++) {
+				MeshTriangle2 *triangle = mesh->triangles[i];
+				if(is_mesh_tri_flag(triangle, TRI_FLAG_WANTS_REFINEMENT) && triangle->rf_level <= level) split_mesh_triangle(mesh, triangle, group);
+				if(triangle->rf_level == triangle->target_rf_level) remove_mesh_tri_flag(triangle, TRI_FLAG_WANTS_REFINEMENT);
+			}
+		}
+	}
+
+	for(int i = 0; i < mesh->num_triangles; i++) {
+		MeshTriangle2 *triangle = mesh->triangles[i];
+		MeshTriangleBoundaryCondition bc_depdv = get_triangle_dep_dv_boundary_condition(triangle, group->dep_body, dep_periapsis, max_depdv, dv_tolerance);
+		MeshTriangleBoundaryCondition bc_group_boundary = get_triangle_group_boundary_condition(triangle, group);
+
+		if(bc_depdv == TRIANGLE_OUTSIDE_BOUNDARY || bc_group_boundary == TRIANGLE_OUTSIDE_BOUNDARY) {
+			set_mesh_tri_flag(triangle, TRI_FLAG_INACTIVE);
+			remove_triangle_from_mesh(mesh, triangle, true);
+			i--;
+		} else if(bc_depdv == TRIANGLE_CROSSING_BOUNDARY || bc_group_boundary == TRIANGLE_CROSSING_BOUNDARY) {
+			set_mesh_tri_flag(triangle, TRI_FLAG_WANTS_REFINEMENT);
+			triangle->target_rf_level = triangle->rf_level+1;
+		}
+	}
+	max_num_refines++;
 }
 
 

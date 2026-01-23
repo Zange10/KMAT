@@ -35,6 +35,18 @@ bool is_triangle_bouding_box_inside_rectangle(MeshTriangle2 *triangle, Vector2 m
 	return true;
 }
 
+void set_mesh_tri_flag(MeshTriangle2 *triangle, MeshTriangleFlag flag) {
+	triangle->flags |= flag;
+}
+
+void remove_mesh_tri_flag(MeshTriangle2 *triangle, MeshTriangleFlag flag) {
+	triangle->flags &= ~flag;
+}
+
+bool is_mesh_tri_flag(MeshTriangle2 *triangle, MeshTriangleFlag flag) {
+	return (triangle->flags & flag) != 0;
+}
+
 void find_2dtriangle_minmax(MeshTriangle2 *triangle, Vector2 *min, Vector2 *max) {
 	min->x = triangle->points[0]->pos.x;
 	max->x = triangle->points[0]->pos.x;
@@ -167,6 +179,10 @@ MeshTriangle2 * get_and_add_to_adjacent_triangle_from_two_points(MeshTriangle2 *
 }
 
 MeshTriangle2 * create_triangle_from_three_points(MeshPoint2 *p0, MeshPoint2 *p1, MeshPoint2 *p2) {
+	return create_triangle_from_three_points_with_rf_level(p0, p1, p2, 0, 0);
+}
+
+MeshTriangle2 * create_triangle_from_three_points_with_rf_level(MeshPoint2 *p0, MeshPoint2 *p1, MeshPoint2 *p2, int rf_level, int target_rf_level) {
 	MeshTriangle2 *triangle = malloc(sizeof(MeshTriangle2));
 	triangle->points[0] = p0;
 	triangle->points[1] = p1;
@@ -174,6 +190,9 @@ MeshTriangle2 * create_triangle_from_three_points(MeshPoint2 *p0, MeshPoint2 *p1
 	triangle->adj_triangles[0] = get_and_add_to_adjacent_triangle_from_two_points(triangle, p0, p1);
 	triangle->adj_triangles[1] = get_and_add_to_adjacent_triangle_from_two_points(triangle, p1, p2);
 	triangle->adj_triangles[2] = get_and_add_to_adjacent_triangle_from_two_points(triangle, p2, p0);
+	triangle->flags = 0;
+	triangle->rf_level = rf_level;
+	triangle->target_rf_level = target_rf_level;
 
 	for(int i = 0; i < 3; i++) {
 		MeshPoint2 *p = i == 0 ? p0 : i == 1 ? p1 : p2;
@@ -267,19 +286,29 @@ void remove_triangle_from_mesh_box(MeshBox2 *mesh_box, MeshTriangle2 *triangle) 
 	}
 }
 
-void remove_triangle_from_mesh(Mesh2 *mesh, int tri_idx) {
+void remove_triangle_id_from_mesh(Mesh2 *mesh, int tri_idx, bool remove_lone_points) {
 	MeshTriangle2 *triangle = mesh->triangles[tri_idx];
 	remove_triangle_from_mesh_box(mesh->mesh_box, triangle);
 	for(int i = 0; i < 3; i++) {
 		remove_as_adjacent_triangle(triangle->adj_triangles[i], triangle);
 		remove_triangle_from_point(triangle->points[i], triangle);
-		if(triangle->points[i]->num_triangles == 0) remove_point_from_mesh(mesh, triangle->points[i]);
+		if(triangle->points[i]->num_triangles == 0 && remove_lone_points) remove_point_from_mesh(mesh, triangle->points[i]);
 	}
 
 	free(triangle);
 	mesh->triangles[tri_idx] = mesh->triangles[mesh->num_triangles-1];
 	mesh->num_triangles--;
 }
+
+void remove_triangle_from_mesh(Mesh2 *mesh, MeshTriangle2 *triangle, bool remove_lone_points) {
+	for(int i = 0; i < mesh->num_triangles; i++) {
+		if(mesh->triangles[i] == triangle) {
+			remove_triangle_id_from_mesh(mesh, i, remove_lone_points);
+			return;
+		}
+	}
+}
+
 
 
 MeshGrid2 *create_mesh_grid(DataArray2 *pos, void **data) {

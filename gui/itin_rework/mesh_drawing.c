@@ -80,20 +80,19 @@ void draw_mesh_skeleton(Mesh2 *mesh, CoordinateSystem *coord_sys) {
 
 
 
-void draw_triangle_debug(cairo_t *cr, Mesh2 *mesh) {
+void draw_triangle_debug(Mesh2 *mesh, CoordinateSystem *coord_sys) {
 	struct timeval start, end;
 	gettimeofday(&start, NULL);
 
+	cairo_t *cr = coord_sys->screen->static_layer.cr;
+
 	for(int i = 0; i < mesh->num_triangles; i++) {
-		if(triangle_is_edge(mesh->triangles[i])) cairo_set_source_rgb(cr, 0, 0.5, 1);
+		// if(triangle_is_edge(mesh->triangles[i])) cairo_set_source_rgb(cr, 0, 0.5, 1);
+		if(is_mesh_tri_flag(mesh->triangles[i], TRI_FLAG_INACTIVE)) cairo_set_source_rgb(cr, 0.1, 0.1, 0.1);
+		else if(is_mesh_tri_flag(mesh->triangles[i], TRI_FLAG_WANTS_REFINEMENT)) cairo_set_source_rgb(cr, 1, 0, 0);
 		else cairo_set_source_rgb(cr, 0.3, 0.3, 0.3);
 
-		cairo_move_to(cr, mesh->triangles[i]->points[0]->pos.x, mesh->triangles[i]->points[0]->pos.y);
-		cairo_line_to(cr, mesh->triangles[i]->points[1]->pos.x, mesh->triangles[i]->points[1]->pos.y);
-		cairo_line_to(cr, mesh->triangles[i]->points[2]->pos.x, mesh->triangles[i]->points[2]->pos.y);
-		cairo_close_path(cr);
-
-		cairo_fill(cr);
+		draw_mesh_triangle(mesh->triangles[i], coord_sys, true, true);
 	}
 
 
@@ -241,7 +240,9 @@ void draw_mesh_triangle_and_boxes_for_position_lookup(MeshBox2 *box, Vector2 pos
 		}
 	} else if(box->type == MESHBOX_TRIANGLES) {
 		for(int i = 0; i < box->tri.num; i++) {
-			if(is_inside_triangle(box->tri.triangles[i], pos)) cairo_set_source_rgb(cr, 0,1,0);
+			if(is_inside_triangle(box->tri.triangles[i], pos)) {
+				cairo_set_source_rgb(cr, 0,1,0);
+			}
 			else cairo_set_source_rgb(cr, 0,0,1);
 			draw_mesh_triangle(box->tri.triangles[i], coord_sys, true, false);
 		}
