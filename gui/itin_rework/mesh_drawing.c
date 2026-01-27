@@ -89,7 +89,8 @@ void draw_triangle_debug(Mesh2 *mesh, CoordinateSystem *coord_sys) {
 	for(int i = 0; i < mesh->num_triangles; i++) {
 		// if(triangle_is_edge(mesh->triangles[i])) cairo_set_source_rgb(cr, 0, 0.5, 1);
 		if(is_mesh_tri_flag(mesh->triangles[i], TRI_FLAG_INACTIVE)) cairo_set_source_rgb(cr, 0.1, 0.1, 0.1);
-		else if(is_mesh_tri_flag(mesh->triangles[i], TRI_FLAG_WANTS_REFINEMENT)) cairo_set_source_rgb(cr, 1, 0, 0);
+		else if(is_mesh_tri_flag(mesh->triangles[i], TRI_FLAG_WANTS_REFINEMENT)) cairo_set_source_rgb(cr, 1, 1, 0);
+		else if(is_mesh_tri_flag(mesh->triangles[i], TRI_FLAG_ACC_ERR)) cairo_set_source_rgb(cr, 1, 0, 0);
 		else cairo_set_source_rgb(cr, 0.3, 0.3, 0.3);
 
 		draw_mesh_triangle(mesh->triangles[i], coord_sys, true, true);

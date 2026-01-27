@@ -17,7 +17,8 @@ enum MeshTriangleBoundaryCondition {TRIANGLE_OUTSIDE_BOUNDARY, TRIANGLE_INSIDE_B
 
 enum MeshTriangleFlag {
 	TRI_FLAG_INACTIVE = 1 << 0,
-	TRI_FLAG_WANTS_REFINEMENT = 1 << 1
+	TRI_FLAG_WANTS_REFINEMENT = 1 << 1,
+	TRI_FLAG_ACC_ERR = 1 << 2,
 };
 
 typedef u_int8_t mesh_triangle_flags;
@@ -91,6 +92,7 @@ MeshTriangle2 * create_triangle_from_three_points(MeshPoint2 *p0, MeshPoint2 *p1
 void find_2dtriangle_minmax(MeshTriangle2 *triangle, Vector2 *min, Vector2 *max);
 int is_inside_triangle(MeshTriangle2 *triangle, Vector2 p);
 double get_triangle_interpolated_value(Vector3 p0, Vector3 p1, Vector3 p2, Vector2 p);
+Vector2 get_triangle_centroid(MeshTriangle2 *triangle);
 MeshTriangle2 * get_mesh_triangle_at_position(Mesh2 *mesh, Vector2 pos);
 double get_mesh_interpolated_value(Mesh2 *mesh, Vector2 p);
 void add_triangle_to_mesh(Mesh2 *mesh, MeshTriangle2 *triangle);
@@ -99,6 +101,7 @@ MeshGrid2 * create_mesh_grid(DataArray2 *pos, void **data);
 Mesh2 * create_mesh_from_grid(MeshGrid2 *grid);
 Mesh2 * create_mesh_from_grid_w_angled_guideline(MeshGrid2 *grid, double gradient);
 Mesh2 * create_mesh_from_multiple_grids_w_angled_guideline(MeshGrid2 ***grid, int num_cols, int *num_cols_row, double gradient);
+Mesh2 * create_mesh_from_grid_delaunay(MeshGrid2 *grid);
 Mesh2 * combine_meshes(Mesh2 *mesh0, Mesh2 *mesh1);
 void rebuild_mesh_boxes(Mesh2 *mesh);
 void remove_triangle_id_from_mesh(Mesh2 *mesh, int tri_idx, bool remove_lone_points);

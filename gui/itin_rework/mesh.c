@@ -80,7 +80,43 @@ int is_inside_triangle(MeshTriangle2 *triangle, Vector2 p) {
 	double u = (d11*d20 - d01*d21) / denom;
 	double v = (d00*d21 - d01*d20) / denom;
 
-	return (u >= 0 && v >= 0 && u+v <= 1+1e-9);
+	return (u > -1e-9 && v > -1e-9 && u+v <= 1+1e-9);
+}
+
+int is_inside_triangle_circumcircle(MeshTriangle2 *triangle, Vector2 p) {
+	Vector2 a = triangle->points[0]->pos;
+	Vector2 b = triangle->points[1]->pos;
+	Vector2 c = triangle->points[2]->pos;
+
+	double ax = a.x - p.x;
+	double ay = a.y - p.y;
+	double bx = b.x - p.x;
+	double by = b.y - p.y;
+	double cx = c.x - p.x;
+	double cy = c.y - p.y;
+
+	double det = (ax * ax + ay * ay) * (bx * cy - cx * by)
+			   - (bx * bx + by * by) * (ax * cy - cx * ay)
+			   + (cx * cx + cy * cy) * (ax * by - bx * ay);
+
+	// If triangle is CCW, det > 0 => point inside circumcircle
+	return det > 0;
+}
+
+int get_triangle_edge_for_point_search_walk(MeshTriangle2 *triangle, Vector2 p) {
+	for(int i = 0; i < 3; i++) {
+		Vector2 a = triangle->points[i]->pos;
+		Vector2 b = triangle->points[(i+1)%3]->pos;
+
+		// Edge normal pointing outward (per CCW triangle)
+		Vector2 ab = subtract_vec2(b, a);
+		Vector2 ap = subtract_vec2(p, a);
+		double cross = ab.x * ap.y - ab.y * ap.x;
+
+		if(cross < 0)
+			return i;
+	}
+	return -1; // p is inside all edges
 }
 
 double get_triangle_interpolated_value(Vector3 p0, Vector3 p1, Vector3 p2, Vector2 p) {
@@ -104,6 +140,37 @@ double get_triangle_interpolated_value(Vector3 p0, Vector3 p1, Vector3 p2, Vecto
 	double u = 1-v-w;
 
 	return u*p0.z + v*p1.z + w*p2.z;
+}
+
+Vector2 get_triangle_centroid(MeshTriangle2 *triangle) {
+	double x = 0, y = 0;
+	for(int i = 0; i < 3; i++) {
+		x += triangle->points[i]->pos.x;
+		y += triangle->points[i]->pos.y;
+	}
+	return vec2(x/3, y/3);
+}
+
+MeshTriangle2 * get_mesh_triangle_at_position_from_triangle_list_walk(MeshTriangle2 **triangles, int num_triangles, Vector2 p) {
+	MeshTriangle2 *tri = triangles[0];
+
+	int max_steps = num_triangles; // avoid infinite loop
+	int steps = 0;
+
+	while(tri && steps++ < max_steps) {
+		int edge_idx = get_triangle_edge_for_point_search_walk(tri, p);
+		if(edge_idx == -1) {
+			return tri;
+		}
+		tri = tri->adj_triangles[edge_idx];
+	}
+
+	// Fallback for concave shapes
+	for(int i = 0; i < num_triangles; i++) {
+		if(is_inside_triangle(triangles[i], p)) return triangles[i];
+	}
+
+	return NULL;
 }
 
 MeshTriangle2 * get_mesh_triangle_at_position_from_box(MeshBox2 *box, Vector2 pos) {
@@ -183,6 +250,14 @@ MeshTriangle2 * create_triangle_from_three_points(MeshPoint2 *p0, MeshPoint2 *p1
 }
 
 MeshTriangle2 * create_triangle_from_three_points_with_rf_level(MeshPoint2 *p0, MeshPoint2 *p1, MeshPoint2 *p2, int rf_level, int target_rf_level) {
+	// Ensure CCW orientation
+	double orient = (p1->pos.x - p0->pos.x)*(p2->pos.y - p0->pos.y) - (p1->pos.y - p0->pos.y)*(p2->pos.x - p0->pos.x);
+	if(orient < 0) {
+		MeshPoint2 *tmp = p1;
+		p1 = p2;
+		p2 = tmp;
+	}
+
 	MeshTriangle2 *triangle = malloc(sizeof(MeshTriangle2));
 	triangle->points[0] = p0;
 	triangle->points[1] = p1;
@@ -309,7 +384,16 @@ void remove_triangle_from_mesh(Mesh2 *mesh, MeshTriangle2 *triangle, bool remove
 	}
 }
 
-
+MeshPoint2 *create_mesh_point(Vector2 pos, void *data) {
+	MeshPoint2 *new_point = malloc(sizeof(MeshPoint2));
+	new_point->pos = pos;
+	new_point->val = 0;
+	new_point->data = data ? data : NULL;
+	new_point->num_triangles = 0;
+	new_point->triangle_cap = 0;
+	new_point->triangles = NULL;
+	return new_point;
+}
 
 MeshGrid2 *create_mesh_grid(DataArray2 *pos, void **data) {
 	MeshGrid2 *grid = malloc(sizeof(MeshGrid2));
@@ -464,7 +548,7 @@ void add_triangle_to_mesh(Mesh2 *mesh, MeshTriangle2 *triangle) {
 void add_point_to_mesh(Mesh2 *mesh, MeshPoint2 *point) {
 	if(mesh->num_points >= mesh->point_cap) {
 		mesh->point_cap *= 2;
-		void *temp = realloc(mesh->points, mesh->point_cap * sizeof(MeshTriangle2*));
+		void *temp = realloc(mesh->points, mesh->point_cap * sizeof(MeshPoint2*));
 		if(temp) mesh->points = temp;
 	}
 
@@ -692,6 +776,162 @@ Mesh2 * create_mesh_from_multiple_grids_w_angled_guideline(MeshGrid2 ***grid, in
 
 	rebuild_mesh_boxes(mesh);
 
+	return mesh;
+}
+
+void shuffle_mesh_points(Mesh2 *mesh) {
+	if (!mesh || mesh->num_points < 2)
+		return;
+
+	for (size_t i = mesh->num_points - 1; i > 0; --i) {
+		size_t j = (size_t)(rand() % (i + 1));
+
+		MeshPoint2 *tmp = mesh->points[i];
+		mesh->points[i] = mesh->points[j];
+		mesh->points[j] = tmp;
+	}
+}
+
+void collect_bad_adj_triangles_for_point_delaunay(MeshTriangle2 *triangle, MeshPoint2 *p, MeshTriangle2 **bad_triangles, int *num_bad_tri) {
+	for(int i = 0; i < 3; i++) {
+		MeshTriangle2 *adj_tri = triangle->adj_triangles[i];
+		if(!adj_tri || is_mesh_tri_flag(adj_tri, TRI_FLAG_INACTIVE)) continue;
+
+		bool is_already_bad_tri = false;
+		for(int j = 0; j < *num_bad_tri; j++) {
+			if(adj_tri == bad_triangles[j]) {
+				is_already_bad_tri = true;
+				break;
+			}
+		}
+		if(is_already_bad_tri) continue;
+
+		if(is_inside_triangle(adj_tri, p->pos) ||
+			is_inside_triangle_circumcircle(adj_tri, p->pos)) {
+			bad_triangles[(*num_bad_tri)++] = adj_tri;
+			collect_bad_adj_triangles_for_point_delaunay(adj_tri, p, bad_triangles, num_bad_tri);
+		}
+	}
+}
+
+void collect_bad_triangles_for_point_delaunay(Mesh2 *mesh, MeshPoint2 *p, MeshTriangle2 **bad_triangles, int *num_bad_tri) {
+	MeshTriangle2 *center_triangle = get_mesh_triangle_at_position_from_triangle_list_walk(mesh->triangles, (int) mesh->num_triangles, p->pos);
+	if(!center_triangle) {
+		get_mesh_triangle_at_position_from_triangle_list_walk(mesh->triangles, (int) mesh->num_triangles, p->pos);
+	}
+
+	bad_triangles[(*num_bad_tri)++] = center_triangle;
+	if(!center_triangle) {
+		center_triangle = get_mesh_triangle_at_position_from_triangle_list_walk(mesh->triangles, (int) mesh->num_triangles, p->pos);
+	}
+	collect_bad_adj_triangles_for_point_delaunay(center_triangle, p, bad_triangles, num_bad_tri);
+}
+
+void insert_mesh_point_delaunay(Mesh2 *mesh, MeshPoint2 *p) {
+	typedef struct { MeshPoint2 *p0, *p1; } MeshTriangleEdge2;
+	MeshTriangle2 **bad_triangles = malloc(mesh->num_triangles * sizeof(MeshTriangle2 *));
+	int num_edges = 0;
+	int num_bad_tri = 0;
+	collect_bad_triangles_for_point_delaunay(mesh, p, bad_triangles, &num_bad_tri);
+
+	MeshTriangleEdge2 *edges = malloc(3*num_bad_tri * sizeof(MeshTriangleEdge2));
+
+	for(int i = 0; i < num_bad_tri; i++) {
+		MeshTriangle2 *tri = bad_triangles[i];
+		for(int j = 0; j < 3; j++) {
+			MeshTriangle2 *adj_tri = tri->adj_triangles[j];
+			bool shared = false;
+			for(int k = 0; k < num_bad_tri; k++) {
+				if(adj_tri == bad_triangles[k]) { shared = true; break; }
+			}
+
+			if(!shared) {
+				edges[num_edges++] = (MeshTriangleEdge2) {tri->points[j], tri->points[(j+1)%3]};
+			}
+		}
+	}
+
+	for(int i = 0; i < num_bad_tri; i++) {
+		remove_triangle_from_mesh(mesh, bad_triangles[i], false);
+	}
+
+	for(int i = 0; i < num_edges; i++) {
+		add_triangle_to_mesh(mesh, create_triangle_from_three_points(p, edges[i].p0, edges[i].p1));
+	}
+
+	free(bad_triangles);
+	free(edges);
+}
+
+void create_delaunay_edge_triangles_for_grid(Mesh2 *mesh, MeshGrid2 *grid) {
+	Vector2 min = mesh->mesh_box->min;
+	Vector2 max = mesh->mesh_box->max;
+
+	for(int col = 0; col < grid->num_cols-1; col++) {
+		MeshPoint2 *c0p0 = grid->points[col][0];
+		MeshPoint2 *c0p1 = grid->points[col][grid->num_col_rows[col]-1];
+		MeshPoint2 *c1p0 = grid->points[col+1][0];
+		MeshPoint2 *c1p1 = grid->points[col+1][grid->num_col_rows[col+1]-1];
+
+		MeshPoint2 *bottom = create_mesh_point(vec2((c0p0->pos.x + c1p0->pos.x) / 2, min.y-(max.y-min.y)/2), NULL);
+		MeshPoint2 *top = create_mesh_point(vec2((c0p1->pos.x + c1p1->pos.x) / 2, max.y+(max.y-min.y)/2), NULL);
+
+		MeshTriangle2 *bottom_tri = create_triangle_from_three_points(c0p0, c1p0, bottom);
+		MeshTriangle2 *top_tri = create_triangle_from_three_points(c0p1, c1p1, top);
+		add_triangle_to_mesh(mesh, bottom_tri);
+		add_triangle_to_mesh(mesh, top_tri);
+		set_mesh_tri_flag(bottom_tri, TRI_FLAG_INACTIVE);
+		set_mesh_tri_flag(top_tri, TRI_FLAG_INACTIVE);
+
+		add_triangle_to_mesh(mesh, create_triangle_from_three_points(c0p0, c0p1, c1p0));
+		add_triangle_to_mesh(mesh, create_triangle_from_three_points(c0p1, c1p1, c1p0));
+	}
+}
+
+Mesh2 * create_mesh_from_grid_delaunay(MeshGrid2 *grid) {
+	Mesh2 *mesh = new_mesh();
+
+	Vector2 min = grid->points[0][0]->pos;
+	Vector2 max = grid->points[0][0]->pos;
+
+	MeshPoint2 **edge_points = malloc(2*grid->num_cols*sizeof(MeshPoint2 *));
+	int num_edge_points = 0;
+
+	for(int i = 0; i < grid->num_cols; i++) {
+		for(int j = 0; j < grid->num_col_rows[i]; j++) {
+			if(j != 0 && j != grid->num_col_rows[i]-1)
+				add_point_to_mesh(mesh, grid->points[i][j]);
+			else
+				edge_points[num_edge_points++] = grid->points[i][j];
+			if(isnan(grid->points[i][j]->pos.x) || isnan(grid->points[i][j]->pos.y)) continue;
+			if(grid->points[i][j]->pos.x < min.x) min.x = grid->points[i][j]->pos.x;
+			if(grid->points[i][j]->pos.x > max.x) max.x = grid->points[i][j]->pos.x;
+			if(grid->points[i][j]->pos.y < min.y) min.y = grid->points[i][j]->pos.y;
+			if(grid->points[i][j]->pos.y > max.y) max.y = grid->points[i][j]->pos.y;
+		}
+	}
+
+	mesh->mesh_box->min = min;
+	mesh->mesh_box->max = max;
+
+	// create (outside) boundary triangles and interior triangles
+	create_delaunay_edge_triangles_for_grid(mesh, grid);
+
+	// add remaining points to mesh (delaunay is limited by inactive triangles)
+	shuffle_mesh_points(mesh);
+	for(int i = 0; i < mesh->num_points; i++) insert_mesh_point_delaunay(mesh, mesh->points[i]);
+
+	// remove (outside) boundary triangles
+	for(int i = 0; i < mesh->num_triangles; i++) {
+		if(is_mesh_tri_flag(mesh->triangles[i], TRI_FLAG_INACTIVE))
+			remove_triangle_from_mesh(mesh, mesh->triangles[i--], false);
+	}
+
+	// add edge points to mesh
+	for(int i = 0; i < num_edge_points; i++) add_point_to_mesh(mesh, edge_points[i]);
+	free(edge_points);
+
+	rebuild_mesh_boxes(mesh);
 	return mesh;
 }
 

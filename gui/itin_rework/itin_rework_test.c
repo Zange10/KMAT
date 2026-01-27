@@ -189,7 +189,6 @@ G_MODULE_EXPORT void on_ir_central_body_change() {
 }
 
 G_MODULE_EXPORT void on_calc_ir() {
-	return;
 	TimingMeasurements tm = init_timing_measurements();
 	char *string;
 
@@ -209,6 +208,40 @@ G_MODULE_EXPORT void on_calc_ir() {
 	double max_dep_dv = strtod(string, NULL);
 	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup0));
 	int pcgroup = (int) strtod(string, NULL);
+
+	start_time_measurement(&tm);
+
+	DataArray2 *pos = data_array2_create();
+
+	for(int i = -50; i < 300; i+=5) data_array2_append_new(pos, -2, i);
+	for(int i = -20; i < 250; i+=5) data_array2_append_new(pos, -1, i);
+	for(int i = 0; i < 200; i+=5) data_array2_append_new(pos, 0, i);
+	for(int i = 0; i < 70; i+=5) data_array2_append_new(pos, 1, i);
+	for(int i = 150; i < 200; i+=5) data_array2_append_new(pos, 1, i);
+	for(int i = 0; i < 5; i+=5) data_array2_append_new(pos, 2, i);
+	for(int i = 170; i < 200; i+=5) data_array2_append_new(pos, 2, i);
+	for(int i = 0; i < 15; i+=5) data_array2_append_new(pos, 3, i);
+	for(int i = 165; i < 200; i+=5) data_array2_append_new(pos, 3, i);
+	for(int i = 0; i < 50; i+=5) data_array2_append_new(pos, 4, i);
+	for(int i = 120; i < 200; i+=5) data_array2_append_new(pos, 4, i);
+	for(int i = 0; i < 200; i+=5) data_array2_append_new(pos, 5, i);
+	for(int i = -10; i < 220; i+=5) data_array2_append_new(pos, 6, i);
+	for(int i = 40; i < 300; i+=5) data_array2_append_new(pos, 7, i);
+	for(int i = -60; i < 100; i+=5) data_array2_append_new(pos, 8, i);
+
+	MeshGrid2 *test_grid = create_mesh_grid(pos, NULL);
+	end_time_measurement(&tm, "Grid");
+	start_time_measurement(&tm);
+	Mesh2 *test_mesh = create_mesh_from_grid_delaunay(test_grid);
+	end_time_measurement(&tm, "Delaunay");
+
+
+	attach_mesh_to_coordinate_system(ir_coord_sys0, test_mesh, CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, NULL, TRUE);
+	attach_mesh_to_coordinate_system(ir_coord_sys0, test_mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_NUMBER, CS_AXIS_NUMBER, FALSE, NULL, FALSE);
+	print_timing_measurements(tm);
+	free_timing_measurements(&tm);
+	return;
+
 
 	Body *dep_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_depbody))];
 	Body *arr_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_arrbody))];
@@ -626,9 +659,8 @@ G_MODULE_EXPORT void on_calc_ir2() {
 		new_group->prev = NULL;
 		new_group->vinf_array = NULL;
 		set_opposition_conjunction_group_boundary(new_group, i-10, min_dep, max_dep);
-		calc_coarse_group_porkchop(new_group, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, 10, dep_periapsis, max_depdv, tolerance);
 
-		// calc_group_porkchop(new_group, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance);
+		calc_group_porkchop(new_group, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance);
 		if(new_group->num_steps != 0) {
 			if(departure.num_next_groups == departure.group_cap) {
 				departure.group_cap *= 2;
@@ -643,7 +675,8 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	end_time_measurement(&tm, "Porkchopping Departure Groups");
 	start_time_measurement(&tm);
 
-	for(int group_idx = 0; group_idx < departure.num_next_groups; group_idx++) {
+	// for(int group_idx = 0; group_idx < departure.num_next_groups; group_idx++) {
+	for(int group_idx = 4; group_idx <= 4; group_idx++) {
 		struct ItinStep **segment_steps = malloc(100000*sizeof(struct ItinStep *));
 		DataArray2 *step_pos = data_array2_create();
 		int counter = 0;
@@ -667,8 +700,14 @@ G_MODULE_EXPORT void on_calc_ir2() {
 			}
 		}
 		MeshGrid2 *grid = create_mesh_grid(step_pos, (void**) segment_steps);
-		group->mesh = new_mesh();
-		group->mesh = create_mesh_from_grid_w_angled_guideline(grid, group->boundary_gradient);
+
+		size_t col_cap = grid->num_cols;
+		// calc_group_porkchop_subgrid(group, grid, &col_cap, 6, max_dep+max_dur, min_dur*86400, max_dur*86400, dep_periapsis, max_depdv, tolerance);
+
+
+
+
+		group->mesh = create_mesh_from_grid_delaunay(grid);
 		free_grid_keep_points(grid);
 		data_array2_free(step_pos);
 		free(segment_steps);
@@ -677,15 +716,8 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	end_time_measurement(&tm, "Building Departure Meshes");
 	start_time_measurement(&tm);
 
-	refine_porkchop_mesh(departure.segment_groups[pcgroup0], dep_periapsis, max_depdv, tolerance);
-
-	update_mesh_minmax(departure.segment_groups[pcgroup0]->mesh);
-	rebuild_mesh_boxes(departure.segment_groups[pcgroup0]->mesh);
-
-	end_time_measurement(&tm, "Refining Meshes");
-	start_time_measurement(&tm);
-
-	for(int group_idx = 0; group_idx < departure.num_next_groups; group_idx++) {
+	// for(int group_idx = 0; group_idx < departure.num_next_groups; group_idx++) {
+	for(int group_idx = 4; group_idx <= 4; group_idx++) {
 		Mesh2 *mesh = departure.segment_groups[group_idx]->mesh;
 		for(int i = 0; i < mesh->num_points; i++) {
 			struct ItinStep *ptr = mesh->points[i]->data;
@@ -694,8 +726,13 @@ G_MODULE_EXPORT void on_calc_ir2() {
 		}
 	}
 
+	update_mesh_triangle_status(departure.segment_groups[pcgroup0], tolerance);
+
+	end_time_measurement(&tm, "Refining Meshes");
+	start_time_measurement(&tm);
+
 	attach_mesh_to_coordinate_system(ir_coord_sys0, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
-	// attach_mesh_to_coordinate_system(ir_coord_sys1, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE, &remove_step_from_itinerary_void_ptr, TRUE);
+	attach_mesh_to_coordinate_system(ir_coord_sys1, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE, &remove_step_from_itinerary_void_ptr, TRUE);
 	attach_mesh_to_coordinate_system(ir_coord_sys1, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE, &remove_step_from_itinerary_void_ptr, FALSE);
 
 	print_timing_measurements(tm);
