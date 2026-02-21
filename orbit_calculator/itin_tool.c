@@ -783,7 +783,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 						  "%.2f km²/s²\n"
 						  "%.2f°\n"
 						  "%.2f°",
-				hyp_params.rp / 1000, (hyp_params.rp-step->body->radius) / 1000, rad2deg(angle_plane3_vec3(get_body_equatorial_plane(step->body), subtract_vec3(step->next[0]->v_dep, step->v_body))), hyp_params.c3_energy / 1e6,
+				hyp_params.rp / 1000, (hyp_params.rp-step->body->radius) / 1000, fabs(rad2deg(angle_plane3_vec3(get_body_equatorial_plane(step->body), subtract_vec3(step->next[0]->v_dep, step->v_body)))), hyp_params.c3_energy / 1e6,
 				rad2deg(hyp_params.outgoing.bplane_angle), rad2deg(hyp_params.outgoing.decl));
 
 	} else if(step->num_next_nodes == 0) {
@@ -808,7 +808,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 						  "%.2f km²/s²\n"
 						  "%.2f°\n"
 						  "%.2f°",
-				dt_in_days, hyp_params.rp / 1000, (hyp_params.rp-step->body->radius) / 1000, rad2deg(angle_plane3_vec3(get_body_equatorial_plane(step->body), subtract_vec3(step->v_arr, step->v_body))), 180.0 - fabs(rad2deg(angle_plane3_vec3(get_body_equatorial_plane(step->body), subtract_vec3(step->v_arr, step->v_body)))), hyp_params.c3_energy / 1e6,
+				dt_in_days, hyp_params.rp / 1000, (hyp_params.rp-step->body->radius) / 1000, fabs(rad2deg(angle_plane3_vec3(get_body_equatorial_plane(step->body), subtract_vec3(step->v_arr, step->v_body)))), 180.0 - fabs(rad2deg(angle_plane3_vec3(get_body_equatorial_plane(step->body), subtract_vec3(step->v_arr, step->v_body)))), hyp_params.c3_energy / 1e6,
 				rad2deg(hyp_params.incoming.bplane_angle), rad2deg(hyp_params.incoming.decl));
 
 	} else {
