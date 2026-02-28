@@ -175,7 +175,7 @@ void clear_coordinate_system(CoordinateSystem *coord_sys) {
 			free(coord_sys->groups[i]);
 		} else {
 			if(coord_sys->groups[i]->free_mesh_on_clear) {
-				free_mesh(coord_sys->groups[i]->mesh, coord_sys->groups[i]->free_mesh_data_func);
+				free_mesh(coord_sys->groups[i]->mesh);
 			}
 		}
 	}
@@ -278,7 +278,7 @@ void add_data3_to_coordinate_system(CoordinateSystem *coord_sys, DataArray3 *dat
 	coord_sys->groups[coord_sys->num_point_groups++] = new_group;
 }
 
-void add_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, bool free_mesh_on_clear, void (*free_data_func)(void *data)) {
+void add_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, bool free_mesh_on_clear, int mesh_val_idx) {
 	if(coord_sys->num_point_groups+1 >= coord_sys->point_group_cap) {
 		if(coord_sys->point_group_cap == 0) {
 			coord_sys->point_group_cap = 1;
@@ -296,18 +296,21 @@ void add_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSD
 	new_group->points = NULL;
 	new_group->mesh = mesh;
 	new_group->free_mesh_on_clear = free_mesh_on_clear;
-	new_group->free_mesh_data_func = free_data_func;
+	new_group->mesh_val_idx = mesh_val_idx;
 
-	coord_sys->min = vec3(mesh->points[0]->pos.x, mesh->points[0]->pos.y, mesh->points[0]->val);
-	coord_sys->max = vec3(mesh->points[0]->pos.x, mesh->points[0]->pos.y, mesh->points[0]->val);
-	for(int i = 1; i < mesh->num_points; i++) {
-		if(mesh->points[i]->pos.x < coord_sys->min.x) coord_sys->min.x = mesh->points[i]->pos.x;
-		if(mesh->points[i]->pos.x > coord_sys->max.x) coord_sys->max.x = mesh->points[i]->pos.x;
-		if(mesh->points[i]->pos.y < coord_sys->min.y) coord_sys->min.y = mesh->points[i]->pos.y;
-		if(mesh->points[i]->pos.y > coord_sys->max.y) coord_sys->max.y = mesh->points[i]->pos.y;
-		if(mesh->points[i]->val	  < coord_sys->min.z) coord_sys->min.z = mesh->points[i]->val;
-		if(mesh->points[i]->val   > coord_sys->max.z) coord_sys->max.z = mesh->points[i]->val;
-	}
+	coord_sys->min = vec3(mesh->mesh_box->min.x, mesh->mesh_box->min.y, get_mesh_min_value(mesh, mesh_val_idx));
+	coord_sys->max = vec3(mesh->mesh_box->max.x, mesh->mesh_box->max.y, get_mesh_max_value(mesh, mesh_val_idx));
+
+	// coord_sys->min = vec3(mesh->points[0]->pos.x, mesh->points[0]->pos.y, mesh->points[0]->val[mesh]);
+	// coord_sys->max = vec3(mesh->points[0]->pos.x, mesh->points[0]->pos.y, mesh->points[0]->old_val);
+	// for(int i = 1; i < mesh->num_points; i++) {
+	// 	if(mesh->points[i]->pos.x < coord_sys->min.x) coord_sys->min.x = mesh->points[i]->pos.x;
+	// 	if(mesh->points[i]->pos.x > coord_sys->max.x) coord_sys->max.x = mesh->points[i]->pos.x;
+	// 	if(mesh->points[i]->pos.y < coord_sys->min.y) coord_sys->min.y = mesh->points[i]->pos.y;
+	// 	if(mesh->points[i]->pos.y > coord_sys->max.y) coord_sys->max.y = mesh->points[i]->pos.y;
+	// 	if(mesh->points[i]->old_val	  < coord_sys->min.z) coord_sys->min.z = mesh->points[i]->old_val;
+	// 	if(mesh->points[i]->old_val   > coord_sys->max.z) coord_sys->max.z = mesh->points[i]->old_val;
+	// }
 
 	coord_sys->groups[coord_sys->num_point_groups++] = new_group;
 }
@@ -344,9 +347,9 @@ void scatter_data3(CoordinateSystem *coord_sys, DataArray3 *data, CSAxisLabelTyp
 	draw_coordinate_system_data(coord_sys);
 }
 
-void attach_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_mesh_on_clear, void (*free_data_func)(void *data), bool free_prev_data) {
+void attach_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_mesh_on_clear, int mesh_val_idx, bool free_prev_data) {
 	if(free_prev_data) clear_coordinate_system(coord_sys);
-	add_mesh_to_coordinate_system(coord_sys, mesh, plot_type, free_mesh_on_clear, free_data_func);
+	add_mesh_to_coordinate_system(coord_sys, mesh, plot_type, free_mesh_on_clear, mesh_val_idx);
 	coord_sys->x_axis_type = x_axis_type;
 	coord_sys->y_axis_type = y_axis_type;
 

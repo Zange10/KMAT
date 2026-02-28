@@ -10,7 +10,7 @@ double calc_next_x_wrt_smoothness(DataArray2 *arr, int index_0, double tolerance
 	Vector2 *data = &(data_array2_get_data(arr)[index_0]);
 	size_t num_data = data_array2_size(arr)-index_0;
 
-	if(num_data == 3) return (data[1].x - data[0].x)/1e12 + data[0].x;
+	if(num_data == 3) return (data[1].x - data[0].x)/1e9 + data[0].x;
 
 	for(int i = 1; i < num_data-1; i++) {
 		if((data[i+1].x - data[i].x) < 0.001) continue;
@@ -445,27 +445,26 @@ MeshPoint2 * create_mesh_point_for_porkchop_mesh(Body *dep_body, Body *arr_body,
 
 	Lambert3 tf = calc_lambert3(osv0.r, osv_arr.r, (jd_arr - jd_dep) * 86400, system->cb);
 
-	curr_step->next[0] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
-	curr_step->next[0]->prev = curr_step;
-	curr_step->next[0]->next = NULL;
-	curr_step = curr_step->next[0];
 
-	curr_step->body = arr_body;
-	curr_step->date = jd_arr;
-	curr_step->r = osv_arr.r;
-	curr_step->v_dep = tf.v0;
-	curr_step->v_arr = tf.v1;
-	curr_step->v_body = osv_arr.v;
-	curr_step->num_next_nodes = 0;
-	curr_step->prev->num_next_nodes++;
-
-	MeshPoint2 *new_point = malloc(sizeof(MeshPoint2));
-	new_point->pos = vec2(jd_dep, dur);
-	new_point->val = 0;
-	new_point->data = curr_step;
-	new_point->num_triangles = 0;
-	new_point->triangle_cap = 0;
-	new_point->triangles = NULL;
+	double *point_vals = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+	Vector3 vinf_dep = subtract_vec3(tf.v0, osv0.v);
+	Vector3 vinf_arr = subtract_vec3(tf.v1, osv_arr.v);
+	point_vals[MESH_VAL_DATE] = jd_arr;
+	point_vals[MESH_VAL_VINF_DEPX] = vinf_dep.x;
+	point_vals[MESH_VAL_VINF_DEPY] = vinf_dep.y;
+	point_vals[MESH_VAL_VINF_DEPZ] = vinf_dep.z;
+	point_vals[MESH_VAL_BODY_RX] = osv_arr.r.x;
+	point_vals[MESH_VAL_BODY_RY] = osv_arr.r.y;
+	point_vals[MESH_VAL_BODY_RZ] = osv_arr.r.z;
+	point_vals[MESH_VAL_BODY_VX] = osv_arr.v.x;
+	point_vals[MESH_VAL_BODY_VY] = osv_arr.v.y;
+	point_vals[MESH_VAL_BODY_VZ] = osv_arr.v.z;
+	point_vals[MESH_VAL_VINF_ARRX] = vinf_arr.x;
+	point_vals[MESH_VAL_VINF_ARRY] = vinf_arr.y;
+	point_vals[MESH_VAL_VINF_ARRZ] = vinf_arr.z;
+	point_vals[MESH_VAL_VINF] = mag_vec3(vinf_arr);
+	point_vals[MESH_VAL_RPE] = 1e9;
+	MeshPoint2 *new_point = create_mesh_point(vec2(jd_dep, dur), point_vals, NUM_PORKCHOP_MESH_VALUE_TYPES);
 
 	return new_point;
 }
@@ -473,8 +472,7 @@ MeshPoint2 * create_mesh_point_for_porkchop_mesh(Body *dep_body, Body *arr_body,
 MeshTriangleBoundaryCondition get_triangle_dep_dv_boundary_condition(MeshTriangle2 *triangle, Body *dep_body, double dep_periapsis, double max_depdv, double dv_tolerance) {
 	bool inside[3] = {false, false, false};
 	for(int i = 0; i < 3; i++) {
-		struct ItinStep *ptr = triangle->points[i]->data;
-		double vinf = mag_vec3(subtract_vec3(ptr->v_arr, ptr->v_body));
+		double vinf = triangle->points[i]->val[MESH_VAL_VINF];
 		double depdv = dv_circ(dep_body, dep_body->radius+dep_periapsis, vinf);
 		if(depdv < max_depdv+dv_tolerance) inside[i] = true;
 	}
@@ -483,20 +481,20 @@ MeshTriangleBoundaryCondition get_triangle_dep_dv_boundary_condition(MeshTriangl
 	return TRIANGLE_CROSSING_BOUNDARY;
 }
 
-MeshTriangleBoundaryCondition get_triangle_group_boundary_condition(MeshTriangle2 *triangle, SegmentGroup *group) {
-	bool inside[3] = {false, false, false};
-	for(int i = 0; i < 3; i++) {
-		struct ItinStep *ptr = triangle->points[i]->data;
-		double jd_dep = get_first(ptr)->date;
-		double dur = ptr->date - jd_dep;
-		double upper_dur_boundary = interpolate_from_sorted_data_array(group->upper_boundary, jd_dep);
-		double lower_dur_boundary = interpolate_from_sorted_data_array(group->lower_boundary, jd_dep);
-		if(dur <= upper_dur_boundary && dur >= lower_dur_boundary) inside[i] = true;
-	}
-	if( inside[0] &&  inside[1] &&  inside[2]) return TRIANGLE_INSIDE_BOUNDARY;
-	if(!inside[0] && !inside[1] && !inside[2]) return TRIANGLE_OUTSIDE_BOUNDARY;
-	return TRIANGLE_CROSSING_BOUNDARY;
-}
+// MeshTriangleBoundaryCondition get_triangle_group_boundary_condition(MeshTriangle2 *triangle, SegmentGroup *group) {
+// 	bool inside[3] = {false, false, false};
+// 	for(int i = 0; i < 3; i++) {
+// 		struct ItinStep *ptr = triangle->points[i]->old_data;
+// 		double jd_dep = get_first(ptr)->date;
+// 		double dur = ptr->date - jd_dep;
+// 		double upper_dur_boundary = interpolate_from_sorted_data_array(group->upper_boundary, jd_dep);
+// 		double lower_dur_boundary = interpolate_from_sorted_data_array(group->lower_boundary, jd_dep);
+// 		if(dur <= upper_dur_boundary && dur >= lower_dur_boundary) inside[i] = true;
+// 	}
+// 	if( inside[0] &&  inside[1] &&  inside[2]) return TRIANGLE_INSIDE_BOUNDARY;
+// 	if(!inside[0] && !inside[1] && !inside[2]) return TRIANGLE_OUTSIDE_BOUNDARY;
+// 	return TRIANGLE_CROSSING_BOUNDARY;
+// }
 
 // bool triangle_needs_dvdep_error_refinement(MeshTriangle2 *triangle, Body *dep_body, double dep_periapsis, double max_depdv, double dv_tolerance) {
 //
@@ -558,7 +556,7 @@ void refine_porkchop_mesh_box(SegmentGroup *group, MeshBox2 *box, double dep_per
 		for(int i = 0; i < box->tri.num; i++) {
 			MeshTriangle2 *triangle = box->tri.triangles[i];
 			MeshTriangleBoundaryCondition bc_depdv = get_triangle_dep_dv_boundary_condition(triangle, group->dep_body, dep_periapsis, max_depdv, dv_tolerance);
-			MeshTriangleBoundaryCondition bc_group_boundary = get_triangle_group_boundary_condition(triangle, group);
+			MeshTriangleBoundaryCondition bc_group_boundary = false;//get_triangle_group_boundary_condition(triangle, group);
 
 			if(bc_depdv == TRIANGLE_OUTSIDE_BOUNDARY || bc_group_boundary == TRIANGLE_OUTSIDE_BOUNDARY) {
 				set_mesh_tri_flag(triangle, TRI_FLAG_INACTIVE);
@@ -580,7 +578,7 @@ void refine_porkchop_mesh(SegmentGroup *group, double dep_periapsis, double max_
 		for(int i = 0; i < mesh->num_triangles; i++) {
 			MeshTriangle2 *triangle = mesh->triangles[i];
 			MeshTriangleBoundaryCondition bc_depdv = get_triangle_dep_dv_boundary_condition(triangle, group->dep_body, dep_periapsis, max_depdv, dv_tolerance);
-			MeshTriangleBoundaryCondition bc_group_boundary = get_triangle_group_boundary_condition(triangle, group);
+			MeshTriangleBoundaryCondition bc_group_boundary = false;//get_triangle_group_boundary_condition(triangle, group);
 
 			remove_mesh_tri_flag(triangle, TRI_FLAG_WANTS_REFINEMENT);
 			triangle->target_rf_level = triangle->rf_level;
@@ -623,7 +621,7 @@ void refine_porkchop_mesh(SegmentGroup *group, double dep_periapsis, double max_
 	for(int i = 0; i < mesh->num_triangles; i++) {
 		MeshTriangle2 *triangle = mesh->triangles[i];
 		MeshTriangleBoundaryCondition bc_depdv = get_triangle_dep_dv_boundary_condition(triangle, group->dep_body, dep_periapsis, max_depdv, dv_tolerance);
-		MeshTriangleBoundaryCondition bc_group_boundary = get_triangle_group_boundary_condition(triangle, group);
+		MeshTriangleBoundaryCondition bc_group_boundary = false;//get_triangle_group_boundary_condition(triangle, group);
 
 		if(bc_depdv == TRIANGLE_OUTSIDE_BOUNDARY || bc_group_boundary == TRIANGLE_OUTSIDE_BOUNDARY) {
 			set_mesh_tri_flag(triangle, TRI_FLAG_INACTIVE);
@@ -647,7 +645,7 @@ void update_mesh_triangle_status(SegmentGroup *group, double dv_tolerance) {
 		for(int k = 0; k < 3; k++) {
 			p[k].x = triangle->points[k]->pos.x;
 			p[k].y = triangle->points[k]->pos.y;
-			p[k].z = triangle->points[k]->val;
+			p[k].z = triangle->points[k]->val[MESH_VAL_VINF];
 		}
 		double center_val = get_triangle_interpolated_value(p[0], p[1], p[2], tri_centroid);
 
@@ -657,7 +655,7 @@ void update_mesh_triangle_status(SegmentGroup *group, double dv_tolerance) {
 			for(int k = 0; k < 3; k++) {
 				p[k].x = adj_triangle->points[k]->pos.x;
 				p[k].y = adj_triangle->points[k]->pos.y;
-				p[k].z = adj_triangle->points[k]->val;
+				p[k].z = triangle->points[k]->val[MESH_VAL_VINF];
 			}
 			double interpolated_val = get_triangle_interpolated_value(p[0], p[1], p[2], tri_centroid);
 			if(fabs(interpolated_val-center_val) > dv_tolerance) {
@@ -734,134 +732,134 @@ void calc_group_porkchop(SegmentGroup *group, int departure_cap, double jd_min_d
 
 		DataArray1 *data = data_array1_get_diff(dur_array);
 		// printf("%6.3f  %6.3f   |   %10.3f\n", data_array1_get_min(data), data_array1_get_max(data), data_array1_get_max(data) / data_array1_get_min(data));
-		print_data_array1(data, "sep");
+		// print_data_array1(data, "sep");
 		data_array1_free(dur_array);
 		data_array1_free(data);
 	}
 }
 
-void calc_group_porkchop_subgrid(SegmentGroup *group, MeshGrid2 *grid, size_t *grid_col_cap, int insert_col_idx, double jd_max_arr, double min_dt, double max_dt, double dep_periapsis, double max_depdv, double dv_tolerance) {
-	DataArray1 *dur_array0 = data_array1_create();
-	DataArray1 *dur_array1 = data_array1_create();
-	for(int i = 0; i < grid->num_col_rows[insert_col_idx-1]; i++) {
-		data_array1_append_new(dur_array0, grid->points[insert_col_idx-1][i]->pos.y);
-	}
-	for(int i = 0; i < grid->num_col_rows[insert_col_idx]; i++) {
-		data_array1_append_new(dur_array1, grid->points[insert_col_idx][i]->pos.y);
-	}
-
-	double jd_min_dep = grid->points[insert_col_idx-1][0]->pos.x;
-	double jd_max_dep = grid->points[insert_col_idx][0]->pos.x;
-
-	DataArray1 *diff0 = data_array1_get_diff(dur_array0);
-	DataArray1 *diff1 = data_array1_get_diff(dur_array1);
-	double *dur_data0 = data_array1_get_data(dur_array0);
-	double *dur_data1 = data_array1_get_data(dur_array1);
-	double *dur_diff_data0 = data_array1_get_data(diff0);
-	double *dur_diff_data1 = data_array1_get_data(diff1);
-	int num_dur0 = (int) data_array1_size(dur_array0);
-	int num_dur1 = (int) data_array1_size(dur_array1);
-
-	double target_min_dur = (jd_max_dep - jd_min_dep)*2;
-
-	int up_dur_bottom_idx0 = 0, up_dur_bottom_idx1 = 0, low_dur_top_idx0 = num_dur0-2, low_dur_top_idx1 = num_dur1-2;
-
-	for(int i = 0; i < num_dur0-1; i++) {
-		if(dur_diff_data0[i] > target_min_dur) {
-			low_dur_top_idx0 = i;
-			break;
-		}
-	}
-	for(int i = 0; i < num_dur1-1; i++) {
-		if(dur_diff_data1[i] > target_min_dur) {
-			low_dur_top_idx1 = i;
-			break;
-		}
-	}
-	for(int i = num_dur0-2; i >= 0; i--) {
-		if(dur_diff_data0[i] > target_min_dur) {
-			up_dur_bottom_idx0 = i;
-			break;
-		}
-	}
-	for(int i = num_dur1-2; i >= 0; i--) {
-		if(dur_diff_data1[i] > target_min_dur) {
-			up_dur_bottom_idx1 = i;
-			break;
-		}
-	}
-
-	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
-					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
-					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_min_dep, group->system->cb);
-	double dt0, dt1;
-
-	double jd_dep = (jd_min_dep + jd_max_dep)/2;
-
-	get_upper_and_lower_boundary_at_jd_dep(group, jd_dep, &dt0, &dt1);
-
-	if(dt0 > max_dt || dt1 < min_dt) return;
-
-	double up_dur_top, up_dur_bottom, low_dur_top, low_dur_bottom;
-	osv0 = group->system->prop_method == ORB_ELEMENTS ?
-						osv_from_elements(group->dep_body->orbit, jd_dep) :
-						osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
-	find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &low_dur_bottom, &up_dur_top);
-
-	// No departure possible within given constraints
-	if(low_dur_bottom < 1 && up_dur_top < 1 || up_dur_top < min_dt || low_dur_bottom > max_dt) {
-		if(group->num_steps > 0 && group->segment_steps[group->num_steps-1] != NULL) {
-			group->segment_steps[group->num_steps] = NULL;
-			group->num_steps++;
-		}
-		return;
-	}
-
-
-	low_dur_top = fmax(dur_data0[low_dur_top_idx0], dur_data1[low_dur_top_idx1])*86400;
-	up_dur_bottom = fmin(dur_data0[up_dur_bottom_idx0+1], dur_data1[up_dur_bottom_idx1+1])*86400;
-
-	if(low_dur_top_idx0 == 0 && low_dur_top_idx1 == 0) return;
-
-	if(low_dur_bottom < dt0) low_dur_bottom = dt0;
-	if(low_dur_bottom < min_dt) low_dur_bottom = min_dt;
-	if(up_dur_top > dt1) up_dur_top = dt1;
-	if(up_dur_top > max_dt) up_dur_top = max_dt;
-
-	struct ItinStep *departure = malloc(sizeof(struct ItinStep));
-	departure->body = group->dep_body;
-	departure->date = jd_dep;
-	DataArray1 *dur_array = data_array1_create();
-	calc_bounded_porkchop_line(departure, group->arr_body, group->system, dur_array, low_dur_bottom, low_dur_top, dep_periapsis, max_depdv, dv_tolerance);
-
-	MeshPoint2 **new_col_points = malloc(departure->num_next_nodes * sizeof(struct MeshPoint2 *));
-	for(int i = 0; i < departure->num_next_nodes; i++) {
-		new_col_points[i] = malloc(sizeof(MeshPoint2));
-		new_col_points[i]->pos = vec2(jd_dep, departure->next[i]->date-jd_dep);
-		new_col_points[i]->val = 0;
-		new_col_points[i]->data = departure->next[i];
-		new_col_points[i]->num_triangles = 0;
-		new_col_points[i]->triangle_cap = 0;
-		new_col_points[i]->triangles = NULL;
-	}
-
-	if(grid->num_cols == *grid_col_cap) {
-		*grid_col_cap *= 2;
-		MeshPoint2 ***temp_points = realloc(grid->points, *grid_col_cap * sizeof(MeshPoint2**));
-		if(temp_points) grid->points = temp_points;
-		size_t *temp_num_col_rows = realloc(grid->num_col_rows, *grid_col_cap * sizeof(size_t));
-		if(temp_num_col_rows) grid->num_col_rows = temp_num_col_rows;
-	}
-	memmove(grid->points+insert_col_idx+1, grid->points+insert_col_idx, (grid->num_cols-insert_col_idx) * sizeof(MeshPoint2 **));
-	memmove(grid->num_col_rows+insert_col_idx+1, grid->num_col_rows+insert_col_idx, (grid->num_cols-insert_col_idx) * sizeof(size_t));
-	grid->points[insert_col_idx] = new_col_points;
-	grid->num_col_rows[insert_col_idx] = departure->num_next_nodes;
-	grid->num_cols++;
-
-	data_array1_free(diff0);
-	data_array1_free(diff1);
-	data_array1_free(dur_array);
-}
+// void calc_group_porkchop_subgrid(SegmentGroup *group, MeshGrid2 *grid, size_t *grid_col_cap, int insert_col_idx, double jd_max_arr, double min_dt, double max_dt, double dep_periapsis, double max_depdv, double dv_tolerance) {
+// 	DataArray1 *dur_array0 = data_array1_create();
+// 	DataArray1 *dur_array1 = data_array1_create();
+// 	for(int i = 0; i < grid->num_col_rows[insert_col_idx-1]; i++) {
+// 		data_array1_append_new(dur_array0, grid->points[insert_col_idx-1][i]->pos.y);
+// 	}
+// 	for(int i = 0; i < grid->num_col_rows[insert_col_idx]; i++) {
+// 		data_array1_append_new(dur_array1, grid->points[insert_col_idx][i]->pos.y);
+// 	}
+//
+// 	double jd_min_dep = grid->points[insert_col_idx-1][0]->pos.x;
+// 	double jd_max_dep = grid->points[insert_col_idx][0]->pos.x;
+//
+// 	DataArray1 *diff0 = data_array1_get_diff(dur_array0);
+// 	DataArray1 *diff1 = data_array1_get_diff(dur_array1);
+// 	double *dur_data0 = data_array1_get_data(dur_array0);
+// 	double *dur_data1 = data_array1_get_data(dur_array1);
+// 	double *dur_diff_data0 = data_array1_get_data(diff0);
+// 	double *dur_diff_data1 = data_array1_get_data(diff1);
+// 	int num_dur0 = (int) data_array1_size(dur_array0);
+// 	int num_dur1 = (int) data_array1_size(dur_array1);
+//
+// 	double target_min_dur = (jd_max_dep - jd_min_dep)*2;
+//
+// 	int up_dur_bottom_idx0 = 0, up_dur_bottom_idx1 = 0, low_dur_top_idx0 = num_dur0-2, low_dur_top_idx1 = num_dur1-2;
+//
+// 	for(int i = 0; i < num_dur0-1; i++) {
+// 		if(dur_diff_data0[i] > target_min_dur) {
+// 			low_dur_top_idx0 = i;
+// 			break;
+// 		}
+// 	}
+// 	for(int i = 0; i < num_dur1-1; i++) {
+// 		if(dur_diff_data1[i] > target_min_dur) {
+// 			low_dur_top_idx1 = i;
+// 			break;
+// 		}
+// 	}
+// 	for(int i = num_dur0-2; i >= 0; i--) {
+// 		if(dur_diff_data0[i] > target_min_dur) {
+// 			up_dur_bottom_idx0 = i;
+// 			break;
+// 		}
+// 	}
+// 	for(int i = num_dur1-2; i >= 0; i--) {
+// 		if(dur_diff_data1[i] > target_min_dur) {
+// 			up_dur_bottom_idx1 = i;
+// 			break;
+// 		}
+// 	}
+//
+// 	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
+// 					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
+// 					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_min_dep, group->system->cb);
+// 	double dt0, dt1;
+//
+// 	double jd_dep = (jd_min_dep + jd_max_dep)/2;
+//
+// 	get_upper_and_lower_boundary_at_jd_dep(group, jd_dep, &dt0, &dt1);
+//
+// 	if(dt0 > max_dt || dt1 < min_dt) return;
+//
+// 	double up_dur_top, up_dur_bottom, low_dur_top, low_dur_bottom;
+// 	osv0 = group->system->prop_method == ORB_ELEMENTS ?
+// 						osv_from_elements(group->dep_body->orbit, jd_dep) :
+// 						osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
+// 	find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &low_dur_bottom, &up_dur_top);
+//
+// 	// No departure possible within given constraints
+// 	if(low_dur_bottom < 1 && up_dur_top < 1 || up_dur_top < min_dt || low_dur_bottom > max_dt) {
+// 		if(group->num_steps > 0 && group->segment_steps[group->num_steps-1] != NULL) {
+// 			group->segment_steps[group->num_steps] = NULL;
+// 			group->num_steps++;
+// 		}
+// 		return;
+// 	}
+//
+//
+// 	low_dur_top = fmax(dur_data0[low_dur_top_idx0], dur_data1[low_dur_top_idx1])*86400;
+// 	up_dur_bottom = fmin(dur_data0[up_dur_bottom_idx0+1], dur_data1[up_dur_bottom_idx1+1])*86400;
+//
+// 	if(low_dur_top_idx0 == 0 && low_dur_top_idx1 == 0) return;
+//
+// 	if(low_dur_bottom < dt0) low_dur_bottom = dt0;
+// 	if(low_dur_bottom < min_dt) low_dur_bottom = min_dt;
+// 	if(up_dur_top > dt1) up_dur_top = dt1;
+// 	if(up_dur_top > max_dt) up_dur_top = max_dt;
+//
+// 	struct ItinStep *departure = malloc(sizeof(struct ItinStep));
+// 	departure->body = group->dep_body;
+// 	departure->date = jd_dep;
+// 	DataArray1 *dur_array = data_array1_create();
+// 	calc_bounded_porkchop_line(departure, group->arr_body, group->system, dur_array, low_dur_bottom, low_dur_top, dep_periapsis, max_depdv, dv_tolerance);
+//
+// 	MeshPoint2 **new_col_points = malloc(departure->num_next_nodes * sizeof(struct MeshPoint2 *));
+// 	for(int i = 0; i < departure->num_next_nodes; i++) {
+// 		new_col_points[i] = malloc(sizeof(MeshPoint2));
+// 		new_col_points[i]->pos = vec2(jd_dep, departure->next[i]->date-jd_dep);
+// 		new_col_points[i]->old_val = 0;
+// 		new_col_points[i]->old_data = departure->next[i];
+// 		new_col_points[i]->num_triangles = 0;
+// 		new_col_points[i]->triangle_cap = 0;
+// 		new_col_points[i]->triangles = NULL;
+// 	}
+//
+// 	if(grid->num_cols == *grid_col_cap) {
+// 		*grid_col_cap *= 2;
+// 		MeshPoint2 ***temp_points = realloc(grid->points, *grid_col_cap * sizeof(MeshPoint2**));
+// 		if(temp_points) grid->points = temp_points;
+// 		size_t *temp_num_col_rows = realloc(grid->num_col_rows, *grid_col_cap * sizeof(size_t));
+// 		if(temp_num_col_rows) grid->num_col_rows = temp_num_col_rows;
+// 	}
+// 	memmove(grid->points+insert_col_idx+1, grid->points+insert_col_idx, (grid->num_cols-insert_col_idx) * sizeof(MeshPoint2 **));
+// 	memmove(grid->num_col_rows+insert_col_idx+1, grid->num_col_rows+insert_col_idx, (grid->num_cols-insert_col_idx) * sizeof(size_t));
+// 	grid->points[insert_col_idx] = new_col_points;
+// 	grid->num_col_rows[insert_col_idx] = departure->num_next_nodes;
+// 	grid->num_cols++;
+//
+// 	data_array1_free(diff0);
+// 	data_array1_free(diff1);
+// 	data_array1_free(dur_array);
+// }
 
 // void calc_group_porkchop_mesh(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
 // 	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
@@ -1139,13 +1137,7 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 				double next_x = calc_next_x_find_min(data_dep, vinf_tolerance/2)*86400;
 
 				if(next_x < 0) {
-					Vector2 *data = data_array2_get_data(data_dep);
-					size_t num_data = data_array2_size(data_dep);
-					int min_idx = 0;
-					for(int idx = 1; idx < num_data; idx++) {
-						if(data[idx].y < data[min_idx].y) min_idx = idx;
-					}
-					data_array2_insert_new(min_per_dep, jd_dep, data[min_idx].y);
+					data_array2_insert_new(min_per_dep, jd_dep, data_array2_get_min(data_dep).y);
 					// print_date(convert_JD_date(jd_dep, DATE_ISO), 0);
 					// printf("      %f  |   %f    %f    %f  |    %f    %f    %f\n", jd_dep, dt/86400, left_x/86400, right_x/86400, dt, left_x, right_x);
 					// data_array2_append_new(min_per_dep, jd_dep-jd_min_dep, data[min_idx].x);
@@ -1355,7 +1347,7 @@ void get_dur_limit_wrt_vinf(Mesh2 *mesh, double jd_dep, double min_vinf, DataArr
 	size_t num_init_lim = data_array2_size(init_limit_array);
 	if(num_init_lim == 0) return;
 	if(num_init_lim == 1) {
-		double dvinf = get_mesh_interpolated_value(mesh, vec2(jd_dep, init_lim[0].y)) - min_vinf;
+		double dvinf = get_mesh_interpolated_value(mesh, vec2(jd_dep, init_lim[0].y), MESH_VAL_VINF) - min_vinf;
 		if(dvinf > 0) data_array2_insert_new(new_limits, init_lim[0].x, init_lim[0].y);
 		return;
 	}
@@ -1371,7 +1363,7 @@ void get_dur_limit_wrt_vinf(Mesh2 *mesh, double jd_dep, double min_vinf, DataArr
 		double dur = lim0;
 
 		for(int i = 0; i < 100; i++) {
-			double dvinf = get_mesh_interpolated_value(mesh, vec2(jd_dep, dur)) - min_vinf;
+			double dvinf = get_mesh_interpolated_value(mesh, vec2(jd_dep, dur), MESH_VAL_VINF) - min_vinf;
 			if(i > 3 && dvinf > 0 && dvinf < tolerance) {
 				data_array2_insert_new(new_limits_inv, dur, jd_dep);
 				if(left_branch && data_array2_get_data(data)[data_array2_size(data)-1].y > 0) {
@@ -1418,10 +1410,9 @@ Vector3 get_varr_from_mesh(Mesh2 *mesh, double jd_arr, double dur) {
 	Vector3 tri_varrz[3];
 
 	for(int i = 0; i < 3; i++) {
-		struct ItinStep *step = triangle->points[i]->data;
-		tri_varrx[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_arr.x);
-		tri_varry[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_arr.y);
-		tri_varrz[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_arr.z);
+		tri_varrx[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, triangle->points[i]->val[MESH_VAL_VINF_ARRX]);
+		tri_varry[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, triangle->points[i]->val[MESH_VAL_VINF_ARRY]);
+		tri_varrz[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, triangle->points[i]->val[MESH_VAL_VINF_ARRZ]);
 	}
 	double varrx = get_triangle_interpolated_value(tri_varrx[0], tri_varrx[1], tri_varrx[2], vec2(jd_arr, dur));
 	double varry = get_triangle_interpolated_value(tri_varry[0], tri_varry[1], tri_varry[2], vec2(jd_arr, dur));
@@ -1433,19 +1424,18 @@ Vector3 get_vbody_from_mesh(Mesh2 *mesh, double jd_arr, double dur) {
 	MeshTriangle2 *triangle = get_mesh_triangle_at_position(mesh, vec2(jd_arr, dur));
 	if(!triangle) return vec3(NAN, NAN, NAN);
 
-	Vector3 tri_varrx[3];
-	Vector3 tri_varry[3];
-	Vector3 tri_varrz[3];
+	Vector3 tri_body_vx[3];
+	Vector3 tri_body_vy[3];
+	Vector3 tri_body_vz[3];
 
 	for(int i = 0; i < 3; i++) {
-		struct ItinStep *step = triangle->points[i]->data;
-		tri_varrx[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_body.x);
-		tri_varry[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_body.y);
-		tri_varrz[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, step->v_body.z);
+		tri_body_vx[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, triangle->points[i]->val[MESH_VAL_BODY_VX]);
+		tri_body_vy[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, triangle->points[i]->val[MESH_VAL_BODY_VY]);
+		tri_body_vz[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, triangle->points[i]->val[MESH_VAL_BODY_VZ]);
 	}
-	double varrx = get_triangle_interpolated_value(tri_varrx[0], tri_varrx[1], tri_varrx[2], vec2(jd_arr, dur));
-	double varry = get_triangle_interpolated_value(tri_varry[0], tri_varry[1], tri_varry[2], vec2(jd_arr, dur));
-	double varrz = get_triangle_interpolated_value(tri_varrz[0], tri_varrz[1], tri_varrz[2], vec2(jd_arr, dur));
+	double varrx = get_triangle_interpolated_value(tri_body_vx[0], tri_body_vx[1], tri_body_vx[2], vec2(jd_arr, dur));
+	double varry = get_triangle_interpolated_value(tri_body_vy[0], tri_body_vy[1], tri_body_vy[2], vec2(jd_arr, dur));
+	double varrz = get_triangle_interpolated_value(tri_body_vz[0], tri_body_vz[1], tri_body_vz[2], vec2(jd_arr, dur));
 	return vec3(varrx, varry, varrz);
 }
 
@@ -1747,7 +1737,7 @@ FlyByGroups * get_flyby_groups_wrt_vinf(Mesh2 *mesh, SegmentGroup *departure_gro
 			int num_tests = (int) ((max_dur_temp - min_dur_temp)/dur_step) + 2;
 			for(int i = 0; i < num_tests; i++) {
 				double dur_temp = min_dur_temp + (max_dur_temp - min_dur_temp)*i/(num_tests-1);
-				double vinf = get_mesh_interpolated_value(mesh, vec2(jd_dep, dur_temp));
+				double vinf = get_mesh_interpolated_value(mesh, vec2(jd_dep, dur_temp), MESH_VAL_VINF);
 				Vector3 v_arr = get_varr_from_mesh(mesh, jd_dep, dur_temp);
 				Vector3 v_body = get_vbody_from_mesh(mesh, jd_dep, dur_temp);
 				if(isnan(v_arr.x), isnan(v_body.x)) continue;
@@ -1792,31 +1782,33 @@ Mesh2 * get_rpe_mesh_from_fb_groups(FlyByGroups *fb_groups, Mesh2 *prev_mesh, Se
 		grids[i] = malloc(fb_groups->num_groups_dep[i]*sizeof(MeshGrid2*));
 	}
 
-	for(int x_idx = 0; x_idx < fb_groups->num_groups; x_idx++) {
-		for(int y_idx = 0; y_idx < fb_groups->num_groups_dep[x_idx]; y_idx++) {
-			void *steps = (void*) (left_side ? fb_groups->groups[x_idx][y_idx].left_steps : fb_groups->groups[x_idx][y_idx].right_steps);
-			grids[x_idx][y_idx] = create_mesh_grid(fb_groups->groups[x_idx][y_idx].dep_dur, steps);
-		}
-	}
+	// TODO REDO!
+
+	// for(int x_idx = 0; x_idx < fb_groups->num_groups; x_idx++) {
+	// 	for(int y_idx = 0; y_idx < fb_groups->num_groups_dep[x_idx]; y_idx++) {
+	// 		void *steps = (void*) (left_side ? fb_groups->groups[x_idx][y_idx].left_steps : fb_groups->groups[x_idx][y_idx].right_steps);
+	// 		grids[x_idx][y_idx] = create_mesh_grid(fb_groups->groups[x_idx][y_idx].dep_dur, steps);
+	// 	}
+	// }
 	Mesh2 *rpe_mesh = create_mesh_from_multiple_grids_w_angled_guideline(grids, fb_groups->num_groups, fb_groups->num_groups_dep, prev_departure_group->boundary_gradient);
 
-	for(int x_idx = 0; x_idx < fb_groups->num_groups; x_idx++) {
-		for(int y_idx = 0; y_idx < fb_groups->num_groups_dep[x_idx]; y_idx++) {
-			free_grid_keep_points(grids[x_idx][y_idx]);
-		}
-		free(grids[x_idx]);
-	}
-	free(grids);
-
-	for(int i = 0; i < rpe_mesh->num_points; i++) {
-		struct ItinStep *ptr = rpe_mesh->points[i]->data;
-		double jd_dep = rpe_mesh->points[i]->pos.x;
-		double dur = rpe_mesh->points[i]->pos.y;
-		Vector3 v_arr = get_varr_from_mesh(prev_mesh, jd_dep, dur);
-		Vector3 v_body = get_vbody_from_mesh(prev_mesh, jd_dep, dur);
-		double r_pe = get_flyby_periapsis(v_arr, ptr->v_dep, v_body, prev_departure_group->arr_body);
-		rpe_mesh->points[i]->val = r_pe;
-	}
+	// for(int x_idx = 0; x_idx < fb_groups->num_groups; x_idx++) {
+	// 	for(int y_idx = 0; y_idx < fb_groups->num_groups_dep[x_idx]; y_idx++) {
+	// 		free_grid_keep_points(grids[x_idx][y_idx]);
+	// 	}
+	// 	free(grids[x_idx]);
+	// }
+	// free(grids);
+	//
+	// for(int i = 0; i < rpe_mesh->num_points; i++) {
+	// 	struct ItinStep *ptr = rpe_mesh->points[i]->old_data;
+	// 	double jd_dep = rpe_mesh->points[i]->pos.x;
+	// 	double dur = rpe_mesh->points[i]->pos.y;
+	// 	Vector3 v_arr = get_varr_from_mesh(prev_mesh, jd_dep, dur);
+	// 	Vector3 v_body = get_vbody_from_mesh(prev_mesh, jd_dep, dur);
+	// 	double r_pe = get_flyby_periapsis(v_arr, ptr->v_dep, v_body, prev_departure_group->arr_body);
+	// 	rpe_mesh->points[i]->old_val = r_pe;
+	// }
 
 	return rpe_mesh;
 }
@@ -1955,7 +1947,7 @@ Mesh2 * get_dep_mesh_from_fb_groups(FlyByGroups *fb_groups, SegmentGroup *depart
 	for(int x_idx = 0; x_idx < fb_groups->num_groups; x_idx++) {
 		for(int y_idx = 0; y_idx < fb_groups->num_groups_dep[x_idx]; y_idx++) {
 			void *steps = (void*) fb_groups->groups[x_idx][y_idx].left_steps;
-			grids[x_idx][y_idx] = create_mesh_grid(fb_groups->groups[x_idx][y_idx].dep_dur, steps);
+			grids[x_idx][y_idx] = create_mesh_grid(fb_groups->groups[x_idx][y_idx].dep_dur, steps, NUM_PORKCHOP_MESH_VALUE_TYPES);
 		}
 	}
 	Mesh2 *mesh = create_mesh_from_multiple_grids_w_angled_guideline(grids, fb_groups->num_groups, fb_groups->num_groups_dep, departure_group->boundary_gradient);
@@ -1968,11 +1960,11 @@ Mesh2 * get_dep_mesh_from_fb_groups(FlyByGroups *fb_groups, SegmentGroup *depart
 	}
 	free(grids);
 
-	for(int i = 0; i < mesh->num_points; i++) {
-		struct ItinStep *ptr = mesh->points[i]->data;
-		double vinf = mag_vec3(subtract_vec3(ptr->v_arr, ptr->v_body));
-		mesh->points[i]->val = vinf;
-	}
+	// for(int i = 0; i < mesh->num_points; i++) {
+	// 	struct ItinStep *ptr = mesh->points[i]->old_data;
+	// 	double vinf = mag_vec3(subtract_vec3(ptr->v_arr, ptr->v_body));
+	// 	mesh->points[i]->old_val = vinf;
+	// }
 
 	return mesh;
 }

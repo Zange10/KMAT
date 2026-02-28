@@ -145,7 +145,7 @@ void draw_mesh_interpolated_points(Mesh2 *mesh, CoordinateSystem *coord_sys) {
 					for(int idx = 0; idx < 3; idx++) {
 						tri3[idx].x = tri2d.points[idx]->pos.x;
 						tri3[idx].y = tri2d.points[idx]->pos.y;
-						tri3[idx].z = (mesh->triangles[i]->points[idx]->val - coord_sys->min.z)/(coord_sys->max.z - coord_sys->min.z);
+						tri3[idx].z = (mesh->triangles[i]->points[idx]->val[coord_sys->groups[0]->mesh_val_idx] - coord_sys->min.z)/(coord_sys->max.z - coord_sys->min.z);
 					}
 					double interpl_value = get_triangle_interpolated_value(tri3[0], tri3[1], tri3[2], p);
 

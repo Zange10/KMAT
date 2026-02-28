@@ -193,14 +193,14 @@ MeshTriangle2 * get_mesh_triangle_at_position(Mesh2 *mesh, Vector2 pos) {
 	return get_mesh_triangle_at_position_from_box(mesh->mesh_box, pos);
 }
 
-double get_mesh_interpolated_value(Mesh2 *mesh, Vector2 p) {
+double get_mesh_interpolated_value(Mesh2 *mesh, Vector2 p, int val_idx) {
 	MeshTriangle2 *tri2 = get_mesh_triangle_at_position(mesh, p);
 	if(!tri2) return NAN;
 	Vector3 tri3[3];
 	for(int idx = 0; idx < 3; idx++) {
 		tri3[idx].x = tri2->points[idx]->pos.x;
 		tri3[idx].y = tri2->points[idx]->pos.y;
-		tri3[idx].z = tri2->points[idx]->val;
+		tri3[idx].z = tri2->points[idx]->val[val_idx];
 	}
 	return get_triangle_interpolated_value(tri3[0], tri3[1], tri3[2], p);
 }
@@ -384,18 +384,20 @@ void remove_triangle_from_mesh(Mesh2 *mesh, MeshTriangle2 *triangle, bool remove
 	}
 }
 
-MeshPoint2 *create_mesh_point(Vector2 pos, void *data) {
+MeshPoint2 *create_mesh_point(Vector2 pos, double *values, int num_vals) {
 	MeshPoint2 *new_point = malloc(sizeof(MeshPoint2));
 	new_point->pos = pos;
-	new_point->val = 0;
-	new_point->data = data ? data : NULL;
+	// new_point->old_val = 0;
+	// new_point->old_data = data ? data : NULL;
+	new_point->val = values ? values : NULL;
+	new_point->num_val = num_vals;
 	new_point->num_triangles = 0;
 	new_point->triangle_cap = 0;
 	new_point->triangles = NULL;
 	return new_point;
 }
 
-MeshGrid2 *create_mesh_grid(DataArray2 *pos, void **data) {
+MeshGrid2 *create_mesh_grid(DataArray2 *pos, double **values, int num_vals) {
 	MeshGrid2 *grid = malloc(sizeof(MeshGrid2));
 	int col_cap = 8;
 	grid->num_cols = 0;
@@ -439,13 +441,7 @@ MeshGrid2 *create_mesh_grid(DataArray2 *pos, void **data) {
 
 		int row = (int) grid->num_col_rows[col];
 
-		grid->points[col][row] = malloc(sizeof(MeshPoint2));
-		grid->points[col][row]->pos = pos_data[i];
-		grid->points[col][row]->val = 0;
-		grid->points[col][row]->data = data ? data[i] : NULL;
-		grid->points[col][row]->num_triangles = 0;
-		grid->points[col][row]->triangle_cap = 0;
-		grid->points[col][row]->triangles = NULL;
+		grid->points[col][row]= create_mesh_point(pos_data[i], values ? values[i] : NULL, num_vals);
 		grid->num_col_rows[col]++;
 	}
 	return grid;
@@ -873,8 +869,8 @@ void create_delaunay_edge_triangles_for_grid(Mesh2 *mesh, MeshGrid2 *grid) {
 		MeshPoint2 *c1p0 = grid->points[col+1][0];
 		MeshPoint2 *c1p1 = grid->points[col+1][grid->num_col_rows[col+1]-1];
 
-		MeshPoint2 *bottom = create_mesh_point(vec2((c0p0->pos.x + c1p0->pos.x) / 2, min.y-(max.y-min.y)/2), NULL);
-		MeshPoint2 *top = create_mesh_point(vec2((c0p1->pos.x + c1p1->pos.x) / 2, max.y+(max.y-min.y)/2), NULL);
+		MeshPoint2 *bottom = create_mesh_point(vec2((c0p0->pos.x + c1p0->pos.x) / 2, min.y-(max.y-min.y)/2), NULL, 0);
+		MeshPoint2 *top = create_mesh_point(vec2((c0p1->pos.x + c1p1->pos.x) / 2, max.y+(max.y-min.y)/2), NULL, 0);
 
 		MeshTriangle2 *bottom_tri = create_triangle_from_three_points(c0p0, c1p0, bottom);
 		MeshTriangle2 *top_tri = create_triangle_from_three_points(c0p1, c1p1, top);
@@ -1070,6 +1066,22 @@ void update_mesh_minmax(Mesh2 *mesh) {
 	}
 }
 
+double get_mesh_min_value(Mesh2 *mesh, int val_idx) {
+	if(mesh->num_points == 0) return NAN;
+	if(mesh->points[0]->num_val == 0) return 0;
+	double min = mesh->points[0]->val[val_idx];
+	for(int i = 0; i < mesh->num_points; i++) if(mesh->points[i]->val[val_idx] < min) min = mesh->points[i]->val[val_idx];
+	return min;
+}
+
+double get_mesh_max_value(Mesh2 *mesh, int val_idx) {
+	if(mesh->num_points == 0) return NAN;
+	if(mesh->points[0]->num_val == 0) return 0;
+	double max = mesh->points[0]->val[val_idx];
+	for(int i = 0; i < mesh->num_points; i++) if(mesh->points[i]->val[val_idx] > max) max = mesh->points[i]->val[val_idx];
+	return max;
+}
+
 void free_grid_keep_points(MeshGrid2 *grid) {
 	free(grid->num_col_rows);
 	free(grid);
@@ -1087,11 +1099,11 @@ void free_mesh_box(MeshBox2 *box) {
 	free(box);
 }
 
-void free_mesh(Mesh2 *mesh, void (*free_data_func)(void *data)) {
+void free_mesh(Mesh2 *mesh) {
 	for(int i = 0; i < mesh->num_triangles; i++) { free(mesh->triangles[i]); }
 	free(mesh->triangles);
 	for(int i = 0; i < mesh->num_points; i++) {
-		if(free_data_func) free_data_func(mesh->points[i]->data);
+		free(mesh->points[i]->val);
 		free(mesh->points[i]->triangles);
 		free(mesh->points[i]);
 	}

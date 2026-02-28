@@ -7,6 +7,25 @@
 #include "mesh.h"
 
 
+typedef enum PorkchopMeshValueType {
+	MESH_VAL_DATE,
+	MESH_VAL_VINF_DEPX,
+	MESH_VAL_VINF_DEPY,
+	MESH_VAL_VINF_DEPZ,
+	MESH_VAL_BODY_RX,
+	MESH_VAL_BODY_RY,
+	MESH_VAL_BODY_RZ,
+	MESH_VAL_BODY_VX,
+	MESH_VAL_BODY_VY,
+	MESH_VAL_BODY_VZ,
+	MESH_VAL_VINF_ARRX,
+	MESH_VAL_VINF_ARRY,
+	MESH_VAL_VINF_ARRZ,
+	MESH_VAL_VINF,
+	MESH_VAL_RPE,
+	NUM_PORKCHOP_MESH_VALUE_TYPES	// number of porkchop mesh vals
+} PorkchopMeshValueType;
+
 
 typedef struct DepartureGroup {
 	Body *dep_body;
