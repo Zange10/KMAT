@@ -191,19 +191,37 @@ G_MODULE_EXPORT void on_ir_central_body_change() {
 double * step_to_array(struct ItinStep *step) {
 	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
 	array[MESH_VAL_DATE] = step->date;
-	array[MESH_VAL_VINF_DEPX] = step->v_dep.x;
-	array[MESH_VAL_VINF_DEPY] = step->v_dep.y;
-	array[MESH_VAL_VINF_DEPZ] = step->v_dep.z;
+	array[MESH_VAL_DEPX] = step->v_dep.x;
+	array[MESH_VAL_DEPY] = step->v_dep.y;
+	array[MESH_VAL_DEPZ] = step->v_dep.z;
 	array[MESH_VAL_BODY_RX] = step->r.x;
 	array[MESH_VAL_BODY_RY] = step->r.y;
 	array[MESH_VAL_BODY_RZ] = step->r.z;
 	array[MESH_VAL_BODY_VX] = step->v_body.x;
 	array[MESH_VAL_BODY_VY] = step->v_body.y;
 	array[MESH_VAL_BODY_VZ] = step->v_body.z;
-	array[MESH_VAL_VINF_ARRX] = step->v_arr.x;
-	array[MESH_VAL_VINF_ARRY] = step->v_arr.y;
-	array[MESH_VAL_VINF_ARRZ] = step->v_arr.z;
+	array[MESH_VAL_ARRX] = step->v_arr.x;
+	array[MESH_VAL_ARRY] = step->v_arr.y;
+	array[MESH_VAL_ARRZ] = step->v_arr.z;
+	array[MESH_VAL_VINF] = mag_vec3(subtract_vec3(step->v_arr, step->v_body));
+	if(step->prev && step->prev->prev) {
+		array[MESH_VAL_RPE] = get_flyby_periapsis(step->prev->v_arr, step->v_dep, step->prev->v_body, step->prev->body);
+	} else array[MESH_VAL_RPE] = 1e9;
 	return array;
+}
+
+void free_segment_group(SegmentGroup *group) {
+	if (!group) return;
+	for(int i = 0; i < group->num_next_groups; i++) {
+		free_segment_group(group->next[i]);
+	}
+
+	// free_mesh(group->mesh);
+	// data_array2_free(group->vinf_array);
+	// if(group->segment_steps) free(group->segment_steps);
+	free(group->next);
+
+	free(group);
 }
 
 G_MODULE_EXPORT void on_calc_ir() {
@@ -621,10 +639,6 @@ void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double heigh
 	draw_scatter_from_data_array(cr, width, height, error_pos);
 }
 
-Mesh2 * create_porkchop_mesh() {
-
-}
-
 G_MODULE_EXPORT void on_calc_ir2() {
 	TimingMeasurements tm = init_timing_measurements();
 	char *string;
@@ -696,7 +710,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	start_time_measurement(&tm);
 
 	for(int group_idx = 0; group_idx < departure.num_next_groups; group_idx++) {
-		struct ItinStep **segment_steps = malloc(10000000*sizeof(struct ItinStep *));
+		double **step_vals = malloc(100000*sizeof(double *));
 		DataArray2 *step_pos = data_array2_create();
 		int counter = 0;
 		SegmentGroup *group = departure.segment_groups[group_idx];
@@ -704,7 +718,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 			struct ItinStep *step = group->segment_steps[i];
 			if(!step) {
 				data_array2_append_new(step_pos, NAN, NAN);
-				segment_steps[counter] = NULL;
+				step_vals[counter] = NULL;
 				counter++;
 				continue;
 			}
@@ -714,56 +728,33 @@ G_MODULE_EXPORT void on_calc_ir2() {
 				double y = step->next[j]->date - step->date;
 
 				data_array2_append_new(step_pos, x, y);
-				segment_steps[counter] = step->next[j];
+				step_vals[counter] = step_to_array(step->next[j]);
 				counter++;
 			}
 		}
-		MeshGrid2 *grid = create_mesh_grid(step_pos, NULL, 0);
+		MeshGrid2 *grid = create_mesh_grid(step_pos, step_vals, NUM_PORKCHOP_MESH_VALUE_TYPES);
 		group->mesh = create_mesh_from_grid_w_angled_guideline(grid, group->boundary_gradient);
 		free_grid_keep_points(grid);
 		data_array2_free(step_pos);
-		free(segment_steps);
+		free(step_vals);
 	}
 
 	end_time_measurement(&tm, "Building Departure Meshes");
 	start_time_measurement(&tm);
 
-	for(int group_idx = 0; group_idx < departure.num_next_groups; group_idx++) {
-		Mesh2 *mesh = departure.segment_groups[group_idx]->mesh;
-		for(int i = 0; i < mesh->num_points; i++) {
-			struct ItinStep *ptr = mesh->points[i]->old_data;
-			double vinf = mag_vec3(subtract_vec3(ptr->v_arr, ptr->v_body));
-			mesh->points[i]->old_val = vinf;
-		}
-	}
-
-	end_time_measurement(&tm, "Setting Mesh Values to Vinf of first Fly-By");
-	start_time_measurement(&tm);
-
 	update_mesh_triangle_status(departure.segment_groups[pcgroup0], tolerance);
 
 	end_time_measurement(&tm, "Update Triangle Status");
-	// start_time_measurement(&tm);
-	//
-	// attach_mesh_to_coordinate_system(ir_coord_sys0, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
-	// attach_mesh_to_coordinate_system(ir_coord_sys1, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE, &remove_step_from_itinerary_void_ptr, TRUE);
-	// attach_mesh_to_coordinate_system(ir_coord_sys1, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_DATE, CS_AXIS_DURATION, FALSE, &remove_step_from_itinerary_void_ptr, FALSE);
-	//
-	//
-	// end_time_measurement(&tm, "Setting Mesh Values to Vinf of first Fly-By");
 	start_time_measurement(&tm);
 
 	for(int group_idx = 0; group_idx < departure.num_next_groups; group_idx++) {
 		SegmentGroup *group = departure.segment_groups[group_idx];
 		Mesh2 *mesh = group->mesh;
-		double min_fb_jd = NAN;
-		double max_fb_jd = NAN;
-		double max_mesh_vinf = get_mesh_max_value(mesh, 0);
-		for(int i = 0; i < mesh->num_points; i++) {
-			struct ItinStep *ptr = mesh->points[i]->old_data;
-			if(ptr->date < min_fb_jd || isnan(min_fb_jd)) min_fb_jd = ptr->date;
-			if(ptr->date > max_fb_jd || isnan(max_fb_jd)) max_fb_jd = ptr->date;
-		}
+		double min_fb_jd = get_mesh_min_value(mesh, MESH_VAL_DATE);
+		double max_fb_jd = get_mesh_max_value(mesh, MESH_VAL_DATE);
+		double max_mesh_vinf = get_mesh_max_value(mesh, MESH_VAL_VINF);
+		print_date(convert_JD_date(min_fb_jd, DATE_ISO), 1);
+		print_date(convert_JD_date(max_fb_jd, DATE_ISO), 1);
 		// tbd something with boundary
 		for(int i = -20; i < 30; i++) {
 			SegmentGroup *new_group = malloc(sizeof(SegmentGroup));
@@ -796,6 +787,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	}
 
 	end_time_measurement(&tm, "Determine Vinf lines");
+
 	start_time_measurement(&tm);
 
 	// for(int group0_idx = 0; group0_idx < departure.num_next_groups; group0_idx++) {
@@ -811,15 +803,13 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	end_time_measurement(&tm, "Combine Porkchop with vinf line");
 
 
-	attach_mesh_to_coordinate_system(ir_coord_sys0, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, 0, TRUE);
+	attach_mesh_to_coordinate_system(ir_coord_sys0, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, MESH_VAL_VINF, TRUE);
 	// attach_mesh_to_coordinate_system(ir_coord_sys1, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
 	plot_scatter_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->next[pcgroup1]->vinf_array, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE);
 	// plot_scatter_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->next[pcgroup1]->lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE);
 	// plot_scatter_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->next[pcgroup1]->upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, FALSE);
 
-
-
-	for(int i = 0; i < departure.num_next_groups; i++) free(departure.segment_groups[i]);
+	for(int i = 0; i < departure.num_next_groups; i++) free_segment_group(departure.segment_groups[i]);
 	free(departure.segment_groups);
 	print_timing_measurements(tm);
 	free_timing_measurements(&tm);

@@ -450,18 +450,18 @@ MeshPoint2 * create_mesh_point_for_porkchop_mesh(Body *dep_body, Body *arr_body,
 	Vector3 vinf_dep = subtract_vec3(tf.v0, osv0.v);
 	Vector3 vinf_arr = subtract_vec3(tf.v1, osv_arr.v);
 	point_vals[MESH_VAL_DATE] = jd_arr;
-	point_vals[MESH_VAL_VINF_DEPX] = vinf_dep.x;
-	point_vals[MESH_VAL_VINF_DEPY] = vinf_dep.y;
-	point_vals[MESH_VAL_VINF_DEPZ] = vinf_dep.z;
+	point_vals[MESH_VAL_DEPX] = vinf_dep.x;
+	point_vals[MESH_VAL_DEPY] = vinf_dep.y;
+	point_vals[MESH_VAL_DEPZ] = vinf_dep.z;
 	point_vals[MESH_VAL_BODY_RX] = osv_arr.r.x;
 	point_vals[MESH_VAL_BODY_RY] = osv_arr.r.y;
 	point_vals[MESH_VAL_BODY_RZ] = osv_arr.r.z;
 	point_vals[MESH_VAL_BODY_VX] = osv_arr.v.x;
 	point_vals[MESH_VAL_BODY_VY] = osv_arr.v.y;
 	point_vals[MESH_VAL_BODY_VZ] = osv_arr.v.z;
-	point_vals[MESH_VAL_VINF_ARRX] = vinf_arr.x;
-	point_vals[MESH_VAL_VINF_ARRY] = vinf_arr.y;
-	point_vals[MESH_VAL_VINF_ARRZ] = vinf_arr.z;
+	point_vals[MESH_VAL_ARRX] = vinf_arr.x;
+	point_vals[MESH_VAL_ARRY] = vinf_arr.y;
+	point_vals[MESH_VAL_ARRZ] = vinf_arr.z;
 	point_vals[MESH_VAL_VINF] = mag_vec3(vinf_arr);
 	point_vals[MESH_VAL_RPE] = 1e9;
 	MeshPoint2 *new_point = create_mesh_point(vec2(jd_dep, dur), point_vals, NUM_PORKCHOP_MESH_VALUE_TYPES);
@@ -1410,9 +1410,9 @@ Vector3 get_varr_from_mesh(Mesh2 *mesh, double jd_arr, double dur) {
 	Vector3 tri_varrz[3];
 
 	for(int i = 0; i < 3; i++) {
-		tri_varrx[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, triangle->points[i]->val[MESH_VAL_VINF_ARRX]);
-		tri_varry[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, triangle->points[i]->val[MESH_VAL_VINF_ARRY]);
-		tri_varrz[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, triangle->points[i]->val[MESH_VAL_VINF_ARRZ]);
+		tri_varrx[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, triangle->points[i]->val[MESH_VAL_ARRX]);
+		tri_varry[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, triangle->points[i]->val[MESH_VAL_ARRY]);
+		tri_varrz[i] = vec3(triangle->points[i]->pos.x, triangle->points[i]->pos.y, triangle->points[i]->val[MESH_VAL_ARRZ]);
 	}
 	double varrx = get_triangle_interpolated_value(tri_varrx[0], tri_varrx[1], tri_varrx[2], vec2(jd_arr, dur));
 	double varry = get_triangle_interpolated_value(tri_varry[0], tri_varry[1], tri_varry[2], vec2(jd_arr, dur));
