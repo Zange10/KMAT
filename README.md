@@ -34,6 +34,8 @@ If the system you are playing with is not available or not detailed enough, you 
 
 After a few seconds, the config file compatible with KMAT should appear inside the `GameData/KmatSystemConfigCreator` folder
 
+4. Add the line "units = M_DEG_PA" under "number_of_bodies = X" if it does not exist. This is currently a bug in the System Config Creator and will be fixed in the future
+
 ### Solar System using Ephemeris Data
 If you would like to use the solar system's ephemeris data (this might be recommended if you use Principia), download `solar_system_ephem.cfg` and move it to the `Celestial_Systems` folder. On initial startup, the ephemeris data will be retrieved from [JPL's Horizon API](https://ssd.jpl.nasa.gov/horizons/app.html#/) and stored in the `Ephemerides` folder (created automatically).
 
