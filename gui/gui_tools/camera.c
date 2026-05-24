@@ -54,7 +54,7 @@ void update_camera_to_celestial_body(Camera *camera, Body *body, double initial_
 	camera_look_to_center(camera);
 
 	camera->min_pos_dist = body->radius*5;
-	camera->max_pos_dist = body->radius*1000;
+	camera->max_pos_dist = body->radius*10000;
 	camera->rotation_sensitive = FALSE;
 }
 

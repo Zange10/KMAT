@@ -3,11 +3,10 @@
 #include "gui/gui_manager.h"
 #include "gui/missionplanner_app/orbit_editor_win.h"
 #include <math.h>
+#include "orbit_calculator/mission_tool.h"
 
 CelestSystem *me_system;
 Body *me_central_body;
-Orbit orbit1;
-Orbit orbit2;
 
 Camera *me_camera;
 
@@ -15,6 +14,8 @@ GObject *da_me;
 GObject *cb_me_system;
 GObject *cb_me_subsystem;
 GObject *cb_me_central_body;
+
+MissionStep *curr_step = NULL;
 
 double current_date_me;
 
@@ -37,9 +38,7 @@ void init_mission_editor(GtkBuilder *builder) {
 	
 	me_system = get_system_by_name("Solar System (Ephemeris)");
 	me_central_body = me_system->cb;
-	orbit1 = constr_orbit_from_elements(1e9, 0, deg2rad(60), 0, 0, 0, me_central_body);
-	orbit2 = constr_orbit_from_elements(me_central_body->radius*2, 0.3, deg2rad(20), deg2rad(120), 0, 0, me_central_body);
-	
+
 	create_combobox_dropdown_text_renderer(cb_me_system, GTK_ALIGN_CENTER);
 	create_combobox_dropdown_text_renderer(cb_me_subsystem, GTK_ALIGN_CENTER);
 	create_combobox_dropdown_text_renderer(cb_me_central_body, GTK_ALIGN_CENTER);
@@ -52,7 +51,7 @@ void init_mission_editor(GtkBuilder *builder) {
 		update_camera_to_celestial_body(me_camera, me_system->cb, deg2rad(90), 0);
 	}
 	
-	show_orbit_editor_window(&orbit1, &update_me_system_view);
+	// show_orbit_editor_window(&orbit1, &update_me_system_view);
 }
 
 void draw_stroke_wrt_body(Vector2 p2d_body, double radius_2d, Vector2 p0, Vector2 p1) {
@@ -129,6 +128,7 @@ void draw_orbit_wrt_body(Orbit orbit, Vector2 p2d_body, double radius_2d) {
 void update_me_system_view() {
 	clear_camera_screen(me_camera);
 	if(me_system == NULL) return;
+	if(!curr_step) return;
 	
 	int screen_width = me_camera->screen->width, screen_height = me_camera->screen->height;
 
@@ -143,18 +143,17 @@ void update_me_system_view() {
 	
 	// Calculate the 2D coordinates based on perspective projection
 	double scale = f * 1.0f / z;  // Perspective divide
-	
-	set_cairo_body_color(get_camera_screen_cairo(me_camera), me_central_body);
+
+	Body *body = curr_step->orbit.body;
+	set_cairo_body_color(get_camera_screen_cairo(me_camera), body);
 	OSV osv_body = {.r = vec3(0,0,0)};
 	Vector2 p2d_body = p3d_to_p2d(me_camera, osv_body.r);
-	double radius_2d = me_central_body->radius*scale*(hw / 2.0f);
+	double radius_2d = body->radius*scale*(hw / 2.0f);
 	cairo_arc(get_camera_screen_cairo(me_camera), p2d_body.x, p2d_body.y, radius_2d, 0, 2 * M_PI);
 	cairo_fill(get_camera_screen_cairo(me_camera));
 	
 	cairo_set_source_rgb(get_camera_screen_cairo(me_camera), 1, 0, 0);
-	draw_orbit_wrt_body(orbit1, p2d_body, radius_2d);
-	cairo_set_source_rgb(get_camera_screen_cairo(me_camera), 0, 0, 1);
-	draw_orbit_wrt_body(orbit2, p2d_body, radius_2d);
+	draw_orbit_wrt_body(constr_orbit_from_osv(curr_step->orbit.osv.r, curr_step->orbit.osv.v, curr_step->orbit.body), p2d_body, radius_2d);
 	
 	draw_camera_image(me_camera);
 }
@@ -174,4 +173,124 @@ void on_me_screen_mouse_move(GtkWidget *widget, GdkEventButton *event, gpointer 
 		on_camera_rotate(me_camera, event);
 		update_me_system_view();
 	}
+}
+
+G_MODULE_EXPORT void on_load_mission_from_itinerary(GtkWidget* widget, gpointer data) {
+	if(curr_step) free_mission(curr_step);
+	curr_step = create_mission_step();
+	update_camera_to_celestial_body(me_camera, curr_step->orbit.body, deg2rad(90), 0);
+
+
+	// char filepath[255];
+	// if(!get_path_from_file_chooser(filepath, ".itin", GTK_FILE_CHOOSER_ACTION_OPEN, "")) return;
+	//
+	// if(curr_transfer_tp != NULL) {
+	// 	fix_tfbody = TRUE;
+	// 	update_body_dropdown(GTK_COMBO_BOX(cb_tp_tfbody), NULL);
+	// 	free_itinerary(get_first(curr_transfer_tp));
+	// }
+	// if(!is_available_system(tp_system) && tp_system != NULL) free_celestial_system(tp_system);
+	// curr_transfer_tp = NULL;
+	// tp_system = NULL;
+	// if(gtk_combo_box_get_active(GTK_COMBO_BOX(cb_tp_system)) == get_num_available_systems()) remove_combobox_last_entry(GTK_COMBO_BOX(cb_tp_system));
+	//
+	// struct ItinLoadFileResults load_results = load_single_itinerary_from_bfile(filepath);
+	// curr_transfer_tp = get_first(load_results.itin);
+	// tp_system = load_results.system;
+	// current_date_tp = curr_transfer_tp->date;
+	// gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tb_tp_tfdate), 0);
+	// tp_update_bodies();
+	// update_itinerary();
+	// update_camera_to_celestial_system(tp_system_camera, tp_system, deg2rad(90), 0);
+	// camera_zoom_to_fit_itinerary(tp_system_camera, curr_transfer_tp);
+	// update_tp_system_view();
+	// char system_name[50];
+	// sprintf(system_name, "- %s -", tp_system->name);
+	// append_combobox_entry(GTK_COMBO_BOX(cb_tp_system), system_name);
+	// update_central_body_dropdown(GTK_COMBO_BOX(cb_tp_central_body), tp_system);
+	//
+	// struct ItinStep *step2pr = get_first(curr_transfer_tp);
+	// HyperbolaParams hyp_params = get_hyperbola_params(vec3(0,0,0), step2pr->next[0]->v_dep, step2pr->v_body,
+	// 																	   step2pr->body, 200e3, HYP_DEPARTURE);
+	// printf("\nDeparture Hyperbola %s\n"
+	// 	   "Date: %f\n"
+	// 	   "OutgoingRadPer: %f km\n"
+	// 	   "OutgoingC3Energy: %f km²/s²\n"
+	// 	   "OutgoingRHA: %f°\n"
+	// 	   "OutgoingDHA: %f°\n"
+	// 	   "OutgoingBVAZI: -°\n"
+	// 	   "TA: 0.0°\n",
+	// 	   step2pr->body->name, step2pr->date, hyp_params.rp/1000, hyp_params.c3_energy/1e6,
+	// 	   rad2deg(hyp_params.outgoing.bplane_angle), rad2deg(hyp_params.outgoing.decl));
+	//
+	// step2pr = step2pr->next[0];
+	// while(step2pr->num_next_nodes != 0) {
+	// 	if(step2pr->body != NULL) {
+	// 		Vector3 v_arr = step2pr->v_arr;
+	// 		Vector3 v_dep = step2pr->next[0]->v_dep;
+	// 		Vector3 v_body = step2pr->v_body;
+	// 		double incl = get_flyby_inclination(v_arr, v_dep, v_body, get_body_equatorial_plane(step2pr->body));
+	//
+	// 		hyp_params = get_hyperbola_params(step2pr->v_arr, step2pr->next[0]->v_dep, step2pr->v_body, step2pr->body, 0, HYP_FLYBY);
+	// 		double dt_in_days = step2pr->date - step2pr->prev->date;
+	//
+	// 		printf("\nFly-by Hyperbola %s (Travel Time: %.2f days)\n"
+	// 			   "Date: %f\n"
+	// 			   "RadPer: %f km\n"
+	// 			   "Inclination: %f°\n"
+	// 			   "C3Energy: %f km²/s²\n"
+	// 			   "IncomingRHA: %f°\n"
+	// 			   "IncomingDHA: %f°\n"
+	// 			   "IncomingBVAZI: %f°\n"
+	// 			   "OutgoingRHA: %f°\n"
+	// 			   "OutgoingDHA: %f°\n"
+	// 			   "OutgoingBVAZI: %f°\n"
+	// 			   "TA: 0.0°\n",
+	// 			   step2pr->body->name, dt_in_days, step2pr->date, hyp_params.rp / 1000, rad2deg(incl),
+	// 			   hyp_params.c3_energy / 1e6,
+	// 			   rad2deg(hyp_params.incoming.bplane_angle), rad2deg(hyp_params.incoming.decl),
+	// 			   rad2deg(hyp_params.incoming.bvazi),
+	// 			   rad2deg(hyp_params.outgoing.bplane_angle), rad2deg(hyp_params.outgoing.decl),
+	// 			   rad2deg(hyp_params.outgoing.bvazi));
+	// 		step2pr = step2pr->next[0];
+	// 	} else {
+	// 		double dt_in_days = step2pr->date - step2pr->prev->date;
+	// 		double dist_to_sun = mag_vec3(step2pr->r);
+	//
+	// 		Vector3 orbit_prograde = step2pr->v_arr;
+	// 		Vector3 orbit_normal = cross_vec3(step2pr->r, step2pr->v_arr);
+	// 		Vector3 orbit_radialin = cross_vec3(orbit_normal, step2pr->v_arr);
+	// 		Vector3 dv_vec = subtract_vec3(step2pr->next[0]->v_dep, step2pr->v_arr);
+	//
+	// 		// dv vector in S/C coordinate system (prograde, radial in, normal) (sign it if projected vector more than 90° from target vector / pointing in opposite direction)
+	// 		Vector3 dv_vec_sc = {
+	// 				mag_vec3(proj_vec3_vec3(dv_vec, orbit_prograde)) * (angle_vec3_vec3(proj_vec3_vec3(dv_vec, orbit_prograde), orbit_prograde) < M_PI/2 ? 1 : -1),
+	// 				mag_vec3(proj_vec3_vec3(dv_vec, orbit_radialin)) * (angle_vec3_vec3(proj_vec3_vec3(dv_vec, orbit_radialin), orbit_radialin) < M_PI/2 ? 1 : -1),
+	// 				mag_vec3(proj_vec3_vec3(dv_vec, orbit_normal)) * (angle_vec3_vec3(proj_vec3_vec3(dv_vec, orbit_normal), orbit_normal) < M_PI/2 ? 1 : -1)
+	// 		};
+	//
+	// 		printf("\nDeep Space Maneuver (Travel Time: %.2f days)\n"
+	// 			   "Date: %f\n"
+	// 			   "Distance to the Sun: %.3f AU\n"
+	// 			   "Dv Prograde: %f m/s\n"
+	// 			   "Dv Radial: %f m/s\n"
+	// 			   "Dv Normal: %f m/s\n"
+	// 			   "Total: %f m/s\n",
+	// 			   dt_in_days, step2pr->date, dist_to_sun / 1.495978707e11, dv_vec_sc.x, dv_vec_sc.y, dv_vec_sc.z, mag_vec3(dv_vec_sc));
+	// 		step2pr = step2pr->next[0];
+	// 	}
+	// }
+	//
+	// double dt_in_days = step2pr->date - step2pr->prev->date;
+	// hyp_params = get_hyperbola_params(step2pr->v_arr, vec3(0,0,0), step2pr->v_body, step2pr->body, 200e3, HYP_ARRIVAL);
+	// printf("\nArrival Hyperbola %s (Travel Time: %.2f days)\n"
+	// 	   "Date: %f\n"
+	// 	   "IncomingRadPer: %f km\n"
+	// 	   "IncomingC3Energy: %f km²/s²\n"
+	// 	   "IncomingRHA: %f°\n"
+	// 	   "IncomingDHA: %f°\n"
+	// 	   "IncomingBVAZI: -°\n"
+	// 	   "TA: 0.0°\n",
+	// 	   step2pr->body->name, dt_in_days, step2pr->date, hyp_params.rp/1000, hyp_params.c3_energy/1e6,
+	// 	   rad2deg(hyp_params.incoming.bplane_angle), rad2deg(hyp_params.incoming.decl));
 }

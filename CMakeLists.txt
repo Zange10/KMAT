@@ -95,6 +95,8 @@ add_executable(KMAT
         gui/missionplanner_app/mission_editor.h
         gui/missionplanner_app/orbit_editor_win.c
         gui/missionplanner_app/orbit_editor_win.h
+        orbit_calculator/mission_tool.c
+        orbit_calculator/mission_tool.h
 )
 
 # Platform-specific setup
