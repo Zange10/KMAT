@@ -104,6 +104,7 @@ MeshGrid2 * create_mesh_grid(DataArray2 *pos, double **values, int num_vals);
 Mesh2 * create_mesh_from_grid(MeshGrid2 *grid);
 Mesh2 * create_mesh_from_grid_w_angled_guideline(MeshGrid2 *grid, double gradient);
 Mesh2 * create_mesh_from_multiple_grids_w_angled_guideline(MeshGrid2 ***grid, int num_cols, int *num_cols_row, double gradient);
+Mesh2 * create_mesh_from_grid_wrt_value(MeshGrid2 *grid, int val_idx);
 Mesh2 * create_mesh_from_grid_delaunay(MeshGrid2 *grid);
 Mesh2 * combine_meshes(Mesh2 *mesh0, Mesh2 *mesh1);
 void rebuild_mesh_boxes(Mesh2 *mesh);

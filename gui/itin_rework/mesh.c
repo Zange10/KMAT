@@ -775,6 +775,77 @@ Mesh2 * create_mesh_from_multiple_grids_w_angled_guideline(MeshGrid2 ***grid, in
 	return mesh;
 }
 
+
+
+Mesh2 * create_mesh_from_grid_wrt_value(MeshGrid2 *grid, int val_idx) {
+	Mesh2 *mesh = new_mesh();
+	if(grid->num_cols == 0) return mesh;
+
+	Vector2 min = grid->points[0][0]->pos;
+	Vector2 max = grid->points[0][0]->pos;
+
+	for(int i = 0; i < grid->num_cols; i++) {
+		for(int j = 0; j < grid->num_col_rows[i]; j++) {
+			add_point_to_mesh(mesh, grid->points[i][j]);
+			if(isnan(grid->points[i][j]->pos.x) || isnan(grid->points[i][j]->pos.y)) continue;
+			if(grid->points[i][j]->pos.x < min.x) min.x = grid->points[i][j]->pos.x;
+			if(grid->points[i][j]->pos.x > max.x) max.x = grid->points[i][j]->pos.x;
+			if(grid->points[i][j]->pos.y < min.y) min.y = grid->points[i][j]->pos.y;
+			if(grid->points[i][j]->pos.y > max.y) max.y = grid->points[i][j]->pos.y;
+		}
+	}
+
+	mesh->mesh_box->min = min;
+	mesh->mesh_box->max = max;
+
+	for(int x_idx = 0; x_idx < grid->num_cols-1; x_idx++) {
+		if(x_idx < grid->num_cols-1 && grid->num_col_rows[x_idx+1] == 0) {x_idx++; continue;}
+		int y_idx0 = 0, y_idx1 = 0;
+		while(y_idx0 < grid->num_col_rows[x_idx] - 1 && y_idx1 < grid->num_col_rows[x_idx + 1] - 1) {
+			MeshPoint2 *p0 = grid->points[x_idx][y_idx0];
+			MeshPoint2 *p1 = grid->points[1 + x_idx][y_idx1];
+			MeshPoint2 *p2 = grid->points[x_idx][1 + y_idx0];
+			MeshPoint2 *p3 = grid->points[1 + x_idx][1 + y_idx1];
+			double v0 = grid->points[x_idx][y_idx0]->val[val_idx];
+			double v1 = grid->points[1 + x_idx][y_idx1]->val[val_idx];
+			double v2 = grid->points[x_idx][1 + y_idx0]->val[val_idx];
+			double v3 = grid->points[1 + x_idx][1 + y_idx1]->val[val_idx];
+
+
+			if(fabs(v0-v3) < fabs(v1-v2)) {
+				add_triangle_to_mesh(mesh, create_triangle_from_three_points(p0, p1, p3));
+				y_idx1++;
+			} else {
+				add_triangle_to_mesh(mesh, create_triangle_from_three_points(p0, p1, p2));
+				y_idx0++;
+			}
+		}
+
+		if(y_idx0 == grid->num_col_rows[x_idx] - 1) {
+			while(y_idx1 < grid->num_col_rows[x_idx + 1] - 1) {
+				MeshPoint2 *p0 = grid->points[x_idx][y_idx0];
+				MeshPoint2 *p1 = grid->points[x_idx + 1][y_idx1];
+				MeshPoint2 *p2 = grid->points[x_idx + 1][y_idx1 + 1];
+				add_triangle_to_mesh(mesh, create_triangle_from_three_points(p0, p1, p2));
+				y_idx1++;
+			}
+		}
+
+		if(y_idx1 == grid->num_col_rows[x_idx + 1] - 1) {
+			while(y_idx0 < grid->num_col_rows[x_idx] - 1) {
+				MeshPoint2 *p0 = grid->points[x_idx][y_idx0];
+				MeshPoint2 *p1 = grid->points[x_idx][y_idx0 + 1];
+				MeshPoint2 *p2 = grid->points[x_idx + 1][y_idx1];
+				add_triangle_to_mesh(mesh, create_triangle_from_three_points(p0, p1, p2));
+				y_idx0++;
+			}
+		}
+	}
+
+	rebuild_mesh_boxes(mesh);
+	return mesh;
+}
+
 void shuffle_mesh_points(Mesh2 *mesh) {
 	if (!mesh || mesh->num_points < 2)
 		return;

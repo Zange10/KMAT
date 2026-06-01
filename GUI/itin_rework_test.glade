@@ -248,7 +248,7 @@
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="has-frame">False</property>
-                    <property name="text" translatable="yes">10</property>
+                    <property name="text" translatable="yes">1000</property>
                     <property name="xalign">0.5</property>
                   </object>
                   <packing>
@@ -261,7 +261,7 @@
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="has-frame">False</property>
-                    <property name="text" translatable="yes">500</property>
+                    <property name="text" translatable="yes">50</property>
                     <property name="xalign">0.5</property>
                   </object>
                   <packing>

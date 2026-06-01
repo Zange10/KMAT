@@ -55,7 +55,7 @@ double calc_next_x_find_min(DataArray2 *arr, double tolerance) {
 	else return data[min_idx].x + (data[min_idx+1].x - data[min_idx].x)*0.2;
 }
 
-void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double max_depdv, double dep_periapsis, double *left_x, double *right_x) {
+void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double max_depdv, double dep_periapsis, double *left_x, double *right_x, double tol) {
 	// x: dt, y: diff_vinf
 	DataArray2 *data = data_array2_create();
 
@@ -79,7 +79,7 @@ void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, Celes
 		double vinf = fabs(mag_vec3(subtract_vec3(new_transfer.v0, osv_dep.v)));
 		double dv_dep = dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf);
 
-		if(i > 3 && max_depdv - dv_dep > 0 && max_depdv - dv_dep < 1 || (i > 3 && fabs(dt-last_dt) < 1)) {
+		if(i > 3 && max_depdv - dv_dep > 0 && max_depdv - dv_dep < tol || (i > 3 && fabs(dt-last_dt) < tol)) {
 			if(left_branch) {
 				*left_x = dt;
 				last_dt = -1e20;
@@ -645,7 +645,7 @@ void update_mesh_triangle_status(SegmentGroup *group, double dv_tolerance) {
 		for(int k = 0; k < 3; k++) {
 			p[k].x = triangle->points[k]->pos.x;
 			p[k].y = triangle->points[k]->pos.y;
-			p[k].z = triangle->points[k]->val[MESH_VAL_VINF];
+			p[k].z = triangle->points[k]->val[MESH_VAL_ARRZ];
 		}
 		double center_val = get_triangle_interpolated_value(p[0], p[1], p[2], tri_centroid);
 
@@ -655,7 +655,7 @@ void update_mesh_triangle_status(SegmentGroup *group, double dv_tolerance) {
 			for(int k = 0; k < 3; k++) {
 				p[k].x = adj_triangle->points[k]->pos.x;
 				p[k].y = adj_triangle->points[k]->pos.y;
-				p[k].z = triangle->points[k]->val[MESH_VAL_VINF];
+				p[k].z = triangle->points[k]->val[MESH_VAL_ARRZ];
 			}
 			double interpolated_val = get_triangle_interpolated_value(p[0], p[1], p[2], tri_centroid);
 			if(fabs(interpolated_val-center_val) > dv_tolerance) {
@@ -663,6 +663,130 @@ void update_mesh_triangle_status(SegmentGroup *group, double dv_tolerance) {
 				break;
 			}
 		}
+	}
+}
+
+void calc_porkchop_dv_boundaries(SegmentGroup *group, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	group->vinf_array = data_array2_create();
+
+	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
+					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_min_dep, group->system->cb);
+
+	OSV osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(group->arr_body->orbit, jd_min_dep) :
+				   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_min_dep, group->system->cb);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
+	double dt0, dt1;
+
+
+	double r0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb).a, r1 = arr0.a;
+	double r_ratio =  r1/r0;
+	Hohmann hohmann = calc_hohmann_transfer(r0, r1, group->system->cb);
+	double hohmann_dur = hohmann.dur/86400;
+	double min_duration = 0.4 * hohmann_dur;
+	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+	if(max_duration < max_dur) max_dur = max_duration;
+	if(min_duration > min_dur) min_dur = min_duration;
+
+	double min_dt = min_dur*86400;
+	double max_dt = max_dur*86400;
+	double jd_dep_step = (jd_max_dep-jd_min_dep)/(departure_cap-1);
+
+	for(int i = 0; i < departure_cap; i++) {
+		double jd_dep = jd_min_dep + jd_dep_step*i;
+
+		get_upper_and_lower_boundary_at_jd_dep(group, jd_dep, &dt0, &dt1);
+
+		if(dt0 > max_dt || dt1 < min_dt) continue;
+
+		double left_x = 0, right_x = 0;
+		osv0 = group->system->prop_method == ORB_ELEMENTS ?
+							osv_from_elements(group->dep_body->orbit, jd_dep) :
+							osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
+		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x, 0.01);
+
+		// No departure possible within given constraints
+		if(left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
+			size_t array_size = data_array2_size(group->vinf_array);
+			if(array_size > 0 && data_array2_get_data(group->vinf_array)[array_size-1].y != 0)
+				data_array2_append_new(group->vinf_array, jd_dep, 0);
+			continue;
+		}
+
+		if(left_x < dt0) left_x = dt0;
+		if(left_x < min_dur*86400) left_x = min_dur*86400;
+		if(right_x > dt1) right_x = dt1;
+		if(right_x > max_dur*86400) right_x = max_dur*86400;
+
+		data_array2_append_new(group->vinf_array, jd_dep, left_x/86400);
+		data_array2_append_new(group->vinf_array, jd_dep, right_x/86400);
+	}
+
+	if(data_array2_get_data(group->vinf_array)[data_array2_size(group->vinf_array)-1].y == 0) {
+		data_array2_remove_at_idx(group->vinf_array, (int) data_array2_size(group->vinf_array)-1);
+	}
+}
+
+void calc_group_porkchop_from_bands(SegmentGroup *group, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	group->vinf_array = data_array2_create();
+ 
+	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
+					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_min_dep, group->system->cb);
+
+	OSV osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(group->arr_body->orbit, jd_min_dep) :
+				   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_min_dep, group->system->cb);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
+	double dt0, dt1;
+
+
+	double r0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb).a, r1 = arr0.a;
+	double r_ratio =  r1/r0;
+	Hohmann hohmann = calc_hohmann_transfer(r0, r1, group->system->cb);
+	double hohmann_dur = hohmann.dur/86400;
+	double min_duration = 0.4 * hohmann_dur;
+	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+	if(max_duration < max_dur) max_dur = max_duration;
+	if(min_duration > min_dur) min_dur = min_duration;
+
+	double min_dt = min_dur*86400;
+	double max_dt = max_dur*86400;
+	double jd_dep_step = (jd_max_dep-jd_min_dep)/(departure_cap-1);
+
+	for(int i = 0; i < departure_cap; i++) {
+		double jd_dep = jd_min_dep + jd_dep_step*i;
+
+		get_upper_and_lower_boundary_at_jd_dep(group, jd_dep, &dt0, &dt1);
+
+		if(dt0 > max_dt || dt1 < min_dt) continue;
+
+		double left_x = 0, right_x = 0;
+		osv0 = group->system->prop_method == ORB_ELEMENTS ?
+							osv_from_elements(group->dep_body->orbit, jd_dep) :
+							osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
+		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x, 0.01);
+
+		// No departure possible within given constraints
+		if(left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
+			size_t array_size = data_array2_size(group->vinf_array);
+			if(array_size > 0 && data_array2_get_data(group->vinf_array)[array_size-1].y != 0)
+				data_array2_append_new(group->vinf_array, jd_dep, 0);
+			continue;
+		}
+
+		if(left_x < dt0) left_x = dt0;
+		if(left_x < min_dur*86400) left_x = min_dur*86400;
+		if(right_x > dt1) right_x = dt1;
+		if(right_x > max_dur*86400) right_x = max_dur*86400;
+
+		data_array2_append_new(group->vinf_array, jd_dep, left_x/86400);
+		data_array2_append_new(group->vinf_array, jd_dep, right_x/86400);
+	}
+
+	if(data_array2_get_data(group->vinf_array)[data_array2_size(group->vinf_array)-1].y == 0) {
+		data_array2_remove_at_idx(group->vinf_array, (int) data_array2_size(group->vinf_array)-1);
 	}
 }
 
@@ -704,7 +828,7 @@ void calc_group_porkchop(SegmentGroup *group, int departure_cap, double jd_min_d
 		osv0 = group->system->prop_method == ORB_ELEMENTS ?
 							osv_from_elements(group->dep_body->orbit, jd_dep) :
 							osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
-		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x);
+		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x, 1);
 
 		// No departure possible within given constraints
 		if(left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
@@ -725,6 +849,228 @@ void calc_group_porkchop(SegmentGroup *group, int departure_cap, double jd_min_d
 		group->segment_steps[group->num_steps]->date = jd_dep;
 		DataArray1 *dur_array = data_array1_create();
 		calc_bounded_porkchop_line(group->segment_steps[group->num_steps], group->arr_body, group->system, dur_array, left_x, right_x, dep_periapsis, max_depdv, dv_tolerance);
+		group->num_steps++;
+
+
+
+
+		DataArray1 *data = data_array1_get_diff(dur_array);
+		// printf("%6.3f  %6.3f   |   %10.3f\n", data_array1_get_min(data), data_array1_get_max(data), data_array1_get_max(data) / data_array1_get_min(data));
+		// print_data_array1(data, "sep");
+		data_array1_free(dur_array);
+		data_array1_free(data);
+	}
+}
+
+void calc_group_porkchop_stepped(SegmentGroup *group, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	group->segment_steps = malloc(departure_cap * sizeof(struct ItinStep*));
+
+	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
+					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_min_dep, group->system->cb);
+
+	OSV osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(group->arr_body->orbit, jd_min_dep) :
+				   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_min_dep, group->system->cb);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
+	double dt0, dt1;
+
+
+	double r0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb).a, r1 = arr0.a;
+	double r_ratio =  r1/r0;
+	Hohmann hohmann = calc_hohmann_transfer(r0, r1, group->system->cb);
+	double hohmann_dur = hohmann.dur/86400;
+	double min_duration = 0.4 * hohmann_dur;
+	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+	if(max_duration < max_dur) max_dur = max_duration;
+	if(min_duration > min_dur) min_dur = min_duration;
+
+	double min_dt = min_dur*86400;
+	double max_dt = max_dur*86400;
+	double jd_dep_step = (jd_max_dep-jd_min_dep)/(departure_cap-1);
+
+	for(int i = 0; i < departure_cap; i++) {
+		double jd_dep = jd_min_dep + jd_dep_step*i;
+
+		get_upper_and_lower_boundary_at_jd_dep(group, jd_dep, &dt0, &dt1);
+
+		if(dt0 > max_dt || dt1 < min_dt) continue;
+
+		double left_x = 0, right_x = 0;
+		osv0 = group->system->prop_method == ORB_ELEMENTS ?
+							osv_from_elements(group->dep_body->orbit, jd_dep) :
+							osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
+		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x, 1);
+
+		// No departure possible within given constraints
+		if(left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
+			if(group->num_steps > 0 && group->segment_steps[group->num_steps-1] != NULL) {
+				group->segment_steps[group->num_steps] = NULL;
+				group->num_steps++;
+			}
+			continue;
+		}
+
+		if(left_x < dt0) left_x = dt0;
+		if(left_x < min_dur*86400) left_x = min_dur*86400;
+		if(right_x > dt1) right_x = dt1;
+		if(right_x > max_dur*86400) right_x = max_dur*86400;
+
+		group->segment_steps[group->num_steps] = malloc(sizeof(struct ItinStep));
+		group->segment_steps[group->num_steps]->body = group->dep_body;
+		group->segment_steps[group->num_steps]->date = jd_dep;
+		DataArray1 *dur_array = data_array1_create();
+		calc_bounded_porkchop_line(group->segment_steps[group->num_steps], group->arr_body, group->system, dur_array, left_x, right_x, dep_periapsis, max_depdv, dv_tolerance);
+		group->num_steps++;
+
+
+
+
+		DataArray1 *data = data_array1_get_diff(dur_array);
+		// printf("%6.3f  %6.3f   |   %10.3f\n", data_array1_get_min(data), data_array1_get_max(data), data_array1_get_max(data) / data_array1_get_min(data));
+		// print_data_array1(data, "sep");
+		data_array1_free(dur_array);
+		data_array1_free(data);
+	}
+}
+
+
+void calc_bounded_porkchop_line_outline(struct ItinStep *departure_step, Body *arr_body, CelestSystem *system, DataArray1 *dur_array, double min_dt, double max_dt, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	Body *dep_body = departure_step->body;
+	double jd_dep = departure_step->date;
+	OSV osv0 = system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(dep_body->orbit, jd_dep) :
+					osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, system->cb);
+
+	double dt = min_dt;
+
+	DataArray2 *data_dep = data_array2_create();
+	DataArray2 *data_arr = data_array2_create();
+
+	struct ItinStep *curr_step = departure_step;
+	curr_step->r = osv0.r;
+	curr_step->v_body = osv0.v;
+	curr_step->v_dep = vec3(0, 0, 0);
+	curr_step->v_arr = vec3(0, 0, 0);
+	curr_step->num_next_nodes = 0;
+	curr_step->prev = NULL;
+	curr_step->next = (struct ItinStep **) malloc(1000 * sizeof(struct ItinStep *));
+	int counter = 0;
+
+	for(int j = 0; j < 1000; j++) {
+		// printf("%f  %f  %f  %f  %f\n", min_dt, max_dt, dt0, dt1, dt);
+
+		double jd_arr = jd_dep + dt / 86400;
+
+		OSV osv_arr = system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(arr_body->orbit, jd_arr) :
+					osv_from_ephem(arr_body->ephem, arr_body->num_ephems, jd_arr, system->cb);
+
+		Lambert3 tf = calc_lambert3(osv0.r, osv_arr.r, (jd_arr - jd_dep) * 86400, system->cb);
+
+		double vinf_dep = fabs(mag_vec3(subtract_vec3(tf.v0, osv0.v)));
+		double dv_dep = dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf_dep);
+		double vinf_arr = fabs(mag_vec3(subtract_vec3(tf.v1, osv_arr.v)));
+
+		curr_step = get_first(curr_step);
+		// sort chronologically
+		int insert_index = counter;
+		while(insert_index > 0) {
+			if(curr_step->next[insert_index-1]->date < jd_arr) break;
+			insert_index--;
+		}
+		if(insert_index != counter) {
+			memmove(&curr_step->next[insert_index+1],
+				&curr_step->next[insert_index],
+				(counter+2 - insert_index) * sizeof(*curr_step->next));
+		}
+
+		curr_step->next[insert_index] = (struct ItinStep *) malloc(sizeof(struct ItinStep));
+		curr_step->next[insert_index]->prev = curr_step;
+		curr_step->next[insert_index]->next = NULL;
+		curr_step = curr_step->next[insert_index];
+
+		curr_step->body = arr_body;
+		curr_step->date = jd_arr;
+		curr_step->r = osv_arr.r;
+		curr_step->v_dep = tf.v0;
+		curr_step->v_arr = tf.v1;
+		curr_step->v_body = osv_arr.v;
+		curr_step->num_next_nodes = 0;
+		curr_step->prev->num_next_nodes++;
+		counter++;
+
+		if(dur_array) data_array1_insert_new(dur_array, dt/86400);
+
+		data_array2_insert_new(data_dep, dt/86400, dv_dep);
+		data_array2_insert_new(data_arr, dt/86400, vinf_arr);
+
+		if(dt == min_dt) dt = max_dt;
+		else break;
+	}
+	data_array2_free(data_dep);
+	data_array2_free(data_arr);
+}
+
+void calc_group_porkchop_outline(SegmentGroup *group, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	group->segment_steps = malloc(departure_cap * sizeof(struct ItinStep*));
+
+	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
+					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_min_dep, group->system->cb);
+
+	OSV osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(group->arr_body->orbit, jd_min_dep) :
+				   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_min_dep, group->system->cb);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
+	double dt0, dt1;
+
+
+	double r0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb).a, r1 = arr0.a;
+	double r_ratio =  r1/r0;
+	Hohmann hohmann = calc_hohmann_transfer(r0, r1, group->system->cb);
+	double hohmann_dur = hohmann.dur/86400;
+	double min_duration = 0.4 * hohmann_dur;
+	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+	if(max_duration < max_dur) max_dur = max_duration;
+	if(min_duration > min_dur) min_dur = min_duration;
+
+	double min_dt = min_dur*86400;
+	double max_dt = max_dur*86400;
+	double jd_dep_step = (jd_max_dep-jd_min_dep)/(departure_cap-1);
+
+	for(int i = 0; i < departure_cap; i++) {
+		double jd_dep = jd_min_dep + jd_dep_step*i;
+
+		get_upper_and_lower_boundary_at_jd_dep(group, jd_dep, &dt0, &dt1);
+
+		if(dt0 > max_dt || dt1 < min_dt) continue;
+
+		double left_x = 0, right_x = 0;
+		osv0 = group->system->prop_method == ORB_ELEMENTS ?
+							osv_from_elements(group->dep_body->orbit, jd_dep) :
+							osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
+		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x, 1);
+
+		// No departure possible within given constraints
+		if(left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
+			if(group->num_steps > 0 && group->segment_steps[group->num_steps-1] != NULL) {
+				group->segment_steps[group->num_steps] = NULL;
+				group->num_steps++;
+			}
+			continue;
+		}
+
+		if(left_x < dt0) left_x = dt0;
+		if(left_x < min_dur*86400) left_x = min_dur*86400;
+		if(right_x > dt1) right_x = dt1;
+		if(right_x > max_dur*86400) right_x = max_dur*86400;
+
+		group->segment_steps[group->num_steps] = malloc(sizeof(struct ItinStep));
+		group->segment_steps[group->num_steps]->body = group->dep_body;
+		group->segment_steps[group->num_steps]->date = jd_dep;
+		DataArray1 *dur_array = data_array1_create();
+		calc_bounded_porkchop_line_outline(group->segment_steps[group->num_steps], group->arr_body, group->system, dur_array, left_x, right_x, dep_periapsis, max_depdv, dv_tolerance);
 		group->num_steps++;
 
 
@@ -1102,7 +1448,7 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 
 		double left_x = 0, right_x = 0;
 
-		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1e9, 1e9, &left_x, &right_x);
+		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1e9, 1e9, &left_x, &right_x, 1);
 		// printf("%f   %f\n", left_x/86400, right_x/86400);
 
 		// printf("%f   ROOT: %f   %f   (%f  %f)   (%f  %f)\n", jd_dep-jd_min_dep, left_x/86400, right_x/86400, dt0/86400, dt1/86400, opp_guess/86400, conj_guess/86400);
@@ -2003,3 +2349,5 @@ Mesh2 * get_dep_mesh_from_fb_groups(FlyByGroups *fb_groups, SegmentGroup *depart
 //
 // 	return rpe_mesh;
 // }
+
+
