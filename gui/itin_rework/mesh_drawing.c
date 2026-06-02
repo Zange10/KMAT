@@ -106,15 +106,6 @@ void draw_triangle_debug(Mesh2 *mesh, CoordinateSystem *coord_sys) {
 	// printf("Triangles drawn: %zu\n", mesh->num_triangles);
 }
 
-
-
-void set_color_from_value(cairo_t *cr, double value) {
-	double r = value;
-	double g = 1-value;
-	double b = 4*pow(value-0.5,2);
-	cairo_set_source_rgb(cr, r,g,b);
-}
-
 void draw_mesh_interpolated_points(Mesh2 *mesh, CoordinateSystem *coord_sys) {
 	struct timeval start, end;
 	gettimeofday(&start, NULL);

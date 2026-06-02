@@ -2,6 +2,7 @@
 #include "gui/drawing.h"
 #include "gui/settings.h"
 #include "gui/itin_rework/mesh_drawing.h"
+#include "gui/itin_rework/quad_drawing.h"
 #include <math.h>
 
 
@@ -259,6 +260,16 @@ void draw_coordinate_system_data(CoordinateSystem *coord_sys) {
 				break;
 			case CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG:
 				draw_triangle_debug(coord_sys->groups[i]->mesh, coord_sys);
+				break;
+			case CS_PLOT_TYPE_QUAD_SKELETON:
+				draw_quad_skeleton(coord_sys->groups[i]->root_quad, coord_sys);
+				break;
+			case CS_PLOT_TYPE_QUAD_INTERPOLATION:
+				draw_quad_interpolated_points(coord_sys->groups[i]->root_quad, coord_sys);
+				break;
+			case CS_PLOT_TYPE_QUAD_DEBUG:
+				draw_quad_debug(coord_sys->groups[i]->root_quad, coord_sys);
+				draw_quad_skeleton(coord_sys->groups[i]->root_quad, coord_sys);
 				break;
 			default:
 				break;

@@ -224,7 +224,114 @@ void free_segment_group(SegmentGroup *group) {
 	free(group);
 }
 
+
+int quad_counter = 0;
+
 G_MODULE_EXPORT void on_calc_ir() {
+	TimingMeasurements tm = init_timing_measurements();
+	char *string;
+
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_mindepdate));
+	double min_dep = convert_date_JD(date_from_string(string, DATE_ISO));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdepdate));
+	double max_dep = convert_date_JD(date_from_string(string, DATE_ISO));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_mindur));
+	double min_dur = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdur));
+	double max_dur = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_tolerance));
+	double tolerance = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_numdeps));
+	double target_numdeps = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdv));
+	double max_depdv = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup0));
+	int pcgroup0 = (int) strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup1));
+	int pcgroup1 = (int) strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup2));
+	int pcgroup2 = (int) strtod(string, NULL);
+
+	start_time_measurement(&tm);
+
+	DataArray2 *pos = data_array2_create();
+
+	MeshPoint2 *p00 = create_mesh_point(vec2(0, 100), NULL, 0);
+	MeshPoint2 *p01 = create_mesh_point(vec2(100, 100), NULL, 0);
+	MeshPoint2 *p10 = create_mesh_point(vec2(0, 0), NULL, 0);
+	MeshPoint2 *p11 = create_mesh_point(vec2(100, 0), NULL, 0);
+	Quad *quad = create_quad_from_four_points(NULL, p00, p01, p10, p11);
+	if(quad_counter > 0)
+		divide_quad(quad);
+	if(quad_counter > 1)
+		divide_quad(quad->subquads[3]);
+	if(quad_counter > 2)
+		divide_quad(quad->subquads[3]->subquads[2]);
+	if(quad_counter > 3)
+		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]);
+	if(quad_counter > 4)
+		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]);
+	if(quad_counter > 5)
+		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]);
+	if(quad_counter > 6)
+		free_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[2], false);
+	if(quad_counter > 7)
+		free_quad(quad->subquads[2]->subquads[3]->subquads[0], false);
+	if(quad_counter > 8)
+		free_quad(quad->subquads[2]->subquads[1], false);
+	if(quad_counter > 9)
+		divide_quad(quad->subquads[3]->subquads[0]->subquads[2]->subquads[0]);
+	if(quad_counter > 10)
+		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]);
+	if(quad_counter > 11)
+		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]);
+	if(quad_counter > 12)
+		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]);
+	if(quad_counter > 13)
+		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]);
+	if(quad_counter > 14)
+		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]->subquads[3]);
+	if(quad_counter > 15)
+		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]->subquads[3]->subquads[3]);
+	if(quad_counter > 16)
+		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]->subquads[3]->subquads[3]->subquads[3]);
+
+	quad_counter++;
+
+	Quad *test_quad = quad;
+
+	while(test_quad && !is_quad_flag(test_quad, QUAD_FLAG_IS_LEAF)) {
+        test_quad = test_quad->subquads[QUAD_SE];
+		print_vec2(test_quad->corner[QUAD_NW]->pos);
+		print_vec2(test_quad->corner[QUAD_SE]->pos);
+		printf("--\n");
+	}
+
+
+	printf("--------\n");
+
+	if(test_quad && test_quad->parent) {
+		test_quad = test_quad->parent;
+		for(int i = 0; i < 4; i++) {
+			print_vec2(test_quad->subquads[i]->corner[QUAD_NW]->pos);
+			print_vec2(test_quad->subquads[i]->corner[QUAD_NE]->pos);
+			print_vec2(test_quad->subquads[i]->corner[QUAD_SW]->pos);
+			print_vec2(test_quad->subquads[i]->corner[QUAD_SE]->pos);
+			printf("--\n");
+		}
+	}
+
+
+	end_time_measurement(&tm, "Quad");
+
+
+	attach_quad_to_coordinate_system(ir_coord_sys0, quad, CS_PLOT_TYPE_QUAD_DEBUG, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, 0, TRUE);
+	print_timing_measurements(tm);
+	free_timing_measurements(&tm);
+}
+
+
+G_MODULE_EXPORT void on_calc_ir_band_shenanigans() {
 	TimingMeasurements tm = init_timing_measurements();
 	char *string;
 
@@ -314,7 +421,10 @@ G_MODULE_EXPORT void on_calc_ir() {
 		set_opposition_conjunction_group_boundary(new_group, i-10, min_dep, max_dep);
 
 		calc_group_porkchop(new_group, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance/10);
+		// DataArray2 *boundary_array = calc_dv_boundary(new_group, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance/10);
+		// new_group->vinf_array = boundary_array;
 		if(new_group->num_steps != 0) {
+		// if(data_array2_size(boundary_array) != 0) {
 			if(departure.num_next_groups == departure.group_cap) {
 				departure.group_cap *= 2;
 				SegmentGroup **temp_groups = realloc(departure.segment_groups, departure.group_cap * sizeof(SegmentGroup *));
@@ -355,7 +465,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 		DataArray2 *data = data_array2_create();
 		// for(int threshold = 3000; threshold <= max_depdv; threshold+=500) {
-			int threshold = 6000;
+			int threshold = pcgroup2;
 			DataArray2 *threshold_high_dur = data_array2_create();
 			DataArray2 *threshold_low_dur = data_array2_create();
 			for(int i = 0; i < grid->num_cols; i++) {
@@ -416,8 +526,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 		group->vinf_array = data;
 
 
-		// group->mesh = create_mesh_from_grid_w_angled_guideline(grid, group->boundary_gradient);
-		// group->mesh = create_mesh_from_grid_wrt_value(grid, MESH_VAL_VINF);
+		group->mesh = create_mesh_from_grid_w_angled_guideline(grid, group->boundary_gradient);
+		group->mesh = create_mesh_from_grid_wrt_value(grid, MESH_VAL_VINF);
 		free_grid_keep_points(grid);
 		data_array2_free(step_pos);
 		free(step_vals);
@@ -694,7 +804,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 
 
 	attach_mesh_to_coordinate_system(ir_coord_sys0, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, MESH_VAL_VINF, TRUE);
-	attach_mesh_to_coordinate_system(ir_coord_sys1, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, MESH_VAL_ARRZ, TRUE);
+	attach_mesh_to_coordinate_system(ir_coord_sys1, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, MESH_VAL_VINF, TRUE);
 	// attach_mesh_to_coordinate_system(ir_coord_sys1, departure.segment_groups[pcgroup0]->mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_DATE, CS_AXIS_DURATION, TRUE, &remove_step_from_itinerary_void_ptr, TRUE);
 	// plot_scatter_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->next[pcgroup1]->vinf_array, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE);
 	// plot_scatter_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->next[pcgroup1]->lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE);

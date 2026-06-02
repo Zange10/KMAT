@@ -3,6 +3,7 @@
 
 #include "screen.h"
 #include "gui/itin_rework/mesh.h"
+#include "gui/itin_rework/quad.h"
 
 typedef struct CoordinateSystem CoordinateSystem;
 typedef struct CSDataPointGroup CSDataPointGroup;
@@ -24,6 +25,9 @@ enum CSDataPlotType {
 	CS_PLOT_TYPE_MESH_SKELETON,
 	CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG,
 	CS_PLOT_TYPE_MESH_BOXES,
+	CS_PLOT_TYPE_QUAD_INTERPOLATION,
+	CS_PLOT_TYPE_QUAD_SKELETON,
+	CS_PLOT_TYPE_QUAD_DEBUG
 };
 
 struct CSDataPoint {
@@ -35,8 +39,11 @@ struct CSDataPointGroup {
 	size_t num_points;
 	CSDataPoint *points;
 	Mesh2 *mesh;
+	Quad *root_quad;
 	int mesh_val_idx;
+	int quad_val_idx;
 	bool free_mesh_on_clear;
+	bool free_quad_on_clear;
 	CSDataPlotType plot_type;
 };
 
@@ -59,6 +66,7 @@ void scatter_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelTyp
 void plot_scatter_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);
 void scatter_data3(CoordinateSystem *coord_sys, DataArray3 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);
 void attach_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_mesh_on_clear, int mesh_val_idx, bool free_prev_data);
+void attach_quad_to_coordinate_system(CoordinateSystem *coord_sys, Quad *root_quad, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_mesh_on_clear, int quad_val_idx, bool free_prev_data);
 size_t get_coordinate_system_total_number_of_points(CoordinateSystem *coord_sys);
 Vector2 to_coordinate_system_space(Vector2 val, CoordinateSystem *coord_sys);
 Vector2 from_coordinate_system_space(Vector2 pos, CoordinateSystem *coord_sys);

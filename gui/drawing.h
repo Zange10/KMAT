@@ -31,5 +31,7 @@ void draw_plot(cairo_t *cr, double width, double height, double *x, double *y, i
 void draw_plot_from_data_array(cairo_t *cr, double width, double height, DataArray2 *data_array);
 void draw_scatter_from_data_array(cairo_t *cr, double width, double height, DataArray2 *data_array);
 void draw_multi_plot(cairo_t *cr, double width, double height, double *x, double **y, int num_plots, int num_points);
+void set_color_from_value(cairo_t *cr, double value);
+
 
 #endif //KSP_DRAWING_H

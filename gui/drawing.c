@@ -753,3 +753,10 @@ void draw_multi_plot(cairo_t *cr, double width, double height, double *x, double
 		}
 	}
 }
+
+void set_color_from_value(cairo_t *cr, double value) {
+	double r = value;
+	double g = 1-value;
+	double b = 4*pow(value-0.5,2);
+	cairo_set_source_rgb(cr, r,g,b);
+}

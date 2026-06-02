@@ -645,7 +645,7 @@ void update_mesh_triangle_status(SegmentGroup *group, double dv_tolerance) {
 		for(int k = 0; k < 3; k++) {
 			p[k].x = triangle->points[k]->pos.x;
 			p[k].y = triangle->points[k]->pos.y;
-			p[k].z = triangle->points[k]->val[MESH_VAL_ARRZ];
+			p[k].z = triangle->points[k]->val[MESH_VAL_VINF];
 		}
 		double center_val = get_triangle_interpolated_value(p[0], p[1], p[2], tri_centroid);
 
@@ -655,7 +655,7 @@ void update_mesh_triangle_status(SegmentGroup *group, double dv_tolerance) {
 			for(int k = 0; k < 3; k++) {
 				p[k].x = adj_triangle->points[k]->pos.x;
 				p[k].y = adj_triangle->points[k]->pos.y;
-				p[k].z = triangle->points[k]->val[MESH_VAL_ARRZ];
+				p[k].z = triangle->points[k]->val[MESH_VAL_VINF];
 			}
 			double interpolated_val = get_triangle_interpolated_value(p[0], p[1], p[2], tri_centroid);
 			if(fabs(interpolated_val-center_val) > dv_tolerance) {
@@ -664,6 +664,70 @@ void update_mesh_triangle_status(SegmentGroup *group, double dv_tolerance) {
 			}
 		}
 	}
+}
+
+DataArray2 * calc_dv_boundary(SegmentGroup *group, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	DataArray2 *boundary_array = data_array2_create();
+
+	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
+					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_min_dep, group->system->cb);
+
+	OSV osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(group->arr_body->orbit, jd_min_dep) :
+				   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_min_dep, group->system->cb);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
+	double dt0, dt1;
+
+
+	double r0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb).a, r1 = arr0.a;
+	double r_ratio =  r1/r0;
+	Hohmann hohmann = calc_hohmann_transfer(r0, r1, group->system->cb);
+	double hohmann_dur = hohmann.dur/86400;
+	double min_duration = 0.4 * hohmann_dur;
+	double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+	if(max_duration < max_dur) max_dur = max_duration;
+	if(min_duration > min_dur) min_dur = min_duration;
+
+	double min_dt = min_dur*86400;
+	double max_dt = max_dur*86400;
+	double jd_dep_step = (jd_max_dep-jd_min_dep)/(departure_cap-1);
+
+	for(int i = 0; i < departure_cap; i++) {
+		double jd_dep = jd_min_dep + jd_dep_step*i;
+
+		get_upper_and_lower_boundary_at_jd_dep(group, jd_dep, &dt0, &dt1);
+
+		if(dt0 > max_dt || dt1 < min_dt) continue;
+
+		double left_x = 0, right_x = 0;
+		osv0 = group->system->prop_method == ORB_ELEMENTS ?
+							osv_from_elements(group->dep_body->orbit, jd_dep) :
+							osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
+		find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x, 0.01);
+
+		// No departure possible within given constraints
+		if(left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
+			size_t array_size = data_array2_size(boundary_array);
+			if(array_size > 0 && data_array2_get_data(boundary_array)[array_size-1].y != 0)
+				data_array2_append_new(boundary_array, jd_dep, 0);
+			continue;
+		}
+
+		if(left_x < dt0) left_x = dt0;
+		if(left_x < min_dur*86400) left_x = min_dur*86400;
+		if(right_x > dt1) right_x = dt1;
+		if(right_x > max_dur*86400) right_x = max_dur*86400;
+
+		data_array2_append_new(boundary_array, jd_dep, left_x/86400);
+		data_array2_append_new(boundary_array, jd_dep, right_x/86400);
+	}
+
+	if(data_array2_get_data(boundary_array)[data_array2_size(boundary_array)-1].y == 0) {
+		data_array2_remove_at_idx(boundary_array, (int) data_array2_size(boundary_array)-1);
+	}
+	print_data_array2(boundary_array, "depdate", "dur");
+	return boundary_array;
 }
 
 void calc_porkchop_dv_boundaries(SegmentGroup *group, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {

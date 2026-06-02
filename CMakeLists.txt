@@ -105,6 +105,10 @@ add_executable(KMAT
         gui/gui_tools/coordinate_system_drawing.h
         gui/itin_rework/mesh_drawing.c
         gui/itin_rework/mesh_drawing.h
+        gui/itin_rework/quad.c
+        gui/itin_rework/quad.h
+        gui/itin_rework/quad_drawing.c
+        gui/itin_rework/quad_drawing.h
 )
 
 # Platform-specific setup

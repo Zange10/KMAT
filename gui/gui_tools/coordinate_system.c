@@ -3,6 +3,8 @@
 #include "gui/itin_rework/mesh_drawing.h"
 #include <math.h>
 
+#include "gui/itin_rework/quad_drawing.h"
+
 
 void on_coordinate_system();
 void on_coordinate_system_zoom(GtkWidget *widget, GdkEventScroll *event, CoordinateSystem *coord_sys);
@@ -13,32 +15,6 @@ void enable_coordinate_system_show_hover_position(GtkWidget *widget, GdkEventBut
 void disable_coordinate_system_show_hover_position(GtkWidget *widget, GdkEventButton *event, CoordinateSystem *coord_sys);
 
 CoordinateSystem * new_coordinate_system(GtkWidget *drawing_area) {
-	CoordinateSystem *new_coordinate_system = malloc(sizeof(CoordinateSystem));
-
-	new_coordinate_system->groups = NULL;
-	new_coordinate_system->num_point_groups = 0;
-	new_coordinate_system->point_group_cap = 0;
-	new_coordinate_system->min = vec3(0, 0, 0);
-	new_coordinate_system->max = vec3(0, 0, 0);
-	new_coordinate_system->show_hover_position = false;
-	new_coordinate_system->x_axis_type = CS_AXIS_NUMBER;
-	new_coordinate_system->y_axis_type = CS_AXIS_NUMBER;
-	new_coordinate_system->screen = new_screen(drawing_area, NULL, &on_screen_button_press, &on_screen_button_release, NULL, NULL);
-	new_coordinate_system->origin = vec2(60, new_coordinate_system->screen->height-30);
-	set_screen_background_color(new_coordinate_system->screen, 0.15, 0.15, 0.15);
-
-	gtk_widget_add_events(drawing_area, GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK | GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK);
-	g_signal_connect(drawing_area, "size-allocate", G_CALLBACK(on_resize_coordinate_system), new_coordinate_system);
-	g_signal_connect(drawing_area, "motion-notify-event", G_CALLBACK(on_coordinate_system_drag), new_coordinate_system);
-	g_signal_connect(drawing_area, "motion-notify-event", G_CALLBACK(update_coordinate_system_hover_position), new_coordinate_system);
-	g_signal_connect(drawing_area, "enter-notify-event", G_CALLBACK(enable_coordinate_system_show_hover_position), new_coordinate_system);
-	g_signal_connect(drawing_area, "leave-notify-event", G_CALLBACK(disable_coordinate_system_show_hover_position), new_coordinate_system);
-	g_signal_connect(drawing_area, "scroll-event", G_CALLBACK(on_coordinate_system_zoom), new_coordinate_system);
-
-	return new_coordinate_system;
-}
-
-CoordinateSystem * new_coordinate_system_for_mesh(GtkWidget *drawing_area) {
 	CoordinateSystem *new_coordinate_system = malloc(sizeof(CoordinateSystem));
 
 	new_coordinate_system->groups = NULL;
@@ -104,8 +80,20 @@ void update_coordinate_system_hover_position(GtkWidget *widget, GdkEventButton *
 		return;
 	}
 
-	if(coord_sys->groups[0]->plot_type >= CS_PLOT_TYPE_MESH_INTERPOLATION) {
-		draw_triangle_checks(coord_sys, mouse);
+	switch(coord_sys->groups[0]->plot_type) {
+		case CS_PLOT_TYPE_MESH_INTERPOLATION:
+		case CS_PLOT_TYPE_MESH_SKELETON:
+		case CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG:
+		case CS_PLOT_TYPE_MESH_BOXES:
+			draw_triangle_checks(coord_sys, mouse);
+			break;
+		case CS_PLOT_TYPE_QUAD_INTERPOLATION:
+		case CS_PLOT_TYPE_QUAD_SKELETON:
+		case CS_PLOT_TYPE_QUAD_DEBUG:
+			draw_quad_checks(coord_sys, mouse);
+			break;
+		default:
+			break;
 	}
 
 	draw_hover_position(coord_sys, mouse);
@@ -167,16 +155,26 @@ void disable_coordinate_system_show_hover_position(GtkWidget *widget, GdkEventBu
 
 void clear_coordinate_system(CoordinateSystem *coord_sys) {
 	for(int i = 0; i < coord_sys->num_point_groups; i++) {
-		if(coord_sys->groups[i]->plot_type == CS_PLOT_TYPE_PLOT ||
-			coord_sys->groups[i]->plot_type == CS_PLOT_TYPE_SCATTER ||
-			coord_sys->groups[i]->plot_type == CS_PLOT_TYPE_PLOT_SCATTER) {
-
-			free(coord_sys->groups[i]->points);
-			free(coord_sys->groups[i]);
-		} else {
-			if(coord_sys->groups[i]->free_mesh_on_clear) {
-				free_mesh(coord_sys->groups[i]->mesh);
-			}
+		switch(coord_sys->groups[i]->plot_type) {
+			case CS_PLOT_TYPE_MESH_INTERPOLATION:
+			case CS_PLOT_TYPE_MESH_SKELETON:
+			case CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG:
+			case CS_PLOT_TYPE_MESH_BOXES:
+				if(coord_sys->groups[i]->free_mesh_on_clear) {
+					free_mesh(coord_sys->groups[i]->mesh);
+				}
+				break;
+			case CS_PLOT_TYPE_QUAD_INTERPOLATION:
+			case CS_PLOT_TYPE_QUAD_SKELETON:
+			case CS_PLOT_TYPE_QUAD_DEBUG:
+				if(coord_sys->groups[i]->free_quad_on_clear) {
+					free_quad(coord_sys->groups[i]->root_quad, true);
+				}
+				break;
+			default:
+				free(coord_sys->groups[i]->points);
+				free(coord_sys->groups[i]);
+				break;
 		}
 	}
 	coord_sys->num_point_groups = 0;
@@ -205,6 +203,7 @@ void add_data2_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *dat
 	new_group->num_points = data_array2_size(data_array);
 	new_group->points = malloc(sizeof(CSDataPoint) * new_group->num_points);
 	new_group->mesh = NULL;
+	new_group->root_quad = NULL;
 
 	Vector2 *data = data_array2_get_data(data_array);
 
@@ -246,6 +245,7 @@ void add_data3_to_coordinate_system(CoordinateSystem *coord_sys, DataArray3 *dat
 	new_group->num_points = data_array3_size(data_array);
 	new_group->points = malloc(sizeof(CSDataPoint) * new_group->num_points);
 	new_group->mesh = NULL;
+	new_group->root_quad = NULL;
 
 	Vector3 *data = data_array3_get_data(data_array);
 	double min_z = data[0].z, max_z = data[0].z;
@@ -294,6 +294,7 @@ void add_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSD
 	new_group->plot_type = plot_type;
 	new_group->num_points = 0;
 	new_group->points = NULL;
+	new_group->root_quad = NULL;
 	new_group->mesh = mesh;
 	new_group->free_mesh_on_clear = free_mesh_on_clear;
 	new_group->mesh_val_idx = mesh_val_idx;
@@ -301,16 +302,32 @@ void add_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSD
 	coord_sys->min = vec3(mesh->mesh_box->min.x, mesh->mesh_box->min.y, get_mesh_min_value(mesh, mesh_val_idx));
 	coord_sys->max = vec3(mesh->mesh_box->max.x, mesh->mesh_box->max.y, get_mesh_max_value(mesh, mesh_val_idx));
 
-	// coord_sys->min = vec3(mesh->points[0]->pos.x, mesh->points[0]->pos.y, mesh->points[0]->val[mesh]);
-	// coord_sys->max = vec3(mesh->points[0]->pos.x, mesh->points[0]->pos.y, mesh->points[0]->old_val);
-	// for(int i = 1; i < mesh->num_points; i++) {
-	// 	if(mesh->points[i]->pos.x < coord_sys->min.x) coord_sys->min.x = mesh->points[i]->pos.x;
-	// 	if(mesh->points[i]->pos.x > coord_sys->max.x) coord_sys->max.x = mesh->points[i]->pos.x;
-	// 	if(mesh->points[i]->pos.y < coord_sys->min.y) coord_sys->min.y = mesh->points[i]->pos.y;
-	// 	if(mesh->points[i]->pos.y > coord_sys->max.y) coord_sys->max.y = mesh->points[i]->pos.y;
-	// 	if(mesh->points[i]->old_val	  < coord_sys->min.z) coord_sys->min.z = mesh->points[i]->old_val;
-	// 	if(mesh->points[i]->old_val   > coord_sys->max.z) coord_sys->max.z = mesh->points[i]->old_val;
-	// }
+	coord_sys->groups[coord_sys->num_point_groups++] = new_group;
+}
+
+void add_quad_to_coordinate_system(CoordinateSystem *coord_sys, Quad *root_quad, CSDataPlotType plot_type, bool free_quad_on_clear, int quad_val_idx) {
+	if(coord_sys->num_point_groups+1 >= coord_sys->point_group_cap) {
+		if(coord_sys->point_group_cap == 0) {
+			coord_sys->point_group_cap = 1;
+			coord_sys->groups = malloc(coord_sys->point_group_cap * sizeof(CSDataPointGroup *));
+		} else {
+			coord_sys->point_group_cap *= 2;
+			CSDataPointGroup **temp = realloc(coord_sys->groups, coord_sys->point_group_cap * sizeof(CSDataPointGroup *));
+			if(temp) coord_sys->groups = temp;
+		}
+	}
+
+	CSDataPointGroup *new_group = malloc(sizeof(CSDataPointGroup));
+	new_group->plot_type = plot_type;
+	new_group->num_points = 0;
+	new_group->points = NULL;
+	new_group->mesh = NULL;
+	new_group->root_quad = root_quad;
+	new_group->free_quad_on_clear = free_quad_on_clear;
+	new_group->quad_val_idx = quad_val_idx;
+
+	coord_sys->min = vec3(root_quad->corner[2]->pos.x, root_quad->corner[2]->pos.y, get_quad_min_value(root_quad, quad_val_idx));
+	coord_sys->max = vec3(root_quad->corner[1]->pos.x, root_quad->corner[1]->pos.y, get_quad_max_value(root_quad, quad_val_idx));
 
 	coord_sys->groups[coord_sys->num_point_groups++] = new_group;
 }
@@ -350,6 +367,15 @@ void scatter_data3(CoordinateSystem *coord_sys, DataArray3 *data, CSAxisLabelTyp
 void attach_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_mesh_on_clear, int mesh_val_idx, bool free_prev_data) {
 	if(free_prev_data) clear_coordinate_system(coord_sys);
 	add_mesh_to_coordinate_system(coord_sys, mesh, plot_type, free_mesh_on_clear, mesh_val_idx);
+	coord_sys->x_axis_type = x_axis_type;
+	coord_sys->y_axis_type = y_axis_type;
+
+	draw_coordinate_system_data(coord_sys);
+}
+
+void attach_quad_to_coordinate_system(CoordinateSystem *coord_sys, Quad *root_quad, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_mesh_on_clear, int mesh_val_idx, bool free_prev_data) {
+	if(free_prev_data) clear_coordinate_system(coord_sys);
+	add_quad_to_coordinate_system(coord_sys, root_quad, plot_type, free_mesh_on_clear, mesh_val_idx);
 	coord_sys->x_axis_type = x_axis_type;
 	coord_sys->y_axis_type = y_axis_type;
 
