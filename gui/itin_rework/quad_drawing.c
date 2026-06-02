@@ -52,7 +52,7 @@ void draw_quad_debug(Quad *root_quad, CoordinateSystem *coord_sys) {
 	cairo_t *cr = coord_sys->screen->static_layer.cr;
 
 	if(is_quad_flag(root_quad, QUAD_FLAG_INACTIVE)) cairo_set_source_rgb(cr, 0.1, 0.1, 0.1);
-	else if(is_quad_flag(root_quad, QUAD_FLAG_DIVIDE)) cairo_set_source_rgb(cr, 1, 1, 0);
+	else if(is_quad_flag(root_quad, QUAD_FLAG_DIVIDE)) cairo_set_source_rgb(cr, 1, 0.6, 0);
 	else if(is_quad_flag(root_quad, QUAD_FLAG_ACC_ERR)) cairo_set_source_rgb(cr, 1, 0, 0);
 	else cairo_set_source_rgb(cr, 0.3, 0.3, 0.3);
 
@@ -69,7 +69,25 @@ void draw_quad_debug(Quad *root_quad, CoordinateSystem *coord_sys) {
 
 
 void draw_quad_interpolated_points(Quad *root_quad, CoordinateSystem *coord_sys) {
+	cairo_t *cr = coord_sys->screen->static_layer.cr;
+	int width = coord_sys->screen->width;
+	int height = coord_sys->screen->height;
 
+	MeshTriangle2 tri2d;
+	for(int i = 0; i < 3; i++) tri2d.points[i] = malloc(sizeof(MeshPoint2));
+
+	for(int x = 0; x < width; x++) {
+		for(int y = 0; y < height; y++) {
+			Vector2 p = from_coordinate_system_space(vec2(x, y), coord_sys);
+			Quad *quad = get_quad_at_position(root_quad, p);
+			if(!quad) continue;
+			double interpl_value = get_quad_interpolated_value(quad, p, coord_sys->groups[0]->quad_val_idx);
+			interpl_value = (interpl_value+10)/100;
+			set_color_from_value(cr, interpl_value);
+			cairo_rectangle(cr, x, y, 1, 1);
+			cairo_fill(cr);
+		}
+	}
 }
 
 void draw_quad_checks(CoordinateSystem *coord_sys, Vector2 mouse_pos) {

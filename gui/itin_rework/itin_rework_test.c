@@ -225,7 +225,25 @@ void free_segment_group(SegmentGroup *group) {
 }
 
 
-int quad_counter = 0;
+MeshPoint2 * quad_test_function(double x, double y) {
+	double a = 1000;
+	double b = -0.05;
+	double z = a*sin(x/2) * exp(b*y);
+
+	double *vals = malloc(sizeof(double));
+	vals[0] = z;
+
+	return create_mesh_point(vec2(x, y), vals, 1);
+}
+
+bool quad_test_error_function(Quad *quad) {
+	double interp_val = get_quad_interpolated_value(quad, quad->center->pos, 0);
+	double e = fabs(interp_val - quad->center->val[0]);
+
+	return e > 1;
+}
+
+int quad_counter = 1000;
 
 G_MODULE_EXPORT void on_calc_ir() {
 	TimingMeasurements tm = init_timing_measurements();
@@ -254,78 +272,66 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	start_time_measurement(&tm);
 
-	DataArray2 *pos = data_array2_create();
+	QuadMeshPointFunction point_func = quad_test_function;
+	QuadErrorFunction error_func = quad_test_error_function;
 
-	MeshPoint2 *p00 = create_mesh_point(vec2(0, 100), NULL, 0);
-	MeshPoint2 *p01 = create_mesh_point(vec2(100, 100), NULL, 0);
-	MeshPoint2 *p10 = create_mesh_point(vec2(0, 0), NULL, 0);
-	MeshPoint2 *p11 = create_mesh_point(vec2(100, 0), NULL, 0);
-	Quad *quad = create_quad_from_four_points(NULL, p00, p01, p10, p11);
-	if(quad_counter > 0)
-		divide_quad(quad);
-	if(quad_counter > 1)
-		divide_quad(quad->subquads[3]);
-	if(quad_counter > 2)
-		divide_quad(quad->subquads[3]->subquads[2]);
-	if(quad_counter > 3)
-		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]);
-	if(quad_counter > 4)
-		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]);
-	if(quad_counter > 5)
-		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]);
-	if(quad_counter > 6)
-		free_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[2], false);
-	if(quad_counter > 7)
-		free_quad(quad->subquads[2]->subquads[3]->subquads[0], false);
-	if(quad_counter > 8)
-		free_quad(quad->subquads[2]->subquads[1], false);
-	if(quad_counter > 9)
-		divide_quad(quad->subquads[3]->subquads[0]->subquads[2]->subquads[0]);
-	if(quad_counter > 10)
-		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]);
-	if(quad_counter > 11)
-		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]);
-	if(quad_counter > 12)
-		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]);
-	if(quad_counter > 13)
-		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]);
-	if(quad_counter > 14)
-		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]->subquads[3]);
-	if(quad_counter > 15)
-		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]->subquads[3]->subquads[3]);
-	if(quad_counter > 16)
-		divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]->subquads[3]->subquads[3]->subquads[3]);
+	MeshPoint2 *p00 = point_func(0, 100);
+	MeshPoint2 *p01 = point_func(100, 100);
+	MeshPoint2 *p10 = point_func(0, 0);
+	MeshPoint2 *p11 = point_func(100, 0);
+	Quad *quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, point_func);
+	// if(quad_counter > 0)
+	// 	divide_quad(quad, point_func);
+	// if(quad_counter > 1)
+	// 	divide_quad(quad->subquads[3], point_func);
+	// if(quad_counter > 2)
+	// 	divide_quad(quad->subquads[3]->subquads[2], point_func);
+	// if(quad_counter > 3)
+	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0], point_func);
+	// if(quad_counter > 4)
+	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0], point_func);
+	// if(quad_counter > 5)
+	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1], point_func);
+	// if(quad_counter > 6)
+	// 	free_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[2], false);
+	// if(quad_counter > 7)
+	// 	free_quad(quad->subquads[2]->subquads[3]->subquads[0], false);
+	// if(quad_counter > 8)
+	// 	free_quad(quad->subquads[2]->subquads[1], false);
+	// if(quad_counter > 9)
+	// 	divide_quad(quad->subquads[3]->subquads[0]->subquads[2]->subquads[0], point_func);
+	// if(quad_counter > 10)
+	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0], point_func);
+	// if(quad_counter > 11)
+	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0], point_func);
+	// if(quad_counter > 12)
+	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1], point_func);
+	// if(quad_counter > 13)
+	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1], point_func);
+	// if(quad_counter > 14)
+	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]->subquads[3], point_func);
+	// if(quad_counter > 15)
+	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]->subquads[3]->subquads[3], point_func);
+	// if(quad_counter > 16)
+	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]->subquads[3]->subquads[3]->subquads[3], point_func);
 
 	quad_counter++;
 
-	Quad *test_quad = quad;
 
-	while(test_quad && !is_quad_flag(test_quad, QUAD_FLAG_IS_LEAF)) {
-        test_quad = test_quad->subquads[QUAD_SE];
-		print_vec2(test_quad->corner[QUAD_NW]->pos);
-		print_vec2(test_quad->corner[QUAD_SE]->pos);
-		printf("--\n");
+	end_time_measurement(&tm, "Quad generation");
+	start_time_measurement(&tm);
+
+	for(int i = 0; i < quad_counter; i++) {
+		if(update_quad_error_flag(quad, 3, error_func) == 0) break;
+		divide_quads_with_flag(quad, point_func);
 	}
 
-
-	printf("--------\n");
-
-	if(test_quad && test_quad->parent) {
-		test_quad = test_quad->parent;
-		for(int i = 0; i < 4; i++) {
-			print_vec2(test_quad->subquads[i]->corner[QUAD_NW]->pos);
-			print_vec2(test_quad->subquads[i]->corner[QUAD_NE]->pos);
-			print_vec2(test_quad->subquads[i]->corner[QUAD_SW]->pos);
-			print_vec2(test_quad->subquads[i]->corner[QUAD_SE]->pos);
-			printf("--\n");
-		}
-	}
-
-
-	end_time_measurement(&tm, "Quad");
-
+	printf("To divide: %d\n", update_quad_error_flag(quad, 0, error_func));
+	printf("Num of Leaves: %d\n", get_num_quad_leaves(quad));
+	end_time_measurement(&tm, "Divide & Conquer");
 
 	attach_quad_to_coordinate_system(ir_coord_sys0, quad, CS_PLOT_TYPE_QUAD_DEBUG, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, 0, TRUE);
+	attach_quad_to_coordinate_system(ir_coord_sys1, quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, 0, TRUE);
 	print_timing_measurements(tm);
 	free_timing_measurements(&tm);
 }

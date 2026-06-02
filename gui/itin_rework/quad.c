@@ -1,7 +1,13 @@
 #include "quad.h"
 
+#include <math.h>
 
-Quad * create_quad_from_four_points(Quad *parent, MeshPoint2 *p00, MeshPoint2 *p01, MeshPoint2 *p10, MeshPoint2 *p11) {
+MeshPoint2 * create_quad_point(double x, double y, QuadMeshPointFunction point_func) {
+	if(point_func) return point_func(x, y);
+	return create_mesh_point(vec2(x, y), NULL, 0);
+}
+
+Quad * create_quad_from_four_points(Quad *parent, MeshPoint2 *p00, MeshPoint2 *p01, MeshPoint2 *p10, MeshPoint2 *p11, QuadMeshPointFunction point_func) {
 	Quad *quad = malloc(sizeof(Quad));
 	quad->parent = parent;
 	if(parent) quad->rf_level = parent->rf_level+1;
@@ -10,7 +16,11 @@ Quad * create_quad_from_four_points(Quad *parent, MeshPoint2 *p00, MeshPoint2 *p
 	quad->corner[QUAD_NE] = p01;
 	quad->corner[QUAD_SW] = p10;
 	quad->corner[QUAD_SE] = p11;
-	quad->center = NULL;
+	double center_x = (quad->corner[QUAD_NW]->pos.x+quad->corner[QUAD_NE]->pos.x)/2.0;
+	double center_y = (quad->corner[QUAD_NW]->pos.y+quad->corner[QUAD_SW]->pos.y)/2.0;
+
+	quad->center = create_quad_point(center_x, center_y, point_func);
+
 	for(int i = 0; i < 8; i++) quad->neighbours[i] = NULL;
 	quad->flags = 0;
 	set_quad_flag(quad, QUAD_FLAG_IS_LEAF);
@@ -68,6 +78,18 @@ double get_quad_min_value(Quad *root_quad, int quad_val_idx) {
 
 double get_quad_max_value(Quad *root_quad, int quad_val_idx) {
 	return 0;
+}
+
+int get_num_quad_leaves(Quad *quad) {
+	if(!quad) return 0;
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) return 1;
+	int sum = 0;
+	for(int i = 0; i < 4; i++) {
+		if(quad->subquads[i]) {
+			sum += get_num_quad_leaves(quad->subquads[i]);
+		}
+	}
+	return sum;
 }
 
 void set_quad_neighbours(Quad *center, Quad *tl, Quad *tr, Quad *lt, Quad *lb, Quad *rt, Quad *rb, Quad *bl, Quad *br) {
@@ -165,7 +187,42 @@ void update_neighbours_after_split(Quad *subquads[4], Quad *neighbours[8]) {
 	}
 }
 
-void divide_quad(Quad *quad) {
+int update_quad_error_flag(Quad *quad, int min_rf_level, QuadErrorFunction has_error) {
+	if(!quad) return 0;
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		if(quad->rf_level < min_rf_level || has_error(quad)) {
+			set_quad_flag(quad, QUAD_FLAG_ACC_ERR);
+			set_quad_flag(quad, QUAD_FLAG_DIVIDE);
+			return 1;
+		}
+		return 0;
+	}
+	int sum = 0;
+	for(int i = 0; i < 4; i++) {
+		if(quad->subquads[i]) {
+			sum += update_quad_error_flag(quad->subquads[i], min_rf_level, has_error);
+		}
+	}
+	return sum;
+}
+
+
+void divide_quads_with_flag(Quad *quad, QuadMeshPointFunction point_func) {
+	if(!quad) return;
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		if(is_quad_flag(quad, QUAD_FLAG_DIVIDE)) {
+			divide_quad(quad, point_func);
+		}
+	} else {
+		for(int i = 0; i < 4; i++) {
+			if(quad->subquads[i]) {
+				divide_quads_with_flag(quad->subquads[i], point_func);
+			}
+		}
+	}
+}
+
+void divide_quad(Quad *quad, QuadMeshPointFunction point_func) {
 	if(!quad) return;
 	if(!is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) return;
 
@@ -178,7 +235,7 @@ void divide_quad(Quad *quad) {
 		for(int i = 0; i < 8; i++) {
 			if(!neighbours[i]) continue;
 			if(neighbours[i]->rf_level < quad->rf_level) {
-				divide_quad(neighbours[i]);
+				divide_quad(neighbours[i], point_func);
 				changed = true;
 			}
 		}
@@ -187,19 +244,40 @@ void divide_quad(Quad *quad) {
 	MeshPoint2 *corners[4];
 	MeshPoint2 *edges[4];
 
-	if(!quad->center)
-		quad->center = create_mesh_point(
-			vec2(
-				(quad->corner[QUAD_NW]->pos.x+quad->corner[QUAD_NE]->pos.x)/2.0,
-				(quad->corner[QUAD_NW]->pos.y+quad->corner[QUAD_SW]->pos.y)/2.0
-				),
-			NULL, 0);
+	if(!quad->center) {
+		double center_x = (quad->corner[QUAD_NW]->pos.x+quad->corner[QUAD_NE]->pos.x)/2.0;
+		double center_y = (quad->corner[QUAD_NW]->pos.y+quad->corner[QUAD_SW]->pos.y)/2.0;
 
-	edges[QUAD_N] = create_mesh_point(vec2(quad->center->pos.x, quad->corner[QUAD_NW]->pos.y), NULL, 0);
-	edges[QUAD_W] = create_mesh_point(vec2(quad->corner[QUAD_NW]->pos.x, quad->center->pos.y), NULL, 0);
-	edges[QUAD_E] = create_mesh_point(vec2(quad->corner[QUAD_NE]->pos.x, quad->center->pos.y), NULL, 0);
-	edges[QUAD_S] = create_mesh_point(vec2(quad->center->pos.x, quad->corner[QUAD_SW]->pos.y), NULL, 0);
+		quad->center = create_quad_point(center_x, center_y, point_func);
+	}
 
+	if(neighbours[QUAD_NNW] && neighbours[QUAD_NNW]->rf_level > quad->rf_level)
+		edges[QUAD_N] = neighbours[QUAD_NNW]->corner[QUAD_SE];
+	else if(neighbours[QUAD_NNE] && neighbours[QUAD_NNE]->rf_level > quad->rf_level)
+		edges[QUAD_N] = neighbours[QUAD_NNE]->corner[QUAD_SW];
+	else
+		edges[QUAD_N] = create_quad_point(quad->center->pos.x, quad->corner[QUAD_NW]->pos.y, point_func);
+
+	if(neighbours[QUAD_NWW] && neighbours[QUAD_NWW]->rf_level > quad->rf_level)
+		edges[QUAD_W] = neighbours[QUAD_NWW]->corner[QUAD_SE];
+	else if(neighbours[QUAD_SWW] && neighbours[QUAD_SWW]->rf_level > quad->rf_level)
+		edges[QUAD_W] = neighbours[QUAD_SWW]->corner[QUAD_NE];
+	else
+		edges[QUAD_W] = create_quad_point(quad->corner[QUAD_NW]->pos.x, quad->center->pos.y, point_func);
+
+	if(neighbours[QUAD_NEE] && neighbours[QUAD_NEE]->rf_level > quad->rf_level)
+		edges[QUAD_E] = neighbours[QUAD_NEE]->corner[QUAD_SW];
+	else if(neighbours[QUAD_SEE] && neighbours[QUAD_SEE]->rf_level > quad->rf_level)
+		edges[QUAD_E] = neighbours[QUAD_SEE]->corner[QUAD_NW];
+	else
+		edges[QUAD_E] = create_quad_point(quad->corner[QUAD_NE]->pos.x, quad->center->pos.y, point_func);
+
+	if(neighbours[QUAD_SSW] && neighbours[QUAD_SSW]->rf_level > quad->rf_level)
+		edges[QUAD_S] = neighbours[QUAD_SSW]->corner[QUAD_NE];
+	else if(neighbours[QUAD_SSE] && neighbours[QUAD_SSE]->rf_level > quad->rf_level)
+		edges[QUAD_S] = neighbours[QUAD_SSE]->corner[QUAD_NW];
+	else
+		edges[QUAD_S] = create_quad_point(quad->center->pos.x, quad->corner[QUAD_SW]->pos.y, point_func);
 
 	for(int i = 0; i < 4; i++) {
 		switch(i) {
@@ -234,12 +312,11 @@ void divide_quad(Quad *quad) {
 				corners[QUAD_SE] = NULL;
 		}
 
-		quad->subquads[i] = create_quad_from_four_points(quad, corners[QUAD_NW], corners[QUAD_NE], corners[QUAD_SW], corners[QUAD_SE]);
+		quad->subquads[i] = create_quad_from_four_points(quad, corners[QUAD_NW], corners[QUAD_NE], corners[QUAD_SW], corners[QUAD_SE], point_func);
 	}
 	update_neighbours_after_split(quad->subquads, neighbours);
 	quad->flags = 0;
 }
-
 
 void free_quad(Quad *quad, bool free_mesh_point) {
 	if(!is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {

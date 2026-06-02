@@ -373,9 +373,9 @@ void attach_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, 
 	draw_coordinate_system_data(coord_sys);
 }
 
-void attach_quad_to_coordinate_system(CoordinateSystem *coord_sys, Quad *root_quad, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_mesh_on_clear, int mesh_val_idx, bool free_prev_data) {
+void attach_quad_to_coordinate_system(CoordinateSystem *coord_sys, Quad *root_quad, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_quad_on_clear, int quad_val_idx, bool free_prev_data) {
 	if(free_prev_data) clear_coordinate_system(coord_sys);
-	add_quad_to_coordinate_system(coord_sys, root_quad, plot_type, free_mesh_on_clear, mesh_val_idx);
+	add_quad_to_coordinate_system(coord_sys, root_quad, plot_type, free_quad_on_clear, quad_val_idx);
 	coord_sys->x_axis_type = x_axis_type;
 	coord_sys->y_axis_type = y_axis_type;
 
