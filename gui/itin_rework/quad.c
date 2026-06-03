@@ -1,6 +1,7 @@
 #include "quad.h"
 
 #include <math.h>
+#include <stdio.h>
 
 MeshPoint2 * create_quad_point(double x, double y, QuadMeshPointFunction point_func) {
 	if(point_func) return point_func(x, y);
@@ -90,6 +91,99 @@ int get_num_quad_leaves(Quad *quad) {
 		}
 	}
 	return sum;
+}
+
+void print_quadtree(Quad *quad) {
+	if(!quad) return;
+	for(int i = 0; i < quad->rf_level; i++) printf(" - ");
+	printf("%p\n", quad);
+	if(!is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		for(int i = 0; i < 4; i++) {
+			if(quad->subquads[i]) {
+				print_quadtree(quad->subquads[i]);
+			}
+		}
+	}
+}
+
+bool is_quad_crossed_by_line(Quad *quad, Vector2 p0, Vector2 p1) {
+	if(is_inside_quad(quad, p0) || is_inside_quad(quad, p1)) return true;
+	Vector2 pq0 = quad->corner[QUAD_NW]->pos;
+	Vector2 pq1 = quad->corner[QUAD_NE]->pos;
+	Vector2 pq2 = quad->corner[QUAD_SE]->pos;
+	Vector2 pq3 = quad->corner[QUAD_SW]->pos;
+
+	if(are_line_segments_intersecting2(p0, p1, pq0, pq1)) return true;
+	if(are_line_segments_intersecting2(p0, p1, pq1, pq2)) return true;
+	if(are_line_segments_intersecting2(p0, p1, pq2, pq3)) return true;
+	if(are_line_segments_intersecting2(p0, p1, pq3, pq0)) return true;
+
+	return false;
+}
+
+void find_line_crossed_quads(Quad *quad, DataArray2 *line, Quad ***quad_array, size_t *quad_array_size, size_t *quad_array_cap) {
+	if(!quad) return;
+
+	bool is_crossed = false;
+	size_t num_points = data_array2_size(line);
+	Vector2 *line_data = data_array2_get_data(line);
+
+
+	for(int i = 1; i < num_points; i++) {
+		if(is_quad_crossed_by_line(quad, line_data[i], line_data[i - 1])) is_crossed = true;
+	}
+
+	if(!is_crossed) return;
+
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		if(*quad_array_size+1 >= *quad_array_cap) {
+			*quad_array_cap *= 2;
+			void *temp = realloc(*quad_array, *quad_array_cap * sizeof(Quad*));
+			if(temp) *quad_array = temp;
+		}
+		(*quad_array)[(*quad_array_size)++] = quad;
+	} else {
+		for(int i = 0; i < 4; i++) {
+			if(quad->subquads[i]) {
+				find_line_crossed_quads(quad->subquads[i], line, quad_array, quad_array_size, quad_array_cap);
+			}
+		}
+	}
+}
+
+int update_quad_error_flag(Quad *quad, int min_rf_level, QuadErrorFunction has_error) {
+	if(!quad) return 0;
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		if(quad->rf_level < min_rf_level || has_error(quad)) {
+			set_quad_flag(quad, QUAD_FLAG_ACC_ERR);
+			set_quad_flag(quad, QUAD_FLAG_SPLIT);
+			return 1;
+		}
+		return 0;
+	}
+	int sum = 0;
+	for(int i = 0; i < 4; i++) {
+		if(quad->subquads[i]) {
+			sum += update_quad_error_flag(quad->subquads[i], min_rf_level, has_error);
+		}
+	}
+	return sum;
+}
+
+
+void split_quads_with_flag(Quad *quad, QuadMeshPointFunction point_func) {
+	if(!quad) return;
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		if(is_quad_flag(quad, QUAD_FLAG_SPLIT)) {
+			split_quad(quad, point_func);
+		}
+	} else {
+		for(int i = 0; i < 4; i++) {
+			if(quad->subquads[i]) {
+				split_quads_with_flag(quad->subquads[i], point_func);
+			}
+		}
+	}
 }
 
 void set_quad_neighbours(Quad *center, Quad *tl, Quad *tr, Quad *lt, Quad *lb, Quad *rt, Quad *rb, Quad *bl, Quad *br) {
@@ -187,42 +281,7 @@ void update_neighbours_after_split(Quad *subquads[4], Quad *neighbours[8]) {
 	}
 }
 
-int update_quad_error_flag(Quad *quad, int min_rf_level, QuadErrorFunction has_error) {
-	if(!quad) return 0;
-	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
-		if(quad->rf_level < min_rf_level || has_error(quad)) {
-			set_quad_flag(quad, QUAD_FLAG_ACC_ERR);
-			set_quad_flag(quad, QUAD_FLAG_DIVIDE);
-			return 1;
-		}
-		return 0;
-	}
-	int sum = 0;
-	for(int i = 0; i < 4; i++) {
-		if(quad->subquads[i]) {
-			sum += update_quad_error_flag(quad->subquads[i], min_rf_level, has_error);
-		}
-	}
-	return sum;
-}
-
-
-void divide_quads_with_flag(Quad *quad, QuadMeshPointFunction point_func) {
-	if(!quad) return;
-	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
-		if(is_quad_flag(quad, QUAD_FLAG_DIVIDE)) {
-			divide_quad(quad, point_func);
-		}
-	} else {
-		for(int i = 0; i < 4; i++) {
-			if(quad->subquads[i]) {
-				divide_quads_with_flag(quad->subquads[i], point_func);
-			}
-		}
-	}
-}
-
-void divide_quad(Quad *quad, QuadMeshPointFunction point_func) {
+void split_quad(Quad *quad, QuadMeshPointFunction point_func) {
 	if(!quad) return;
 	if(!is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) return;
 
@@ -235,7 +294,7 @@ void divide_quad(Quad *quad, QuadMeshPointFunction point_func) {
 		for(int i = 0; i < 8; i++) {
 			if(!neighbours[i]) continue;
 			if(neighbours[i]->rf_level < quad->rf_level) {
-				divide_quad(neighbours[i], point_func);
+				split_quad(neighbours[i], point_func);
 				changed = true;
 			}
 		}

@@ -52,7 +52,7 @@ void draw_quad_debug(Quad *root_quad, CoordinateSystem *coord_sys) {
 	cairo_t *cr = coord_sys->screen->static_layer.cr;
 
 	if(is_quad_flag(root_quad, QUAD_FLAG_INACTIVE)) cairo_set_source_rgb(cr, 0.1, 0.1, 0.1);
-	else if(is_quad_flag(root_quad, QUAD_FLAG_DIVIDE)) cairo_set_source_rgb(cr, 1, 0.6, 0);
+	else if(is_quad_flag(root_quad, QUAD_FLAG_SPLIT)) cairo_set_source_rgb(cr, 1, 0.6, 0);
 	else if(is_quad_flag(root_quad, QUAD_FLAG_ACC_ERR)) cairo_set_source_rgb(cr, 1, 0, 0);
 	else cairo_set_source_rgb(cr, 0.3, 0.3, 0.3);
 

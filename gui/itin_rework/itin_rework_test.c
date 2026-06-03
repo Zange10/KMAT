@@ -226,9 +226,9 @@ void free_segment_group(SegmentGroup *group) {
 
 
 MeshPoint2 * quad_test_function(double x, double y) {
-	double a = 1000;
-	double b = -0.05;
-	double z = a*sin(x/2) * exp(b*y);
+	double a = 10*sin(x/8);
+	double b = 10*sin(y/3*x/60);
+	double z = a*b;
 
 	double *vals = malloc(sizeof(double));
 	vals[0] = z;
@@ -237,6 +237,13 @@ MeshPoint2 * quad_test_function(double x, double y) {
 }
 
 bool quad_test_error_function(Quad *quad) {
+	double interp_val = get_quad_interpolated_value(quad, quad->center->pos, 0);
+	double e = fabs(interp_val - quad->center->val[0]);
+
+	return e > 40;
+}
+
+bool quad_test_error_function2(Quad *quad) {
 	double interp_val = get_quad_interpolated_value(quad, quad->center->pos, 0);
 	double e = fabs(interp_val - quad->center->val[0]);
 
@@ -280,57 +287,68 @@ G_MODULE_EXPORT void on_calc_ir() {
 	MeshPoint2 *p10 = point_func(0, 0);
 	MeshPoint2 *p11 = point_func(100, 0);
 	Quad *quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, point_func);
-	// if(quad_counter > 0)
-	// 	divide_quad(quad, point_func);
-	// if(quad_counter > 1)
-	// 	divide_quad(quad->subquads[3], point_func);
-	// if(quad_counter > 2)
-	// 	divide_quad(quad->subquads[3]->subquads[2], point_func);
-	// if(quad_counter > 3)
-	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0], point_func);
-	// if(quad_counter > 4)
-	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0], point_func);
-	// if(quad_counter > 5)
-	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1], point_func);
-	// if(quad_counter > 6)
-	// 	free_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[2], false);
-	// if(quad_counter > 7)
-	// 	free_quad(quad->subquads[2]->subquads[3]->subquads[0], false);
-	// if(quad_counter > 8)
-	// 	free_quad(quad->subquads[2]->subquads[1], false);
-	// if(quad_counter > 9)
-	// 	divide_quad(quad->subquads[3]->subquads[0]->subquads[2]->subquads[0], point_func);
-	// if(quad_counter > 10)
-	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0], point_func);
-	// if(quad_counter > 11)
-	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0], point_func);
-	// if(quad_counter > 12)
-	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1], point_func);
-	// if(quad_counter > 13)
-	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1], point_func);
-	// if(quad_counter > 14)
-	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]->subquads[3], point_func);
-	// if(quad_counter > 15)
-	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]->subquads[3]->subquads[3], point_func);
-	// if(quad_counter > 16)
-	// 	divide_quad(quad->subquads[3]->subquads[2]->subquads[0]->subquads[0]->subquads[1]->subquads[0]->subquads[0]->subquads[1]->subquads[1]->subquads[3]->subquads[3]->subquads[3], point_func);
-
 	quad_counter++;
 
 
 	end_time_measurement(&tm, "Quad generation");
 	start_time_measurement(&tm);
 
+	int num_split_cycles = 0;
+
 	for(int i = 0; i < quad_counter; i++) {
 		if(update_quad_error_flag(quad, 3, error_func) == 0) break;
-		divide_quads_with_flag(quad, point_func);
+		split_quads_with_flag(quad, point_func);
+		num_split_cycles++;
 	}
 
-	printf("To divide: %d\n", update_quad_error_flag(quad, 0, error_func));
+	printf("Num Split Cycles: %d\n", num_split_cycles);
+
+	// printf("To Split: %d\n", update_quad_error_flag(quad, 0, error_func));
 	printf("Num of Leaves: %d\n", get_num_quad_leaves(quad));
 	end_time_measurement(&tm, "Divide & Conquer");
+	start_time_measurement(&tm);
+
+	DataArray2 *line = data_array2_create();
+	data_array2_append_new(line, 6, 7);
+	data_array2_append_new(line, 30, 25);
+	data_array2_append_new(line, 60, 10);
+	data_array2_append_new(line, 53, 91);
+	data_array2_append_new(line, 15, 85);
+	data_array2_append_new(line, 6, 7);
+
+	num_split_cycles = 0;
+	error_func = quad_test_error_function2;
+
+	for(int i = 0; i < quad_counter; i++) {
+		size_t num_line_crossed_quads = 0;
+		size_t cap_line_crossed_quads = 8;
+
+		Quad **line_crossed_quads = malloc(cap_line_crossed_quads*sizeof(Quad*));
+
+		find_line_crossed_quads(quad, line, &line_crossed_quads, &num_line_crossed_quads, &cap_line_crossed_quads);
+
+		int sum_quad_error_flag = 0;
+		for(int j = 0; j < num_line_crossed_quads; j++) {
+			sum_quad_error_flag += update_quad_error_flag(line_crossed_quads[j], 3, error_func);
+		}
+		free(line_crossed_quads);
+
+		if(sum_quad_error_flag == 0) break;
+		split_quads_with_flag(quad, point_func);
+		num_split_cycles++;
+	}
+
+	printf("Num Split Cycles: %d\n", num_split_cycles);
+
+	// printf("To Split: %d\n", update_quad_error_flag(quad, 0, error_func));
+	printf("Num of Leaves: %d\n", get_num_quad_leaves(quad));
+	// data_array2_free(line);
+	end_time_measurement(&tm, "Line Divide & Conquer");
+
+
 
 	attach_quad_to_coordinate_system(ir_coord_sys0, quad, CS_PLOT_TYPE_QUAD_DEBUG, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, 0, TRUE);
+	plot_data2(ir_coord_sys0, line, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
 	attach_quad_to_coordinate_system(ir_coord_sys1, quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, 0, TRUE);
 	print_timing_measurements(tm);
 	free_timing_measurements(&tm);

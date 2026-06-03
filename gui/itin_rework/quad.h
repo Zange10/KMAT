@@ -10,7 +10,7 @@ typedef bool (*QuadErrorFunction)(Quad *quad);
 
 typedef enum QuadFlag {
 	QUAD_FLAG_IS_LEAF = 1 << 0,
-	QUAD_FLAG_DIVIDE = 1 << 1,
+	QUAD_FLAG_SPLIT = 1 << 1,
 	QUAD_FLAG_ACC_ERR = 1 << 2,
 	QUAD_FLAG_INACTIVE = 1 << 3
 } QuadFlag;
@@ -67,11 +67,13 @@ double get_quad_interpolated_value(Quad *quad, Vector2 pos, int value_idx);
 double get_quad_min_value(Quad *root_quad, int quad_val_idx);
 double get_quad_max_value(Quad *root_quad, int quad_val_idx);
 int get_num_quad_leaves(Quad *quad);
+void print_quadtree(Quad *quad);
+void find_line_crossed_quads(Quad *quad, DataArray2 *line, Quad ***quad_array, size_t *quad_array_size, size_t *quad_array_cap);
 
 int update_quad_error_flag(Quad *quad, int min_rf_level, QuadErrorFunction has_error);
-void divide_quads_with_flag(Quad *quad, QuadMeshPointFunction point_func);
+void split_quads_with_flag(Quad *quad, QuadMeshPointFunction point_func);
 
-void divide_quad(Quad *quad, QuadMeshPointFunction point_func);
+void split_quad(Quad *quad, QuadMeshPointFunction point_func);
 
 void free_quad(Quad *quad, bool free_mesh_point);
 
