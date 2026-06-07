@@ -275,12 +275,29 @@ typedef struct ErrorFuncParams {
 	int val_idx;
 } ErrorFuncParams;
 
+typedef struct BoundaryFuncParams {
+	SegmentGroup *group;
+	bool check_depdv;
+	double max_depdv, dep_periapsis;
+	DataArray2 *depdv_upper_boundary;
+	DataArray2 *depdv_lower_boundary;
+} BoundaryFuncParams;
+
 bool quad_test_is_in_bounds_function(Quad *quad, void *params_p) {
-	SegmentGroup *group = params_p;
+	BoundaryFuncParams *params = params_p;
+	SegmentGroup *group = params->group;
 	if(quad->center->pos.y < interpolate_from_sorted_data_array(group->lower_boundary, quad->center->pos.x)) {
 		if(!is_quad_crossed_by_line(quad, group->lower_boundary)) return false;
 	} else if(quad->center->pos.y > interpolate_from_sorted_data_array(group->upper_boundary, quad->center->pos.x)) {
 		if(!is_quad_crossed_by_line(quad, group->upper_boundary)) return false;
+	}
+
+	if(!params->check_depdv) return true;
+
+	// inverse also catches NAN for interpolation if line x is too short
+	if( !(quad->center->pos.y >= interpolate_from_sorted_data_array(params->depdv_lower_boundary, quad->center->pos.x)) ||
+		!(quad->center->pos.y <= interpolate_from_sorted_data_array(params->depdv_upper_boundary, quad->center->pos.x))) {
+		if(!is_quad_crossed_by_line(quad, params->depdv_lower_boundary) && !is_quad_crossed_by_line(quad, params->depdv_upper_boundary)) return false;
 	}
 
 	return true;
@@ -364,6 +381,19 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 	printf("Number of Departure Groups: %d\n\n", departure.num_next_groups);
 
+
+	DataArray2 *depdv_boundary = calc_dv_boundary(departure.segment_groups[pcgroup0], num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance/10);
+	DataArray2 *depdv_lower_boundary = data_array2_create();
+	DataArray2 *depdv_upper_boundary = data_array2_create();
+	size_t num_points = data_array2_size(depdv_boundary);
+	Vector2 *data = data_array2_get_data(depdv_boundary);
+
+	for(int i = 0; i < num_points; i+=2) {
+		data_array2_append_new(depdv_lower_boundary, data[i].x, data[i].y);
+		data_array2_append_new(depdv_upper_boundary, data[i+1].x, data[i+1].y);
+	}
+
+
 	end_time_measurement(&tm, "Porkchopping Departure Groups");
 
 	start_time_measurement(&tm);
@@ -373,9 +403,18 @@ G_MODULE_EXPORT void on_calc_ir() {
 		.val_idx = MESH_VAL_VINF
 	};
 
+	BoundaryFuncParams bound_func_params = {
+		.group = departure.segment_groups[pcgroup0],
+		.check_depdv = true,
+		.max_depdv = max_depdv,
+		.dep_periapsis = dep_periapsis,
+		.depdv_lower_boundary = depdv_lower_boundary,
+		.depdv_upper_boundary = depdv_upper_boundary
+	};
+
 
 	QuadPointFunc point_func = {test_, departure.segment_groups[pcgroup0]};
-	QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, departure.segment_groups[pcgroup0]};
+	QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
 	QuadErrorFunc error_func = {quad_test_error_function, &err_func_params};
 
 	MeshPoint2 *p00 = point_func.func(min_dep, max_dur, departure.segment_groups[pcgroup0]);
@@ -396,7 +435,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	int num_split_cycles = 0;
 
-	for(int i = 0; i < quad_counter; i++) {
+	for(int i = 0; i < pcgroup1; i++) {
 		if(update_quad_error_flag(quad, 3, error_func) == 0) break;
 		split_quads_with_flag(quad, point_func);
 		remove_out_of_bounds_quads(quad, bounds_func);
@@ -477,11 +516,12 @@ G_MODULE_EXPORT void on_calc_ir() {
 	//
 	// end_time_measurement(&tm, "Check Accuracy");
 
-
 	attach_quad_to_coordinate_system(ir_coord_sys0, quad, CS_PLOT_TYPE_QUAD_DEBUG, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, TRUE);
 	// plot_data2(ir_coord_sys0, line, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
 	plot_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	plot_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	plot_data2(ir_coord_sys0, depdv_lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	plot_data2(ir_coord_sys0, depdv_upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// scatter_data2(ir_coord_sys0, error_array, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
 	attach_quad_to_coordinate_system(ir_coord_sys1, quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, FALSE, MESH_VAL_VINF, TRUE);
 	print_timing_measurements(tm);
