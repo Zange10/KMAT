@@ -3,12 +3,12 @@
 #include <math.h>
 #include <stdio.h>
 
-MeshPoint2 * create_quad_point(double x, double y, QuadMeshPointFunction point_func) {
-	if(point_func) return point_func(x, y);
+MeshPoint2 * create_quad_point(double x, double y, QuadPointFunc point_func) {
+	if(point_func.func) return point_func.func(x, y, point_func.params);
 	return create_mesh_point(vec2(x, y), NULL, 0);
 }
 
-Quad * create_quad_from_four_points(Quad *parent, MeshPoint2 *p00, MeshPoint2 *p01, MeshPoint2 *p10, MeshPoint2 *p11, QuadMeshPointFunction point_func) {
+Quad * create_quad_from_four_points(Quad *parent, MeshPoint2 *p00, MeshPoint2 *p01, MeshPoint2 *p10, MeshPoint2 *p11, QuadPointFunc point_func) {
 	Quad *quad = malloc(sizeof(Quad));
 	quad->parent = parent;
 	if(parent) quad->rf_level = parent->rf_level+1;
@@ -73,12 +73,44 @@ double get_quad_interpolated_value(Quad *quad, Vector2 pos, int value_idx) {
 		   tx         * ty         * p11.z;
 }
 
-double get_quad_min_value(Quad *root_quad, int quad_val_idx) {
-	return 0;
+double get_quad_min_value(Quad *quad, int quad_val_idx) {
+	if(!quad) return NAN;
+	double min = NAN;
+
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		for(int i = 0; i < 4; i++) {
+			double val = quad->corner[i]->val[quad_val_idx];
+			if(isnan(min) || val < min) min = val;
+		}
+	} else {
+		for(int i = 0; i < 4; i++) {
+			if(quad->subquads[i]) {
+				double val = get_quad_min_value(quad->subquads[i], quad_val_idx);
+				if(isnan(min) || val < min) min = val;
+			}
+		}
+	}
+	return min;
 }
 
-double get_quad_max_value(Quad *root_quad, int quad_val_idx) {
-	return 0;
+double get_quad_max_value(Quad *quad, int quad_val_idx) {
+	if(!quad) return NAN;
+	double max = NAN;
+
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		for(int i = 0; i < 4; i++) {
+			double val = quad->corner[i]->val[quad_val_idx];
+			if(isnan(max) || val > max) max = val;
+		}
+	} else {
+		for(int i = 0; i < 4; i++) {
+			if(quad->subquads[i]) {
+				double val = get_quad_max_value(quad->subquads[i], quad_val_idx);
+				if(isnan(max) || val > max) max = val;
+			}
+		}
+	}
+	return max;
 }
 
 int get_num_quad_leaves(Quad *quad) {
@@ -106,7 +138,7 @@ void print_quadtree(Quad *quad) {
 	}
 }
 
-bool is_quad_crossed_by_line(Quad *quad, Vector2 p0, Vector2 p1) {
+bool is_quad_crossed_by_line_segment(Quad *quad, Vector2 p0, Vector2 p1) {
 	if(is_inside_quad(quad, p0) || is_inside_quad(quad, p1)) return true;
 	Vector2 pq0 = quad->corner[QUAD_NW]->pos;
 	Vector2 pq1 = quad->corner[QUAD_NE]->pos;
@@ -121,19 +153,20 @@ bool is_quad_crossed_by_line(Quad *quad, Vector2 p0, Vector2 p1) {
 	return false;
 }
 
-void find_line_crossed_quads(Quad *quad, DataArray2 *line, Quad ***quad_array, size_t *quad_array_size, size_t *quad_array_cap) {
-	if(!quad) return;
-
-	bool is_crossed = false;
+bool is_quad_crossed_by_line(Quad *quad, DataArray2 *line) {
 	size_t num_points = data_array2_size(line);
 	Vector2 *line_data = data_array2_get_data(line);
 
-
 	for(int i = 1; i < num_points; i++) {
-		if(is_quad_crossed_by_line(quad, line_data[i], line_data[i - 1])) is_crossed = true;
+		if(is_quad_crossed_by_line_segment(quad, line_data[i], line_data[i - 1])) return true;
 	}
+	return false;
+}
 
-	if(!is_crossed) return;
+void find_line_crossed_quads(Quad *quad, DataArray2 *line, Quad ***quad_array, size_t *quad_array_size, size_t *quad_array_cap) {
+	if(!quad) return;
+
+	if(!is_quad_crossed_by_line(quad, line)) return;
 
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
 		if(*quad_array_size+1 >= *quad_array_cap) {
@@ -151,10 +184,24 @@ void find_line_crossed_quads(Quad *quad, DataArray2 *line, Quad ***quad_array, s
 	}
 }
 
-int update_quad_error_flag(Quad *quad, int min_rf_level, QuadErrorFunction has_error) {
+void remove_out_of_bounds_quads(Quad *quad, QuadBoundsFunc bounds_func) {
+	if(!bounds_func.func(quad, bounds_func.params)) {
+		free_quad(quad, true);
+		return;
+	}
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) return;
+
+	for(int i = 0; i < 4; i++) {
+		if(quad->subquads[i]) {
+			remove_out_of_bounds_quads(quad->subquads[i], bounds_func);
+		}
+	}
+}
+
+int update_quad_error_flag(Quad *quad, int min_rf_level, QuadErrorFunc errfunc) {
 	if(!quad) return 0;
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
-		if(quad->rf_level < min_rf_level || has_error(quad)) {
+		if(quad->rf_level < min_rf_level || errfunc.func(quad, errfunc.params)) {
 			set_quad_flag(quad, QUAD_FLAG_ACC_ERR);
 			set_quad_flag(quad, QUAD_FLAG_SPLIT);
 			return 1;
@@ -164,14 +211,14 @@ int update_quad_error_flag(Quad *quad, int min_rf_level, QuadErrorFunction has_e
 	int sum = 0;
 	for(int i = 0; i < 4; i++) {
 		if(quad->subquads[i]) {
-			sum += update_quad_error_flag(quad->subquads[i], min_rf_level, has_error);
+			sum += update_quad_error_flag(quad->subquads[i], min_rf_level, errfunc);
 		}
 	}
 	return sum;
 }
 
 
-void split_quads_with_flag(Quad *quad, QuadMeshPointFunction point_func) {
+void split_quads_with_flag(Quad *quad, QuadPointFunc point_func) {
 	if(!quad) return;
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
 		if(is_quad_flag(quad, QUAD_FLAG_SPLIT)) {
@@ -181,6 +228,25 @@ void split_quads_with_flag(Quad *quad, QuadMeshPointFunction point_func) {
 		for(int i = 0; i < 4; i++) {
 			if(quad->subquads[i]) {
 				split_quads_with_flag(quad->subquads[i], point_func);
+			}
+		}
+	}
+}
+
+bool check_neighbour_integrity(Quad *quad) {
+	if(!quad) return true;
+	printf("%p\n", quad);
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		for(int i = 0; i < 8; i++) {
+			if(!quad->neighbours[i]) continue;
+			if(!is_quad_flag(quad->neighbours[i], QUAD_FLAG_IS_LEAF)) {
+				return false;
+			}
+		}
+	} else {
+		for(int i = 0; i < 4; i++) {
+			if(quad->subquads[i]) {
+				check_neighbour_integrity(quad->subquads[i]);
 			}
 		}
 	}
@@ -236,6 +302,9 @@ void update_neighbours_after_split(Quad *subquads[4], Quad *neighbours[8]) {
 				neighbours[QUAD_NNE]->neighbours[QUAD_SSE] = subquads[QUAD_NE];
 			}
 		}
+	} else if(neighbours[QUAD_NNE]) {
+		neighbours[QUAD_NNE]->neighbours[QUAD_SSW] = subquads[QUAD_NE];
+		neighbours[QUAD_NNE]->neighbours[QUAD_SSE] = subquads[QUAD_NE];
 	}
 
 	if(neighbours[QUAD_NWW]) {
@@ -250,6 +319,9 @@ void update_neighbours_after_split(Quad *subquads[4], Quad *neighbours[8]) {
 				neighbours[QUAD_SWW]->neighbours[QUAD_SEE] = subquads[QUAD_SW];
 			}
 		}
+	} else if(neighbours[QUAD_SWW]) {
+		neighbours[QUAD_SWW]->neighbours[QUAD_NEE] = subquads[QUAD_SW];
+		neighbours[QUAD_SWW]->neighbours[QUAD_SEE] = subquads[QUAD_SW];
 	}
 
 	if(neighbours[QUAD_NEE]) {
@@ -264,6 +336,9 @@ void update_neighbours_after_split(Quad *subquads[4], Quad *neighbours[8]) {
 				neighbours[QUAD_SEE]->neighbours[QUAD_SWW] = subquads[QUAD_SE];
 			}
 		}
+	} else if(neighbours[QUAD_SEE]) {
+		neighbours[QUAD_SEE]->neighbours[QUAD_NWW] = subquads[QUAD_SE];
+		neighbours[QUAD_SEE]->neighbours[QUAD_SWW] = subquads[QUAD_SE];
 	}
 
 	if(neighbours[QUAD_SSW]) {
@@ -278,10 +353,13 @@ void update_neighbours_after_split(Quad *subquads[4], Quad *neighbours[8]) {
 				neighbours[QUAD_SSE]->neighbours[QUAD_NNE] = subquads[QUAD_SE];
 			}
 		}
+	} else if(neighbours[QUAD_SSE]) {
+		neighbours[QUAD_SSE]->neighbours[QUAD_NNW] = subquads[QUAD_SE];
+		neighbours[QUAD_SSE]->neighbours[QUAD_NNE] = subquads[QUAD_SE];
 	}
 }
 
-void split_quad(Quad *quad, QuadMeshPointFunction point_func) {
+void split_quad(Quad *quad, QuadPointFunc point_func) {
 	if(!quad) return;
 	if(!is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) return;
 
@@ -405,4 +483,6 @@ void free_quad(Quad *quad, bool free_mesh_point) {
 			if(quad->parent->subquads[i] == quad) quad->parent->subquads[i] = NULL;
 		}
 	}
+
+	free(quad);
 }

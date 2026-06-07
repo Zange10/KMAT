@@ -73,8 +73,6 @@ void draw_quad_interpolated_points(Quad *root_quad, CoordinateSystem *coord_sys)
 	int width = coord_sys->screen->width;
 	int height = coord_sys->screen->height;
 
-	MeshTriangle2 tri2d;
-	for(int i = 0; i < 3; i++) tri2d.points[i] = malloc(sizeof(MeshPoint2));
 
 	for(int x = 0; x < width; x++) {
 		for(int y = 0; y < height; y++) {
@@ -82,7 +80,7 @@ void draw_quad_interpolated_points(Quad *root_quad, CoordinateSystem *coord_sys)
 			Quad *quad = get_quad_at_position(root_quad, p);
 			if(!quad) continue;
 			double interpl_value = get_quad_interpolated_value(quad, p, coord_sys->groups[0]->quad_val_idx);
-			interpl_value = (interpl_value+10)/100;
+			interpl_value = (interpl_value-coord_sys->min.z)/(coord_sys->max.z-coord_sys->min.z);
 			set_color_from_value(cr, interpl_value);
 			cairo_rectangle(cr, x, y, 1, 1);
 			cairo_fill(cr);
