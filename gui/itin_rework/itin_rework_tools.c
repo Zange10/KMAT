@@ -1031,10 +1031,10 @@ DataArray2 * calc_dv_boundary(SegmentGroup *group, int departure_cap, double jd_
 			osv0 = group->system->prop_method == ORB_ELEMENTS ?
 								osv_from_elements(group->dep_body->orbit, jd_dep) :
 								osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
-			find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x, 0.01);
+			find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x, 1e-4);
 
 			// No departure possible within given constraints
-			if(left_x < 1 && right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
+			if(left_x < 1 || right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
 				data_array2_insert_new(boundary_array, jd_dep, -1e20);
 				data_array2_insert_new(boundary_array, jd_dep, -1e20);
 				continue;
@@ -1062,9 +1062,9 @@ DataArray2 * calc_dv_boundary(SegmentGroup *group, int departure_cap, double jd_
 			Vector2 v1 = transf_arr[i-2];
 			Vector2 v2 = transf_arr[i  ];
 
-			if(v1.x == v0.x || v1.x == v2.x) {
-				printf("%f   %f   %f\n", v0.x-jd_min_dep, v1.x-jd_min_dep, v2.x-jd_min_dep);
-			}
+			// if(v1.x == v0.x || v1.x == v2.x) {
+			// 	printf("%f   %f   %f\n", v0.x-jd_min_dep, v1.x-jd_min_dep, v2.x-jd_min_dep);
+			// }
 
 			double m0 = (v1.y - v0.y)/(v1.x - v0.x);
 			double m1 = (v2.y - v1.y)/(v2.x - v1.x);
@@ -1075,12 +1075,12 @@ DataArray2 * calc_dv_boundary(SegmentGroup *group, int departure_cap, double jd_
 			double da = fabs(angle1 - angle0);
 
 			if(da > deg2rad(5.0)) {
-				printf("%f°    %f°  (%f)  %f°   (%f)\n", rad2deg(fabs(angle0-angle1)), rad2deg(angle0), m0, rad2deg(angle1), m1);
-				if(fabs(v0.x-v1.x) > syn_period*0.00001) {
+				// printf("%f°    %f°  (%f)  %f°   (%f)\n", rad2deg(fabs(angle0-angle1)), rad2deg(angle0), m0, rad2deg(angle1), m1);
+				if(fabs(v0.x-v1.x) > syn_period*0.0001) {
 					data_array1_append_new(dep_points, (v0.x+v1.x)/2);
 					data_array1_append_new(dep_temp, (v0.x+v1.x)/2 - jd_min_dep);
 				}
-				if(fabs(v1.x-v2.x) > syn_period*0.00001) {
+				if(fabs(v1.x-v2.x) > syn_period*0.0001) {
 					data_array1_append_new(dep_points, (v1.x+v2.x)/2);
 					data_array1_append_new(dep_temp, (v1.x+v2.x)/2 - jd_min_dep);
 				}
@@ -1088,11 +1088,11 @@ DataArray2 * calc_dv_boundary(SegmentGroup *group, int departure_cap, double jd_
 			}
 
 			if(isnan(da)) {
-				printf("test\n");
+				printf("da is nan\n");
 			}
 		}
-		print_data_array1(dep_points, "dep");
-		print_data_array1(dep_temp, "dep");
+		// print_data_array1(dep_points, "dep");
+		// print_data_array1(dep_temp, "dep");
 		printf("%lu\n", data_array2_size(boundary_array));
 		data_array1_free(dep_temp);
 		free(transf_arr);
@@ -1112,7 +1112,7 @@ DataArray2 * calc_dv_boundary(SegmentGroup *group, int departure_cap, double jd_
 					break;
 				}
 			}
-			if(isnan(data_array2_get_data(boundary_array)[i-1].y) && data_array2_get_data(boundary_array)[i+1].y) {
+			if(isnan(data_array2_get_data(boundary_array)[i-1].y) && data_array2_get_data(boundary_array)[i+1].y < -1e19) {
 				data_array2_remove_at_idx(boundary_array, i);
 				i--; continue;
 			}
@@ -1144,6 +1144,7 @@ DataArray2 * calc_dv_boundary(SegmentGroup *group, int departure_cap, double jd_
 	if(isnan(data_array2_get_data(boundary_array)[data_array2_size(boundary_array)-1].y)) {
 		data_array2_remove_at_idx(boundary_array, (int) data_array2_size(boundary_array)-1);
 	}
+	// printf("%lu\n", data_array2_size(boundary_array));
 	// print_data_array2(boundary_array, "depdate", "dur");
 	return boundary_array;
 }
