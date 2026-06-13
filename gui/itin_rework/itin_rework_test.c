@@ -345,27 +345,6 @@ G_MODULE_EXPORT void on_calc_ir() {
 	Body *dep_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_depbody))];
 	Body *arr_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_arrbody))];
 
-	double date = min_dep;
-
-	OSV osv0 = ir_system->prop_method == ORB_ELEMENTS ?
-					osv_from_elements(dep_body->orbit, date) :
-					osv_from_ephem(dep_body->ephem, dep_body->num_ephems, date, ir_system->cb);
-	Orbit dep_orbit = constr_orbit_from_osv(osv0.r, osv0.v, ir_system->cb);
-	double period_dep = calc_orbital_period(dep_orbit);
-	double prev_trav, next_trav;
-
-	do {
-		get_prev_and_next_relative_plane_traversal(dep_body, arr_body, ir_system, date, &prev_trav, &next_trav);
-		print_date(convert_JD_date(prev_trav, DATE_ISO), 1);
-		print_date(convert_JD_date(next_trav, DATE_ISO), 1);
-		date += period_dep/86400;
-	} while(next_trav < max_dep);
-
-	printf("--\n");
-	// return;
-
-
-
 	double dep_periapsis = dep_body->atmo_alt + ir_dep_periapsis;
 
 	int num_iterations = (int) target_numdeps;
@@ -417,60 +396,63 @@ G_MODULE_EXPORT void on_calc_ir() {
 		data_array2_append_new(depdv_upper_boundary, data[i+1].x, data[i+1].y);
 	}
 
+	print_data_array2(depdv_lower_boundary, "date", "dur");
+	print_data_array2(depdv_upper_boundary, "date", "dur");
+
 
 	end_time_measurement(&tm, "DV Boundary");
 
-	start_time_measurement(&tm);
-
-	ErrorFuncParams err_func_params = {
-		.max_error = tolerance/2,
-		.val_idx = MESH_VAL_VINF
-	};
-
-	BoundaryFuncParams bound_func_params = {
-		.group = departure.segment_groups[pcgroup0],
-		.check_depdv = true,
-		.max_depdv = max_depdv,
-		.dep_periapsis = dep_periapsis,
-		.depdv_lower_boundary = depdv_lower_boundary,
-		.depdv_upper_boundary = depdv_upper_boundary
-	};
-
-
-	QuadPointFunc point_func = {test_, departure.segment_groups[pcgroup0]};
-	QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
-	QuadErrorFunc error_func = {quad_test_error_function, &err_func_params};
-
-	MeshPoint2 *p00 = point_func.func(min_dep, max_dur, departure.segment_groups[pcgroup0]);
-	MeshPoint2 *p01 = point_func.func(max_dep, max_dur, departure.segment_groups[pcgroup0]);
-	MeshPoint2 *p10 = point_func.func(min_dep, min_dur, departure.segment_groups[pcgroup0]);
-	MeshPoint2 *p11 = point_func.func(max_dep, min_dur, departure.segment_groups[pcgroup0]);
-
-	// MeshPoint2 *p00 = point_func.func(0, 100, NULL);
-	// MeshPoint2 *p01 = point_func.func(100, 100, NULL);
-	// MeshPoint2 *p10 = point_func.func(0, 0, NULL);
-	// MeshPoint2 *p11 = point_func.func(100, 0, NULL);
-	Quad *quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, point_func);
-	quad_counter++;
-
-
-	end_time_measurement(&tm, "Quad generation");
-	start_time_measurement(&tm);
-
-	int num_split_cycles = 0;
-
-	for(int i = 0; i < pcgroup1; i++) {
-		if(update_quad_error_flag(quad, 3, error_func) == 0) break;
-		split_quads_with_flag(quad, point_func);
-		remove_out_of_bounds_quads(quad, bounds_func);
-		num_split_cycles++;
-	}
-
-	printf("Num Split Cycles: %d\n", num_split_cycles);
-
-	// printf("To Split: %d\n", update_quad_error_flag(quad, 0, error_func));
-	printf("Num of Leaves: %d\n", get_num_quad_leaves(quad));
-	end_time_measurement(&tm, "Divide & Conquer");
+	// start_time_measurement(&tm);
+	//
+	// ErrorFuncParams err_func_params = {
+	// 	.max_error = tolerance/2,
+	// 	.val_idx = MESH_VAL_VINF
+	// };
+	//
+	// BoundaryFuncParams bound_func_params = {
+	// 	.group = departure.segment_groups[pcgroup0],
+	// 	.check_depdv = true,
+	// 	.max_depdv = max_depdv,
+	// 	.dep_periapsis = dep_periapsis,
+	// 	.depdv_lower_boundary = depdv_lower_boundary,
+	// 	.depdv_upper_boundary = depdv_upper_boundary
+	// };
+	//
+	//
+	// QuadPointFunc point_func = {test_, departure.segment_groups[pcgroup0]};
+	// QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
+	// QuadErrorFunc error_func = {quad_test_error_function, &err_func_params};
+	//
+	// MeshPoint2 *p00 = point_func.func(min_dep, max_dur, departure.segment_groups[pcgroup0]);
+	// MeshPoint2 *p01 = point_func.func(max_dep, max_dur, departure.segment_groups[pcgroup0]);
+	// MeshPoint2 *p10 = point_func.func(min_dep, min_dur, departure.segment_groups[pcgroup0]);
+	// MeshPoint2 *p11 = point_func.func(max_dep, min_dur, departure.segment_groups[pcgroup0]);
+	//
+	// // MeshPoint2 *p00 = point_func.func(0, 100, NULL);
+	// // MeshPoint2 *p01 = point_func.func(100, 100, NULL);
+	// // MeshPoint2 *p10 = point_func.func(0, 0, NULL);
+	// // MeshPoint2 *p11 = point_func.func(100, 0, NULL);
+	// Quad *quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, point_func);
+	// quad_counter++;
+	//
+	//
+	// end_time_measurement(&tm, "Quad generation");
+	// start_time_measurement(&tm);
+	//
+	// int num_split_cycles = 0;
+	//
+	// for(int i = 0; i < pcgroup1; i++) {
+	// 	if(update_quad_error_flag(quad, 3, error_func) == 0) break;
+	// 	split_quads_with_flag(quad, point_func);
+	// 	remove_out_of_bounds_quads(quad, bounds_func);
+	// 	num_split_cycles++;
+	// }
+	//
+	// printf("Num Split Cycles: %d\n", num_split_cycles);
+	//
+	// // printf("To Split: %d\n", update_quad_error_flag(quad, 0, error_func));
+	// printf("Num of Leaves: %d\n", get_num_quad_leaves(quad));
+	// end_time_measurement(&tm, "Divide & Conquer");
 	// start_time_measurement(&tm);
 	//
 	// DataArray2 *line = data_array2_create();
@@ -540,14 +522,14 @@ G_MODULE_EXPORT void on_calc_ir() {
 	//
 	// end_time_measurement(&tm, "Check Accuracy");
 
-	attach_quad_to_coordinate_system(ir_coord_sys0, quad, CS_PLOT_TYPE_QUAD_DEBUG, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, TRUE);
+	// attach_quad_to_coordinate_system(ir_coord_sys0, quad, CS_PLOT_TYPE_QUAD_DEBUG, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, TRUE);
 	// plot_data2(ir_coord_sys0, line, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
 	plot_scatter_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	plot_scatter_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	plot_data2(ir_coord_sys0, depdv_lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	plot_data2(ir_coord_sys0, depdv_upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	plot_scatter_data2(ir_coord_sys0, depdv_lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	plot_scatter_data2(ir_coord_sys0, depdv_upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// scatter_data2(ir_coord_sys0, error_array, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
-	attach_quad_to_coordinate_system(ir_coord_sys1, quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, FALSE, MESH_VAL_VINF, TRUE);
+	// attach_quad_to_coordinate_system(ir_coord_sys1, quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, FALSE, MESH_VAL_VINF, TRUE);
 	plot_scatter_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	plot_scatter_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	print_timing_measurements(tm);
