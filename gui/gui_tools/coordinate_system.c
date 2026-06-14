@@ -325,9 +325,8 @@ void add_quad_to_coordinate_system(CoordinateSystem *coord_sys, Quad *root_quad,
 	new_group->root_quad = root_quad;
 	new_group->free_quad_on_clear = free_quad_on_clear;
 	new_group->quad_val_idx = quad_val_idx;
-
-	coord_sys->min = vec3(root_quad->corner[2]->pos.x, root_quad->corner[2]->pos.y, get_quad_min_value(root_quad, quad_val_idx));
-	coord_sys->max = vec3(root_quad->corner[1]->pos.x, root_quad->corner[1]->pos.y, get_quad_max_value(root_quad, quad_val_idx));
+	coord_sys->min = get_quad_min_values(root_quad, quad_val_idx);
+	coord_sys->max = get_quad_max_values(root_quad, quad_val_idx);
 
 	coord_sys->groups[coord_sys->num_point_groups++] = new_group;
 }

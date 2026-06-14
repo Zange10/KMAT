@@ -76,6 +76,8 @@ bool is_quad_flag(Quad *quad, QuadFlag flag);
 bool is_inside_quad(Quad *quad, Vector2 pos);
 Quad * get_quad_at_position(Quad *root_quad, Vector2 pos);
 double get_quad_interpolated_value(Quad *quad, Vector2 pos, int value_idx);
+Vector3 get_quad_min_values(Quad *quad, int quad_val_idx);
+Vector3 get_quad_max_values(Quad *quad, int quad_val_idx);
 double get_quad_min_value(Quad *quad, int quad_val_idx);
 double get_quad_max_value(Quad *quad, int quad_val_idx);
 int get_num_quad_leaves(Quad *quad);
@@ -84,10 +86,10 @@ bool is_quad_crossed_by_line(Quad *quad, DataArray2 *line);
 void find_line_crossed_quads(Quad *quad, DataArray2 *line, Quad ***quad_array, size_t *quad_array_size, size_t *quad_array_cap);
 
 void remove_out_of_bounds_quads(Quad *quad, QuadBoundsFunc bounds_func);
-int update_quad_error_flag(Quad *quad, int min_rf_level, QuadErrorFunc errfunc);
-void split_quads_with_flag(Quad *quad, QuadPointFunc point_func);
+int update_quad_error_flag(Quad *quad, int min_rf_level, int max_rf_level, QuadErrorFunc errfunc);
+int split_quads_with_flag(Quad *quad, QuadPointFunc point_func);
 
-void split_quad(Quad *quad, QuadPointFunc point_func);
+int split_quad(Quad *quad, QuadPointFunc point_func);
 
 void free_quad(Quad *quad, bool free_mesh_point);
 

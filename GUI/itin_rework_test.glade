@@ -185,7 +185,7 @@
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="has-frame">False</property>
-                    <property name="text" translatable="yes">1955-03-05</property>
+                    <property name="text" translatable="yes">1959-03-05</property>
                     <property name="xalign">0.5</property>
                   </object>
                   <packing>
@@ -235,7 +235,7 @@
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="has-frame">False</property>
-                    <property name="text" translatable="yes">700</property>
+                    <property name="text" translatable="yes">250</property>
                     <property name="xalign">0.5</property>
                   </object>
                   <packing>
@@ -274,7 +274,7 @@
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="has-frame">False</property>
-                    <property name="text" translatable="yes">4050</property>
+                    <property name="text" translatable="yes">6000</property>
                     <property name="xalign">0.5</property>
                   </object>
                   <packing>
@@ -335,7 +335,7 @@
                     <property name="visible">True</property>
                     <property name="can-focus">True</property>
                     <property name="has-frame">False</property>
-                    <property name="text" translatable="yes">2</property>
+                    <property name="text" translatable="yes">1</property>
                     <property name="xalign">0.5</property>
                   </object>
                   <packing>

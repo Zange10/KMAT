@@ -243,6 +243,7 @@ DataArray2 * find_local_peak_array(double jd_dep, Body *dep_body, Body *arr_body
 			if(data[j].y > max_val && data[j].y > data[j-1].y && data[j].y > data[j+1].y) { max_idx = j; max_val = data[j].y; }
 		}
 		if(max_val < 0) {
+			print_date(convert_JD_date(jd_dep, DATE_ISO), 1);
 			print_data_array2(array, "dur", "dv");
 		}
 		if(max_idx == data_array2_size(array)-1) dt = (data[max_idx].x+data[max_idx-1].x)/2;
@@ -632,11 +633,11 @@ void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, d
 
 
 		for(int j = 0; j < data_array1_size(traversals); j++) {
-			if(fabs(jd_dep - data_array1_get_data(traversals)[j]) < period_dep/86400*0.01) {
-				if(next_opposition_dt + local_peak_half_width_dt >= min_dur*86400 && next_opposition_dt - local_peak_half_width_dt <= max_dur*86400)
+			if(fabs(jd_dep - data_array1_get_data(traversals)[j]) < period_dep/86400*0.05) {
+				if(next_opposition_dt + local_peak_half_width_dt >= min_dur*0.9*86400 && next_opposition_dt - local_peak_half_width_dt <= max_dur*1.1*86400)
 					next_opposition_dt = get_local_peak(jd_dep, group->dep_body, group->arr_body, group->system, next_opposition_dt-local_peak_half_width_dt, next_opposition_dt+local_peak_half_width_dt, 1).x*86400;
-				// if(next_conjunction_dt + local_peak_half_width_dt >= min_dur*86400 && next_conjunction_dt - local_peak_half_width_dt <= max_dur*86400)
-				// 	next_conjunction_dt = get_local_peak(jd_dep, group->dep_body, group->arr_body, group->system, next_conjunction_dt-local_peak_half_width_dt, last_conjunction_dt+local_peak_half_width_dt, 1).x*86400;
+				// if(next_conjunction_dt + local_peak_half_width_dt >= min_dur*0.9*86400 && next_conjunction_dt - local_peak_half_width_dt <= max_dur*1.1*86400)
+				// 	next_conjunction_dt = get_local_peak(jd_dep, group->dep_body, group->arr_body, group->system, next_conjunction_dt-local_peak_half_width_dt, next_conjunction_dt+local_peak_half_width_dt, 1).x*86400;
 				break;
 			}
 		}
@@ -970,7 +971,7 @@ DataArray2 * calc_dv_boundary(SegmentGroup *group, int departure_cap, double jd_
 	Orbit dep_orbit = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb);
 	double period_dep = calc_orbital_period(dep_orbit);
 	double syn_period = 1.0/fabs(1.0/period_dep - 1.0/period_arr0)/86400;
-	printf("%f  %f\n", syn_period, group->boundary_gradient);
+	// printf("%f  %f\n", syn_period, group->boundary_gradient);
 	double jd_dep_step = syn_period/100;
 	double dt0, dt1;
 
@@ -1093,7 +1094,7 @@ DataArray2 * calc_dv_boundary(SegmentGroup *group, int departure_cap, double jd_
 		}
 		// print_data_array1(dep_points, "dep");
 		// print_data_array1(dep_temp, "dep");
-		printf("%lu\n", data_array2_size(boundary_array));
+		// printf("%lu\n", data_array2_size(boundary_array));
 		data_array1_free(dep_temp);
 		free(transf_arr);
 	}
@@ -1123,13 +1124,19 @@ DataArray2 * calc_dv_boundary(SegmentGroup *group, int departure_cap, double jd_
 		if(i == 0) continue;
 		if(i == data_array2_size(boundary_array)-1) continue;
 
+		if(isnan(data_array2_get_data(boundary_array)[i-1].y) && data_array2_get_data(boundary_array)[i+2].y < -1e19) {
+			data_array2_remove_at_idx(boundary_array, i);
+			data_array2_remove_at_idx(boundary_array, i);
+			i--; continue;
+		}
+
 		if(isnan(data_array2_get_data(boundary_array)[i-1].y)) {
 			double new_dep = (data_array2_get_data(boundary_array)[i-1].x+data_array2_get_data(boundary_array)[i  ].x)/2;
 			double new_dur = (data_array2_get_data(boundary_array)[i  ].y+data_array2_get_data(boundary_array)[i+1].y)/2;
 			data_array2_insert_new(boundary_array, new_dep, new_dur);
 			data_array2_insert_new(boundary_array, new_dep, new_dur);
 		}
-		if(data_array2_get_data(boundary_array)[i+1].y < -1e-19) {
+		if(data_array2_get_data(boundary_array)[i+1].y < -1e19) {
 			double new_dep = (data_array2_get_data(boundary_array)[i+1].x+data_array2_get_data(boundary_array)[i  ].x)/2;
 			double new_dur = (data_array2_get_data(boundary_array)[i  ].y+data_array2_get_data(boundary_array)[i-1].y)/2;
 			data_array2_insert_new(boundary_array, new_dep, new_dur);
