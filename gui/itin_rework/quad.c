@@ -3,12 +3,12 @@
 #include <math.h>
 #include <stdio.h>
 
-MeshPoint2 * create_quad_point(double x, double y, QuadPointFunc point_func) {
-	if(point_func.func) return point_func.func(x, y, point_func.params);
+MeshPoint2 * create_quad_point(double x, double y, QuadPointFunc *point_func) {
+	if(point_func) return point_func->func(x, y, point_func->params);
 	return create_mesh_point(vec2(x, y), NULL, 0);
 }
 
-Quad * create_quad_from_four_points(Quad *parent, MeshPoint2 *p00, MeshPoint2 *p01, MeshPoint2 *p10, MeshPoint2 *p11, QuadPointFunc point_func) {
+Quad * create_quad_from_four_points(Quad *parent, MeshPoint2 *p00, MeshPoint2 *p01, MeshPoint2 *p10, MeshPoint2 *p11, QuadPointFunc *point_func) {
 	Quad *quad = malloc(sizeof(Quad));
 	quad->parent = parent;
 	if(parent) quad->rf_level = parent->rf_level+1;
@@ -58,6 +58,20 @@ Quad * get_quad_at_position(Quad *root_quad, Vector2 pos) {
 	return NULL;
 }
 
+void populate_quad_mesh_points(Quad *quad, QuadPointPopFunc *point_pop_func) {
+	if(!quad) return;
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		point_pop_func->func(quad->center, point_pop_func->params);
+		for(int i = 0; i < 4; i++) {
+			if(!quad->corner[i]->val) point_pop_func->func(quad->corner[i], point_pop_func->params);
+		}
+	} else {
+		for(int i = 0; i < 4; i++) {
+			if(quad->subquads[i]) populate_quad_mesh_points(quad->subquads[i], point_pop_func);
+		}
+	}
+}
+
 double get_quad_interpolated_value(Quad *quad, Vector2 pos, int value_idx) {
 	Vector3 p00 = vec3(quad->corner[QUAD_NW]->pos.x, quad->corner[QUAD_NW]->pos.y, quad->corner[QUAD_NW]->val[value_idx]);
 	Vector3 p01 = vec3(quad->corner[QUAD_NE]->pos.x, quad->corner[QUAD_NE]->pos.y, quad->corner[QUAD_NE]->val[value_idx]);
@@ -79,11 +93,13 @@ Vector3 get_quad_max_values(Quad *quad, int quad_val_idx) {
 
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
 		for(int i = 0; i < 4; i++) {
-			double val = quad->corner[i]->val[quad_val_idx];
+			double val = quad->corner[i]->num_val > 0 ? quad->corner[i]->val[quad_val_idx] : NAN;
 			if(isnan(max.x) || quad->corner[i]->pos.x > max.x) max.x = quad->corner[i]->pos.x;
 			if(isnan(max.y) || quad->corner[i]->pos.y > max.y) max.y = quad->corner[i]->pos.y;
 			if(quad_val_idx >= 0 && (isnan(max.z) || val > max.z)) max.z = val;
 		}
+		double val = quad->center->num_val > 0 ? quad->center->val[quad_val_idx] : NAN;
+		if(quad_val_idx >= 0 && (isnan(max.z) || val > max.z)) max.z = val;
 	} else {
 		for(int i = 0; i < 4; i++) {
 			if(quad->subquads[i]) {
@@ -103,11 +119,13 @@ Vector3 get_quad_min_values(Quad *quad, int quad_val_idx) {
 
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
 		for(int i = 0; i < 4; i++) {
-			double val = quad->corner[i]->val[quad_val_idx];
+			double val = quad->corner[i]->num_val > 0 ? quad->corner[i]->val[quad_val_idx] : NAN;
 			if(isnan(min.x) || quad->corner[i]->pos.x < min.x) min.x = quad->corner[i]->pos.x;
 			if(isnan(min.y) || quad->corner[i]->pos.y < min.y) min.y = quad->corner[i]->pos.y;
 			if(quad_val_idx >= 0 && (isnan(min.z) || val < min.z)) min.z = val;
 		}
+		double val = quad->center->num_val > 0 ? quad->center->val[quad_val_idx] : NAN;
+		if(quad_val_idx >= 0 && (isnan(min.z) || val < min.z)) min.z = val;
 	} else {
 		for(int i = 0; i < 4; i++) {
 			if(quad->subquads[i]) {
@@ -233,8 +251,8 @@ void find_line_crossed_quads(Quad *quad, DataArray2 *line, Quad ***quad_array, s
 	}
 }
 
-void remove_out_of_bounds_quads(Quad *quad, QuadBoundsFunc bounds_func) {
-	if(!bounds_func.func(quad, bounds_func.params)) {
+void remove_out_of_bounds_quads(Quad *quad, QuadBoundsFunc *bounds_func) {
+	if(!bounds_func->func(quad, bounds_func->params)) {
 		free_quad(quad, true);
 		return;
 	}
@@ -247,10 +265,10 @@ void remove_out_of_bounds_quads(Quad *quad, QuadBoundsFunc bounds_func) {
 	}
 }
 
-int update_quad_error_flag(Quad *quad, int min_rf_level, int max_rf_level, QuadErrorFunc errfunc) {
+int update_quad_error_flag(Quad *quad, int min_rf_level, int max_rf_level, QuadErrorFunc *errfunc) {
 	if(!quad) return 0;
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
-		if(quad->rf_level < min_rf_level || errfunc.func(quad, errfunc.params)) {
+		if(quad->rf_level < min_rf_level || errfunc->func(quad, errfunc->params)) {
 			set_quad_flag(quad, QUAD_FLAG_ACC_ERR);
 			if(quad->rf_level < max_rf_level) set_quad_flag(quad, QUAD_FLAG_SPLIT);
 			return 1;
@@ -267,7 +285,7 @@ int update_quad_error_flag(Quad *quad, int min_rf_level, int max_rf_level, QuadE
 }
 
 
-int split_quads_with_flag(Quad *quad, QuadPointFunc point_func) {
+int split_quads_with_flag(Quad *quad, QuadPointFunc *point_func) {
 	if(!quad) return 0;
 	int num_splits = 0;
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
@@ -410,7 +428,7 @@ void update_neighbours_after_split(Quad *subquads[4], Quad *neighbours[8]) {
 	}
 }
 
-int split_quad(Quad *quad, QuadPointFunc point_func) {
+int split_quad(Quad *quad, QuadPointFunc *point_func) {
 	if(!quad) return 0;
 	if(!is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) return 0;
 

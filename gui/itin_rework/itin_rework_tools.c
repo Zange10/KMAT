@@ -267,11 +267,14 @@ Vector2 get_local_peak(double jd_dep, Body *dep_body, Body *arr_body, CelestSyst
 		if(data[j].y > max_val && data[j].y > data[j-1].y && data[j].y > data[j+1].y) { max_idx = j; max_val = data[j].y; }
 	}
 
+	Vector2 peak = data[max_idx];
+	data_array2_free(array);
+
 	if(max_val < 0) {
+		peak.x = (dt0+dt1)/2/86400;
+		peak.y = 0;
 		printf("test\n");
 	}
-
-	Vector2 peak = data[max_idx];
 
 	return peak;
 }
@@ -608,7 +611,7 @@ void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, d
 		trav_search_date += period_dep/86400;
 	} while(next_trav < jd_max_dep);
 
-	double local_peak_half_width_dt = period_arr0*0.001;
+	double local_peak_half_width_dt = period_arr0*0.01;
 
 	for(int i = 0; i < data_array1_size(boundary_points); i++) {
 		jd_dep = data_array1_get_data(boundary_points)[i];
