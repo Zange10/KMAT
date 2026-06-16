@@ -97,6 +97,8 @@ int split_quads_with_flag(Quad *quad, QuadPointFunc *point_func);
 
 int split_quad(Quad *quad, QuadPointFunc *point_func);
 
+Mesh2 * create_mesh_from_quads(Quad *root_quad);
+
 void free_quad(Quad *quad, bool free_mesh_point);
 
 #endif //KMAT_QUAD_H

@@ -528,6 +528,95 @@ int split_quad(Quad *quad, QuadPointFunc *point_func) {
 	return num_splits+1;
 }
 
+void create_mesh_triangles_from_quads(Quad *quad, Mesh2 *mesh) {
+	if(!quad) return;
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		add_point_to_mesh(mesh, quad->center);
+		for(int i = 0; i < 4; i++)
+			if(!quad->corner[i]->triangles) add_point_to_mesh(mesh, quad->corner[i]);
+
+		MeshPoint2 *p0 = quad->center, *p1 = quad->corner[QUAD_NW], *p2;
+		for(int i = 0; i < 8; i++) {
+			if(i == 1) p2 = quad->corner[QUAD_NE];
+			if(i == 3) p2 = quad->corner[QUAD_SE];
+			if(i == 5) p2 = quad->corner[QUAD_SW];
+			if(i == 7) p2 = quad->corner[QUAD_NW];
+
+			if(i == 0) {
+				if(quad->neighbours[QUAD_NNW]) {
+					if(quad->neighbours[QUAD_NNW]->rf_level > quad->rf_level)
+						p2 = quad->neighbours[QUAD_NNW]->corner[QUAD_SE];
+					else
+						continue;
+				} else if(quad->neighbours[QUAD_NNE]) {
+					p2 = quad->neighbours[QUAD_NNE]->corner[QUAD_SW];
+				} else {
+					continue;
+				}
+			}
+
+			if(i == 2) {
+				if(quad->neighbours[QUAD_NEE]) {
+					if(quad->neighbours[QUAD_NEE]->rf_level > quad->rf_level)
+						p2 = quad->neighbours[QUAD_NEE]->corner[QUAD_SW];
+					else
+						continue;
+				} else if(quad->neighbours[QUAD_SEE]) {
+					p2 = quad->neighbours[QUAD_SEE]->corner[QUAD_NW];
+				} else {
+					continue;
+				}
+			}
+
+			if(i == 4) {
+				if(quad->neighbours[QUAD_SSW]) {
+					if(quad->neighbours[QUAD_SSW]->rf_level > quad->rf_level)
+						p2 = quad->neighbours[QUAD_SSW]->corner[QUAD_NE];
+					else
+						continue;
+				} else if(quad->neighbours[QUAD_SSE]) {
+					p2 = quad->neighbours[QUAD_SSE]->corner[QUAD_NW];
+				} else {
+					continue;
+				}
+			}
+
+			if(i == 6) {
+				if(quad->neighbours[QUAD_NWW]) {
+					if(quad->neighbours[QUAD_NWW]->rf_level > quad->rf_level)
+						p2 = quad->neighbours[QUAD_NWW]->corner[QUAD_SE];
+					else
+						continue;
+				} else if(quad->neighbours[QUAD_SWW]) {
+					p2 = quad->neighbours[QUAD_SWW]->corner[QUAD_NE];
+				} else {
+					continue;
+				}
+			}
+			int rf_level = quad->rf_level + (i%2 == 0);
+			// p2 before p1 because CCW
+			add_triangle_to_mesh(mesh, create_triangle_from_three_points_with_rf_level(p0, p2, p1, rf_level, rf_level));
+			p1 = p2;
+		}
+	} else {
+		for(int i = 0; i < 4; i++) {
+			if(quad->subquads[i]) create_mesh_triangles_from_quads(quad->subquads[i], mesh);
+		}
+	}
+}
+
+Mesh2 * create_mesh_from_quads(Quad *root_quad) {
+	if(!root_quad) return NULL;
+	Mesh2 *mesh = new_mesh();
+	create_mesh_triangles_from_quads(root_quad, mesh);
+	Vector3 min = get_quad_min_values(root_quad, -1);
+	Vector3 max = get_quad_max_values(root_quad, -1);
+	mesh->mesh_box->min = vec2(min.x, min.y);
+	mesh->mesh_box->max = vec2(max.x, max.y);
+	rebuild_mesh_boxes(mesh);
+	return mesh;
+}
+
 void free_quad(Quad *quad, bool free_mesh_point) {
 	if(!is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
 		for(int i = 0; i < 4; i++) {
