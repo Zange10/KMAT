@@ -222,6 +222,42 @@ DataArray2 * find_local_peak_array(double jd_dep, Body *dep_body, Body *arr_body
 	double last_dt = -1e20;
 
 	for(int i = 0; i < 100; i++) {
+		Vector2 *data = data_array2_get_data(array);
+
+		int extr_idx = 0;
+		if(max_0_min_1 == 0) {
+			double max_val = -1e20;
+			for(int j = 1; j < data_array2_size(array)-1; j++) {
+				if(data[j].y > max_val && data[j].y > data[j-1].y && data[j].y > data[j+1].y) { extr_idx = j; max_val = data[j].y; }
+			}
+			if(extr_idx == 0) {
+				if(data[data_array2_size(array)-1].y > data[0].y) {
+					extr_idx = (int)data_array2_size(array)-1;
+				}
+				print_date(convert_JD_date(jd_dep, DATE_ISO), 0);
+				printf("    |  %f   (%f)   |  %f  (%f)\n", dt0, dt0/86400, dt1, dt1/86400);
+				print_data_array2(array, "dur", "dv");
+			}
+		} else {
+			double min_val = 1e20;
+			for(int j = 1; j < data_array2_size(array)-1; j++) {
+				if(data[j].y < min_val && data[j].y < data[j-1].y && data[j].y < data[j+1].y) { extr_idx = j; min_val = data[j].y; }
+			}
+			if(extr_idx == 0) {
+				if(data[data_array2_size(array)-1].y < data[0].y) {
+					extr_idx = (int)data_array2_size(array)-1;
+				}
+				print_date(convert_JD_date(jd_dep, DATE_ISO), 0);
+				printf("    |  %f   (%f)   |  %f  (%f)\n", dt0, dt0/86400, dt1, dt1/86400);
+				print_data_array2(array, "dur", "dv");
+			}
+		}
+
+		if(extr_idx == data_array2_size(array)-1) dt = (data[extr_idx].x+data[extr_idx-1].x)/2;
+		else if(extr_idx == 0) dt = (data[extr_idx].x+data[extr_idx+1].x)/2;
+		else dt = (data[extr_idx].x+data[extr_idx-((i % 2 == 0) ? 1 : -1)].x)/2;
+		dt *= 86400;
+
 		double t1 = t0 + dt/86400;
 
 		OSV osv_arr = system->prop_method == ORB_ELEMENTS ?
@@ -233,32 +269,9 @@ DataArray2 * find_local_peak_array(double jd_dep, Body *dep_body, Body *arr_body
 
 
 		data_array2_insert_new(array, t1-t0, vinf);
-		last_dt = dt;
-
-		Vector2 *data = data_array2_get_data(array);
-
-		int extr_idx = 0;
-		if(max_0_min_1 == 0) {
-			double max_val = -1e20;
-			for(int j = 1; j < data_array2_size(array)-1; j++) {
-				if(data[j].y > max_val && data[j].y > data[j-1].y && data[j].y > data[j+1].y) { extr_idx = j; max_val = data[j].y; }
-			}
-		} else {
-			double min_val = 1e20;
-			for(int j = 1; j < data_array2_size(array)-1; j++) {
-				if(data[j].y < min_val && data[j].y < data[j-1].y && data[j].y < data[j+1].y) { extr_idx = j; min_val = data[j].y; }
-			}
-		}
-		if(extr_idx == 0) {
-			print_date(convert_JD_date(jd_dep, DATE_ISO), 1);
-			print_data_array2(array, "dur", "dv");
-		}
-		if(extr_idx == data_array2_size(array)-1) dt = (data[extr_idx].x+data[extr_idx-1].x)/2;
-		else if(extr_idx == 0) dt = (data[extr_idx].x+data[extr_idx+1].x)/2;
-		else dt = (data[extr_idx].x+data[extr_idx-((i % 2 == 0) ? 1 : -1)].x)/2;
-		dt *= 86400;
 
 		if(fabs(last_dt-dt) < tol) break;
+		last_dt = dt;
 	}
 	return array;
 }
@@ -650,7 +663,7 @@ void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, d
 
 
 		for(int j = 0; j < data_array1_size(traversals); j++) {
-			if(fabs(jd_dep - data_array1_get_data(traversals)[j]) < period_dep/86400*0.05) {
+			if(true || fabs(jd_dep - data_array1_get_data(traversals)[j]) < period_dep/86400*0.05) {
 				if(next_opposition_dt + local_peak_half_width_dt >= min_dur*0.9*86400 && next_opposition_dt - local_peak_half_width_dt <= max_dur*1.1*86400)
 					next_opposition_dt = get_local_peak(jd_dep, group->dep_body, group->arr_body, group->system, next_opposition_dt-local_peak_half_width_dt, next_opposition_dt+local_peak_half_width_dt, 1, 0).x*86400;
 				// if(next_conjunction_dt + local_peak_half_width_dt >= min_dur*0.9*86400 && next_conjunction_dt - local_peak_half_width_dt <= max_dur*1.1*86400)
@@ -1215,12 +1228,12 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 
 	DataArray1 *traversals = data_array1_create();
 	double trav_search_date = jd_min_dep, prev_trav, next_trav;
-	double offset_base = syn_period*0.0005;
+	double offset_base = syn_period*0.005;
 	do {
 		get_prev_and_next_relative_plane_traversal(group->dep_body, group->arr_body, group->system, trav_search_date, &prev_trav, &next_trav);
 		data_array1_append_new(traversals, prev_trav);
 		data_array1_append_new(traversals, next_trav);
-		for(int i = -20; i <= 20; i++) {
+		for(int i = -3; i <= 3; i++) {
 			jd_dep = prev_trav + offset_base*i;
 			if(jd_dep >= jd_min_dep && jd_dep <= jd_max_dep)
 				data_array1_insert_new(dep_points, jd_dep);
@@ -1279,114 +1292,213 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 		data_array2_insert_new(vinf_line, jd_dep, vinf.y);
 		data_array2_free(vinf_array);
 
-		if(data[i+1].x - data[i].x < syn_period*0.001 || fabs(vinf.y-vinf_guess) < dv_tolerance) i++;
+		if(data[i+1].x - data[i].x < syn_period*0.0001 || fabs(vinf.y-vinf_guess) < dv_tolerance) i++;
 		else i--;
 	}
-	// DataArray1 *dep_temp = data_array1_create();
-	//
-	// size_t num_deps = data_array2_size(boundary_array);
-	// Vector2 *transf_arr = malloc(num_deps * sizeof(Vector2));
-	// for(int i = 0; i < num_deps; i++) {
-	// 	transf_arr[i].x = data_array2_get_data(boundary_array)[i].x;
-	// 	transf_arr[i].y = data_array2_get_data(boundary_array)[i].y/group->boundary_gradient;
-	// }
-	// for(int i = 4; i < num_deps; i++) {
-	// 	Vector2 v0 = transf_arr[i-4];
-	// 	Vector2 v1 = transf_arr[i-2];
-	// 	Vector2 v2 = transf_arr[i  ];
-	//
-	// 	// if(v1.x == v0.x || v1.x == v2.x) {
-	// 	// 	printf("%f   %f   %f\n", v0.x-jd_min_dep, v1.x-jd_min_dep, v2.x-jd_min_dep);
-	// 	// }
-	//
-	// 	double m0 = (v1.y - v0.y)/(v1.x - v0.x);
-	// 	double m1 = (v2.y - v1.y)/(v2.x - v1.x);
-	//
-	// 	double angle0 = atan(m0);
-	// 	double angle1 = atan(m1);
-	//
-	// 	double da = fabs(angle1 - angle0);
-	//
-	// 	if(da > deg2rad(5.0)) {
-	// 		// printf("%f°    %f°  (%f)  %f°   (%f)\n", rad2deg(fabs(angle0-angle1)), rad2deg(angle0), m0, rad2deg(angle1), m1);
-	// 		if(fabs(v0.x-v1.x) > syn_period*0.0001) {
-	// 			data_array1_append_new(dep_points, (v0.x+v1.x)/2);
-	// 			data_array1_append_new(dep_temp, (v0.x+v1.x)/2 - jd_min_dep);
-	// 		}
-	// 		if(fabs(v1.x-v2.x) > syn_period*0.0001) {
-	// 			data_array1_append_new(dep_points, (v1.x+v2.x)/2);
-	// 			data_array1_append_new(dep_temp, (v1.x+v2.x)/2 - jd_min_dep);
-	// 		}
-	// 		i += 3 + (i%2==0);
-	// 	}
-	//
-	// 	if(isnan(da)) {
-	// 		printf("da is nan\n");
-	// 	}
-	// }
-	// print_data_array1(dep_points, "dep");
-	// print_data_array1(dep_temp, "dep");
-	// printf("%lu\n", data_array2_size(boundary_array));
-	// data_array1_free(dep_temp);
-	// free(transf_arr);
 
-	// for(int i = 0; i < data_array2_size(boundary_array); i++) {
-	// 	if(data_array2_get_data(boundary_array)[i].y < -1e19) {
-	// 		if(i == 0) {
-	// 			if(data_array2_get_data(boundary_array)[1].y < -1e19) {
-	// 				data_array2_remove_at_idx(boundary_array, 0);
-	// 				i--; continue;
-	// 			}
-	// 		}
-	// 		if(i == data_array2_size(boundary_array)-1) {
-	// 			if(isnan(data_array2_get_data(boundary_array)[i-1].y)) {
-	// 				data_array2_remove_at_idx(boundary_array, i);
-	// 				break;
-	// 			}
-	// 		}
-	// 		if(isnan(data_array2_get_data(boundary_array)[i-1].y) && data_array2_get_data(boundary_array)[i+1].y < -1e19) {
-	// 			data_array2_remove_at_idx(boundary_array, i);
-	// 			i--; continue;
-	// 		}
-	// 		data_array2_get_data(boundary_array)[i].y = NAN;
-	// 		continue;
-	// 	}
-	//
-	// 	if(i == 0) continue;
-	// 	if(i == data_array2_size(boundary_array)-1) continue;
-	//
-	// 	if(isnan(data_array2_get_data(boundary_array)[i-1].y) && data_array2_get_data(boundary_array)[i+2].y < -1e19) {
-	// 		data_array2_remove_at_idx(boundary_array, i);
-	// 		data_array2_remove_at_idx(boundary_array, i);
-	// 		i--; continue;
-	// 	}
-	//
-	// 	if(isnan(data_array2_get_data(boundary_array)[i-1].y)) {
-	// 		double new_dep = (data_array2_get_data(boundary_array)[i-1].x+data_array2_get_data(boundary_array)[i  ].x)/2;
-	// 		double new_dur = (data_array2_get_data(boundary_array)[i  ].y+data_array2_get_data(boundary_array)[i+1].y)/2;
-	// 		data_array2_insert_new(boundary_array, new_dep, new_dur);
-	// 		data_array2_insert_new(boundary_array, new_dep, new_dur);
-	// 	}
-	// 	if(data_array2_get_data(boundary_array)[i+1].y < -1e19) {
-	// 		double new_dep = (data_array2_get_data(boundary_array)[i+1].x+data_array2_get_data(boundary_array)[i  ].x)/2;
-	// 		double new_dur = (data_array2_get_data(boundary_array)[i  ].y+data_array2_get_data(boundary_array)[i-1].y)/2;
-	// 		data_array2_insert_new(boundary_array, new_dep, new_dur);
-	// 		data_array2_insert_new(boundary_array, new_dep, new_dur);
-	// 		i+=2;
-	// 	}
-	// }
-
-	// if(isnan(data_array2_get_data(boundary_array)[0].y)) {
-	// 	data_array2_remove_at_idx(boundary_array, 0);
-	// }
-	// if(isnan(data_array2_get_data(boundary_array)[data_array2_size(boundary_array)-1].y)) {
-	// 	data_array2_remove_at_idx(boundary_array, (int) data_array2_size(boundary_array)-1);
-	// }
-	// printf("%lu\n", data_array2_size(boundary_array));
-	// print_data_array2(boundary_array, "depdate", "dur");
 	return vinf_line;
 }
 
+DataArray2 * calc_vinf_boundary(SegmentGroup *group, Quad *quad, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv) {
+	DataArray2 *boundary_array = data_array2_create();
+
+	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
+					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_min_dep, group->system->cb);
+
+	OSV osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(group->arr_body->orbit, jd_min_dep) :
+				   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_min_dep, group->system->cb);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
+	double period_arr0 = calc_orbital_period(arr0);
+	Orbit dep_orbit = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb);
+	double period_dep = calc_orbital_period(dep_orbit);
+	double syn_period = 1.0/fabs(1.0/period_dep - 1.0/period_arr0)/86400;
+	// printf("%f  %f\n", syn_period, group->boundary_gradient);
+	double jd_dep_step = syn_period/100;
+	double dt0, dt1;
+
+
+	// double r0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb).a, r1 = arr0.a;
+	// double r_ratio =  r1/r0;
+	// Hohmann hohmann = calc_hohmann_transfer(r0, r1, group->system->cb);
+	// double hohmann_dur = hohmann.dur/86400;
+	// double min_duration = 0.4 * hohmann_dur;
+	// double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+	// if(max_duration < max_dur) max_dur = max_duration;
+	// if(min_duration > min_dur) min_dur = min_duration;
+
+	double min_dt = min_dur*86400;
+	double max_dt = max_dur*86400;
+
+	DataArray1 *dep_points = data_array1_create();
+	double jd_dep = jd_min_dep;
+	while(jd_dep < jd_max_dep) {
+		data_array1_append_new(dep_points, jd_dep);
+		jd_dep += jd_dep_step;
+	}
+	data_array1_append_new(dep_points, jd_max_dep);
+
+
+	DataArray1 *traversals = data_array1_create();
+	double trav_search_date = jd_min_dep, prev_trav, next_trav;
+	double offset_base = syn_period*0.0001;
+	do {
+		get_prev_and_next_relative_plane_traversal(group->dep_body, group->arr_body, group->system, trav_search_date, &prev_trav, &next_trav);
+		data_array1_append_new(traversals, prev_trav);
+		data_array1_append_new(traversals, next_trav);
+		for(int i = -10; i <= 10; i++) {
+			jd_dep = prev_trav + offset_base*i;
+			if(jd_dep >= jd_min_dep && jd_dep <= jd_max_dep)
+				data_array1_insert_new(dep_points, jd_dep);
+			jd_dep = next_trav + offset_base*i;
+			if(jd_dep >= jd_min_dep && jd_dep <= jd_max_dep)
+				data_array1_insert_new(dep_points, jd_dep);
+		}
+		trav_search_date += period_dep/86400;
+	} while(next_trav < jd_max_dep);
+
+	while(data_array1_size(dep_points) > 0) {
+		for(int i = 0; i < data_array1_size(dep_points); i++) {
+			jd_dep = data_array1_get_data(dep_points)[i];
+
+
+			dt0 = interpolate_from_sorted_data_array(group->lower_boundary, jd_dep) * 86400;
+			dt1 = interpolate_from_sorted_data_array(group->upper_boundary, jd_dep) * 86400;
+
+			if(dt0 > max_dt || dt1 < min_dt) {
+				data_array2_insert_new(boundary_array, jd_dep, -1e20);
+				data_array2_insert_new(boundary_array, jd_dep, -1e20);
+				continue;
+			}
+
+			double left_x = 0, right_x = 0;
+			osv0 = group->system->prop_method == ORB_ELEMENTS ?
+								osv_from_elements(group->dep_body->orbit, jd_dep) :
+								osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
+			find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x, 1e-4);
+
+			// No departure possible within given constraints
+			if(left_x < 1 || right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
+				data_array2_insert_new(boundary_array, jd_dep, -1e20);
+				data_array2_insert_new(boundary_array, jd_dep, -1e20);
+				continue;
+			}
+
+			if(left_x < dt0) left_x = dt0;
+			if(left_x < min_dur*86400) left_x = min_dur*86400;
+			if(right_x > dt1) right_x = dt1;
+			if(right_x > max_dur*86400) right_x = max_dur*86400;
+
+			data_array2_insert_new(boundary_array, jd_dep, left_x/86400);
+			data_array2_insert_new(boundary_array, jd_dep, right_x/86400);
+		}
+		data_array1_clear(dep_points);
+		DataArray1 *dep_temp = data_array1_create();
+
+		size_t num_deps = data_array2_size(boundary_array);
+		Vector2 *transf_arr = malloc(num_deps * sizeof(Vector2));
+		for(int i = 0; i < num_deps; i++) {
+			transf_arr[i].x = data_array2_get_data(boundary_array)[i].x;
+			transf_arr[i].y = data_array2_get_data(boundary_array)[i].y/group->boundary_gradient;
+		}
+		for(int i = 4; i < num_deps; i++) {
+			Vector2 v0 = transf_arr[i-4];
+			Vector2 v1 = transf_arr[i-2];
+			Vector2 v2 = transf_arr[i  ];
+
+			// if(v1.x == v0.x || v1.x == v2.x) {
+			// 	printf("%f   %f   %f\n", v0.x-jd_min_dep, v1.x-jd_min_dep, v2.x-jd_min_dep);
+			// }
+
+			double m0 = (v1.y - v0.y)/(v1.x - v0.x);
+			double m1 = (v2.y - v1.y)/(v2.x - v1.x);
+
+			double angle0 = atan(m0);
+			double angle1 = atan(m1);
+
+			double da = fabs(angle1 - angle0);
+
+			if(da > deg2rad(5.0)) {
+				// printf("%f°    %f°  (%f)  %f°   (%f)\n", rad2deg(fabs(angle0-angle1)), rad2deg(angle0), m0, rad2deg(angle1), m1);
+				if(fabs(v0.x-v1.x) > syn_period*0.0001) {
+					data_array1_append_new(dep_points, (v0.x+v1.x)/2);
+					data_array1_append_new(dep_temp, (v0.x+v1.x)/2 - jd_min_dep);
+				}
+				if(fabs(v1.x-v2.x) > syn_period*0.0001) {
+					data_array1_append_new(dep_points, (v1.x+v2.x)/2);
+					data_array1_append_new(dep_temp, (v1.x+v2.x)/2 - jd_min_dep);
+				}
+				i += 3 + (i%2==0);
+			}
+
+			if(isnan(da)) {
+				printf("da is nan\n");
+			}
+		}
+		// print_data_array1(dep_points, "dep");
+		// print_data_array1(dep_temp, "dep");
+		// printf("%lu\n", data_array2_size(boundary_array));
+		data_array1_free(dep_temp);
+		free(transf_arr);
+	}
+
+	for(int i = 0; i < data_array2_size(boundary_array); i++) {
+		if(data_array2_get_data(boundary_array)[i].y < -1e19) {
+			if(i == 0) {
+				if(data_array2_get_data(boundary_array)[1].y < -1e19) {
+					data_array2_remove_at_idx(boundary_array, 0);
+					i--; continue;
+				}
+			}
+			if(i == data_array2_size(boundary_array)-1) {
+				if(isnan(data_array2_get_data(boundary_array)[i-1].y)) {
+					data_array2_remove_at_idx(boundary_array, i);
+					break;
+				}
+			}
+			if(isnan(data_array2_get_data(boundary_array)[i-1].y) && data_array2_get_data(boundary_array)[i+1].y < -1e19) {
+				data_array2_remove_at_idx(boundary_array, i);
+				i--; continue;
+			}
+			data_array2_get_data(boundary_array)[i].y = NAN;
+			continue;
+		}
+
+		if(i == 0) continue;
+		if(i == data_array2_size(boundary_array)-1) continue;
+
+		if(isnan(data_array2_get_data(boundary_array)[i-1].y) && data_array2_get_data(boundary_array)[i+2].y < -1e19) {
+			data_array2_remove_at_idx(boundary_array, i);
+			data_array2_remove_at_idx(boundary_array, i);
+			i--; continue;
+		}
+
+		if(isnan(data_array2_get_data(boundary_array)[i-1].y)) {
+			double new_dep = (data_array2_get_data(boundary_array)[i-1].x+data_array2_get_data(boundary_array)[i  ].x)/2;
+			double new_dur = (data_array2_get_data(boundary_array)[i  ].y+data_array2_get_data(boundary_array)[i+1].y)/2;
+			data_array2_insert_new(boundary_array, new_dep, new_dur);
+			data_array2_insert_new(boundary_array, new_dep, new_dur);
+		}
+		if(data_array2_get_data(boundary_array)[i+1].y < -1e19) {
+			double new_dep = (data_array2_get_data(boundary_array)[i+1].x+data_array2_get_data(boundary_array)[i  ].x)/2;
+			double new_dur = (data_array2_get_data(boundary_array)[i  ].y+data_array2_get_data(boundary_array)[i-1].y)/2;
+			data_array2_insert_new(boundary_array, new_dep, new_dur);
+			data_array2_insert_new(boundary_array, new_dep, new_dur);
+			i+=2;
+		}
+	}
+
+	if(isnan(data_array2_get_data(boundary_array)[0].y)) {
+		data_array2_remove_at_idx(boundary_array, 0);
+	}
+	if(isnan(data_array2_get_data(boundary_array)[data_array2_size(boundary_array)-1].y)) {
+		data_array2_remove_at_idx(boundary_array, (int) data_array2_size(boundary_array)-1);
+	}
+	// printf("%lu\n", data_array2_size(boundary_array));
+	// print_data_array2(boundary_array, "depdate", "dur");
+	return boundary_array;
+}
 
 void calc_porkchop_dv_boundaries(SegmentGroup *group, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
 	group->vinf_array = data_array2_create();
