@@ -2,6 +2,45 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <string.h>
+
+
+QuadList * create_quad_list() {
+	QuadList *quad_list = malloc(sizeof(QuadList));
+	quad_list->cap = 0;
+	quad_list->num = 0;
+	quad_list->quad = NULL;
+	return quad_list;
+}
+
+void append_to_quad_list(QuadList *quad_list, Quad *quad) {
+	if(quad_list->num >= quad_list->cap) {
+		if(quad_list->cap == 0) {
+			quad_list->cap = 8;
+			quad_list->quad = malloc(quad_list->cap*sizeof(Quad));
+		} else {
+			quad_list->cap *= 2;
+			Quad **temp = realloc(quad_list->quad, quad_list->cap*sizeof(Quad));
+			if(temp) quad_list->quad = temp;
+		}
+	}
+	quad_list->quad[quad_list->num++] = quad;
+}
+
+void remove_from_quad_list_at_idx(QuadList *quad_list, size_t idx) {
+	if(!quad_list || idx >= quad_list->num) return;
+	memmove(quad_list->quad+idx, quad_list->quad+idx+1, (quad_list->num-idx-1) * sizeof(Quad*));
+	quad_list->num--;
+}
+
+void clear_quad_list(QuadList *quad_list) {
+	quad_list->num = 0;
+}
+
+void free_quad_list(QuadList *quad_list) {
+	free(quad_list->quad);
+	free(quad_list);
+}
 
 MeshPoint2 * create_quad_point(double x, double y, QuadPointFunc *point_func) {
 	if(point_func) return point_func->func(x, y, point_func->params);
@@ -179,13 +218,16 @@ double get_quad_max_value(Quad *quad, int quad_val_idx) {
 	return max;
 }
 
-int get_num_quad_leaves(Quad *quad) {
+int get_quad_leaves(Quad *quad, QuadList *quad_list) {
 	if(!quad) return 0;
-	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) return 1;
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		if(quad_list) append_to_quad_list(quad_list, quad);
+		return 1;
+	}
 	int sum = 0;
 	for(int i = 0; i < 4; i++) {
 		if(quad->subquads[i]) {
-			sum += get_num_quad_leaves(quad->subquads[i]);
+			sum += get_quad_leaves(quad->subquads[i], quad_list);
 		}
 	}
 	return sum;
@@ -290,7 +332,7 @@ int split_quads_with_flag(Quad *quad, QuadPointFunc *point_func) {
 	int num_splits = 0;
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
 		if(is_quad_flag(quad, QUAD_FLAG_SPLIT)) {
-			num_splits += split_quad(quad, point_func);
+			num_splits += split_quad(quad, point_func, NULL);
 		}
 	} else {
 		for(int i = 0; i < 4; i++) {
@@ -428,7 +470,7 @@ void update_neighbours_after_split(Quad *subquads[4], Quad *neighbours[8]) {
 	}
 }
 
-int split_quad(Quad *quad, QuadPointFunc *point_func) {
+int split_quad(Quad *quad, QuadPointFunc *point_func, QuadList *quad_list) {
 	if(!quad) return 0;
 	if(!is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) return 0;
 
@@ -443,7 +485,7 @@ int split_quad(Quad *quad, QuadPointFunc *point_func) {
 		for(int i = 0; i < 8; i++) {
 			if(!neighbours[i]) continue;
 			if(neighbours[i]->rf_level < quad->rf_level) {
-				num_splits += split_quad(neighbours[i], point_func);
+				num_splits += split_quad(neighbours[i], point_func, quad_list);
 				changed = true;
 			}
 		}
@@ -521,6 +563,7 @@ int split_quad(Quad *quad, QuadPointFunc *point_func) {
 		}
 
 		quad->subquads[i] = create_quad_from_four_points(quad, corners[QUAD_NW], corners[QUAD_NE], corners[QUAD_SW], corners[QUAD_SE], point_func);
+		if(quad_list) append_to_quad_list(quad_list, quad->subquads[i]);
 	}
 	update_neighbours_after_split(quad->subquads, neighbours);
 	quad->flags = 0;

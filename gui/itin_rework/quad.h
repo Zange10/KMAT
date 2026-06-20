@@ -71,6 +71,18 @@ typedef struct Quad {
 	int rf_level;	// refinement level
 } Quad;
 
+typedef struct QuadList {
+	Quad **quad;
+	size_t num;
+	size_t cap;
+} QuadList;
+
+QuadList * create_quad_list();
+void append_to_quad_list(QuadList *quad_list, Quad *quad);
+void remove_from_quad_list_at_idx(QuadList *quad_list, size_t idx);
+void clear_quad_list(QuadList *quad_list);
+void free_quad_list(QuadList *quad_list);
+
 Quad * create_quad_from_four_points(Quad *parent, MeshPoint2 *p00, MeshPoint2 *p01, MeshPoint2 *p10, MeshPoint2 *p11, QuadPointFunc *point_func);
 void populate_quad_mesh_points(Quad *quad, QuadPointPopFunc *point_pop_func);
 Quad * get_root_quad(Quad *quad);
@@ -86,7 +98,7 @@ Vector3 get_quad_min_values(Quad *quad, int quad_val_idx);
 Vector3 get_quad_max_values(Quad *quad, int quad_val_idx);
 double get_quad_min_value(Quad *quad, int quad_val_idx);
 double get_quad_max_value(Quad *quad, int quad_val_idx);
-int get_num_quad_leaves(Quad *quad);
+int get_quad_leaves(Quad *quad, QuadList *quad_list);
 void print_quadtree(Quad *quad);
 bool is_quad_crossed_by_line(Quad *quad, DataArray2 *line);
 void find_line_crossed_quads(Quad *quad, DataArray2 *line, Quad ***quad_array, size_t *quad_array_size, size_t *quad_array_cap);
@@ -95,7 +107,7 @@ void remove_out_of_bounds_quads(Quad *quad, QuadBoundsFunc *bounds_func);
 int update_quad_error_flag(Quad *quad, int min_rf_level, int max_rf_level, QuadErrorFunc *errfunc);
 int split_quads_with_flag(Quad *quad, QuadPointFunc *point_func);
 
-int split_quad(Quad *quad, QuadPointFunc *point_func);
+int split_quad(Quad *quad, QuadPointFunc *point_func, QuadList *quad_list);
 
 Mesh2 * create_mesh_from_quads(Quad *root_quad);
 

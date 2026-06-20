@@ -247,9 +247,9 @@ DataArray2 * find_local_peak_array(double jd_dep, Body *dep_body, Body *arr_body
 				if(data[data_array2_size(array)-1].y < data[0].y) {
 					extr_idx = (int)data_array2_size(array)-1;
 				}
-				print_date(convert_JD_date(jd_dep, DATE_ISO), 0);
-				printf("    |  %f   (%f)   |  %f  (%f)\n", dt0, dt0/86400, dt1, dt1/86400);
-				print_data_array2(array, "dur", "dv");
+				// print_date(convert_JD_date(jd_dep, DATE_ISO), 0);
+				// printf("    |  %f   (%f)   |  %f  (%f)\n", dt0, dt0/86400, dt1, dt1/86400);
+				// print_data_array2(array, "dur", "dv");
 			}
 		}
 
@@ -300,7 +300,7 @@ Vector2 get_local_peak(double jd_dep, Body *dep_body, Body *arr_body, CelestSyst
 	if(extr_idx == 0) {
 		peak.x = (dt0+dt1)/2/86400;
 		peak.y = 0;
-		printf("test\n");
+		// printf("test\n");
 	}
 
 	return peak;

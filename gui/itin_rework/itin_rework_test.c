@@ -385,7 +385,7 @@ int match_to_boundary(Quad *quad, void *params_p, QuadPointFunc *point_func, int
 
 	int num_splits = 0;
 	if(!is_quad_flag(quad, QUAD_FLAG_IS_LEAF) || is_croosed_by_bounds) {
-		if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF) && quad->rf_level < max_rf_level) num_splits += split_quad(quad, point_func);
+		if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF) && quad->rf_level < max_rf_level) num_splits += split_quad(quad, point_func, NULL);
 		for(int i = 0; i < 4; i++) {
 			if(quad->subquads[i]) {
 				num_splits += match_to_boundary(quad->subquads[i], params_p, point_func, max_rf_level);
@@ -562,20 +562,46 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	int num_split_cycles = 0;
 
+	QuadList *quad_list = create_quad_list();
+	QuadList *quad_split_list = create_quad_list();
+
+	get_quad_leaves(quad, quad_list);
+
 	for(int i = 0; i < pcgroup2; i++) {
 		num_split_cycles++;
-		update_quad_error_flag(quad, min_split+3, max_rf_level, &error_func);
-		int num_splits = split_quads_with_flag(quad, &point_func);
+		for(int j = 0; j < quad_list->num; j++) {
+			update_quad_error_flag(quad_list->quad[j], min_split+3, max_rf_level, &error_func);
+			if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
+				append_to_quad_list(quad_split_list, quad_list->quad[j]);
+		}
+
+		int num_splits = 0;
+		clear_quad_list(quad_list);
+		for(int j = 0; j < quad_split_list->num; j++) {
+			num_splits += split_quad(quad_split_list->quad[j], &point_func, quad_list);
+		}
+		clear_quad_list(quad_split_list);
+
 		printf("Number of Splits during cycle %d: %d\n", num_split_cycles, num_splits);
+
+		for(int j = 0; j < quad_list->num; j++) {
+			Quad *quad_ = quad_list->quad[j];
+			if(!bounds_func.func(quad_, bounds_func.params)) {
+				remove_from_quad_list_at_idx(quad_list, j);
+				free_quad(quad_, true);
+				j--;
+			}
+		}
 		if(num_splits == 0) break;
-		remove_out_of_bounds_quads(quad, &bounds_func);
 	}
 
-	printf("Num Split Cycles: %d\n", num_split_cycles);
+	free_quad_list(quad_list);
+	free_quad_list(quad_split_list);
 
-	// printf("To Split: %d\n", update_quad_error_flag(quad, 0, error_func));
-	printf("Num of Leaves: %d\n", get_num_quad_leaves(quad));
+	printf("Num Split Cycles: %d\n", num_split_cycles);
+	printf("Num of Leaves: %d\n", get_quad_leaves(quad, NULL));
 	end_time_measurement(&tm, "Divide & Conquer");
+	start_time_measurement(&tm);
 
 
 	DepartureGroup first_transfer;
@@ -700,10 +726,10 @@ G_MODULE_EXPORT void on_calc_ir() {
 	// attach_mesh_to_coordinate_system(ir_coord_sys0, mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, TRUE);
 	// attach_mesh_to_coordinate_system(ir_coord_sys0, mesh, CS_PLOT_TYPE_MESH_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, FALSE, MESH_VAL_VINF, TRUE);
 	// plot_data2(ir_coord_sys0, line, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
-	// plot_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	// plot_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	// plot_data2(ir_coord_sys0, depdv_lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	// plot_data2(ir_coord_sys0, depdv_upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	plot_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	plot_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	plot_data2(ir_coord_sys0, depdv_lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	plot_data2(ir_coord_sys0, depdv_upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// plot_data2(ir_coord_sys1, depdv_lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// plot_data2(ir_coord_sys1, depdv_upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// scatter_data2(ir_coord_sys0, error_array, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
@@ -1513,7 +1539,7 @@ G_MODULE_EXPORT void on_calc_ir3() {
 	printf("Num Split Cycles: %d\n", num_split_cycles);
 
 	// printf("To Split: %d\n", update_quad_error_flag(quad, 0, error_func));
-	printf("Num of Leaves: %d\n", get_num_quad_leaves(quad));
+	printf("Num of Leaves: %d\n", get_quad_leaves(quad, NULL));
 	end_time_measurement(&tm, "Divide & Conquer");
 	// start_time_measurement(&tm);
 
