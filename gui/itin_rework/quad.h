@@ -101,7 +101,7 @@ double get_quad_max_value(Quad *quad, int quad_val_idx);
 int get_quad_leaves(Quad *quad, QuadList *quad_list);
 void print_quadtree(Quad *quad);
 bool is_quad_crossed_by_line(Quad *quad, DataArray2 *line);
-void find_line_crossed_quads(Quad *quad, DataArray2 *line, Quad ***quad_array, size_t *quad_array_size, size_t *quad_array_cap);
+void find_line_crossed_quads(Quad *quad, DataArray2 *line, QuadList *quad_list);
 
 void remove_out_of_bounds_quads(Quad *quad, QuadBoundsFunc *bounds_func);
 int update_quad_error_flag(Quad *quad, int min_rf_level, int max_rf_level, QuadErrorFunc *errfunc);

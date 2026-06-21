@@ -272,22 +272,17 @@ bool is_quad_crossed_by_line(Quad *quad, DataArray2 *line) {
 	return false;
 }
 
-void find_line_crossed_quads(Quad *quad, DataArray2 *line, Quad ***quad_array, size_t *quad_array_size, size_t *quad_array_cap) {
+void find_line_crossed_quads(Quad *quad, DataArray2 *line, QuadList *quad_list) {
 	if(!quad) return;
 
 	if(!is_quad_crossed_by_line(quad, line)) return;
 
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
-		if(*quad_array_size+1 >= *quad_array_cap) {
-			*quad_array_cap *= 2;
-			void *temp = realloc(*quad_array, *quad_array_cap * sizeof(Quad*));
-			if(temp) *quad_array = temp;
-		}
-		(*quad_array)[(*quad_array_size)++] = quad;
+		append_to_quad_list(quad_list, quad);
 	} else {
 		for(int i = 0; i < 4; i++) {
 			if(quad->subquads[i]) {
-				find_line_crossed_quads(quad->subquads[i], line, quad_array, quad_array_size, quad_array_cap);
+				find_line_crossed_quads(quad->subquads[i], line, quad_list);
 			}
 		}
 	}

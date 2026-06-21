@@ -151,6 +151,8 @@ void draw_coordinate_system_axes(CoordinateSystem *coord_sys, int num_x_labels, 
 void draw_line_into_coordinate_system(cairo_t *cr, Vector2 point0, Vector2 point1, Vector2 origin) {
 	if(point0.x < origin.x && point1.x < origin.x) return;
 	if(point0.y > origin.y && point1.y > origin.y) return;
+	if(isnan(point0.x) || isnan(point0.y)) return;
+	if(isnan(point1.x) || isnan(point1.y)) return;
 
 	if(point0.x < origin.x || point1.x < origin.x ||
 		point0.y > origin.y || point1.y > origin.y) {

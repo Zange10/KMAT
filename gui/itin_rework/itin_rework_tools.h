@@ -84,7 +84,9 @@ void calc_group_porkchop_outline(SegmentGroup *group, int departure_cap, double 
 void calc_coarse_group_porkchop(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, int num_duration_steps, double dep_periapsis, double max_depdv, double dv_tolerance);
 void calc_group_porkchop_subgrid(SegmentGroup *group, MeshGrid2 *grid, size_t *grid_col_cap, int insert_col_idx, double jd_max_arr, double min_dt, double max_dt, double dep_periapsis, double max_depdv, double dv_tolerance);
 DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
-DataArray2 * calc_vinf_boundary(SegmentGroup *group, Quad *quad, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv);
+DataArray2 * get_vinf_array_for_departure(QuadList *quads_at_x, double jd_dep);
+DataArray2 * get_min_vinf_array_for_departure(QuadList *quads_at_x, double jd_dep, DataArray2 *min_vinf_array, double dv_tolerance, double min_dur, double max_dur);
+DataArray2 * calc_vinf_boundary(SegmentGroup *group, Quad *quad, DataArray2 *min_vinf_array, double dv_tolerance);
 
 void refine_porkchop_mesh(SegmentGroup *group, double dep_periapsis, double max_depdv, double dv_tolerance);
 void update_mesh_triangle_status(SegmentGroup *group, double dv_tolerance);

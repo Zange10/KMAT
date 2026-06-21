@@ -5,6 +5,7 @@
 #include "gui/drawing.h"
 #include "geometrylib.h"
 #include <math.h>
+#include <sys/time.h>
 
 double calc_next_x_wrt_smoothness(DataArray2 *arr, int index_0, double tolerance) {
 	Vector2 *data = &(data_array2_get_data(arr)[index_0]);
@@ -304,6 +305,39 @@ Vector2 get_local_peak(double jd_dep, Body *dep_body, Body *arr_body, CelestSyst
 	}
 
 	return peak;
+}
+
+DataArray2 * get_line_intersections(DataArray2 *line0, DataArray2 *line1) {
+	size_t size0 = data_array2_size(line0);
+	size_t size1 = data_array2_size(line1);
+	Vector2 *data0 = data_array2_get_data(line0);
+	Vector2 *data1 = data_array2_get_data(line1);
+
+	DataArray2 *inters_points = data_array2_create();
+
+	int init_j = 0;
+
+	for(int i = 0; i < size0-1; i++) {
+		for(int j = init_j; j < size1-1; j++) {
+			if(are_line_segments_intersecting2(data0[i], data0[i+1], data1[j], data1[j+1])) {
+				Vector2 u0 = data0[i];
+				Vector2 u1 = data0[i+1];
+				Vector2 v0 = data1[j];
+				Vector2 v1 = data1[j+1];
+
+				double m0 = (u1.y - u0.y)/(u1.x - u0.x);
+				double m1 = (v1.y - v0.y)/(v1.x - v0.x);
+
+				double n0 = u0.y - m0*u0.x;
+				double n1 = v0.y - m1*v0.x;
+				double x_inters = (n0-n1)/(m1-m0);
+				double y_inters = m0*x_inters + n0;
+				data_array2_append_new(inters_points, x_inters, y_inters);
+			}
+		}
+	}
+
+	return inters_points;
 }
 
 double get_closest_relative_plane_traversal(Body *body0, Body *body1, CelestSystem *system, double jd_date) {
@@ -1299,8 +1333,159 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 	return vinf_line;
 }
 
-DataArray2 * calc_vinf_boundary(SegmentGroup *group, Quad *quad, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv) {
+DataArray2 * get_vinf_array_for_departure(QuadList *quads_at_x, double jd_dep) {
+	DataArray2 *dep_vinf_array = data_array2_create();
+
+	for(int i = 0; i < quads_at_x->num; i++) {
+		Quad *quad_at_x = quads_at_x->quad[i];
+		double dur = quad_at_x->corner[QUAD_NW]->pos.y;
+		double vinf = get_quad_interpolated_value(quad_at_x, vec2(jd_dep, dur), MESH_VAL_VINF);
+		data_array2_insert_new(dep_vinf_array, dur, vinf);
+
+		double jd_min = quad_at_x->corner[QUAD_NW]->pos.x;
+		double jd_max = quad_at_x->corner[QUAD_NE]->pos.x;
+		Quad *neighbour = jd_dep < (jd_max-jd_min)/2+jd_min ? quad_at_x->neighbours[QUAD_SSW] : quad_at_x->neighbours[QUAD_SSE];
+
+		if(neighbour) continue;
+
+		dur = quad_at_x->corner[QUAD_SW]->pos.y;
+		vinf = get_quad_interpolated_value(quad_at_x, vec2(jd_dep, dur), MESH_VAL_VINF);
+		data_array2_insert_new(dep_vinf_array, dur, vinf);
+	}
+
+	for(int i = 0; i < data_array2_size(dep_vinf_array)-1; i++) {
+		if(data_array2_get_data(dep_vinf_array)[i].x == data_array2_get_data(dep_vinf_array)[i+1].x) {
+			data_array2_remove_at_idx(dep_vinf_array, i+1);
+		}
+	}
+
+	return dep_vinf_array;
+}
+
+DataArray2 * get_min_vinf_array_for_departure(QuadList *quads_at_x, double jd_dep, DataArray2 *min_vinf_array, double dv_tolerance, double min_dur, double max_dur) {
+	// struct timeval start, end;
+	// double elapsed_time;
+	// gettimeofday(&start, NULL);
+	int num_steps = 10;
+	DataArray2 *dep_min_vinf_array = data_array2_create();
+
+	// gettimeofday(&end, NULL);
+	// elapsed_time = (double)(end.tv_sec - start.tv_sec)*1000000 + (double)(end.tv_usec - start.tv_usec);
+	// printf("Find region: %10.3fµs\n", elapsed_time);
+	// gettimeofday(&start, NULL);
+
+	for(int j = 0; j < num_steps; j++) {
+		double dur = (max_dur-min_dur)/(num_steps-1)*j + min_dur;
+		double jd_tf = jd_dep + dur;
+		double min_vinf = interpolate_from_sorted_data_array(min_vinf_array, jd_tf);
+
+		data_array2_insert_new(dep_min_vinf_array, dur, min_vinf-dv_tolerance);
+	}
+
+
+	// gettimeofday(&end, NULL);
+	// elapsed_time = (double)(end.tv_sec - start.tv_sec)*1000000 + (double)(end.tv_usec - start.tv_usec);
+	// printf("Steps: %10.3fµs\n", elapsed_time);
+
+	return dep_min_vinf_array;
+}
+
+DataArray2 * calc_vinf_boundary_for_departure(Quad *quad, DataArray2 *min_vinf_array, double jd_dep, double dv_tolerance, double min_dur, double max_dur) {
+	// struct timeval start, end;
+	// double elapsed_time;
+	// gettimeofday(&start, NULL);
+
+	double min_dur_at_dep =  1e20;
+	double max_dur_at_dep = -1e20;
+
+	DataArray2 *x_line = data_array2_create();
+	data_array2_append_new(x_line, jd_dep, min_dur_at_dep);
+	data_array2_append_new(x_line, jd_dep, max_dur_at_dep);
+	QuadList *quad_list = create_quad_list();
+
+
+	// gettimeofday(&end, NULL);
+	// elapsed_time = (double)(end.tv_sec - start.tv_sec)*1000000 + (double)(end.tv_usec - start.tv_usec);
+	// printf("\n--\nInit: %10.9fµs\n", elapsed_time);
+	// gettimeofday(&start, NULL);
+
+
+	find_line_crossed_quads(quad, x_line, quad_list);
+
+	// gettimeofday(&end, NULL);
+	// elapsed_time = (double)(end.tv_sec - start.tv_sec)*1000000 + (double)(end.tv_usec - start.tv_usec);
+	// printf("Find Quads: %10.9fµs\n", elapsed_time);
+	// gettimeofday(&start, NULL);
+
+
+	for(int i = 0; i < quad_list->num; i++) {
+		Quad *quad_at_x = quad_list->quad[i];
+		double dur0 = quad_at_x->corner[QUAD_SW]->pos.y;
+		double dur1 = quad_at_x->corner[QUAD_NW]->pos.y;
+		if(dur0 < min_dur_at_dep) min_dur_at_dep = dur0;
+		if(dur1 > max_dur_at_dep) max_dur_at_dep = dur1;
+	}
+
+
+	// gettimeofday(&end, NULL);
+	// elapsed_time = (double)(end.tv_sec - start.tv_sec)*1000000 + (double)(end.tv_usec - start.tv_usec);
+	// printf("MinMax: %10.9fµs\n", elapsed_time);
+	// gettimeofday(&start, NULL);
+
+
+	DataArray2 *date_vinf_array = get_vinf_array_for_departure(quad_list, jd_dep);
+
+
+	// gettimeofday(&end, NULL);
+	// elapsed_time = (double)(end.tv_sec - start.tv_sec)*1000000 + (double)(end.tv_usec - start.tv_usec);
+	// printf("Vinf array: %10.9fµs\n", elapsed_time);
+	// gettimeofday(&start, NULL);
+
+
+	DataArray2 *date_min_vinf_array = get_min_vinf_array_for_departure(quad_list, jd_dep, min_vinf_array, dv_tolerance, min_dur_at_dep, max_dur_at_dep);
+
+
+	// gettimeofday(&end, NULL);
+	// elapsed_time = (double)(end.tv_sec - start.tv_sec)*1000000 + (double)(end.tv_usec - start.tv_usec);
+	// printf("Min Vinf array: %10.9fµs\n", elapsed_time);
+	// gettimeofday(&start, NULL);
+
+	DataArray2 *inters_points = get_line_intersections(date_vinf_array, date_min_vinf_array);
+
+	if(data_array2_get_data(date_vinf_array)[0].y > data_array2_get_data(date_min_vinf_array)[0].y) {
+		data_array2_insert_new(inters_points, min_dur-1, 0);
+	}
+
+	if(data_array2_size(inters_points)%2 != 0) {
+		data_array2_insert_new(inters_points, max_dur+1, 0);
+	}
+
+	// gettimeofday(&end, NULL);
+	// elapsed_time = (double)(end.tv_sec - start.tv_sec)*1000000 + (double)(end.tv_usec - start.tv_usec);
+	// printf("Append: %10.9fµs\n", elapsed_time);
+	// gettimeofday(&start, NULL);
+
+	free_quad_list(quad_list);
+	data_array2_free(date_vinf_array);
+	data_array2_free(date_min_vinf_array);
+
+	// gettimeofday(&end, NULL);
+	// elapsed_time = (double)(end.tv_sec - start.tv_sec)*1000000 + (double)(end.tv_usec - start.tv_usec);
+	// printf("Free: %10.9fµs\n", elapsed_time);
+
+	return inters_points;
+}
+
+DataArray2 * calc_vinf_boundary(SegmentGroup *group, Quad *quad, DataArray2 *min_vinf_array, double dv_tolerance) {
 	DataArray2 *boundary_array = data_array2_create();
+
+	Vector3 quad_min = get_quad_min_values(quad, -1);
+	Vector3 quad_max = get_quad_max_values(quad, -1);
+
+	double jd_min_dep = quad_min.x;
+	double jd_max_dep = quad_max.x;
+	double min_dur = quad_min.y;
+	double max_dur = quad_max.y;
 
 	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
 					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
@@ -1315,7 +1500,7 @@ DataArray2 * calc_vinf_boundary(SegmentGroup *group, Quad *quad, double jd_min_d
 	double period_dep = calc_orbital_period(dep_orbit);
 	double syn_period = 1.0/fabs(1.0/period_dep - 1.0/period_arr0)/86400;
 	// printf("%f  %f\n", syn_period, group->boundary_gradient);
-	double jd_dep_step = syn_period/100;
+	double jd_dep_step = syn_period/1000;
 	double dt0, dt1;
 
 
@@ -1362,141 +1547,137 @@ DataArray2 * calc_vinf_boundary(SegmentGroup *group, Quad *quad, double jd_min_d
 		for(int i = 0; i < data_array1_size(dep_points); i++) {
 			jd_dep = data_array1_get_data(dep_points)[i];
 
-
-			dt0 = interpolate_from_sorted_data_array(group->lower_boundary, jd_dep) * 86400;
-			dt1 = interpolate_from_sorted_data_array(group->upper_boundary, jd_dep) * 86400;
-
-			if(dt0 > max_dt || dt1 < min_dt) {
-				data_array2_insert_new(boundary_array, jd_dep, -1e20);
-				data_array2_insert_new(boundary_array, jd_dep, -1e20);
-				continue;
+			DataArray2 *inters_points = calc_vinf_boundary_for_departure(quad, min_vinf_array, jd_dep, dv_tolerance, min_dur, max_dur);
+			for(int j = 0; j < data_array2_size(inters_points); j++) {
+				data_array2_append_new(boundary_array, jd_dep, data_array2_get_data(inters_points)[j].x);
 			}
 
-			double left_x = 0, right_x = 0;
-			osv0 = group->system->prop_method == ORB_ELEMENTS ?
-								osv_from_elements(group->dep_body->orbit, jd_dep) :
-								osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
-			find_root(osv0, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, max_depdv, dep_periapsis, &left_x, &right_x, 1e-4);
-
-			// No departure possible within given constraints
-			if(left_x < 1 || right_x < 1 || right_x < min_dur*86400 || left_x > max_dur*86400) {
-				data_array2_insert_new(boundary_array, jd_dep, -1e20);
-				data_array2_insert_new(boundary_array, jd_dep, -1e20);
-				continue;
-			}
-
-			if(left_x < dt0) left_x = dt0;
-			if(left_x < min_dur*86400) left_x = min_dur*86400;
-			if(right_x > dt1) right_x = dt1;
-			if(right_x > max_dur*86400) right_x = max_dur*86400;
-
-			data_array2_insert_new(boundary_array, jd_dep, left_x/86400);
-			data_array2_insert_new(boundary_array, jd_dep, right_x/86400);
+			data_array2_free(inters_points);
 		}
 		data_array1_clear(dep_points);
-		DataArray1 *dep_temp = data_array1_create();
-
-		size_t num_deps = data_array2_size(boundary_array);
-		Vector2 *transf_arr = malloc(num_deps * sizeof(Vector2));
-		for(int i = 0; i < num_deps; i++) {
-			transf_arr[i].x = data_array2_get_data(boundary_array)[i].x;
-			transf_arr[i].y = data_array2_get_data(boundary_array)[i].y/group->boundary_gradient;
-		}
-		for(int i = 4; i < num_deps; i++) {
-			Vector2 v0 = transf_arr[i-4];
-			Vector2 v1 = transf_arr[i-2];
-			Vector2 v2 = transf_arr[i  ];
-
-			// if(v1.x == v0.x || v1.x == v2.x) {
-			// 	printf("%f   %f   %f\n", v0.x-jd_min_dep, v1.x-jd_min_dep, v2.x-jd_min_dep);
-			// }
-
-			double m0 = (v1.y - v0.y)/(v1.x - v0.x);
-			double m1 = (v2.y - v1.y)/(v2.x - v1.x);
-
-			double angle0 = atan(m0);
-			double angle1 = atan(m1);
-
-			double da = fabs(angle1 - angle0);
-
-			if(da > deg2rad(5.0)) {
-				// printf("%f°    %f°  (%f)  %f°   (%f)\n", rad2deg(fabs(angle0-angle1)), rad2deg(angle0), m0, rad2deg(angle1), m1);
-				if(fabs(v0.x-v1.x) > syn_period*0.0001) {
-					data_array1_append_new(dep_points, (v0.x+v1.x)/2);
-					data_array1_append_new(dep_temp, (v0.x+v1.x)/2 - jd_min_dep);
-				}
-				if(fabs(v1.x-v2.x) > syn_period*0.0001) {
-					data_array1_append_new(dep_points, (v1.x+v2.x)/2);
-					data_array1_append_new(dep_temp, (v1.x+v2.x)/2 - jd_min_dep);
-				}
-				i += 3 + (i%2==0);
-			}
-
-			if(isnan(da)) {
-				printf("da is nan\n");
-			}
-		}
-		// print_data_array1(dep_points, "dep");
-		// print_data_array1(dep_temp, "dep");
-		// printf("%lu\n", data_array2_size(boundary_array));
-		data_array1_free(dep_temp);
-		free(transf_arr);
+		// DataArray1 *dep_temp = data_array1_create();
+		//
+		// size_t num_deps = data_array2_size(boundary_array);
+		// Vector2 *transf_arr = malloc(num_deps * sizeof(Vector2));
+		// for(int i = 0; i < num_deps; i++) {
+		// 	transf_arr[i].x = data_array2_get_data(boundary_array)[i].x;
+		// 	transf_arr[i].y = data_array2_get_data(boundary_array)[i].y/group->boundary_gradient;
+		// }
+		// for(int i = 4; i < num_deps; i++) {
+		// 	Vector2 v0 = transf_arr[i-4];
+		// 	Vector2 v1 = transf_arr[i-2];
+		// 	Vector2 v2 = transf_arr[i  ];
+		//
+		// 	// if(v1.x == v0.x || v1.x == v2.x) {
+		// 	// 	printf("%f   %f   %f\n", v0.x-jd_min_dep, v1.x-jd_min_dep, v2.x-jd_min_dep);
+		// 	// }
+		//
+		// 	double m0 = (v1.y - v0.y)/(v1.x - v0.x);
+		// 	double m1 = (v2.y - v1.y)/(v2.x - v1.x);
+		//
+		// 	double angle0 = atan(m0);
+		// 	double angle1 = atan(m1);
+		//
+		// 	double da = fabs(angle1 - angle0);
+		//
+		// 	if(da > deg2rad(5.0)) {
+		// 		// printf("%f°    %f°  (%f)  %f°   (%f)\n", rad2deg(fabs(angle0-angle1)), rad2deg(angle0), m0, rad2deg(angle1), m1);
+		// 		if(fabs(v0.x-v1.x) > syn_period*0.0001) {
+		// 			data_array1_append_new(dep_points, (v0.x+v1.x)/2);
+		// 			data_array1_append_new(dep_temp, (v0.x+v1.x)/2 - jd_min_dep);
+		// 		}
+		// 		if(fabs(v1.x-v2.x) > syn_period*0.0001) {
+		// 			data_array1_append_new(dep_points, (v1.x+v2.x)/2);
+		// 			data_array1_append_new(dep_temp, (v1.x+v2.x)/2 - jd_min_dep);
+		// 		}
+		// 		i += 3 + (i%2==0);
+		// 	}
+		//
+		// 	if(isnan(da)) {
+		// 		printf("da is nan\n");
+		// 	}
+		// }
+		// // print_data_array1(dep_points, "dep");
+		// // print_data_array1(dep_temp, "dep");
+		// // printf("%lu\n", data_array2_size(boundary_array));
+		// data_array1_free(dep_temp);
+		// free(transf_arr);
 	}
 
-	for(int i = 0; i < data_array2_size(boundary_array); i++) {
-		if(data_array2_get_data(boundary_array)[i].y < -1e19) {
-			if(i == 0) {
-				if(data_array2_get_data(boundary_array)[1].y < -1e19) {
-					data_array2_remove_at_idx(boundary_array, 0);
-					i--; continue;
+	size_t total_num_pairs = data_array2_size(boundary_array)/2;
+	int group_params[128][3];
+	int group_idx = -1;
+	int idx = 0;
+	Vector2 *data = data_array2_get_data(boundary_array);
+
+	while(idx < data_array2_size(boundary_array)) {
+		int num_groups = 0;
+		double x = data[idx].x;
+		for(int i = idx; i < data_array2_size(boundary_array); i+=2) {
+			if(data[i].x == x) num_groups++;
+		}
+
+		if(group_idx < 0 || group_params[group_idx][0] != num_groups) {
+			group_idx++;
+			group_params[group_idx][0] = num_groups;
+			group_params[group_idx][1] = 1;
+			group_params[group_idx][2] = idx;
+		} else {
+			group_params[group_idx][1]++;
+		}
+
+		idx += num_groups*2;
+	}
+
+	DataArray2 *array = data_array2_create();
+
+	for(int i = 0; i <= group_idx; i++) {
+		int num_pairs = group_params[i][0];
+		int num_x = group_params[i][1];
+		int idx0 = group_params[i][2];
+		for(int j = 0; j < num_pairs*2; j++) {
+			idx = idx0 + j;
+			if(i > 0 && num_pairs < group_params[i-1][0]) {
+				int idx1 = group_params[i][2]-group_params[i-1][0]*2;
+				int idx1_min = idx1;
+				double min = fabs(data[idx1].y - data[idx].y);
+
+				for(int k = 0; k < group_params[i-1][0]*2; k++) {
+					if(fabs(data[idx1+k].y - data[idx].y) < min) {
+						min = fabs(data[idx1+k].y - data[idx].y);
+						idx1_min = idx1+k;
+					}
 				}
+
+				data_array2_append_new(array, data[idx1_min].x, data[idx1_min].y);
 			}
-			if(i == data_array2_size(boundary_array)-1) {
-				if(isnan(data_array2_get_data(boundary_array)[i-1].y)) {
-					data_array2_remove_at_idx(boundary_array, i);
-					break;
+
+			for(int k = 0; k < num_x; k++) {
+				idx = idx0 + k*num_pairs*2 + j;
+				data_array2_append_new(array, data[idx  ].x, data[idx  ].y);
+			}
+
+			if(i < group_idx && num_pairs < group_params[i+1][0]) {
+				int idx1 = group_params[i+1][2];
+				int idx1_min = idx1;
+				double min = fabs(data[idx1].y - data[idx].y);
+
+				for(int k = 0; k < group_params[i+1][0]*2; k++) {
+					if(fabs(data[idx1+k].y - data[idx].y) < min) {
+						min = fabs(data[idx1+k].y - data[idx].y);
+						idx1_min = idx1+k;
+					}
 				}
+
+				data_array2_append_new(array, data[idx1_min].x, data[idx1_min].y);
 			}
-			if(isnan(data_array2_get_data(boundary_array)[i-1].y) && data_array2_get_data(boundary_array)[i+1].y < -1e19) {
-				data_array2_remove_at_idx(boundary_array, i);
-				i--; continue;
-			}
-			data_array2_get_data(boundary_array)[i].y = NAN;
-			continue;
-		}
-
-		if(i == 0) continue;
-		if(i == data_array2_size(boundary_array)-1) continue;
-
-		if(isnan(data_array2_get_data(boundary_array)[i-1].y) && data_array2_get_data(boundary_array)[i+2].y < -1e19) {
-			data_array2_remove_at_idx(boundary_array, i);
-			data_array2_remove_at_idx(boundary_array, i);
-			i--; continue;
-		}
-
-		if(isnan(data_array2_get_data(boundary_array)[i-1].y)) {
-			double new_dep = (data_array2_get_data(boundary_array)[i-1].x+data_array2_get_data(boundary_array)[i  ].x)/2;
-			double new_dur = (data_array2_get_data(boundary_array)[i  ].y+data_array2_get_data(boundary_array)[i+1].y)/2;
-			data_array2_insert_new(boundary_array, new_dep, new_dur);
-			data_array2_insert_new(boundary_array, new_dep, new_dur);
-		}
-		if(data_array2_get_data(boundary_array)[i+1].y < -1e19) {
-			double new_dep = (data_array2_get_data(boundary_array)[i+1].x+data_array2_get_data(boundary_array)[i  ].x)/2;
-			double new_dur = (data_array2_get_data(boundary_array)[i  ].y+data_array2_get_data(boundary_array)[i-1].y)/2;
-			data_array2_insert_new(boundary_array, new_dep, new_dur);
-			data_array2_insert_new(boundary_array, new_dep, new_dur);
-			i+=2;
+			data_array2_append_new(array, NAN, NAN);
 		}
 	}
 
-	if(isnan(data_array2_get_data(boundary_array)[0].y)) {
-		data_array2_remove_at_idx(boundary_array, 0);
-	}
-	if(isnan(data_array2_get_data(boundary_array)[data_array2_size(boundary_array)-1].y)) {
-		data_array2_remove_at_idx(boundary_array, (int) data_array2_size(boundary_array)-1);
-	}
-	// printf("%lu\n", data_array2_size(boundary_array));
-	// print_data_array2(boundary_array, "depdate", "dur");
+	data_array2_free(boundary_array);
+	boundary_array = array;
+
 	return boundary_array;
 }
 
