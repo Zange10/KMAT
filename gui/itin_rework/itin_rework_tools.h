@@ -27,6 +27,12 @@ typedef enum PorkchopMeshValueType {
 	NUM_PORKCHOP_MESH_VALUE_TYPES	// number of porkchop mesh vals
 } PorkchopMeshValueType;
 
+typedef struct Boundary {
+	DataArray2 **upper_bdrs;
+	DataArray2 **lower_bdrs;
+	size_t num;
+	size_t cap;
+} Boundary;
 
 typedef struct DepartureGroup {
 	Body *dep_body;
@@ -44,11 +50,15 @@ typedef struct SegmentGroup {
 	// Vector2 boundary0_top;
 	// Vector2 boundary0_bottom;
 	double boundary_gradient;
-	DataArray2 *upper_boundary;
-	DataArray2 *lower_boundary;
+	// DataArray2 *upper_boundary;
+	// DataArray2 *lower_boundary;
+	Boundary group_bdr;
+	Boundary dv_bdr;
 	int num_next_groups;
 	int group_cap;
 	Mesh2 *mesh;
+	Quad *quad;
+	int min_rf_level, max_rf_level;
 	DataArray2 *vinf_array;
 	struct SegmentGroup *prev;
 	struct SegmentGroup **next;
@@ -69,6 +79,10 @@ typedef struct FlyByGroups {
 	int *num_groups_dep;
 } FlyByGroups;
 
+Boundary create_new_boundary();
+void append_to_boundary(Boundary *bdr, DataArray2 *upper, DataArray2 *lower);
+void free_boundary(Boundary *bdr);
+
 void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double max_depdv, double dep_periapsis, double *left_x, double *right_x, double tol);
 DataArray2 * find_root2(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double max_depdv, double dep_periapsis, double *left_x, double *right_x, double tol);
 DataArray2 * find_local_peak_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol, bool max_0_min_1);
@@ -76,6 +90,7 @@ Vector2 get_local_peak(double jd_dep, Body *dep_body, Body *arr_body, CelestSyst
 void get_prev_and_next_relative_plane_traversal(Body *body0, Body *body1, CelestSystem *system, double jd_date, double *prev_trav, double *next_trav);
 
 DataArray2 * calc_dv_boundary(SegmentGroup *group, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
+void set_dep_group_dv_boundary(SegmentGroup *group, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
 void calc_porkchop_dv_boundaries(SegmentGroup *group, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
 
 void calc_bounded_porkchop_line(struct ItinStep *departure_step, Body *arr_body, CelestSystem *system, DataArray1 *dur_array, double min_dt, double max_dt, double dep_periapsis, double max_depdv, double dv_tolerance);

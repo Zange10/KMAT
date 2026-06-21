@@ -313,43 +313,64 @@ typedef struct ErrorFuncParams {
 
 typedef struct BoundaryFuncParams {
 	SegmentGroup *group;
-	bool check_depdv;
-	double max_depdv, dep_periapsis;
-	DataArray2 *depdv_upper_boundary;
-	DataArray2 *depdv_lower_boundary;
 } BoundaryFuncParams;
+
+bool is_quad_inside_boundary(Quad *quad, Boundary bdr) {
+	for(int i = 0; i < bdr.num; i++) {
+		size_t num = data_array2_size(bdr.lower_bdrs[i]);
+		Vector2 *ld = data_array2_get_data(bdr.lower_bdrs[i]);
+
+		if(ld[num-1].x < quad->corner[QUAD_NW]->pos.x) continue;
+		if(ld[0].x > quad->corner[QUAD_NE]->pos.x) continue;
+
+		if(	quad->center->pos.y >= interpolate_from_sorted_data_array(bdr.lower_bdrs[i], quad->center->pos.x) &&
+			quad->center->pos.y <= interpolate_from_sorted_data_array(bdr.upper_bdrs[i], quad->center->pos.x))
+			return true;
+
+		for(int j = 0; j < 4; j++) {
+			if(	quad->corner[j]->pos.y >= interpolate_from_sorted_data_array(bdr.lower_bdrs[i], quad->corner[j]->pos.x) &&
+				quad->corner[j]->pos.y <= interpolate_from_sorted_data_array(bdr.upper_bdrs[i], quad->corner[j]->pos.x))
+				return true;
+		}
+
+		if(is_quad_crossed_by_line(quad, bdr.lower_bdrs[i]) || is_quad_crossed_by_line(quad, bdr.upper_bdrs[i]))
+			return true;
+	}
+	return false;
+}
 
 bool quad_test_is_in_bounds_function(Quad *quad, void *params_p) {
 	BoundaryFuncParams *params = params_p;
 	SegmentGroup *group = params->group;
-	bool is_croosed_by_bounds = is_quad_crossed_by_line(quad, group->upper_boundary) || is_quad_crossed_by_line(quad, group->lower_boundary);
-
-	if(quad->center->pos.y < interpolate_from_sorted_data_array(group->lower_boundary, quad->center->pos.x)) {
-		if(!is_croosed_by_bounds) return false;
-	}
-	if(quad->center->pos.y > interpolate_from_sorted_data_array(group->upper_boundary, quad->center->pos.x)) {
-		if(!is_croosed_by_bounds) return false;
-	}
-
-	if(is_croosed_by_bounds) {
-		set_quad_flag(quad, QUAD_FLAG_SPLIT);
-	}
-
-	if(!params->check_depdv) return true;
-
-	// inverse also catches NAN for interpolation if line x is too short
-	if( !(quad->center->pos.y >= interpolate_from_sorted_data_array(params->depdv_lower_boundary, quad->center->pos.x)) ||
-		!(quad->center->pos.y <= interpolate_from_sorted_data_array(params->depdv_upper_boundary, quad->center->pos.x))) {
-
-		for(int i = 0; i < 4; i++) {
-			if( (quad->corner[i]->pos.y >= interpolate_from_sorted_data_array(params->depdv_lower_boundary, quad->corner[i]->pos.x)) &&
-				(quad->corner[i]->pos.y <= interpolate_from_sorted_data_array(params->depdv_upper_boundary, quad->corner[i]->pos.x))) return true;
-		}
-
-		if(!is_quad_crossed_by_line(quad, params->depdv_lower_boundary) && !is_quad_crossed_by_line(quad, params->depdv_upper_boundary)) return false;
-	}
-
-	return true;
+	// bool is_croosed_by_bounds = is_quad_crossed_by_line(quad, group->group_bdr.upper_bdrs[0]) || is_quad_crossed_by_line(quad, group->group_bdr.lower_bdrs[0]);
+	//
+	// if(quad->center->pos.y < interpolate_from_sorted_data_array(group->group_bdr.lower_bdrs[0], quad->center->pos.x)) {
+	// 	if(!is_croosed_by_bounds) return false;
+	// }
+	// if(quad->center->pos.y > interpolate_from_sorted_data_array(group->group_bdr.upper_bdrs[0], quad->center->pos.x)) {
+	// 	if(!is_croosed_by_bounds) return false;
+	// }
+	//
+	// if(is_croosed_by_bounds) {
+	// 	set_quad_flag(quad, QUAD_FLAG_SPLIT);
+	// }
+	//
+	//
+	//
+	// // inverse also catches NAN for interpolation if line x is too short
+	// if( !(quad->center->pos.y >= interpolate_from_sorted_data_array(params->depdv_lower_boundary, quad->center->pos.x)) ||
+	// 	!(quad->center->pos.y <= interpolate_from_sorted_data_array(params->depdv_upper_boundary, quad->center->pos.x))) {
+	//
+	// 	for(int i = 0; i < 4; i++) {
+	// 		if( (quad->corner[i]->pos.y >= interpolate_from_sorted_data_array(params->depdv_lower_boundary, quad->corner[i]->pos.x)) &&
+	// 			(quad->corner[i]->pos.y <= interpolate_from_sorted_data_array(params->depdv_upper_boundary, quad->corner[i]->pos.x))) return true;
+	// 	}
+	//
+	// 	if(!is_quad_crossed_by_line(quad, params->depdv_lower_boundary) && !is_quad_crossed_by_line(quad, params->depdv_upper_boundary)) return false;
+	// }
+	//
+	// return true;
+	return is_quad_inside_boundary(quad, group->dv_bdr);
 }
 
 bool quad_test_error_function(Quad *quad, void *params_p) {
@@ -365,23 +386,26 @@ int match_to_boundary(Quad *quad, void *params_p, QuadPointFunc *point_func, int
 	BoundaryFuncParams *params = params_p;
 	SegmentGroup *group = params->group;
 
-	// inverse also catches NAN for interpolation if line x is too short
-	if( !(quad->center->pos.y >= interpolate_from_sorted_data_array(params->depdv_lower_boundary, quad->center->pos.x)) ||
-		!(quad->center->pos.y <= interpolate_from_sorted_data_array(params->depdv_upper_boundary, quad->center->pos.x))) {
-
-		bool points_inside_boundary = false;
-
-		for(int i = 0; i < 4; i++) {
-			if( (quad->corner[i]->pos.y >= interpolate_from_sorted_data_array(params->depdv_lower_boundary, quad->corner[i]->pos.x)) &&
-				(quad->corner[i]->pos.y <= interpolate_from_sorted_data_array(params->depdv_upper_boundary, quad->corner[i]->pos.x))) points_inside_boundary = true;
-		}
-
-		if(!points_inside_boundary && !is_quad_crossed_by_line(quad, params->depdv_lower_boundary) && !is_quad_crossed_by_line(quad, params->depdv_upper_boundary)) {
-			free_quad(quad, true); return 0;
-		}
+	if(!is_quad_inside_boundary(quad, group->dv_bdr)) {
+		free_quad(quad, true); return 0;
 	}
+	// inverse also catches NAN for interpolation if line x is too short
+	// if( !(quad->center->pos.y >= interpolate_from_sorted_data_array(params->depdv_lower_boundary, quad->center->pos.x)) ||
+	// 	!(quad->center->pos.y <= interpolate_from_sorted_data_array(params->depdv_upper_boundary, quad->center->pos.x))) {
+	//
+	// 	bool points_inside_boundary = false;
+	//
+	// 	for(int i = 0; i < 4; i++) {
+	// 		if( (quad->corner[i]->pos.y >= interpolate_from_sorted_data_array(params->depdv_lower_boundary, quad->corner[i]->pos.x)) &&
+	// 			(quad->corner[i]->pos.y <= interpolate_from_sorted_data_array(params->depdv_upper_boundary, quad->corner[i]->pos.x))) points_inside_boundary = true;
+	// 	}
+	//
+	// 	if(!points_inside_boundary && !is_quad_crossed_by_line(quad, params->depdv_lower_boundary) && !is_quad_crossed_by_line(quad, params->depdv_upper_boundary)) {
+	// 		free_quad(quad, true); return 0;
+	// 	}
+	// }
 
-	bool is_croosed_by_bounds = is_quad_crossed_by_line(quad, group->upper_boundary) || is_quad_crossed_by_line(quad, group->lower_boundary);
+	bool is_croosed_by_bounds = is_quad_crossed_by_line(quad, group->group_bdr.upper_bdrs[0]) || is_quad_crossed_by_line(quad, group->group_bdr.lower_bdrs[0]);
 
 	int num_splits = 0;
 	if(!is_quad_flag(quad, QUAD_FLAG_IS_LEAF) || is_croosed_by_bounds) {
@@ -395,8 +419,6 @@ int match_to_boundary(Quad *quad, void *params_p, QuadPointFunc *point_func, int
 
 	return num_splits;
 }
-
-int quad_counter = 0;
 
 G_MODULE_EXPORT void on_calc_ir() {
 	TimingMeasurements tm = init_timing_measurements();
@@ -444,342 +466,381 @@ G_MODULE_EXPORT void on_calc_ir() {
 		SegmentGroup *new_group = malloc(sizeof(SegmentGroup));
 		new_group->dep_body = dep_body;
 		new_group->arr_body = arr_body;
-		new_group->num_steps = 0;
+		// new_group->num_steps = 0;
 		new_group->system = ir_system;
 		new_group->num_next_groups = 0;
 		new_group->group_cap = 0;
 		new_group->next = NULL;
 		new_group->prev = NULL;
 		new_group->vinf_array = NULL;
+		new_group->group_bdr = create_new_boundary();
+		new_group->dv_bdr = create_new_boundary();
+		new_group->quad = NULL;
+		new_group->min_rf_level = 0;
+		new_group->max_rf_level = 0;
 		set_opposition_conjunction_group_boundary(new_group, i-10, min_dep, max_dep, min_dur, max_dur);
 
 		// calc_group_porkchop(new_group, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance);
-		if(data_array2_get_max(new_group->upper_boundary).y >= min_dur &&
-			data_array2_get_min(new_group->lower_boundary).y <= max_dur) {
+		if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= min_dur &&
+			data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= max_dur) {
 			if(departure.num_next_groups == departure.group_cap) {
 				departure.group_cap *= 2;
 				SegmentGroup **temp_groups = realloc(departure.segment_groups, departure.group_cap * sizeof(SegmentGroup *));
 				if(temp_groups) departure.segment_groups = temp_groups;
 			}
 			departure.segment_groups[departure.num_next_groups++] = new_group;
-		} else free(new_group);
+		} else {
+			free_boundary(&new_group->group_bdr);
+			free(new_group);
+		}
 	}
 	printf("Number of Departure Groups: %d\n\n", departure.num_next_groups);
 
 	end_time_measurement(&tm, "Porkchopping Departure Groups");
 	start_time_measurement(&tm);
 
-	DataArray2 *depdv_boundary = calc_dv_boundary(departure.segment_groups[pcgroup0], num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance/10);
-	DataArray2 *depdv_lower_boundary = data_array2_create();
-	DataArray2 *depdv_upper_boundary = data_array2_create();
-	size_t num_points = data_array2_size(depdv_boundary);
-	Vector2 *data = data_array2_get_data(depdv_boundary);
-
-	for(int i = 0; i < num_points; i+=2) {
-		data_array2_append_new(depdv_lower_boundary, data[i].x, data[i].y);
-		data_array2_append_new(depdv_upper_boundary, data[i+1].x, data[i+1].y);
+	for(int i = 0; i < departure.num_next_groups; i++) {
+		SegmentGroup *group = departure.segment_groups[i];
+		set_dep_group_dv_boundary(group, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, 1);
+		if(group->dv_bdr.num == 0) {
+			free_boundary(&group->group_bdr);
+			free_boundary(&group->group_bdr);
+			free(group);
+			memmove(&departure.segment_groups[i],
+				&departure.segment_groups[i+1],
+				(departure.num_next_groups - (i+1)) * sizeof(SegmentGroup*));
+			departure.num_next_groups--;
+			i--;
+		}
 	}
-
-	// print_data_array2(depdv_lower_boundary, "date", "dur");
-	// print_data_array2(depdv_upper_boundary, "date", "dur");
-
 
 	end_time_measurement(&tm, "DV Boundary");
-
 	start_time_measurement(&tm);
 
-	ErrorFuncParams err_func_params = {
-		.max_error = tolerance/2,
-		.val_idx = MESH_VAL_VINF
-	};
 
-	BoundaryFuncParams bound_func_params = {
-		.group = departure.segment_groups[pcgroup0],
-		.check_depdv = true,
-		.max_depdv = max_depdv,
-		.dep_periapsis = dep_periapsis,
-		.depdv_lower_boundary = depdv_lower_boundary,
-		.depdv_upper_boundary = depdv_upper_boundary
-	};
+	for(int i = 0; i < departure.num_next_groups; i++) {
+		SegmentGroup *group = departure.segment_groups[i];
+		double quad_min_dep = min_dep;
+		double quad_max_dep = max_dep;
+		double quad_min_dur = min_dur;
+		double quad_max_dur = max_dur;
+		double abs_grad = fabs(departure.segment_groups[pcgroup0]->boundary_gradient);
+		double ratio_dur = (quad_max_dep-quad_min_dep)*abs_grad / (quad_max_dur-quad_min_dur);
+		double ratio_dep = 1.0/ratio_dur;
 
-	double quad_min_dep = min_dep;
-	double quad_max_dep = max_dep;
-	double quad_min_dur = min_dur;
-	double quad_max_dur = max_dur;
-	double abs_grad = fabs(departure.segment_groups[pcgroup0]->boundary_gradient);
-	double ratio_dur = (quad_max_dep-quad_min_dep)*abs_grad / (quad_max_dur-quad_min_dur);
-	double ratio_dep = 1.0/ratio_dur;
-
-	int min_split = (int) log2(ratio_dur > ratio_dep ? ratio_dur : ratio_dep);
+		int min_split = (int) log2(ratio_dur > ratio_dep ? ratio_dur : ratio_dep);
+		group->min_rf_level = min_split+3;
 
 
-	// printf("%f  %f  %f\n", max_dep-min_dep, max_dur-min_dur, abs_grad);
-	// printf("%f   %f  %f   %d\n", (max_dep-min_dep)*abs_grad, ratio_dep, ratio_dur, min_split);
+		// printf("%f  %f  %f\n", max_dep-min_dep, max_dur-min_dur, abs_grad);
+		// printf("%f   %f  %f   %d\n", (max_dep-min_dep)*abs_grad, ratio_dep, ratio_dur, min_split);
 
-	if(quad_max_dur-quad_min_dur < (quad_max_dep-quad_min_dep)*abs_grad) {
-		quad_max_dur = (quad_max_dep-quad_min_dep)*abs_grad + quad_min_dur;
-	} else {
-		quad_max_dep = (quad_max_dur-quad_min_dur)/abs_grad + quad_min_dep;
+		if(quad_max_dur-quad_min_dur < (quad_max_dep-quad_min_dep)*abs_grad) {
+			quad_max_dur = (quad_max_dep-quad_min_dep)*abs_grad + quad_min_dur;
+		} else {
+			quad_max_dep = (quad_max_dur-quad_min_dur)/abs_grad + quad_min_dep;
+		}
+		int max_rf_level_dep = (int) (log2((quad_max_dep-quad_min_dep)/0.001)) + 1;
+		int max_rf_level_dur = (int) (log2((quad_max_dur-quad_min_dur)/0.001)) + 1;
+		int max_rf_level = max_rf_level_dep > max_rf_level_dur ? max_rf_level_dep : max_rf_level_dur;
+		group->max_rf_level = max_rf_level;
+
+
+		QuadPointFunc point_func = {test_, group};
+
+		MeshPoint2 *p00 = point_func.func(quad_min_dep, quad_max_dur, group);
+		MeshPoint2 *p01 = point_func.func(quad_max_dep, quad_max_dur, group);
+		MeshPoint2 *p10 = point_func.func(quad_min_dep, quad_min_dur, group);
+		MeshPoint2 *p11 = point_func.func(quad_max_dep, quad_min_dur, group);
+
+		group->quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, &point_func);
 	}
-	int max_rf_level_dep = (int) (log2((quad_max_dep-quad_min_dep)/0.001)) + 1;
-	int max_rf_level_dur = (int) (log2((quad_max_dur-quad_min_dur)/0.001)) + 1;
-	int max_rf_level = max_rf_level_dep > max_rf_level_dur ? max_rf_level_dep : max_rf_level_dur;
-
-	// printf("%d  %d\n", max_rf_level_dep, max_rf_level_dur);
-
-
-	QuadPointFunc point_func = {test_, departure.segment_groups[pcgroup0]};
-	QuadPointPopFunc point_pop_func = {test_populate, departure.segment_groups[pcgroup0]};
-	QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
-	QuadErrorFunc error_func = {quad_test_error_function, &err_func_params};
-
-	MeshPoint2 *p00 = point_func.func(quad_min_dep, quad_max_dur, departure.segment_groups[pcgroup0]);
-	MeshPoint2 *p01 = point_func.func(quad_max_dep, quad_max_dur, departure.segment_groups[pcgroup0]);
-	MeshPoint2 *p10 = point_func.func(quad_min_dep, quad_min_dur, departure.segment_groups[pcgroup0]);
-	MeshPoint2 *p11 = point_func.func(quad_max_dep, quad_min_dur, departure.segment_groups[pcgroup0]);
-
-	// MeshPoint2 *p00 = point_func.func(0, 100, NULL);
-	// MeshPoint2 *p01 = point_func.func(100, 100, NULL);
-	// MeshPoint2 *p10 = point_func.func(0, 0, NULL);
-	// MeshPoint2 *p11 = point_func.func(100, 0, NULL);
-	Quad *quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, &point_func);
-	quad_counter++;
-
 
 	end_time_measurement(&tm, "Quad generation");
 	start_time_measurement(&tm);
+	// if(false) {
+	//
+	// 	ErrorFuncParams err_func_params = {
+	// 		.max_error = tolerance/2,
+	// 		.val_idx = MESH_VAL_VINF
+	// 	};
+	// 	BoundaryFuncParams bound_func_params = {.group = group};
+	// 	QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
+	// 	QuadErrorFunc error_func = {quad_test_error_function, &err_func_params};
+	// }
 
-	match_to_boundary(quad, &bound_func_params, NULL, max_rf_level+5);
+	for(int idx = 0; idx < departure.num_next_groups; idx++) {
+		SegmentGroup *group = departure.segment_groups[idx];
+		BoundaryFuncParams bound_func_params = {.group = group};
+		match_to_boundary(group->quad, &bound_func_params, NULL, group->max_rf_level+5);
+	}
 
 	end_time_measurement(&tm, "Boundary matching");
 	start_time_measurement(&tm);
 
-	populate_quad_mesh_points(quad, &point_pop_func);
+	for(int idx = 0; idx < departure.num_next_groups; idx++) {
+		SegmentGroup *group = departure.segment_groups[idx];
+		QuadPointPopFunc point_pop_func = {test_populate, group};
+		populate_quad_mesh_points(group->quad, &point_pop_func);
+	}
 
 	end_time_measurement(&tm, "Populate Quads");
 
 	start_time_measurement(&tm);
 
-	int num_split_cycles = 0;
 
-	QuadList *quad_list = create_quad_list();
-	QuadList *quad_split_list = create_quad_list();
+	for(int idx = 0; idx < departure.num_next_groups; idx++) {
+		SegmentGroup *group = departure.segment_groups[idx];
 
-	get_quad_leaves(quad, quad_list);
+		ErrorFuncParams err_func_params = {
+			.max_error = tolerance/2,
+			.val_idx = MESH_VAL_VINF
+		};
+		BoundaryFuncParams bound_func_params = {.group = group};
+		QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
+		QuadErrorFunc error_func = {quad_test_error_function, &err_func_params};
+		QuadPointFunc point_func = {test_, group};
 
-	for(int i = 0; i < pcgroup2; i++) {
-		num_split_cycles++;
-		for(int j = 0; j < quad_list->num; j++) {
-			update_quad_error_flag(quad_list->quad[j], min_split+3, max_rf_level, &error_func);
-			if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
-				append_to_quad_list(quad_split_list, quad_list->quad[j]);
-		}
+		int num_split_cycles = 0;
 
-		int num_splits = 0;
-		clear_quad_list(quad_list);
-		for(int j = 0; j < quad_split_list->num; j++) {
-			num_splits += split_quad(quad_split_list->quad[j], &point_func, quad_list);
-		}
-		clear_quad_list(quad_split_list);
+		QuadList *quad_list = create_quad_list();
+		QuadList *quad_split_list = create_quad_list();
 
-		printf("Number of Splits during cycle %d: %d\n", num_split_cycles, num_splits);
+		get_quad_leaves(group->quad, quad_list);
 
-		for(int j = 0; j < quad_list->num; j++) {
-			Quad *quad_ = quad_list->quad[j];
-			if(!bounds_func.func(quad_, bounds_func.params)) {
-				remove_from_quad_list_at_idx(quad_list, j);
-				free_quad(quad_, true);
-				j--;
-			}
-		}
-		if(num_splits == 0) break;
-	}
-
-	free_quad_list(quad_list);
-	free_quad_list(quad_split_list);
-
-	printf("Num Split Cycles: %d\n", num_split_cycles);
-	printf("Num of Leaves: %d\n", get_quad_leaves(quad, NULL));
-	end_time_measurement(&tm, "Divide & Conquer");
-	start_time_measurement(&tm);
-
-
-	DepartureGroup first_transfer;
-	first_transfer.dep_body = arr_body;
-	first_transfer.num_next_groups = 0;
-	first_transfer.group_cap = 8;
-	first_transfer.segment_groups = malloc(first_transfer.group_cap * sizeof(SegmentGroup *));
-	Vector3 quad_min = get_quad_min_values(quad, MESH_VAL_DATE);
-	Vector3 quad_max = get_quad_max_values(quad, MESH_VAL_DATE);
-
-	min_dep = quad_min.z;
-	max_dep = quad_max.z;
-	min_dur = 90;
-	max_dur = 500;
-
-	// for loop to be exchanged with some sort of boundary check
-	for(int i = 0; i < 50; i++) {
-		SegmentGroup *new_group = malloc(sizeof(SegmentGroup));
-		new_group->dep_body = arr_body;
-		new_group->arr_body = body_tf;
-		new_group->num_steps = 0;
-		new_group->system = ir_system;
-		new_group->num_next_groups = 0;
-		new_group->group_cap = 0;
-		new_group->next = NULL;
-		new_group->prev = NULL;
-		new_group->vinf_array = NULL;
-		set_opposition_conjunction_group_boundary(new_group, i-10, min_dep, max_dep, min_dur, max_dur);
-
-		// calc_group_porkchop(new_group, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance);
-		if(data_array2_get_max(new_group->upper_boundary).y >= 90 &&
-			data_array2_get_min(new_group->lower_boundary).y <= 700) {
-			if(first_transfer.num_next_groups == first_transfer.group_cap) {
-				first_transfer.group_cap *= 2;
-				SegmentGroup **temp_groups = realloc(first_transfer.segment_groups, first_transfer.group_cap * sizeof(SegmentGroup *));
-				if(temp_groups) first_transfer.segment_groups = temp_groups;
-			}
-			first_transfer.segment_groups[first_transfer.num_next_groups++] = new_group;
-			} else free(new_group);
-	}
-	printf("Number of Departure Groups: %d\n\n", first_transfer.num_next_groups);
-
-	end_time_measurement(&tm, "Porkchopping Departure Groups");
-
-
-	start_time_measurement(&tm);
-
-	DataArray2 *vinf_array = calc_min_vinf_line(first_transfer.segment_groups[pcgroup1], min_dep, max_dep, min_dur, max_dur, dep_periapsis, max_depdv, 1);
-
-	end_time_measurement(&tm, "Vinf Line");
-	start_time_measurement(&tm);
-
-	quad_min = get_quad_min_values(quad, -1);
-	quad_max = get_quad_max_values(quad, -1);
-
-	double dur0 = quad_min.y;
-	double dur1 = quad_max.y;
-	Datetime date = {1959, 6, 7};
-	double jd_dep = convert_date_JD(date);
-
-	DataArray2 *x_line = data_array2_create();
-	data_array2_append_new(x_line, jd_dep, dur0);
-	data_array2_append_new(x_line, jd_dep, dur1);
-	QuadList *quads_at_x = create_quad_list();
-	find_line_crossed_quads(quad, x_line, quads_at_x);
-
-	end_time_measurement(&tm, "Get Quads at dep date");
-	start_time_measurement(&tm);
-
-	DataArray2 *array1 = get_vinf_array_for_departure(quads_at_x, jd_dep);
-	start_time_measurement(&tm);
-	end_time_measurement(&tm, "vinf array");
-	double min_dur_ =  1e20;
-	double max_dur_ = -1e20;
-
-
-	for(int i = 0; i < quads_at_x->num; i++) {
-		Quad *quad_at_x = quads_at_x->quad[i];
-		double dur0_ = quad_at_x->corner[QUAD_SW]->pos.y;
-		double dur1_ = quad_at_x->corner[QUAD_NW]->pos.y;
-		if(dur0_ < min_dur_) min_dur_ = dur0_;
-		if(dur1_ > max_dur_) max_dur_ = dur1_;
-	}
-	DataArray2 *array2 = get_min_vinf_array_for_departure(quads_at_x, jd_dep, vinf_array, tolerance, min_dur_, max_dur_);
-	end_time_measurement(&tm, "min vinf array");
-	free_quad_list(quads_at_x);
-
-	start_time_measurement(&tm);
-
-	// DataArray2 *array = calc_vinf_boundary(first_transfer.segment_groups[pcgroup1], quad, vinf_array, tolerance);
-	DataArray2 *array = calc_vinf_boundary(departure.segment_groups[pcgroup0], quad, vinf_array, 1);
-
-	// return;
-
-	end_time_measurement(&tm, "vinf_boundary");
-	start_time_measurement(&tm);
-
-	num_split_cycles = 0;
-
-	quad_list = create_quad_list();
-	quad_split_list = create_quad_list();
-	DataArray2 *vinf_boundary;
-
-	double dv_tol = 1;
-
-	vinf_boundary = calc_vinf_boundary(departure.segment_groups[pcgroup0], quad, vinf_array, dv_tol);
-
-	bool last_was_0 = false;
-
-	for(int i = 0; i < 30; i++) {
-		num_split_cycles++;
-		err_func_params.max_error = dv_tol/2;
-		TimingMeasurements tm2 = init_timing_measurements();
-
-
-		start_time_measurement(&tm2);
-		end_time_measurement(&tm2, "Boundary");
-		start_time_measurement(&tm2);
-
-		if(i == 0 || last_was_0) {
-			find_line_crossed_quads(quad, vinf_boundary, quad_list);
-		} else {
+		for(int i = 0; i < 100; i++) {
+			num_split_cycles++;
 			for(int j = 0; j < quad_list->num; j++) {
-				if(!is_quad_crossed_by_line(quad_list->quad[j], vinf_boundary)) {
+				update_quad_error_flag(quad_list->quad[j], group->min_rf_level, group->max_rf_level, &error_func);
+				if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
+					append_to_quad_list(quad_split_list, quad_list->quad[j]);
+			}
+
+			int num_splits = 0;
+			clear_quad_list(quad_list);
+			for(int j = 0; j < quad_split_list->num; j++) {
+				num_splits += split_quad(quad_split_list->quad[j], &point_func, quad_list);
+			}
+			clear_quad_list(quad_split_list);
+
+			printf("Number of Splits during cycle %d: %d\n", num_split_cycles, num_splits);
+
+			for(int j = 0; j < quad_list->num; j++) {
+				Quad *quad = quad_list->quad[j];
+				if(!bounds_func.func(quad, bounds_func.params)) {
 					remove_from_quad_list_at_idx(quad_list, j);
+					free_quad(quad, true);
 					j--;
 				}
 			}
-		}
-		end_time_measurement(&tm2, "Find crossed quads");
-		start_time_measurement(&tm2);
-
-		for(int j = 0; j < quad_list->num; j++) {
-			update_quad_error_flag(quad_list->quad[j], min_split+3, max_rf_level, &error_func);
-			if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
-				append_to_quad_list(quad_split_list, quad_list->quad[j]);
+			if(num_splits == 0) break;
 		}
 
-		end_time_measurement(&tm2, "Find quads with error");
-		start_time_measurement(&tm2);
-
-		int num_splits = 0;
-		clear_quad_list(quad_list);
-		for(int j = 0; j < quad_split_list->num; j++) {
-			num_splits += split_quad(quad_split_list->quad[j], &point_func, quad_list);
-		}
-		clear_quad_list(quad_split_list);
-
-		end_time_measurement(&tm2, "Split");
-		start_time_measurement(&tm2);
-
-		printf("Number of Splits during cycle %d: %d\n", num_split_cycles, num_splits);
-
-		for(int j = 0; j < quad_list->num; j++) {
-			Quad *quad_ = quad_list->quad[j];
-			if(!bounds_func.func(quad_, bounds_func.params)) {
-				remove_from_quad_list_at_idx(quad_list, j);
-				free_quad(quad_, true);
-				j--;
-			}
-		}
-
-		end_time_measurement(&tm2, "Out of bounds");
-		// print_timing_measurements(tm2);
-		free_timing_measurements(&tm2);
-
-		if(num_splits == 0) {
-			if(last_was_0) break;
-			last_was_0 = true;
-			free(vinf_boundary);
-			vinf_boundary = calc_vinf_boundary(departure.segment_groups[pcgroup0], quad, vinf_array, dv_tol);
-		} else last_was_0 = false;
+		free_quad_list(quad_list);
+		free_quad_list(quad_split_list);
+		printf("Num Split Cycles: %d\n", num_split_cycles);
+		printf("Num of Leaves: %d\n", get_quad_leaves(group->quad, NULL));
 	}
 
-	free_quad_list(quad_list);
-	free_quad_list(quad_split_list);
+	end_time_measurement(&tm, "Divide & Conquer");
 
-	end_time_measurement(&tm, "Line D&C");
+	for(int idx = 0; idx < departure.num_next_groups; idx++) {
+		SegmentGroup *group = departure.segment_groups[idx];
+		printf("idx: %d\n", idx);
+
+		attach_quad_to_coordinate_system(ir_coord_sys0, group->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, FALSE);
+		attach_quad_to_coordinate_system(ir_coord_sys1, group->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, FALSE, MESH_VAL_VINF, FALSE);
+		for(int j = 0; j < group->dv_bdr.num; j++) {
+			plot_data2(ir_coord_sys0, group->dv_bdr.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+			plot_data2(ir_coord_sys0, group->dv_bdr.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+		}
+	}
+
+	// start_time_measurement(&tm);
+	//
+	//
+	// DepartureGroup first_transfer;
+	// first_transfer.dep_body = arr_body;
+	// first_transfer.num_next_groups = 0;
+	// first_transfer.group_cap = 8;
+	// first_transfer.segment_groups = malloc(first_transfer.group_cap * sizeof(SegmentGroup *));
+	// Vector3 quad_min = get_quad_min_values(quad, MESH_VAL_DATE);
+	// Vector3 quad_max = get_quad_max_values(quad, MESH_VAL_DATE);
+	//
+	// min_dep = quad_min.z;
+	// max_dep = quad_max.z;
+	// min_dur = 90;
+	// max_dur = 500;
+	//
+	// // for loop to be exchanged with some sort of boundary check
+	// for(int i = 0; i < 50; i++) {
+	// 	SegmentGroup *new_group = malloc(sizeof(SegmentGroup));
+	// 	new_group->dep_body = arr_body;
+	// 	new_group->arr_body = body_tf;
+	// 	// new_group->num_steps = 0;
+	// 	new_group->system = ir_system;
+	// 	new_group->num_next_groups = 0;
+	// 	new_group->group_cap = 0;
+	// 	new_group->next = NULL;
+	// 	new_group->prev = NULL;
+	// 	new_group->vinf_array = NULL;
+	// 	new_group->group_bdr = create_new_boundary();
+	// 	new_group->dv_bdr = create_new_boundary();
+	// 	set_opposition_conjunction_group_boundary(new_group, i-10, min_dep, max_dep, min_dur, max_dur);
+	//
+	// 	// calc_group_porkchop(new_group, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance);
+	// 	if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= 90 &&
+	// 		data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= 700) {
+	// 		if(first_transfer.num_next_groups == first_transfer.group_cap) {
+	// 			first_transfer.group_cap *= 2;
+	// 			SegmentGroup **temp_groups = realloc(first_transfer.segment_groups, first_transfer.group_cap * sizeof(SegmentGroup *));
+	// 			if(temp_groups) first_transfer.segment_groups = temp_groups;
+	// 		}
+	// 		first_transfer.segment_groups[first_transfer.num_next_groups++] = new_group;
+	// 		} else {
+	// 			free_boundary(&new_group->group_bdr);
+	// 			free(new_group);
+	// 		}
+	// }
+	// printf("Number of Departure Groups: %d\n\n", first_transfer.num_next_groups);
+	//
+	// end_time_measurement(&tm, "Porkchopping Departure Groups");
+	//
+	//
+	// start_time_measurement(&tm);
+	//
+	// for(int i = 0; i < first_transfer.num_next_groups; i++) {
+	// 	first_transfer.segment_groups[i]->vinf_array = calc_min_vinf_line(first_transfer.segment_groups[i], min_dep, max_dep, min_dur, max_dur, dep_periapsis, max_depdv, 1);
+	// }
+	// end_time_measurement(&tm, "Vinf Line");
+	// start_time_measurement(&tm);
+	//
+	// quad_min = get_quad_min_values(quad, -1);
+	// quad_max = get_quad_max_values(quad, -1);
+	//
+	// double dur0 = quad_min.y;
+	// double dur1 = quad_max.y;
+	// Datetime date = {1959, 6, 7};
+	// double jd_dep = convert_date_JD(date);
+	//
+	// DataArray2 *x_line = data_array2_create();
+	// data_array2_append_new(x_line, jd_dep, dur0);
+	// data_array2_append_new(x_line, jd_dep, dur1);
+	// QuadList *quads_at_x = create_quad_list();
+	// find_line_crossed_quads(quad, x_line, quads_at_x);
+	//
+	// end_time_measurement(&tm, "Get Quads at dep date");
+	// start_time_measurement(&tm);
+	//
+	// DataArray2 *array1 = get_vinf_array_for_departure(quads_at_x, jd_dep);
+	// start_time_measurement(&tm);
+	// end_time_measurement(&tm, "vinf array");
+	// double min_dur_ =  1e20;
+	// double max_dur_ = -1e20;
+	//
+	//
+	// for(int i = 0; i < quads_at_x->num; i++) {
+	// 	Quad *quad_at_x = quads_at_x->quad[i];
+	// 	double dur0_ = quad_at_x->corner[QUAD_SW]->pos.y;
+	// 	double dur1_ = quad_at_x->corner[QUAD_NW]->pos.y;
+	// 	if(dur0_ < min_dur_) min_dur_ = dur0_;
+	// 	if(dur1_ > max_dur_) max_dur_ = dur1_;
+	// }
+	// DataArray2 *array2 = get_min_vinf_array_for_departure(quads_at_x, jd_dep, first_transfer.segment_groups[pcgroup1]->vinf_array, tolerance, min_dur_, max_dur_);
+	// end_time_measurement(&tm, "min vinf array");
+	// free_quad_list(quads_at_x);
+	//
+	// start_time_measurement(&tm);
+	//
+	// // DataArray2 *array = calc_vinf_boundary(first_transfer.segment_groups[pcgroup1], quad, vinf_array, tolerance);
+	// DataArray2 *array = calc_vinf_boundary(departure.segment_groups[pcgroup0], quad, first_transfer.segment_groups[pcgroup1]->vinf_array, 1);
+	//
+	// // return;
+	//
+	// end_time_measurement(&tm, "vinf_boundary");
+	// start_time_measurement(&tm);
+	//
+	// num_split_cycles = 0;
+	//
+	// quad_list = create_quad_list();
+	// quad_split_list = create_quad_list();
+	// DataArray2 *vinf_boundary;
+	//
+	// double dv_tol = 1;
+	//
+	// vinf_boundary = calc_vinf_boundary(departure.segment_groups[pcgroup0], quad, first_transfer.segment_groups[pcgroup1]->vinf_array, dv_tol);
+	//
+	// bool last_was_0 = false;
+	//
+	// for(int i = 0; i < 30; i++) {
+	// 	num_split_cycles++;
+	// 	err_func_params.max_error = dv_tol/2;
+	// 	TimingMeasurements tm2 = init_timing_measurements();
+	//
+	//
+	// 	start_time_measurement(&tm2);
+	// 	end_time_measurement(&tm2, "Boundary");
+	// 	start_time_measurement(&tm2);
+	//
+	// 	if(i == 0 || last_was_0) {
+	// 		find_line_crossed_quads(quad, vinf_boundary, quad_list);
+	// 	} else {
+	// 		for(int j = 0; j < quad_list->num; j++) {
+	// 			if(!is_quad_crossed_by_line(quad_list->quad[j], vinf_boundary)) {
+	// 				remove_from_quad_list_at_idx(quad_list, j);
+	// 				j--;
+	// 			}
+	// 		}
+	// 	}
+	// 	end_time_measurement(&tm2, "Find crossed quads");
+	// 	start_time_measurement(&tm2);
+	//
+	// 	for(int j = 0; j < quad_list->num; j++) {
+	// 		update_quad_error_flag(quad_list->quad[j], min_split+3, max_rf_level, &error_func);
+	// 		if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
+	// 			append_to_quad_list(quad_split_list, quad_list->quad[j]);
+	// 	}
+	//
+	// 	end_time_measurement(&tm2, "Find quads with error");
+	// 	start_time_measurement(&tm2);
+	//
+	// 	int num_splits = 0;
+	// 	clear_quad_list(quad_list);
+	// 	for(int j = 0; j < quad_split_list->num; j++) {
+	// 		num_splits += split_quad(quad_split_list->quad[j], &point_func, quad_list);
+	// 	}
+	// 	clear_quad_list(quad_split_list);
+	//
+	// 	end_time_measurement(&tm2, "Split");
+	// 	start_time_measurement(&tm2);
+	//
+	// 	printf("Number of Splits during cycle %d: %d\n", num_split_cycles, num_splits);
+	//
+	// 	for(int j = 0; j < quad_list->num; j++) {
+	// 		Quad *quad_ = quad_list->quad[j];
+	// 		if(!bounds_func.func(quad_, bounds_func.params)) {
+	// 			remove_from_quad_list_at_idx(quad_list, j);
+	// 			free_quad(quad_, true);
+	// 			j--;
+	// 		}
+	// 	}
+	//
+	// 	end_time_measurement(&tm2, "Out of bounds");
+	// 	// print_timing_measurements(tm2);
+	// 	free_timing_measurements(&tm2);
+	//
+	// 	if(num_splits == 0) {
+	// 		if(last_was_0) break;
+	// 		last_was_0 = true;
+	// 		free(vinf_boundary);
+	// 		vinf_boundary = calc_vinf_boundary(departure.segment_groups[pcgroup0], quad, first_transfer.segment_groups[pcgroup1]->vinf_array, dv_tol);
+	// 	} else last_was_0 = false;
+	// }
+	//
+	// free_quad_list(quad_list);
+	// free_quad_list(quad_split_list);
+	//
+	// end_time_measurement(&tm, "Line D&C");
 	// start_time_measurement(&tm);
 	//
 	// Mesh2 *mesh = create_mesh_from_quads(quad);
@@ -787,7 +848,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	// end_time_measurement(&tm, "Creating Mesh");
 
 	// attach_quad_to_coordinate_system(ir_coord_sys0, quad, CS_PLOT_TYPE_QUAD_DEBUG, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, TRUE);
-	attach_quad_to_coordinate_system(ir_coord_sys0, quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, TRUE);
+	// attach_quad_to_coordinate_system(ir_coord_sys0, quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, TRUE);
 	// attach_quad_to_coordinate_system(ir_coord_sys0, quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, TRUE);
 	// attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, TRUE);
 	// attach_mesh_to_coordinate_system(ir_coord_sys0, mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, TRUE);
@@ -795,10 +856,6 @@ G_MODULE_EXPORT void on_calc_ir() {
 	// plot_data2(ir_coord_sys0, line, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
 	// plot_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// plot_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	plot_data2(ir_coord_sys0, depdv_lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	plot_data2(ir_coord_sys0, depdv_upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	plot_data2(ir_coord_sys1, depdv_lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	plot_data2(ir_coord_sys1, depdv_upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// plot_data2(ir_coord_sys1, depdv_lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// plot_data2(ir_coord_sys1, depdv_upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// scatter_data2(ir_coord_sys0, error_array, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
@@ -807,8 +864,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	// plot_scatter_data2(ir_coord_sys1, array, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// plot_data2(ir_coord_sys0, array, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	plot_data2(ir_coord_sys0, vinf_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	plot_data2(ir_coord_sys1, vinf_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// plot_data2(ir_coord_sys0, vinf_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// plot_data2(ir_coord_sys1, vinf_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// plot_scatter_data2(ir_coord_sys1, array1, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// plot_scatter_data2(ir_coord_sys1, array2, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
 	// plot_scatter_data2(ir_coord_sys0, first_transfer.segment_groups[pcgroup1]->upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
@@ -1492,8 +1549,8 @@ G_MODULE_EXPORT void on_calc_ir3() {
 		set_opposition_conjunction_group_boundary(new_group, i-10, min_dep, max_dep, min_dur, max_dur);
 
 		// calc_group_porkchop(new_group, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance);
-		if(data_array2_get_max(new_group->upper_boundary).y >= min_dur &&
-			data_array2_get_min(new_group->lower_boundary).y <= max_dur) {
+		if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= min_dur &&
+			data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= max_dur) {
 			if(departure.num_next_groups == departure.group_cap) {
 				departure.group_cap *= 2;
 				SegmentGroup **temp_groups = realloc(departure.segment_groups, departure.group_cap * sizeof(SegmentGroup *));
@@ -1532,12 +1589,7 @@ G_MODULE_EXPORT void on_calc_ir3() {
 	};
 
 	BoundaryFuncParams bound_func_params = {
-		.group = departure.segment_groups[pcgroup0],
-		.check_depdv = true,
-		.max_depdv = max_depdv,
-		.dep_periapsis = dep_periapsis,
-		.depdv_lower_boundary = depdv_lower_boundary,
-		.depdv_upper_boundary = depdv_upper_boundary
+		.group = departure.segment_groups[pcgroup0]
 	};
 
 	double quad_min_dep = min_dep;
@@ -1581,7 +1633,6 @@ G_MODULE_EXPORT void on_calc_ir3() {
 	// MeshPoint2 *p10 = point_func.func(0, 0, NULL);
 	// MeshPoint2 *p11 = point_func.func(100, 0, NULL);
 	Quad *quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, &point_func);
-	quad_counter++;
 
 
 	end_time_measurement(&tm, "Quad generation");
@@ -1734,8 +1785,8 @@ G_MODULE_EXPORT void on_calc_ir3() {
 	// attach_mesh_to_coordinate_system(ir_coord_sys1, mesh, CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, TRUE);
 	attach_mesh_to_coordinate_system(ir_coord_sys0, mesh, CS_PLOT_TYPE_MESH_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, FALSE, MESH_VAL_VINF, TRUE);
 	// plot_data2(ir_coord_sys0, line, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
-	plot_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	plot_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	plot_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->group_bdr.upper_bdrs[0], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	plot_data2(ir_coord_sys0, departure.segment_groups[pcgroup0]->group_bdr.lower_bdrs[0], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	plot_data2(ir_coord_sys0, depdv_lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	plot_data2(ir_coord_sys0, depdv_upper_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	plot_data2(ir_coord_sys1, depdv_lower_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
