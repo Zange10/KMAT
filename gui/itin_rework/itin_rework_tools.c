@@ -1737,7 +1737,7 @@ DataArray2 * calc_vinf_boundary_for_departure(Quad *quad, DataArray2 *min_vinf_a
 	return inters_points;
 }
 
-DataArray2 * calc_vinf_boundary(SegmentGroup *group, Quad *quad, DataArray2 *min_vinf_array, double dv_tolerance) {
+void calc_vinf_boundary(SegmentGroup *dep_group, SegmentGroup *group, Quad *quad, DataArray2 *min_vinf_array, double dv_tolerance) {
 	DataArray2 *boundary_array = data_array2_create();
 
 	Vector3 quad_min = get_quad_min_values(quad, -1);
@@ -1748,20 +1748,20 @@ DataArray2 * calc_vinf_boundary(SegmentGroup *group, Quad *quad, DataArray2 *min
 	double min_dur = quad_min.y;
 	double max_dur = quad_max.y;
 
-	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
-					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
-					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_min_dep, group->system->cb);
+	OSV osv0 = dep_group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(dep_group->dep_body->orbit, jd_min_dep) :
+					osv_from_ephem(dep_group->dep_body->ephem, dep_group->dep_body->num_ephems, jd_min_dep, dep_group->system->cb);
 
-	OSV osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
-				   osv_from_elements(group->arr_body->orbit, jd_min_dep) :
-				   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_min_dep, group->system->cb);
-	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
+	OSV osv_arr0 = dep_group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(dep_group->arr_body->orbit, jd_min_dep) :
+				   osv_from_ephem(dep_group->arr_body->ephem, dep_group->arr_body->num_ephems, jd_min_dep, dep_group->system->cb);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, dep_group->system->cb);
 	double period_arr0 = calc_orbital_period(arr0);
-	Orbit dep_orbit = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb);
+	Orbit dep_orbit = constr_orbit_from_osv(osv0.r, osv0.v, dep_group->system->cb);
 	double period_dep = calc_orbital_period(dep_orbit);
 	double syn_period = 1.0/fabs(1.0/period_dep - 1.0/period_arr0)/86400;
 	// printf("%f  %f\n", syn_period, group->boundary_gradient);
-	double jd_dep_step = syn_period/1000;
+	double jd_dep_step = syn_period/5000;
 	double dt0, dt1;
 
 
@@ -1790,7 +1790,7 @@ DataArray2 * calc_vinf_boundary(SegmentGroup *group, Quad *quad, DataArray2 *min
 	double trav_search_date = jd_min_dep, prev_trav, next_trav;
 	double offset_base = syn_period*0.0001;
 	do {
-		get_prev_and_next_relative_plane_traversal(group->dep_body, group->arr_body, group->system, trav_search_date, &prev_trav, &next_trav);
+		get_prev_and_next_relative_plane_traversal(dep_group->dep_body, dep_group->arr_body, dep_group->system, trav_search_date, &prev_trav, &next_trav);
 		data_array1_append_new(traversals, prev_trav);
 		data_array1_append_new(traversals, next_trav);
 		for(int i = -10; i <= 10; i++) {
@@ -1865,7 +1865,6 @@ DataArray2 * calc_vinf_boundary(SegmentGroup *group, Quad *quad, DataArray2 *min
 		// free(transf_arr);
 	}
 
-	size_t total_num_pairs = data_array2_size(boundary_array)/2;
 	int group_params[128][3];
 	int group_idx = -1;
 	int idx = 0;
@@ -1890,56 +1889,120 @@ DataArray2 * calc_vinf_boundary(SegmentGroup *group, Quad *quad, DataArray2 *min
 		idx += num_groups*2;
 	}
 
-	DataArray2 *array = data_array2_create();
-
 	for(int i = 0; i <= group_idx; i++) {
 		int num_pairs = group_params[i][0];
 		int num_x = group_params[i][1];
 		int idx0 = group_params[i][2];
-		for(int j = 0; j < num_pairs*2; j++) {
-			idx = idx0 + j;
+		for(int j = 0; j < num_pairs; j++) {
+			DataArray2 *lower = data_array2_create();
+			DataArray2 *upper = data_array2_create();
+
 			if(i > 0 && num_pairs < group_params[i-1][0]) {
 				int idx1 = group_params[i][2]-group_params[i-1][0]*2;
-				int idx1_min = idx1;
-				double min = fabs(data[idx1].y - data[idx].y);
+				int idx_l = idx0 + 2*j;
+				int idx_u = idx_l + 1;
+				int idx1_min_l = idx1;
+				int idx1_min_u = idx1;
+				double min_l = fabs(data[idx1].y - data[idx_l].y);
+				double min_u = fabs(data[idx1].y - data[idx_u].y);
 
 				for(int k = 0; k < group_params[i-1][0]*2; k++) {
-					if(fabs(data[idx1+k].y - data[idx].y) < min) {
-						min = fabs(data[idx1+k].y - data[idx].y);
-						idx1_min = idx1+k;
+					if(fabs(data[idx1+k].y - data[idx_l].y) < min_l) {
+						min_l = fabs(data[idx1+k].y - data[idx_l].y);
+						idx1_min_l = idx1+k;
+					}
+					if(fabs(data[idx1+k].y - data[idx_u].y) < min_u) {
+						min_u = fabs(data[idx1+k].y - data[idx_u].y);
+						idx1_min_u = idx1+k;
 					}
 				}
 
-				data_array2_append_new(array, data[idx1_min].x, data[idx1_min].y);
+				data_array2_append_new(lower, data[idx1_min_l].x, data[idx1_min_l].y);
+				data_array2_append_new(upper, data[idx1_min_u].x, data[idx1_min_u].y);
 			}
 
 			for(int k = 0; k < num_x; k++) {
-				idx = idx0 + k*num_pairs*2 + j;
-				data_array2_append_new(array, data[idx  ].x, data[idx  ].y);
+				idx = idx0 + k*num_pairs*2 + j*2;
+				data_array2_append_new(lower, data[idx  ].x, data[idx  ].y);
+				data_array2_append_new(upper, data[idx+1].x, data[idx+1].y);
 			}
 
 			if(i < group_idx && num_pairs < group_params[i+1][0]) {
 				int idx1 = group_params[i+1][2];
-				int idx1_min = idx1;
-				double min = fabs(data[idx1].y - data[idx].y);
+				int idx_l = idx;
+				int idx_u = idx_l + 1;
+				int idx1_min_l = idx1;
+				int idx1_min_u = idx1;
+				double min_l = fabs(data[idx1].y - data[idx_l].y);
+				double min_u = fabs(data[idx1].y - data[idx_u].y);
 
 				for(int k = 0; k < group_params[i+1][0]*2; k++) {
-					if(fabs(data[idx1+k].y - data[idx].y) < min) {
-						min = fabs(data[idx1+k].y - data[idx].y);
-						idx1_min = idx1+k;
+					if(fabs(data[idx1+k].y - data[idx_l].y) < min_l) {
+						min_l = fabs(data[idx1+k].y - data[idx_l].y);
+						idx1_min_l = idx1+k;
+					}
+					if(fabs(data[idx1+k].y - data[idx_u].y) < min_u) {
+						min_u = fabs(data[idx1+k].y - data[idx_u].y);
+						idx1_min_u = idx1+k;
 					}
 				}
 
-				data_array2_append_new(array, data[idx1_min].x, data[idx1_min].y);
+				data_array2_append_new(lower, data[idx1_min_l].x, data[idx1_min_l].y);
+				data_array2_append_new(upper, data[idx1_min_u].x, data[idx1_min_u].y);
 			}
-			data_array2_append_new(array, NAN, NAN);
+			append_to_boundary(&group->vinf_bdr, upper, lower);
 		}
 	}
 
-	data_array2_free(boundary_array);
-	boundary_array = array;
 
-	return boundary_array;
+
+	// DataArray2 *array = data_array2_create();
+	//
+	// for(int i = 0; i <= group_idx; i++) {
+	// 	int num_pairs = group_params[i][0];
+	// 	int num_x = group_params[i][1];
+	// 	int idx0 = group_params[i][2];
+	// 	for(int j = 0; j < num_pairs*2; j++) {
+	// 		idx = idx0 + j;
+	// 		if(i > 0 && num_pairs < group_params[i-1][0]) {
+	// 			int idx1 = group_params[i][2]-group_params[i-1][0]*2;
+	// 			int idx1_min = idx1;
+	// 			double min = fabs(data[idx1].y - data[idx].y);
+	//
+	// 			for(int k = 0; k < group_params[i-1][0]*2; k++) {
+	// 				if(fabs(data[idx1+k].y - data[idx].y) < min) {
+	// 					min = fabs(data[idx1+k].y - data[idx].y);
+	// 					idx1_min = idx1+k;
+	// 				}
+	// 			}
+	//
+	// 			data_array2_append_new(array, data[idx1_min].x, data[idx1_min].y);
+	// 		}
+	//
+	// 		for(int k = 0; k < num_x; k++) {
+	// 			idx = idx0 + k*num_pairs*2 + j;
+	// 			data_array2_append_new(array, data[idx  ].x, data[idx  ].y);
+	// 		}
+	//
+	// 		if(i < group_idx && num_pairs < group_params[i+1][0]) {
+	// 			int idx1 = group_params[i+1][2];
+	// 			int idx1_min = idx1;
+	// 			double min = fabs(data[idx1].y - data[idx].y);
+	//
+	// 			for(int k = 0; k < group_params[i+1][0]*2; k++) {
+	// 				if(fabs(data[idx1+k].y - data[idx].y) < min) {
+	// 					min = fabs(data[idx1+k].y - data[idx].y);
+	// 					idx1_min = idx1+k;
+	// 				}
+	// 			}
+	//
+	// 			data_array2_append_new(array, data[idx1_min].x, data[idx1_min].y);
+	// 		}
+	// 		data_array2_append_new(array, NAN, NAN);
+	// 	}
+	// }
+
+	data_array2_free(boundary_array);
 }
 
 void calc_porkchop_dv_boundaries(SegmentGroup *group, int departure_cap, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
