@@ -315,59 +315,6 @@ typedef struct BoundaryFuncParams {
 	SegmentGroup *group;
 } BoundaryFuncParams;
 
-bool is_point_inside_boundary(Vector2 p, Boundary bdr) {
-	for(int i = 0; i < bdr.num; i++) {
-		size_t num = data_array2_size(bdr.lower_bdrs[i]);
-		Vector2 *ld = data_array2_get_data(bdr.lower_bdrs[i]);
-
-		if(ld[num-1].x < p.x) continue;
-		if(ld[0].x > p.x) continue;
-
-		if(	p.y >= interpolate_from_sorted_data_array(bdr.lower_bdrs[i], p.x) &&
-			p.y <= interpolate_from_sorted_data_array(bdr.upper_bdrs[i], p.x))
-			return true;
-	}
-	return false;
-}
-
-bool is_quad_inside_boundary(Quad *quad, Boundary bdr) {
-	for(int i = 0; i < bdr.num; i++) {
-		size_t num = data_array2_size(bdr.lower_bdrs[i]);
-		Vector2 *ld = data_array2_get_data(bdr.lower_bdrs[i]);
-
-		if(ld[num-1].x < quad->corner[QUAD_NW]->pos.x) continue;
-		if(ld[0].x > quad->corner[QUAD_NE]->pos.x) continue;
-
-		if(	quad->center->pos.y >= interpolate_from_sorted_data_array(bdr.lower_bdrs[i], quad->center->pos.x) &&
-			quad->center->pos.y <= interpolate_from_sorted_data_array(bdr.upper_bdrs[i], quad->center->pos.x))
-			return true;
-
-		for(int j = 0; j < 4; j++) {
-			if(	quad->corner[j]->pos.y >= interpolate_from_sorted_data_array(bdr.lower_bdrs[i], quad->corner[j]->pos.x) &&
-				quad->corner[j]->pos.y <= interpolate_from_sorted_data_array(bdr.upper_bdrs[i], quad->corner[j]->pos.x))
-				return true;
-		}
-
-		if(is_quad_crossed_by_line(quad, bdr.lower_bdrs[i]) || is_quad_crossed_by_line(quad, bdr.upper_bdrs[i]))
-			return true;
-	}
-	return false;
-}
-
-bool is_quad_crossed_by_boundary(Quad *quad, Boundary bdr) {
-	for(int i = 0; i < bdr.num; i++) {
-		size_t num = data_array2_size(bdr.lower_bdrs[i]);
-		Vector2 *ld = data_array2_get_data(bdr.lower_bdrs[i]);
-
-		if(ld[num-1].x < quad->corner[QUAD_NW]->pos.x) continue;
-		if(ld[0].x > quad->corner[QUAD_NE]->pos.x) continue;
-
-		if(is_quad_crossed_by_line(quad, bdr.lower_bdrs[i]) || is_quad_crossed_by_line(quad, bdr.upper_bdrs[i]))
-			return true;
-	}
-	return false;
-}
-
 Boundary combine_boundaries(Boundary bdr0, Boundary bdr1) {
 	Boundary low_bdrs = create_new_boundary();
 	Boundary up_bdrs = create_new_boundary();
@@ -591,7 +538,7 @@ Boundary combine_boundaries(Boundary bdr0, Boundary bdr1) {
 					}
 				}
 				if(!has_value_already) {
-					printf("%f\n", interpolate_from_sorted_data_array(low_bdrs.lower_bdrs[j], x));
+					// printf("%f\n", interpolate_from_sorted_data_array(low_bdrs.lower_bdrs[j], x));
 					data_array2_insert_new(low_bdrs.lower_bdrs[j], x, interpolate_from_sorted_data_array(low_bdrs.lower_bdrs[j], x));
 					d = data_array2_get_data(low_bdrs.lower_bdrs[j]);
 					num_d++;
@@ -618,7 +565,7 @@ Boundary combine_boundaries(Boundary bdr0, Boundary bdr1) {
 		}
 
 		last_x = x;
-		print_date(convert_JD_date(x, DATE_ISO), 1);
+		// print_date(convert_JD_date(x, DATE_ISO), 1);
 	}
 
 
@@ -1153,7 +1100,25 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	SegmentGroup *group = departure.segment_groups[pcgroup0];
 
-	// DataArray2 *array = calc_vinf_boundary(first_transfer.segment_groups[pcgroup1], quad, vinf_array, tolerance);
+	// calc_vinf_boundary(group, group->next[pcgroup1], group->quad, group->next[pcgroup1]->vinf_array, 1);
+	//
+	// end_time_measurement(&tm, "vinf_boundary");
+	//
+	// for(int j = 0; j < group->dv_bdr.num; j++) {
+	// 	plot_data2(ir_coord_sys0, group->dv_bdr.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// 	plot_data2(ir_coord_sys0, group->dv_bdr.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// 	plot_data2(ir_coord_sys1, group->dv_bdr.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// 	plot_data2(ir_coord_sys1, group->dv_bdr.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// }
+	//
+	// for(int j = 0; j < group->next[pcgroup1]->vinf_bdr.num; j++) {
+	// 	plot_data2(ir_coord_sys0, group->next[pcgroup1]->vinf_bdr.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// 	plot_data2(ir_coord_sys0, group->next[pcgroup1]->vinf_bdr.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// 	scatter_data2(ir_coord_sys1, group->next[pcgroup1]->vinf_bdr.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// 	scatter_data2(ir_coord_sys1, group->next[pcgroup1]->vinf_bdr.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// }
+	// return;
+
 	// for(int i = 0; i < group->num_next_groups; i++) {
 	for(int i = pcgroup1; i < pcgroup1+1; i++) {
 		SegmentGroup *next_group = group->next[i];
@@ -1228,7 +1193,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 		free_quad_list(quad_list);
 		free_quad_list(quad_split_list);
-		printf("%lu\n", group->next[i]->vinf_bdr.num);
+		// printf("%lu\n", group->next[i]->vinf_bdr.num);
 		if(group->next[i]->vinf_bdr.num == 0) {
 			free_boundary(&group->next[i]->group_bdr);
 			free_boundary(&group->next[i]->dv_bdr);
@@ -1250,9 +1215,9 @@ G_MODULE_EXPORT void on_calc_ir() {
 	end_time_measurement(&tm, "Combine DV Vinf Boundaries");
 
 	for(int j = 0; j < new_boundary.num; j++) {
-		printf("%d ----\n", j);
-		print_data_array2(new_boundary.lower_bdrs[j], "dep", "dur");
-		print_data_array2(new_boundary.upper_bdrs[j], "dep", "dur");
+		// printf("%d ----\n", j);
+		// print_data_array2(new_boundary.lower_bdrs[j], "dep", "dur");
+		// print_data_array2(new_boundary.upper_bdrs[j], "dep", "dur");
 		plot_scatter_data2(ir_coord_sys0, new_boundary.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 		plot_scatter_data2(ir_coord_sys0, new_boundary.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	}

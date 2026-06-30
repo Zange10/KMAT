@@ -80,6 +80,9 @@ typedef struct FlyByGroups {
 
 Boundary create_new_boundary();
 void append_to_boundary(Boundary *bdr, DataArray2 *upper, DataArray2 *lower);
+bool is_point_inside_boundary(Vector2 p, Boundary bdr);
+bool is_quad_crossed_by_boundary(Quad *quad, Boundary bdr);
+bool is_quad_inside_boundary(Quad *quad, Boundary bdr);
 void free_boundary(Boundary *bdr);
 
 void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double max_depdv, double dep_periapsis, double *left_x, double *right_x, double tol);
