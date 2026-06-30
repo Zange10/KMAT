@@ -132,10 +132,12 @@ Vector3 get_quad_max_values(Quad *quad, int quad_val_idx) {
 
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
 		for(int i = 0; i < 4; i++) {
-			double val = quad->corner[i]->num_val > 0 ? quad->corner[i]->val[quad_val_idx] : NAN;
 			if(isnan(max.x) || quad->corner[i]->pos.x > max.x) max.x = quad->corner[i]->pos.x;
 			if(isnan(max.y) || quad->corner[i]->pos.y > max.y) max.y = quad->corner[i]->pos.y;
-			if(quad_val_idx >= 0 && (isnan(max.z) || val > max.z)) max.z = val;
+			if(quad_val_idx >= 0 && quad_val_idx < quad->corner[i]->num_val) {
+				double val = quad->corner[i]->val[quad_val_idx];
+				if(isnan(max.z) || val > max.z) max.z = val;
+			}
 		}
 		double val = quad->center->num_val > 0 ? quad->center->val[quad_val_idx] : NAN;
 		if(quad_val_idx >= 0 && (isnan(max.z) || val > max.z)) max.z = val;
@@ -145,7 +147,7 @@ Vector3 get_quad_max_values(Quad *quad, int quad_val_idx) {
 				Vector3 vals = get_quad_max_values(quad->subquads[i], quad_val_idx);
 				if(isnan(max.x) || vals.x > max.x) max.x = vals.x;
 				if(isnan(max.y) || vals.y > max.y) max.y = vals.y;
-				if(quad_val_idx >= 0 && (isnan(max.z) || vals.z > max.z)) max.z = vals.z;
+				if(isnan(max.z) || vals.z > max.z) max.z = vals.z;
 			}
 		}
 	}
@@ -158,10 +160,12 @@ Vector3 get_quad_min_values(Quad *quad, int quad_val_idx) {
 
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
 		for(int i = 0; i < 4; i++) {
-			double val = quad->corner[i]->num_val > 0 ? quad->corner[i]->val[quad_val_idx] : NAN;
 			if(isnan(min.x) || quad->corner[i]->pos.x < min.x) min.x = quad->corner[i]->pos.x;
 			if(isnan(min.y) || quad->corner[i]->pos.y < min.y) min.y = quad->corner[i]->pos.y;
-			if(quad_val_idx >= 0 && (isnan(min.z) || val < min.z)) min.z = val;
+			if(quad_val_idx >= 0 && quad_val_idx < quad->corner[i]->num_val) {
+				double val = quad->corner[i]->val[quad_val_idx];
+				if(isnan(min.z) || val < min.z) min.z = val;
+			}
 		}
 		double val = quad->center->num_val > 0 ? quad->center->val[quad_val_idx] : NAN;
 		if(quad_val_idx >= 0 && (isnan(min.z) || val < min.z)) min.z = val;
@@ -171,7 +175,7 @@ Vector3 get_quad_min_values(Quad *quad, int quad_val_idx) {
 				Vector3 vals = get_quad_min_values(quad->subquads[i], quad_val_idx);
 				if(isnan(min.x) || vals.x < min.x) min.x = vals.x;
 				if(isnan(min.y) || vals.y < min.y) min.y = vals.y;
-				if(quad_val_idx >= 0 && (isnan(min.z) || vals.z < min.z)) min.z = vals.z;
+				if(isnan(min.z) || vals.z < min.z) min.z = vals.z;
 			}
 		}
 	}

@@ -312,7 +312,7 @@ typedef struct ErrorFuncParams {
 } ErrorFuncParams;
 
 typedef struct BoundaryFuncParams {
-	SegmentGroup *group;
+	Boundary soft_bdr, hard_bdr;
 } BoundaryFuncParams;
 
 Boundary combine_boundaries(Boundary bdr0, Boundary bdr1) {
@@ -720,7 +720,7 @@ Boundary combine_boundaries(Boundary bdr0, Boundary bdr1) {
 
 bool quad_test_is_in_bounds_function(Quad *quad, void *params_p) {
 	BoundaryFuncParams *params = params_p;
-	SegmentGroup *group = params->group;
+
 	// bool is_croosed_by_bounds = is_quad_crossed_by_line(quad, group->group_bdr.upper_bdrs[0]) || is_quad_crossed_by_line(quad, group->group_bdr.lower_bdrs[0]);
 	//
 	// if(quad->center->pos.y < interpolate_from_sorted_data_array(group->group_bdr.lower_bdrs[0], quad->center->pos.x)) {
@@ -749,7 +749,7 @@ bool quad_test_is_in_bounds_function(Quad *quad, void *params_p) {
 	// }
 	//
 	// return true;
-	return is_quad_inside_boundary(quad, group->dv_bdr);
+	return is_quad_inside_boundary(quad, params->soft_bdr);
 }
 
 bool quad_test_error_function(Quad *quad, void *params_p) {
@@ -763,9 +763,8 @@ bool quad_test_error_function(Quad *quad, void *params_p) {
 
 int match_to_boundary(Quad *quad, void *params_p, QuadPointFunc *point_func, int max_rf_level) {
 	BoundaryFuncParams *params = params_p;
-	SegmentGroup *group = params->group;
 
-	if(!is_quad_inside_boundary(quad, group->dv_bdr)) {
+	if(!is_quad_inside_boundary(quad, params->soft_bdr)) {
 		free_quad(quad, true); return 0;
 	}
 	// inverse also catches NAN for interpolation if line x is too short
@@ -784,7 +783,7 @@ int match_to_boundary(Quad *quad, void *params_p, QuadPointFunc *point_func, int
 	// 	}
 	// }
 
-	bool is_croosed_by_bounds = is_quad_crossed_by_line(quad, group->group_bdr.upper_bdrs[0]) || is_quad_crossed_by_line(quad, group->group_bdr.lower_bdrs[0]);
+	bool is_croosed_by_bounds = is_quad_crossed_by_line(quad, params->hard_bdr.upper_bdrs[0]) || is_quad_crossed_by_line(quad, params->hard_bdr.lower_bdrs[0]);
 
 	int num_splits = 0;
 	if(!is_quad_flag(quad, QUAD_FLAG_IS_LEAF) || is_croosed_by_bounds) {
@@ -928,15 +927,12 @@ G_MODULE_EXPORT void on_calc_ir() {
 		int max_rf_level = max_rf_level_dep > max_rf_level_dur ? max_rf_level_dep : max_rf_level_dur;
 		group->max_rf_level = max_rf_level;
 
+		MeshPoint2 *p00 = create_mesh_point(vec2(quad_min_dep, quad_max_dur), NULL, 0);
+		MeshPoint2 *p01 = create_mesh_point(vec2(quad_max_dep, quad_max_dur), NULL, 0);
+		MeshPoint2 *p10 = create_mesh_point(vec2(quad_min_dep, quad_min_dur), NULL, 0);
+		MeshPoint2 *p11 = create_mesh_point(vec2(quad_max_dep, quad_min_dur), NULL, 0);
 
-		QuadPointFunc point_func = {test_, group};
-
-		MeshPoint2 *p00 = point_func.func(quad_min_dep, quad_max_dur, group);
-		MeshPoint2 *p01 = point_func.func(quad_max_dep, quad_max_dur, group);
-		MeshPoint2 *p10 = point_func.func(quad_min_dep, quad_min_dur, group);
-		MeshPoint2 *p11 = point_func.func(quad_max_dep, quad_min_dur, group);
-
-		group->quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, &point_func);
+		group->quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, NULL);
 	}
 
 	end_time_measurement(&tm, "Quad generation");
@@ -954,7 +950,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	for(int idx = 0; idx < departure.num_next_groups; idx++) {
 		SegmentGroup *group = departure.segment_groups[idx];
-		BoundaryFuncParams bound_func_params = {.group = group};
+		BoundaryFuncParams bound_func_params = {.soft_bdr = group->dv_bdr, .hard_bdr = group->group_bdr};
 		match_to_boundary(group->quad, &bound_func_params, NULL, group->max_rf_level+5);
 	}
 
@@ -979,7 +975,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 			.max_error = tolerance/2,
 			.val_idx = MESH_VAL_VINF
 		};
-		BoundaryFuncParams bound_func_params = {.group = group};
+		BoundaryFuncParams bound_func_params = {.soft_bdr = group->dv_bdr};
 		QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
 		QuadErrorFunc error_func = {quad_test_error_function, &err_func_params};
 		QuadPointFunc point_func = {test_, group};
@@ -1129,7 +1125,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 			.max_error = 10,
 			.val_idx = MESH_VAL_VINF
 		};
-		BoundaryFuncParams bound_func_params = {.group = group};
+		BoundaryFuncParams bound_func_params = {.soft_bdr = group->dv_bdr};
 		QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
 		QuadErrorFunc error_func = {quad_test_error_function, &err_func_params};
 		QuadPointFunc point_func = {test_, group};
@@ -1214,17 +1210,82 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	end_time_measurement(&tm, "Combine DV Vinf Boundaries");
 
-	for(int j = 0; j < new_boundary.num; j++) {
-		// printf("%d ----\n", j);
-		// print_data_array2(new_boundary.lower_bdrs[j], "dep", "dur");
-		// print_data_array2(new_boundary.upper_bdrs[j], "dep", "dur");
-		plot_scatter_data2(ir_coord_sys0, new_boundary.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-		plot_scatter_data2(ir_coord_sys0, new_boundary.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// for(int j = 0; j < new_boundary.num; j++) {
+	// 	// printf("%d ----\n", j);
+	// 	// print_data_array2(new_boundary.lower_bdrs[j], "dep", "dur");
+	// 	// print_data_array2(new_boundary.upper_bdrs[j], "dep", "dur");
+	// 	plot_scatter_data2(ir_coord_sys0, new_boundary.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// 	plot_scatter_data2(ir_coord_sys0, new_boundary.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// }
+	// for(int j = 0; j < new_boundary.num; j++) {
+	// 	plot_data2(ir_coord_sys1, new_boundary.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// 	plot_data2(ir_coord_sys1, new_boundary.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// }
+
+
+	start_time_measurement(&tm);
+
+	for(int i = 0; i < group->num_next_groups; i++) {
+		SegmentGroup *next_group = group->next[i];
+		Vector3 min_quads = get_quad_min_values(group->quad, NAN);
+		Vector3 max_quads = get_quad_max_values(group->quad, NAN);
+
+		double quad_min_dep = min_quads.x;
+		double quad_max_dep = max_quads.x;
+		double quad_min_dur = min_quads.y;
+		double quad_max_dur = max_quads.y;
+		double abs_grad = fabs(departure.segment_groups[pcgroup0]->boundary_gradient);
+		double ratio_dur = (quad_max_dep-quad_min_dep)*abs_grad / (quad_max_dur-quad_min_dur);
+		double ratio_dep = 1.0/ratio_dur;
+
+		int min_split = (int) log2(ratio_dur > ratio_dep ? ratio_dur : ratio_dep);
+		next_group->min_rf_level = min_split+3;
+
+
+		// printf("%f  %f  %f\n", max_dep-min_dep, max_dur-min_dur, abs_grad);
+		// printf("%f   %f  %f   %d\n", (max_dep-min_dep)*abs_grad, ratio_dep, ratio_dur, min_split);
+
+		if(quad_max_dur-quad_min_dur < (quad_max_dep-quad_min_dep)*abs_grad) {
+			quad_max_dur = (quad_max_dep-quad_min_dep)*abs_grad + quad_min_dur;
+		} else {
+			quad_max_dep = (quad_max_dur-quad_min_dur)/abs_grad + quad_min_dep;
+		}
+		int max_rf_level_dep = (int) (log2((quad_max_dep-quad_min_dep)/0.001)) + 1;
+		int max_rf_level_dur = (int) (log2((quad_max_dur-quad_min_dur)/0.001)) + 1;
+		int max_rf_level = max_rf_level_dep > max_rf_level_dur ? max_rf_level_dep : max_rf_level_dur;
+		next_group->max_rf_level = max_rf_level;
+
+		MeshPoint2 *p00 = create_mesh_point(vec2(quad_min_dep, quad_max_dur), NULL, 0);
+		MeshPoint2 *p01 = create_mesh_point(vec2(quad_max_dep, quad_max_dur), NULL, 0);
+		MeshPoint2 *p10 = create_mesh_point(vec2(quad_min_dep, quad_min_dur), NULL, 0);
+		MeshPoint2 *p11 = create_mesh_point(vec2(quad_max_dep, quad_min_dur), NULL, 0);
+
+		next_group->quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, NULL);
 	}
+
+	end_time_measurement(&tm, "Quad generation next step");
+	start_time_measurement(&tm);
+
+	for(int idx = 0; idx < group->num_next_groups; idx++) {
+		SegmentGroup *next_group = group->next[idx];
+		BoundaryFuncParams bound_func_params = {.soft_bdr = new_boundary, .hard_bdr = group->group_bdr};
+		match_to_boundary(next_group->quad, &bound_func_params, NULL, next_group->max_rf_level+5);
+	}
+
+	end_time_measurement(&tm, "Boundary matching next step");
+
+	attach_quad_to_coordinate_system(ir_coord_sys0, group->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, TRUE);
+	attach_quad_to_coordinate_system(ir_coord_sys1, group->next[pcgroup1]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, TRUE, MESH_VAL_VINF, TRUE);
+
 	for(int j = 0; j < new_boundary.num; j++) {
 		plot_data2(ir_coord_sys1, new_boundary.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 		plot_data2(ir_coord_sys1, new_boundary.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	}
+	for(int j = 0; j < group->group_bdr.num; j++) {
+		plot_data2(ir_coord_sys1, group->group_bdr.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+		plot_data2(ir_coord_sys1, group->group_bdr.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	}
+
 
 	// for(int j = 0; j < group->dv_bdr.num; j++) {
 	// 	plot_data2(ir_coord_sys1, group->dv_bdr.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
@@ -2019,7 +2080,7 @@ G_MODULE_EXPORT void on_calc_ir3() {
 	};
 
 	BoundaryFuncParams bound_func_params = {
-		.group = departure.segment_groups[pcgroup0]
+		.soft_bdr = departure.segment_groups[pcgroup0]->dv_bdr
 	};
 
 	double quad_min_dep = min_dep;
