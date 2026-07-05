@@ -74,8 +74,8 @@ void draw_quad_interpolated_points(Quad *root_quad, CoordinateSystem *coord_sys)
 	int height = coord_sys->screen->height;
 
 
-	for(int x = 0; x < width; x++) {
-		for(int y = 0; y < height; y++) {
+	for(int x = (int) coord_sys->origin.x+1; x < width; x++) {
+		for(int y = 0; y < coord_sys->origin.y; y++) {
 			Vector2 p = from_coordinate_system_space(vec2(x, y), coord_sys);
 			Quad *quad = get_quad_at_position(root_quad, p);
 			if(!quad) continue;
@@ -104,4 +104,25 @@ void draw_quad_checks(CoordinateSystem *coord_sys, Vector2 mouse_pos) {
 			draw_quad(quad->neighbours[i], coord_sys, true, false);
 		}
 	}
+}
+
+void draw_quad_value(CoordinateSystem *coord_sys, Vector2 mouse_pos) {
+	Vector2 pos = from_coordinate_system_space(mouse_pos, coord_sys);
+	Quad *quad = get_quad_at_position(coord_sys->groups[0]->root_quad, pos);
+	if(!quad) return;
+	if(quad->center->num_val < coord_sys->groups[0]->quad_val_idx) return;
+
+	cairo_t *cr = coord_sys->screen->dynamic_layer.cr;
+	cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
+	cairo_set_font_size(cr, 14.0);
+	int font_size = 10;
+
+	cairo_set_source_rgb(cr,  0.2, 0.2, 0.2);
+	cairo_rectangle(cr, coord_sys->screen->width - font_size*12, 0, font_size*12, font_size*2);
+	cairo_fill(cr);
+
+	cairo_set_source_rgb(cr, 1, 0.2, 0.0);
+	char string[32];
+	sprintf(string, "%g", get_quad_interpolated_value(quad, pos, coord_sys->groups[0]->quad_val_idx));
+	draw_right_aligned_text(cr, coord_sys->screen->width - font_size*0.5, font_size*1.5, 0, string);
 }

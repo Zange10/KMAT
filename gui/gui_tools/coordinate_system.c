@@ -91,6 +91,7 @@ void update_coordinate_system_hover_position(GtkWidget *widget, GdkEventButton *
 		case CS_PLOT_TYPE_QUAD_SKELETON:
 		case CS_PLOT_TYPE_QUAD_DEBUG:
 			draw_quad_checks(coord_sys, mouse);
+			draw_quad_value(coord_sys, mouse);
 			break;
 		default:
 			break;
@@ -210,7 +211,56 @@ void add_data2_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *dat
 	for(int i = 0; i < new_group->num_points; i++) {
 		new_group->points[i].x = data[i].x;
 		new_group->points[i].y = data[i].y;
-		new_group->points[i].color = (PixelColor) {0, 0.8, 0.8};
+		switch(coord_sys->num_point_groups) {
+			case 1:
+				new_group->points[i].color = (PixelColor) {0, 0, 0.8};
+				break;
+			case 2:
+				new_group->points[i].color = (PixelColor) {0, 0.8, 0.0};
+				break;
+			case 3:
+				new_group->points[i].color = (PixelColor) {0.8, 0.8, 0.8};
+				break;
+			case 4:
+				new_group->points[i].color = (PixelColor) {0.8, 0, 0.3};
+				break;
+			case 5:
+				new_group->points[i].color = (PixelColor) {0.3, 0.3, 0.3};
+				break;
+			case 6:
+				new_group->points[i].color = (PixelColor) {0, 0, 0.3};
+				break;
+			case 7:
+				new_group->points[i].color = (PixelColor) {0.8, 0, 0.8};
+				break;
+			case 8:
+				new_group->points[i].color = (PixelColor) {0.8, 0.5, 0.2};
+				break;
+			case 9:
+				new_group->points[i].color = (PixelColor) {0.2, 0.5, 0.8};
+				break;
+			case 10:
+				new_group->points[i].color = (PixelColor) {0.5, 0.8, 0.2};
+				break;
+			case 11:
+				new_group->points[i].color = (PixelColor) {0.5, 0.2, 0.8};
+				break;
+			case 12:
+				new_group->points[i].color = (PixelColor) {0, 0, 0.8};
+				break;
+			case 13:
+				new_group->points[i].color = (PixelColor) {0, 0.8, 0.0};
+				break;
+			case 14:
+				new_group->points[i].color = (PixelColor) {0.8, 0, 0.3};
+				break;
+			case 15:
+				new_group->points[i].color = (PixelColor) {0.5, 0.5, 0.5};
+				break;
+			default:
+				new_group->points[i].color = (PixelColor) {0, 0.8, 0.8};
+				break;
+		}
 
 		if(coord_sys->num_point_groups == 0 && i == 0) {
 			coord_sys->min = vec3(data[i].x, data[i].y, 0);

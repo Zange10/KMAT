@@ -8,6 +8,7 @@
 void draw_quad_skeleton(Quad *root_quad, CoordinateSystem *coord_sys);
 void draw_quad_interpolated_points(Quad *root_quad, CoordinateSystem *coord_sys);
 void draw_quad_checks(CoordinateSystem *coord_sys, Vector2 mouse_pos);
+void draw_quad_value(CoordinateSystem *coord_sys, Vector2 mouse_pos);
 void draw_quad_debug(Quad *root_quad, CoordinateSystem *coord_sys);
 
 
