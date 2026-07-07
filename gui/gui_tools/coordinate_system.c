@@ -25,6 +25,7 @@ CoordinateSystem * new_coordinate_system(GtkWidget *drawing_area) {
 	new_coordinate_system->show_hover_position = false;
 	new_coordinate_system->x_axis_type = CS_AXIS_NUMBER;
 	new_coordinate_system->y_axis_type = CS_AXIS_NUMBER;
+	new_coordinate_system->z_axis_type = CS_AXIS_NUMBER;
 	new_coordinate_system->screen = new_screen(drawing_area, NULL, &on_screen_button_press, &on_screen_button_release, NULL, NULL);
 	new_coordinate_system->origin = vec2(60, new_coordinate_system->screen->height-30);
 	set_screen_background_color(new_coordinate_system->screen, 0.15, 0.15, 0.15);
@@ -88,10 +89,10 @@ void update_coordinate_system_hover_position(GtkWidget *widget, GdkEventButton *
 			draw_triangle_checks(coord_sys, mouse);
 			break;
 		case CS_PLOT_TYPE_QUAD_INTERPOLATION:
+			draw_quad_value(coord_sys, mouse);
 		case CS_PLOT_TYPE_QUAD_SKELETON:
 		case CS_PLOT_TYPE_QUAD_DEBUG:
 			draw_quad_checks(coord_sys, mouse);
-			draw_quad_value(coord_sys, mouse);
 			break;
 		default:
 			break;
@@ -183,6 +184,7 @@ void clear_coordinate_system(CoordinateSystem *coord_sys) {
 	coord_sys->max = vec3(0, 0, 0);
 	coord_sys->x_axis_type = CS_AXIS_NUMBER;
 	coord_sys->y_axis_type = CS_AXIS_NUMBER;
+	coord_sys->z_axis_type = CS_AXIS_NUMBER;
 }
 
 void add_data2_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *data_array, CSDataPlotType plot_type) {
@@ -405,28 +407,31 @@ void plot_scatter_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLab
 	draw_coordinate_system_data(coord_sys);
 }
 
-void scatter_data3(CoordinateSystem *coord_sys, DataArray3 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data) {
+void scatter_data3(CoordinateSystem *coord_sys, DataArray3 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, CSAxisLabelType z_axis_type, bool clear_prev_data) {
 	if(clear_prev_data) clear_coordinate_system(coord_sys);
 	add_data3_to_coordinate_system(coord_sys, data, CS_PLOT_TYPE_SCATTER);
 	coord_sys->x_axis_type = x_axis_type;
 	coord_sys->y_axis_type = y_axis_type;
+	coord_sys->z_axis_type = z_axis_type;
 	draw_coordinate_system_data(coord_sys);
 }
 
-void attach_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_mesh_on_clear, int mesh_val_idx, bool free_prev_data) {
+void attach_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, CSAxisLabelType z_axis_type, bool free_mesh_on_clear, int mesh_val_idx, bool free_prev_data) {
 	if(free_prev_data) clear_coordinate_system(coord_sys);
 	add_mesh_to_coordinate_system(coord_sys, mesh, plot_type, free_mesh_on_clear, mesh_val_idx);
 	coord_sys->x_axis_type = x_axis_type;
 	coord_sys->y_axis_type = y_axis_type;
+	coord_sys->z_axis_type = z_axis_type;
 
 	draw_coordinate_system_data(coord_sys);
 }
 
-void attach_quad_to_coordinate_system(CoordinateSystem *coord_sys, Quad *root_quad, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_quad_on_clear, int quad_val_idx, bool free_prev_data) {
+void attach_quad_to_coordinate_system(CoordinateSystem *coord_sys, Quad *root_quad, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, CSAxisLabelType z_axis_type, bool free_quad_on_clear, int quad_val_idx, bool free_prev_data) {
 	if(free_prev_data) clear_coordinate_system(coord_sys);
 	add_quad_to_coordinate_system(coord_sys, root_quad, plot_type, free_quad_on_clear, quad_val_idx);
 	coord_sys->x_axis_type = x_axis_type;
 	coord_sys->y_axis_type = y_axis_type;
+	coord_sys->z_axis_type = z_axis_type;
 
 	draw_coordinate_system_data(coord_sys);
 }

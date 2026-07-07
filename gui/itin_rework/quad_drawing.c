@@ -6,6 +6,8 @@
 #include <sys/time.h>
 #include <math.h>
 
+#include "gui/settings.h"
+
 
 void draw_quad(Quad *quad, CoordinateSystem *coord_sys, bool filled, bool static_layer) {
 	Vector2 coord_points[4];
@@ -122,7 +124,13 @@ void draw_quad_value(CoordinateSystem *coord_sys, Vector2 mouse_pos) {
 	cairo_fill(cr);
 
 	cairo_set_source_rgb(cr, 1, 0.2, 0.0);
+	double val = get_quad_interpolated_value(quad, pos, coord_sys->groups[0]->quad_val_idx);
 	char string[32];
-	sprintf(string, "%g", get_quad_interpolated_value(quad, pos, coord_sys->groups[0]->quad_val_idx));
+	if(coord_sys->z_axis_type == CS_AXIS_NUMBER)
+		sprintf(string, "%g", val);
+	else if(coord_sys->z_axis_type == CS_AXIS_DURATION)
+		sprintf(string, "%g", get_settings_datetime_type() == DATE_KERBAL ? val*4 : val);
+	else if(coord_sys->z_axis_type == CS_AXIS_DATE)
+		date_to_string(convert_JD_date(val, get_settings_datetime_type()), string, 0);
 	draw_right_aligned_text(cr, coord_sys->screen->width - font_size*0.5, font_size*1.5, 0, string);
 }

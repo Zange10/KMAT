@@ -55,7 +55,7 @@ struct CoordinateSystem {
 	bool show_hover_position;
 	CSDataPointGroup **groups;
 	size_t num_point_groups, point_group_cap;
-	CSAxisLabelType x_axis_type, y_axis_type;
+	CSAxisLabelType x_axis_type, y_axis_type, z_axis_type;
 };
 
 CoordinateSystem * new_coordinate_system(GtkWidget *drawing_area);
@@ -64,9 +64,9 @@ void clear_coordinate_system(CoordinateSystem *coord_sys);
 void plot_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);
 void scatter_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);
 void plot_scatter_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);
-void scatter_data3(CoordinateSystem *coord_sys, DataArray3 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);
-void attach_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_mesh_on_clear, int mesh_val_idx, bool free_prev_data);
-void attach_quad_to_coordinate_system(CoordinateSystem *coord_sys, Quad *root_quad, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_mesh_on_clear, int quad_val_idx, bool free_prev_data);
+void scatter_data3(CoordinateSystem *coord_sys, DataArray3 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, CSAxisLabelType z_axis_type, bool clear_prev_data);
+void attach_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, CSAxisLabelType z_axis_type, bool free_mesh_on_clear, int mesh_val_idx, bool free_prev_data);
+void attach_quad_to_coordinate_system(CoordinateSystem *coord_sys, Quad *root_quad, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, CSAxisLabelType z_axis_type, bool free_mesh_on_clear, int quad_val_idx, bool free_prev_data);
 size_t get_coordinate_system_total_number_of_points(CoordinateSystem *coord_sys);
 Vector2 to_coordinate_system_space(Vector2 val, CoordinateSystem *coord_sys);
 Vector2 from_coordinate_system_space(Vector2 pos, CoordinateSystem *coord_sys);
