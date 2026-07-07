@@ -91,8 +91,10 @@ Quad * get_quad_at_position(Quad *root_quad, Vector2 pos) {
 	if(is_quad_flag(root_quad, QUAD_FLAG_IS_LEAF)) return root_quad;
 
 	for(int i = 0; i < 4; i++) {
-		if(is_inside_quad(root_quad->subquads[i], pos))
-			return get_quad_at_position(root_quad->subquads[i], pos);
+		if(is_inside_quad(root_quad->subquads[i], pos)) {
+			Quad *quad_at_pos = get_quad_at_position(root_quad->subquads[i], pos);
+			if(quad_at_pos) return quad_at_pos;
+		}
 	}
 	return NULL;
 }
@@ -102,7 +104,7 @@ void populate_quad_mesh_points(Quad *quad, QuadPointPopFunc *point_pop_func) {
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
 		point_pop_func->func(quad->center, point_pop_func->params);
 		for(int i = 0; i < 4; i++) {
-			if(!quad->corner[i]->val) point_pop_func->func(quad->corner[i], point_pop_func->params);
+			point_pop_func->func(quad->corner[i], point_pop_func->params);
 		}
 	} else {
 		for(int i = 0; i < 4; i++) {
@@ -568,6 +570,34 @@ int split_quad(Quad *quad, QuadPointFunc *point_func, QuadList *quad_list) {
 	quad->flags = 0;
 
 	return num_splits+1;
+}
+
+void copy_subquad_skeleton(Quad *quad_to_copy, Quad *new_quad) {
+	if(is_quad_flag(quad_to_copy, QUAD_FLAG_IS_LEAF)) return;
+	split_quad(new_quad, NULL, NULL);
+
+	for(int i = 0; i < 4; i++) {
+		if(quad_to_copy->subquads[i]) copy_subquad_skeleton(quad_to_copy->subquads[i], new_quad->subquads[i]);
+		else free_quad(new_quad->subquads[i], true);
+	}
+}
+
+Quad * copy_quad_skeleton(Quad *quad) {
+	MeshPoint2 *p00 = create_quad_point(quad->corner[QUAD_NW]->pos.x, quad->corner[QUAD_NW]->pos.y, NULL);
+	MeshPoint2 *p01 = create_quad_point(quad->corner[QUAD_NE]->pos.x, quad->corner[QUAD_NE]->pos.y, NULL);
+	MeshPoint2 *p10 = create_quad_point(quad->corner[QUAD_SW]->pos.x, quad->corner[QUAD_SW]->pos.y, NULL);
+	MeshPoint2 *p11 = create_quad_point(quad->corner[QUAD_SE]->pos.x, quad->corner[QUAD_SE]->pos.y, NULL);
+	Quad *new_quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, NULL);
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) return new_quad;
+
+	split_quad(new_quad, NULL, NULL);
+
+	for(int i = 0; i < 4; i++) {
+		if(quad->subquads[i]) copy_subquad_skeleton(quad->subquads[i], new_quad->subquads[i]);
+		else free_quad(new_quad->subquads[i], true);
+	}
+
+	return new_quad;
 }
 
 void create_mesh_triangles_from_quads(Quad *quad, Mesh2 *mesh) {

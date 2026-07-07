@@ -108,6 +108,7 @@ int update_quad_error_flag(Quad *quad, int min_rf_level, int max_rf_level, QuadE
 int split_quads_with_flag(Quad *quad, QuadPointFunc *point_func);
 
 int split_quad(Quad *quad, QuadPointFunc *point_func, QuadList *quad_list);
+Quad * copy_quad_skeleton(Quad *quad);
 
 Mesh2 * create_mesh_from_quads(Quad *root_quad);
 

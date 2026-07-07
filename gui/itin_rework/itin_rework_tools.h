@@ -10,6 +10,7 @@
 
 typedef enum PorkchopMeshValueType {
 	MESH_VAL_DATE,
+	MESH_VAL_DUR,
 	MESH_VAL_DEPX,
 	MESH_VAL_DEPY,
 	MESH_VAL_DEPZ,
@@ -111,7 +112,7 @@ void refine_porkchop_mesh(SegmentGroup *group, double dep_periapsis, double max_
 void update_mesh_triangle_status(SegmentGroup *group, double dv_tolerance);
 
 double calc_opposition_conjunction_gradient(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep);
-void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur);
+void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, bool cut_at_durminmax);
 
 DataArray2 * get_dur_limits_from_edge_triangles(Mesh2 *mesh);
 DataArray2 * get_dur_limits_for_dep_from_point_list(DataArray2 *edges_array, double jd_dep);

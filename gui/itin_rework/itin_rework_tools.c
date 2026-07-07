@@ -188,7 +188,7 @@ void find_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, Celes
 
 		Lambert3 new_transfer = calc_lambert3(osv_dep.r, osv_arr.r, dt, system->cb);
 		double vinf = fabs(mag_vec3(subtract_vec3(new_transfer.v0, osv_dep.v)));
-		double dv_dep = dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf);
+		double dv_dep = isnan(dep_periapsis) ? vinf : dv_circ(dep_body,alt2radius(dep_body, dep_periapsis),vinf);
 
 		if(i > 3 && max_depdv - dv_dep > 0 && max_depdv - dv_dep < tol || (i > 3 && fabs(dt-last_dt) < tol)) {
 			if(left_branch) {
@@ -722,7 +722,7 @@ void get_upper_and_lower_boundary_at_jd_dep(SegmentGroup *group, double jd_dep, 
 	}
 }
 
-void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur) {
+void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, bool cut_at_durminmax) {
 	DataArray2 *lower_boundary = data_array2_create();
 	DataArray2 *upper_boundary = data_array2_create();
 
@@ -830,6 +830,61 @@ void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, d
 	}
 	group->top_boundary_type = next_conjunction_dt < next_opposition_dt ?
 	DEPARTURE_GROUP_BOUNDARY_TOP_OPP : DEPARTURE_GROUP_BOUNDARY_TOP_CONJ;
+
+	if(cut_at_durminmax) {
+		DataArray2 *arr_mindur = data_array2_create();
+		data_array2_append_new(arr_mindur, jd_min_dep, min_dur);
+		data_array2_append_new(arr_mindur, jd_max_dep, min_dur);
+		DataArray2 *arr_maxdur = data_array2_create();
+		data_array2_append_new(arr_maxdur, jd_min_dep, max_dur);
+		data_array2_append_new(arr_maxdur, jd_max_dep, max_dur);
+
+		DataArray2 *lower_inters = get_line_intersections(lower_boundary, arr_mindur);
+		for(int i = 0; i < data_array2_size(lower_inters); i++) {
+			Vector2 val = data_array2_get_data(lower_inters)[i];
+			data_array2_insert_new(lower_boundary, val.x, val.y);
+			data_array2_insert_new(upper_boundary, val.x, interpolate_from_sorted_data_array(upper_boundary, val.x));
+		}
+		DataArray2 *upper_inters = get_line_intersections(upper_boundary, arr_maxdur);
+		for(int i = 0; i < data_array2_size(upper_inters); i++) {
+			Vector2 val = data_array2_get_data(upper_inters)[i];
+			data_array2_insert_new(upper_boundary, val.x, val.y);
+			data_array2_insert_new(lower_boundary, val.x, interpolate_from_sorted_data_array(lower_boundary, val.x));
+		}
+		data_array2_free(lower_inters);
+		data_array2_free(upper_inters);
+		data_array2_free(arr_mindur);
+		data_array2_free(arr_maxdur);
+
+		Vector2 *dl = data_array2_get_data(lower_boundary);
+		Vector2 *du = data_array2_get_data(upper_boundary);
+		for(int i = 0; i < data_array2_size(lower_boundary); i++) {
+			if(dl[i].y < min_dur) dl[i].y = min_dur;
+			if(du[i].y > max_dur) du[i].y = max_dur;
+		}
+
+		DataArray2 *inters = get_line_intersections(lower_boundary, upper_boundary);
+		for(int i = 0; i < data_array2_size(inters); i++) {
+			Vector2 val = data_array2_get_data(inters)[i];
+			data_array2_remove_by_value(upper_boundary, val);
+			data_array2_insert_new(upper_boundary, val.x, val.y);
+			data_array2_remove_by_value(lower_boundary, val);
+			data_array2_insert_new(lower_boundary, val.x, val.y);
+		}
+		data_array2_free(inters);
+
+		dl = data_array2_get_data(lower_boundary);
+		du = data_array2_get_data(upper_boundary);
+		for(int i = 0; i < data_array2_size(lower_boundary); i++) {
+			if(du[i].y < dl[i].y) {
+				data_array2_remove_at_idx(lower_boundary, i);
+				data_array2_remove_at_idx(upper_boundary, i);
+				i--;
+			}
+		}
+	}
+
+
 	append_to_boundary(&group->group_bdr, upper_boundary, lower_boundary);
 
 	data_array1_free(boundary_points);
@@ -1581,8 +1636,8 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 	// if(max_duration < max_dur) max_dur = max_duration;
 	// if(min_duration > min_dur) min_dur = min_duration;
 
-	double min_dt = min_dur*86400;
-	double max_dt = max_dur*86400;
+	// double min_dt = min_dur*86400;
+	// double max_dt = max_dur*86400;
 
 	DataArray1 *dep_points = data_array1_create();
 	double jd_dep = jd_min_dep;
@@ -1617,8 +1672,9 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 		dt0 = interpolate_from_sorted_data_array(group->group_bdr.lower_bdrs[0], jd_dep) * 86400;
 		dt1 = interpolate_from_sorted_data_array(group->group_bdr.upper_bdrs[0], jd_dep) * 86400;
 
-		if(dt0 < min_dt) dt0 = min_dt;
-		if(dt1 < min_dt) continue;
+		// if(dt0 < min_dt) dt0 = min_dt;
+		// if(dt1 < min_dt) continue;
+		if(isnan(dt0) || isnan(dt1)) continue;
 
 		DataArray2 *vinf_array = find_local_peak_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1, 1);
 		Vector2 vinf = data_array2_get_min(vinf_array);
@@ -1650,8 +1706,9 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 		dt0 = interpolate_from_sorted_data_array(group->group_bdr.lower_bdrs[0], jd_dep) * 86400;
 		dt1 = interpolate_from_sorted_data_array(group->group_bdr.upper_bdrs[0], jd_dep) * 86400;
 
-		if(dt0 < min_dt) dt0 = min_dt;
-		if(dt1 < min_dt) continue;
+		// if(dt0 < min_dt) dt0 = min_dt;
+		// if(dt1 < min_dt) continue;
+		if(isnan(dt0) || isnan(dt1)) continue;
 
 		DataArray2 *vinf_array = find_local_peak_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1, 1);
 		Vector2 vinf = data_array2_get_min(vinf_array);
