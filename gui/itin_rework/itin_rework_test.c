@@ -351,6 +351,7 @@ MeshPoint2 * test_next_dur(double jd_dep0, double duration0, void *params_p) {
 	OSV osv_dep = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb);
 	find_root(osv_dep, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, vinf, NAN, &left_x, &right_x, 1);
 	double duration = left_x / 86400;
+	if(duration <= dt0/86400) duration = 0;
 
 	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
 	array[MESH_VAL_DATE] = duration > 0 ? jd_dep+duration : NAN;
@@ -470,6 +471,7 @@ void test_populate_next_dur(MeshPoint2 *mesh_point, void *params_p) {
 	OSV osv_dep = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb);
 	find_root(osv_dep, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, vinf, NAN, &left_x, &right_x, 1);
 	double duration = left_x / 86400;
+	if(duration <= dt0/86400) duration = 0;
 
 	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
 	array[MESH_VAL_DATE] = duration > 0 ? jd_dep+duration : NAN;
@@ -994,6 +996,51 @@ bool quad_test_nan_val_function(Quad *quad, void *params_p) {
 	return has_nan;
 }
 
+bool quad_test_vinf_arr(Quad *quad, void *params_p) {
+	ErrorFuncParams *params = params_p;
+
+	double vinf = quad->center->val[MESH_VAL_VINF];
+
+	// vinf test
+	double interp_vinf = get_quad_interpolated_value(quad, quad->center->pos, MESH_VAL_VINF);
+	double e_vinf = fabs(interp_vinf - vinf);
+	if(e_vinf > params->max_error) return true;
+
+	// vinf = |v_arr| test
+	Vector3 interp_v_arr = vec3(
+		get_quad_interpolated_value(quad, quad->center->pos, MESH_VAL_ARRX),
+		get_quad_interpolated_value(quad, quad->center->pos, MESH_VAL_ARRY),
+		get_quad_interpolated_value(quad, quad->center->pos, MESH_VAL_ARRZ)
+		);
+	Vector3 interp_v_body = vec3(
+		get_quad_interpolated_value(quad, quad->center->pos, MESH_VAL_BODY_VX),
+		get_quad_interpolated_value(quad, quad->center->pos, MESH_VAL_BODY_VY),
+		get_quad_interpolated_value(quad, quad->center->pos, MESH_VAL_BODY_VZ)
+		);
+	Vector3 interp_vinf_varr = subtract_vec3(interp_v_arr, interp_v_body);
+	double interp_vinf_from_varr = mag_vec3(interp_vinf_varr);
+	double e_varr = fabs(interp_vinf_from_varr - vinf);
+	if(e_varr > params->max_error) return true;
+
+	// v_arr angle test
+	Vector3 v_arr = vec3(
+		quad->center->val[MESH_VAL_ARRX],
+		quad->center->val[MESH_VAL_ARRY],
+		quad->center->val[MESH_VAL_ARRZ]
+		);
+	Vector3 v_body = vec3(
+		quad->center->val[MESH_VAL_BODY_VX],
+		quad->center->val[MESH_VAL_BODY_VY],
+		quad->center->val[MESH_VAL_BODY_VZ]
+		);
+	Vector3 vinf_varr = subtract_vec3(v_arr, v_body);
+	double angle = angle_vec3_vec3(interp_vinf_varr, vinf_varr);
+	double e_angle = rad2deg(angle);
+	if(e_angle > params->max_error) return true;
+
+	return false;
+}
+
 int match_to_boundary(Quad *quad, void *params_p, QuadPointFunc *point_func, int min_rf_level, int max_rf_level, bool rm_hard_bdr_crossed) {
 	BoundaryFuncParams *params = params_p;
 
@@ -1415,7 +1462,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 
 		ErrorFuncParams err_func_params = {
-			.max_error = 10,
+			.max_error = 1,
 			.val_idx = MESH_VAL_VINF
 		};
 		BoundaryFuncParams bound_func_params = {.soft_bdr = group->dv_bdr};
@@ -1427,7 +1474,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		QuadList *quad_list = create_quad_list();
 		QuadList *quad_split_list = create_quad_list();
 
-		double dv_tol = 10;
+		double dv_tol = 1;
 		bool last_was_0 = false;
 
 		for(int c = 0; c < 30; c++) {
@@ -1502,6 +1549,66 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 
 	end_time_measurement(&tm, "Combine DV Vinf Boundaries");
+	start_time_measurement(&tm);
+
+	if(1) {
+		ErrorFuncParams err_func_params = {
+			.max_error = 0.5
+		};
+		BoundaryFuncParams bound_func_params = {.soft_bdr = new_boundary};
+		QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
+		QuadErrorFunc error_func = {quad_test_vinf_arr, &err_func_params};
+		QuadPointFunc point_func = {test_, group};
+
+		int num_split_cycles = 0;
+
+		QuadList *quad_list = create_quad_list();
+		QuadList *quad_split_list = create_quad_list();
+
+		get_quad_leaves(group->quad, quad_list);
+
+		for(int i = 0; i < 100; i++) {
+			num_split_cycles++;
+			for(int j = 0; j < quad_list->num; j++) {
+				update_quad_error_flag(quad_list->quad[j], group->min_rf_level, group->max_rf_level, &error_func);
+				if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
+					append_to_quad_list(quad_split_list, quad_list->quad[j]);
+			}
+
+			int num_splits = 0;
+			clear_quad_list(quad_list);
+			for(int j = 0; j < quad_split_list->num; j++) {
+				num_splits += split_quad(quad_split_list->quad[j], &point_func, quad_list);
+			}
+			clear_quad_list(quad_split_list);
+
+			printf("Number of Splits during cycle %d: %d\n", num_split_cycles, num_splits);
+
+			for(int j = 0; j < quad_list->num; j++) {
+				Quad *quad = quad_list->quad[j];
+				if(!bounds_func.func(quad, bounds_func.params)) {
+					remove_from_quad_list_at_idx(quad_list, j);
+					j--;
+				}
+			}
+			if(num_splits == 0) break;
+		}
+
+		free_quad_list(quad_list);
+		free_quad_list(quad_split_list);
+		printf("Num Split Cycles: %d\n", num_split_cycles);
+		printf("Num of Leaves: %d\n", get_quad_leaves(group->quad, NULL));
+	}
+	end_time_measurement(&tm, "Refining previous step inside dv vinf bdr");
+
+
+	// attach_quad_to_coordinate_system(ir_coord_sys0, departure.segment_groups[pcgroup0]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_DATE, TRUE, MESH_VAL_DATE, TRUE);
+	// for(int j = 0; j < new_boundary.num; j++) {
+	// 	plot_scatter_data2(ir_coord_sys0, new_boundary.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// 	plot_scatter_data2(ir_coord_sys0, new_boundary.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// }
+	//
+	// return;
 
 	// for(int j = 0; j < new_boundary.num; j++) {
 	// 	// printf("%d ----\n", j);
@@ -1646,7 +1753,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 		for(int i = 0; i < 20; i++) {
 			num_split_cycles++;
 			for(int j = 0; j < quad_list->num; j++) {
-				update_quad_error_flag(quad_list->quad[j], next_group->min_rf_level, next_group->max_rf_level-5, &error_func);
+				// update_quad_error_flag(quad_list->quad[j], next_group->min_rf_level, next_group->max_rf_level-5, &error_func);
+				update_quad_error_flag(quad_list->quad[j], next_group->min_rf_level, 12, &error_func);
 				if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
 					append_to_quad_list(quad_split_list, quad_list->quad[j]);
 				if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_ACC_ERR) && !is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT)) {
