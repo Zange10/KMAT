@@ -109,6 +109,8 @@ add_executable(KMAT
         gui/itin_rework/quad.h
         gui/itin_rework/quad_drawing.c
         gui/itin_rework/quad_drawing.h
+        gui/itin_rework/boundary.c
+        gui/itin_rework/boundary.h
 )
 
 # Platform-specific setup

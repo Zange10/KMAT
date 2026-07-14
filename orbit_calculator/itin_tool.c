@@ -98,7 +98,7 @@ void find_viable_flybys(struct ItinStep *tf, CelestSystem *system, Body *next_bo
 			}
 
 
-			data_array2_insert_new(data, dt, diff_vinf);
+			data_array2_insert_new(data, vec2(dt, diff_vinf));
 
 			if(!can_be_negative_monot_deriv(data)) break;
 			last_dt = dt;
