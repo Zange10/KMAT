@@ -690,6 +690,7 @@ Mesh2 * create_mesh_from_quads(Quad *root_quad) {
 }
 
 void free_quad(Quad *quad, bool free_mesh_point) {
+	if(!quad) return;
 	if(!is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
 		for(int i = 0; i < 4; i++) {
 			if(quad->subquads[i]) {

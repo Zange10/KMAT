@@ -210,20 +210,6 @@ double * step_to_array(struct ItinStep *step) {
 	return array;
 }
 
-void free_segment_group(SegmentGroup *group) {
-	if (!group) return;
-	for(int i = 0; i < group->num_next_groups; i++) {
-		free_segment_group(group->next[i]);
-	}
-
-	// free_mesh(group->mesh);
-	// data_array2_free(group->vinf_array);
-	// if(group->segment_steps) free(group->segment_steps);
-	free(group->next);
-
-	free(group);
-}
-
 MeshPoint2 * test_(double jd_dep, double duration, void *params_p) {
 	SegmentGroup *group = params_p;
 	Body *cb = group->dep_body->orbit.cb;
@@ -754,56 +740,47 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	int num_iterations = (int) target_numdeps;
 
-	DepartureGroup departure;
-	departure.dep_body = dep_body;
-	departure.num_next_groups = 0;
-	departure.group_cap = 8;
-	departure.segment_groups = malloc(departure.group_cap * sizeof(SegmentGroup *));
+	DepartureGroup old_dep;
+	old_dep.dep_body = dep_body;
+	old_dep.num_next_groups = 0;
+	old_dep.group_cap = 8;
+	old_dep.segment_groups = malloc(old_dep.group_cap * sizeof(SegmentGroup *));
 
-	// for loop to be exchanged with some sort of boundary check
-	for(int i = 0; i < 50; i++) {
-		SegmentGroup *new_group = malloc(sizeof(SegmentGroup));
-		new_group->dep_body = dep_body;
-		new_group->arr_body = arr_body;
-		// new_group->num_steps = 0;
-		new_group->system = ir_system;
-		new_group->num_next_groups = 0;
-		new_group->group_cap = 0;
-		new_group->next = NULL;
-		new_group->prev = NULL;
-		new_group->vinf_array = NULL;
-		new_group->group_bdr = create_new_boundary();
-		new_group->dv_bdr = create_new_boundary();
-		new_group->vinf_bdr = create_new_boundary();
-		new_group->rpe_bdr = create_new_boundary();
-		new_group->quad = NULL;
-		new_group->min_rf_level = 0;
-		new_group->max_rf_level = 0;
-		set_opposition_conjunction_group_boundary(new_group, i-10, min_dep, max_dep, min_dur, max_dur, false);
+	SegmentGroup *departure = new_segment_group(dep_body, NULL, ir_system);
 
-		// calc_group_porkchop(new_group, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, tolerance);
+	int shift = get_opp_conj_min_shift(dep_body, arr_body, ir_system, min_dep, max_dep, min_dur, max_dur);
+	bool group_was_valid = true;
+
+	while(group_was_valid) {
+		printf("%d\n", shift);
+		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system);
+		set_opposition_conjunction_group_boundary(new_group, shift, min_dep, max_dep, min_dur, max_dur, false);
+
 		if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= min_dur &&
 			data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= max_dur) {
-			if(departure.num_next_groups == departure.group_cap) {
-				departure.group_cap *= 2;
-				SegmentGroup **temp_groups = realloc(departure.segment_groups, departure.group_cap * sizeof(SegmentGroup *));
-				if(temp_groups) departure.segment_groups = temp_groups;
-			}
-			departure.segment_groups[departure.num_next_groups++] = new_group;
+			append_to_segment_group(departure, new_group);
 		} else {
-			free_boundary(&new_group->group_bdr);
-			free(new_group);
+			free_segment_group(new_group);
+			group_was_valid = false;
+			break;
 		}
+		shift++;
 	}
-	printf("Number of Departure Groups: %d\n\n", departure.num_next_groups);
+	printf("Number of Departure Groups: %d\n\n", departure->num_next_groups);
 
 	end_time_measurement(&tm, "Porkchopping Departure Groups");
+
+	plot_scatter_boundary(ir_coord_sys0, departure->next[pcgroup0]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true);
+
+	print_timing_measurements(tm);
+	free_timing_measurements(&tm);
+	return;
 
 
 	start_time_measurement(&tm);
 
-	for(int i = 0; i < departure.num_next_groups; i++) {
-		SegmentGroup *group = departure.segment_groups[i];
+	for(int i = 0; i < old_dep.num_next_groups; i++) {
+		SegmentGroup *group = old_dep.segment_groups[i];
 		set_dep_group_dv_boundary(group, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, 1);
 		if(group->dv_bdr.num == 0) {
 			free_boundary(&group->group_bdr);
@@ -811,10 +788,10 @@ G_MODULE_EXPORT void on_calc_ir() {
 			free_boundary(&group->vinf_bdr);
 			free_boundary(&group->rpe_bdr);
 			free(group);
-			memmove(&departure.segment_groups[i],
-				&departure.segment_groups[i+1],
-				(departure.num_next_groups - (i+1)) * sizeof(SegmentGroup*));
-			departure.num_next_groups--;
+			memmove(&old_dep.segment_groups[i],
+				&old_dep.segment_groups[i+1],
+				(old_dep.num_next_groups - (i+1)) * sizeof(SegmentGroup*));
+			old_dep.num_next_groups--;
 			i--;
 		}
 	}
@@ -823,13 +800,13 @@ G_MODULE_EXPORT void on_calc_ir() {
 	start_time_measurement(&tm);
 
 
-	for(int i = 0; i < departure.num_next_groups; i++) {
-		SegmentGroup *group = departure.segment_groups[i];
+	for(int i = 0; i < old_dep.num_next_groups; i++) {
+		SegmentGroup *group = old_dep.segment_groups[i];
 		double quad_min_dep = min_dep;
 		double quad_max_dep = max_dep;
 		double quad_min_dur = min_dur;
 		double quad_max_dur = max_dur;
-		double abs_grad = fabs(departure.segment_groups[pcgroup0]->boundary_gradient);
+		double abs_grad = fabs(old_dep.segment_groups[pcgroup0]->boundary_gradient);
 		double ratio_dur = (quad_max_dep-quad_min_dep)*abs_grad / (quad_max_dur-quad_min_dur);
 		double ratio_dep = 1.0/ratio_dur;
 
@@ -871,8 +848,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 	// 	QuadErrorFunc error_func = {quad_test_error_function, &err_func_params};
 	// }
 
-	for(int idx = 0; idx < departure.num_next_groups; idx++) {
-		SegmentGroup *group = departure.segment_groups[idx];
+	for(int idx = 0; idx < old_dep.num_next_groups; idx++) {
+		SegmentGroup *group = old_dep.segment_groups[idx];
 		BoundaryFuncParams bound_func_params = {.soft_bdr = group->dv_bdr, .hard_bdr = group->group_bdr};
 		match_to_boundary(group->quad, &bound_func_params, NULL, group->min_rf_level, group->max_rf_level+5, false);
 	}
@@ -880,8 +857,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 	end_time_measurement(&tm, "Boundary matching");
 	start_time_measurement(&tm);
 
-	for(int idx = 0; idx < departure.num_next_groups; idx++) {
-		SegmentGroup *group = departure.segment_groups[idx];
+	for(int idx = 0; idx < old_dep.num_next_groups; idx++) {
+		SegmentGroup *group = old_dep.segment_groups[idx];
 		QuadPointPopFunc point_pop_func = {test_populate, group};
 		populate_quad_mesh_points(group->quad, &point_pop_func);
 	}
@@ -891,8 +868,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 	start_time_measurement(&tm);
 
 
-	for(int idx = 0; idx < departure.num_next_groups; idx++) {
-		SegmentGroup *group = departure.segment_groups[idx];
+	for(int idx = 0; idx < old_dep.num_next_groups; idx++) {
+		SegmentGroup *group = old_dep.segment_groups[idx];
 
 		ErrorFuncParams err_func_params = {
 			.max_error = tolerance/2,
@@ -947,8 +924,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 	end_time_measurement(&tm, "Divide & Conquer");
 	start_time_measurement(&tm);
 
-	for(int idx = 0; idx < departure.num_next_groups; idx++) {
-		SegmentGroup *group = departure.segment_groups[idx];
+	for(int idx = 0; idx < old_dep.num_next_groups; idx++) {
+		SegmentGroup *group = old_dep.segment_groups[idx];
 
 		group->num_next_groups = 0;
 		group->group_cap = 8;
@@ -998,8 +975,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 	end_time_measurement(&tm, "Porkchopping Departure Groups");
 	start_time_measurement(&tm);
 
-	for(int idx = 0; idx < departure.num_next_groups; idx++) {
-		SegmentGroup *group = departure.segment_groups[idx];
+	for(int idx = 0; idx < old_dep.num_next_groups; idx++) {
+		SegmentGroup *group = old_dep.segment_groups[idx];
 		Vector3 quad_min = get_quad_min_values(group->quad, MESH_VAL_DATE);
 		Vector3 quad_max = get_quad_max_values(group->quad, MESH_VAL_DATE);
 
@@ -1018,7 +995,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	start_time_measurement(&tm);
 
 
-	SegmentGroup *group = departure.segment_groups[pcgroup0];
+	SegmentGroup *group = old_dep.segment_groups[pcgroup0];
 
 	// calc_vinf_boundary(group, group->next[pcgroup1], group->quad, group->next[pcgroup1]->vinf_array, 1);
 	//

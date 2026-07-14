@@ -1171,6 +1171,7 @@ void free_mesh_box(MeshBox2 *box) {
 }
 
 void free_mesh(Mesh2 *mesh) {
+	if(!mesh) return;
 	for(int i = 0; i < mesh->num_triangles; i++) { free(mesh->triangles[i]); }
 	free(mesh->triangles);
 	for(int i = 0; i < mesh->num_points; i++) {

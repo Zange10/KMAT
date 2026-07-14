@@ -1,12 +1,79 @@
 #include "itin_rework_tools.h"
 
 #include "gui/gui_manager.h"
-#include "gui/gui_tools/screen.h"
 #include "gui/drawing.h"
 #include "geometrylib.h"
 #include <math.h>
-#include <sys/time.h>
 
+
+SegmentGroup * new_segment_group(Body *dep_body, Body *arr_body, CelestSystem *system) {
+	SegmentGroup *new_group = malloc(sizeof(SegmentGroup));
+	new_group->dep_body = dep_body;
+	new_group->arr_body = arr_body;
+	new_group->system = system;
+	new_group->boundary_gradient = 0;
+	new_group->group_bdr = create_new_boundary();
+	new_group->dv_bdr = create_new_boundary();
+	new_group->vinf_bdr = create_new_boundary();
+	new_group->rpe_bdr = create_new_boundary();
+	new_group->vinf_array = NULL;
+	new_group->num_next_groups = 0;
+	new_group->group_cap = 0;
+	new_group->next = NULL;
+	new_group->prev = NULL;
+	new_group->quad = NULL;
+	new_group->mesh = NULL;
+	new_group->min_rf_level = 0;
+	new_group->max_rf_level = 0;
+
+	return new_group;
+}
+
+void append_to_segment_group(SegmentGroup *group, SegmentGroup *new_group) {
+	if(group->num_next_groups == group->group_cap) {
+		group->group_cap *= 2;
+		SegmentGroup **temp_groups = realloc(group->next, group->group_cap * sizeof(SegmentGroup *));
+		if(temp_groups) group->next = temp_groups;
+	}
+	group->next[group->num_next_groups++] = new_group;
+}
+
+void free_segment_group(SegmentGroup *group) {
+	if(!group) return;
+	free_boundary(&group->group_bdr);
+	free_boundary(&group->dv_bdr);
+	free_boundary(&group->vinf_bdr);
+	free_boundary(&group->rpe_bdr);
+	data_array2_free(group->vinf_array);
+	free_quad(group->quad, true);
+	free_mesh(group->mesh);
+
+	while(group->num_next_groups > 0) {
+		group->next[0]->prev = NULL;
+		free_segment_group(group->next[0]);
+	}
+	free(group->next);
+	group->num_next_groups = 0;
+	group->group_cap = 0;
+
+	SegmentGroup *prev_group = group->prev;
+	if(prev_group) {
+		int group_idx = -1;
+		for(int i = 0; i < prev_group->num_next_groups; i++) {
+			if(prev_group->next[i] == group) {
+				group_idx = i; break;
+			}
+		}
+		if(group_idx >= 0) {
+			memmove(&prev_group->next[group_idx],
+					&prev_group->next[group_idx+1],
+					(prev_group->num_next_groups - (group_idx+1)) * sizeof(SegmentGroup*));
+		}
+		prev_group->num_next_groups--;
+		if(prev_group->num_next_groups == 0 && prev_group->prev) free_segment_group(prev_group);
+	}
+	free(group);
+}
 
 double calc_next_x_wrt_smoothness(DataArray2 *arr, int index_0, double tolerance) {
 	Vector2 *data = &(data_array2_get_data(arr)[index_0]);
@@ -310,6 +377,28 @@ double calc_opposition_conjunction_gradient(Body *dep_body, Body *arr_body, Cele
 	Orbit orbit1 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
 
 	return calc_orbital_period(orbit1)/calc_orbital_period(orbit0) - 1;
+}
+
+int get_opp_conj_min_shift(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur) {
+	int min_shift = -1;
+	bool min_shift_found = false;
+	bool init_search = true;
+	// for loop to be exchanged with some sort of boundary check
+	while(!min_shift_found) {
+		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, system);
+		set_opposition_conjunction_group_boundary(new_group, min_shift, jd_min_dep, jd_max_dep, min_dur, max_dur, false);
+
+		if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= min_dur &&
+			data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= max_dur) {
+			min_shift--;
+			init_search = false;
+		} else {
+			min_shift++;
+			if(!init_search) min_shift_found = true;
+		}
+		free_segment_group(new_group);
+	}
+	return min_shift;
 }
 
 void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, bool cut_at_durminmax) {

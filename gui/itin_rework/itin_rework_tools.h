@@ -42,16 +42,20 @@ typedef struct SegmentGroup {
 	CelestSystem *system;
 	double boundary_gradient;
 	Boundary group_bdr, dv_bdr, vinf_bdr, rpe_bdr;
+	DataArray2 *vinf_array;
 	int num_next_groups;
 	int group_cap;
+	struct SegmentGroup *prev;
+	struct SegmentGroup **next;
 	Mesh2 *mesh;
 	Quad *quad;
 	int min_rf_level, max_rf_level;
-	DataArray2 *vinf_array;
-	struct SegmentGroup *prev;
-	struct SegmentGroup **next;
 	enum DepartureGroupBoundaryType {DEPARTURE_GROUP_BOUNDARY_TOP_OPP, DEPARTURE_GROUP_BOUNDARY_TOP_CONJ} top_boundary_type;
 } SegmentGroup;
+
+SegmentGroup * new_segment_group(Body *dep_body, Body *arr_body, CelestSystem *system);
+void append_to_segment_group(SegmentGroup *group, SegmentGroup *new_group);
+void free_segment_group(SegmentGroup *group);
 
 void find_lambert_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double max_depdv, double dep_periapsis, double *left_x, double *right_x, double tol);
 
@@ -60,6 +64,7 @@ Vector2 get_local_peak(double jd_dep, Body *dep_body, Body *arr_body, CelestSyst
 
 void get_prev_and_next_relative_plane_traversal(Body *body0, Body *body1, CelestSystem *system, double jd_date, double *prev_trav, double *next_trav);
 double calc_opposition_conjunction_gradient(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep);
+int get_opp_conj_min_shift(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur);
 void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, bool cut_at_durminmax);
 
 
