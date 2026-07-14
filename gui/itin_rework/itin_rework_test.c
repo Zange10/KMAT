@@ -752,7 +752,6 @@ G_MODULE_EXPORT void on_calc_ir() {
 	bool group_was_valid = true;
 
 	while(group_was_valid) {
-		printf("%d\n", shift);
 		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system);
 		set_opposition_conjunction_group_boundary(new_group, shift, min_dep, max_dep, min_dur, max_dur, false);
 
@@ -768,35 +767,37 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 	printf("Number of Departure Groups: %d\n\n", departure->num_next_groups);
 
-	end_time_measurement(&tm, "Porkchopping Departure Groups");
+	end_time_measurement(&tm, "Finding first Groups");
+	start_time_measurement(&tm);
 
-	plot_scatter_boundary(ir_coord_sys0, departure->next[pcgroup0]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true);
+	for(int i = 0; i < departure->num_next_groups; i++) {
+		SegmentGroup *group = departure->next[i];
+		Boundary dv_bdr = calc_dv_boundary(group, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, 1);
+		if(dv_bdr.num == 0) {
+			free_segment_group(group);
+			i--;
+		} else {
+			free_boundary(&group->group_bdr);
+			connect_boundary_ends(&dv_bdr);
+			group->group_bdr = dv_bdr;
+		}
+	}
+
+	end_time_measurement(&tm, "DV Boundary");
+
+
+
+	clear_coordinate_system(ir_coord_sys0);
+	for(int i = 0; i < departure->num_next_groups; i++) {
+		plot_boundary(ir_coord_sys0, departure->next[i]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	}
 
 	print_timing_measurements(tm);
 	free_timing_measurements(&tm);
 	return;
 
 
-	start_time_measurement(&tm);
 
-	for(int i = 0; i < old_dep.num_next_groups; i++) {
-		SegmentGroup *group = old_dep.segment_groups[i];
-		set_dep_group_dv_boundary(group, num_iterations, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, 1);
-		if(group->dv_bdr.num == 0) {
-			free_boundary(&group->group_bdr);
-			free_boundary(&group->dv_bdr);
-			free_boundary(&group->vinf_bdr);
-			free_boundary(&group->rpe_bdr);
-			free(group);
-			memmove(&old_dep.segment_groups[i],
-				&old_dep.segment_groups[i+1],
-				(old_dep.num_next_groups - (i+1)) * sizeof(SegmentGroup*));
-			old_dep.num_next_groups--;
-			i--;
-		}
-	}
-
-	end_time_measurement(&tm, "DV Boundary");
 	start_time_measurement(&tm);
 
 

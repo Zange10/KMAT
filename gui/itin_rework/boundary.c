@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "itin_rework_tools.h"
+#include "external/orbitlib/external/geometrylib/src/data_array_def.h"
 
 
 Boundary create_new_boundary() {
@@ -116,6 +117,9 @@ void free_boundary(Boundary *bdr) {
 }
 
 Boundary combine_boundaries(Boundary bdr0, Boundary bdr1) {
+	remove_boundary_end_connections(&bdr0);
+	remove_boundary_end_connections(&bdr1);
+
 	Boundary low_bdrs = create_new_boundary();
 	Boundary up_bdrs = create_new_boundary();
 
@@ -516,6 +520,70 @@ Boundary combine_boundaries(Boundary bdr0, Boundary bdr1) {
 	free_boundary(&up_split_bdrs);
 
 	return new_boundary;
+}
+
+void connect_boundary_ends(Boundary *bdr) {
+	for(int i = 0; i < bdr->num; i++) {
+		bool connect_front = true;
+		bool connect_back = true;
+		Vector2 *u0 = data_array2_get_data(bdr->upper_bdrs[i]);
+		Vector2 *l0 = data_array2_get_data(bdr->lower_bdrs[i]);
+		size_t num0 = data_array2_size(bdr->upper_bdrs[i]);
+
+
+		if(u0[0].y == l0[0].y) connect_front = false;
+		if(u0[num0-1].y == l0[num0-1].y) connect_back = false;
+
+		for(int j = 0; j < bdr->num; j++) {
+			Vector2 *u1 = data_array2_get_data(bdr->upper_bdrs[j]);
+			Vector2 *l1 = data_array2_get_data(bdr->lower_bdrs[j]);
+			size_t num1 = data_array2_size(bdr->upper_bdrs[i]);
+			if(connect_front && u0[0].x == u1[num1-1].x && u0[0].y == u1[num1-1].y) {
+				connect_front = false;
+			}
+			if(connect_front && l0[0].x == l1[num1-1].x && l0[0].y == l1[num1-1].y) {
+				connect_front = false;
+			}
+			if(connect_back && u0[num0-1].x == u1[0].x && u0[num0-1].y == u1[0].y) {
+				connect_back = false;
+			}
+			if(connect_back && l0[num0-1].x == l1[0].x && l0[num0-1].y == l1[0].y) {
+				connect_back = false;
+			}
+		}
+
+		if(connect_front) {
+			data_array2_insert_new(bdr->upper_bdrs[i], data_array2_get_data(bdr->lower_bdrs[i])[0]);
+			data_array2_insert_new(bdr->lower_bdrs[i], data_array2_get_data(bdr->lower_bdrs[i])[0]);
+			num0++;
+		}
+
+		if(connect_back) {
+			data_array2_append_new(bdr->upper_bdrs[i], data_array2_get_data(bdr->upper_bdrs[i])[num0-1]);
+			data_array2_append_new(bdr->lower_bdrs[i], data_array2_get_data(bdr->upper_bdrs[i])[num0-1]);
+		}
+	}
+}
+
+void remove_boundary_end_connections(Boundary *bdr) {
+	for(int i = 0; i < bdr->num; i++) {
+		Vector2 *u = data_array2_get_data(bdr->upper_bdrs[i]);
+		Vector2 *l = data_array2_get_data(bdr->lower_bdrs[i]);
+		size_t num0 = data_array2_size(bdr->upper_bdrs[i]);
+
+		if(num0 < 2) continue;
+
+		if(u[0].x == u[1].x) {
+			data_array2_remove_at_idx(bdr->upper_bdrs[i], 0);
+			data_array2_remove_at_idx(bdr->lower_bdrs[i], 0);
+			num0--;
+		}
+		if(num0 < 2) continue;
+		if(u[num0-1].x == u[num0-2].x) {
+			data_array2_remove_at_idx(bdr->upper_bdrs[i], (int) num0-1);
+			data_array2_remove_at_idx(bdr->lower_bdrs[i], (int) num0-1);
+		}
+	}
 }
 
 void plot_boundary(CoordinateSystem *coord_sys, Boundary bdr, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data) {

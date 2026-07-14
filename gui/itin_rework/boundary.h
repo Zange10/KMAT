@@ -23,6 +23,8 @@ bool is_quad_crossed_by_boundary(Quad *quad, Boundary bdr);
 bool is_quad_inside_boundary(Quad *quad, Boundary bdr);
 void free_boundary(Boundary *bdr);
 Boundary combine_boundaries(Boundary bdr0, Boundary bdr1);
+void connect_boundary_ends(Boundary *bdr);
+void remove_boundary_end_connections(Boundary *bdr);
 void plot_boundary(CoordinateSystem *coord_sys, Boundary bdr, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);
 void scatter_boundary(CoordinateSystem *coord_sys, Boundary bdr, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);
 void plot_scatter_boundary(CoordinateSystem *coord_sys, Boundary bdr, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);
