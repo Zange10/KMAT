@@ -114,6 +114,7 @@ void update_mesh_minmax(Mesh2 *mesh);
 double get_mesh_min_value(Mesh2 *mesh, int val_idx);
 double get_mesh_max_value(Mesh2 *mesh, int val_idx);
 void free_grid_keep_points(MeshGrid2 *grid);
+void free_mesh_point(MeshPoint2 *point);
 void free_mesh(Mesh2 *mesh);
 
 #endif //KMAT_MESH_H

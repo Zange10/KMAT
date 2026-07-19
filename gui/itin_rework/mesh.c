@@ -1170,15 +1170,18 @@ void free_mesh_box(MeshBox2 *box) {
 	free(box);
 }
 
+void free_mesh_point(MeshPoint2 *point) {
+	if(!point) return;
+	if(point->val) free(point->val);
+	if(point->triangles) free(point->triangles);
+	free(point);
+}
+
 void free_mesh(Mesh2 *mesh) {
 	if(!mesh) return;
 	for(int i = 0; i < mesh->num_triangles; i++) { free(mesh->triangles[i]); }
 	free(mesh->triangles);
-	for(int i = 0; i < mesh->num_points; i++) {
-		free(mesh->points[i]->val);
-		free(mesh->points[i]->triangles);
-		free(mesh->points[i]);
-	}
+	for(int i = 0; i < mesh->num_points; i++) free_mesh_point(mesh->points[i]);
 	free_mesh_box(mesh->mesh_box);
 	free(mesh);
 }

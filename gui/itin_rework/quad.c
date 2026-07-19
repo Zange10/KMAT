@@ -1,4 +1,5 @@
 #include "quad.h"
+#include "boundary.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -239,6 +240,26 @@ int get_quad_leaves(Quad *quad, QuadList *quad_list) {
 	return sum;
 }
 
+int get_quads_with_nan(Quad *quad, QuadList *quad_list, int quad_val_idx) {
+	if(!quad) return 0;
+	if(!quad_list) return 0;
+	if(quad_val_idx < 0 || quad_val_idx > quad->center->num_val) return 0;
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		if(isnan(get_quad_interpolated_value(quad, quad->center->pos, quad_val_idx)) || isnan(quad->center->val[quad_val_idx])) {
+			append_to_quad_list(quad_list, quad);
+			return 1;
+		}
+		return 0;
+	}
+	int sum = 0;
+	for(int i = 0; i < 4; i++) {
+		if(quad->subquads[i]) {
+			sum += get_quads_with_nan(quad->subquads[i], quad_list, quad_val_idx);
+		}
+	}
+	return sum;
+}
+
 void print_quadtree(Quad *quad) {
 	if(!quad) return;
 	for(int i = 0; i < quad->rf_level; i++) printf(" - ");
@@ -326,7 +347,6 @@ int update_quad_error_flag(Quad *quad, int min_rf_level, int max_rf_level, QuadE
 	}
 	return sum;
 }
-
 
 int split_quads_with_flag(Quad *quad, QuadPointFunc *point_func) {
 	if(!quad) return 0;
@@ -570,6 +590,26 @@ int split_quad(Quad *quad, QuadPointFunc *point_func, QuadList *quad_list) {
 	quad->flags = 0;
 
 	return num_splits+1;
+}
+
+int split_to_refinement_level(Quad *quad, QuadPointFunc *point_func, Boundary *boundary, int min_rf_level, int bdr_rf_level) {
+	if(!quad) return 0;
+	if(boundary && !is_quad_inside_boundary(quad, *boundary)) {
+		free_quad(quad, true);
+		return 0;
+	}
+	int num_splits = 0;
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		if(quad->rf_level < min_rf_level || (boundary && quad->rf_level < bdr_rf_level && is_quad_crossed_by_boundary(quad, *boundary))) {
+			num_splits += split_quad(quad, point_func, NULL);
+		} else return 0;
+	}
+	for(int i = 0; i < 4; i++) {
+		if(quad->subquads[i]) {
+			num_splits += split_to_refinement_level(quad->subquads[i], point_func, boundary, min_rf_level, bdr_rf_level);
+		}
+	}
+	return num_splits;
 }
 
 void copy_subquad_skeleton(Quad *quad_to_copy, Quad *new_quad) {

@@ -96,8 +96,31 @@ bool is_quad_inside_boundary(Quad *quad, Boundary bdr) {
 
 		if(is_quad_crossed_by_line(quad, bdr.lower_bdrs[i]) || is_quad_crossed_by_line(quad, bdr.upper_bdrs[i]))
 			return true;
+
+		if(is_inside_quad(quad, data_array2_get_data(bdr.lower_bdrs[i])[0])) return true;
+		if(is_inside_quad(quad, data_array2_get_data(bdr.upper_bdrs[i])[0])) return true;
 	}
 	return false;
+}
+
+Vector2 get_boundary_min(Boundary bdr) {
+	Vector2 min = vec2(NAN, NAN);
+	for(int i = 0; i < bdr.num; i++) {
+		Vector2 m = data_array2_get_min(bdr.lower_bdrs[i]);
+		if(isnan(min.x) || m.x < min.x) min.x = m.x;
+		if(isnan(min.y) || m.y < min.y) min.y = m.y;
+	}
+	return min;
+}
+
+Vector2 get_boundary_max(Boundary bdr) {
+	Vector2 max = vec2(NAN, NAN);
+	for(int i = 0; i < bdr.num; i++) {
+		Vector2 m = data_array2_get_max(bdr.upper_bdrs[i]);
+		if(isnan(max.x) || m.x > max.x) max.x = m.x;
+		if(isnan(max.y) || m.y > max.y) max.y = m.y;
+	}
+	return max;
 }
 
 void free_boundary(Boundary *bdr) {
@@ -568,7 +591,6 @@ void connect_boundary_ends(Boundary *bdr) {
 void remove_boundary_end_connections(Boundary *bdr) {
 	for(int i = 0; i < bdr->num; i++) {
 		Vector2 *u = data_array2_get_data(bdr->upper_bdrs[i]);
-		Vector2 *l = data_array2_get_data(bdr->lower_bdrs[i]);
 		size_t num0 = data_array2_size(bdr->upper_bdrs[i]);
 
 		if(num0 < 2) continue;

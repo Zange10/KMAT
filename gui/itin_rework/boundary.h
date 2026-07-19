@@ -21,6 +21,8 @@ bool is_point_inside_boundary(Vector2 p, Boundary bdr);
 bool is_line_crossing_boundary(Vector2 p0, Vector2 p1, Boundary bdr);
 bool is_quad_crossed_by_boundary(Quad *quad, Boundary bdr);
 bool is_quad_inside_boundary(Quad *quad, Boundary bdr);
+Vector2 get_boundary_min(Boundary bdr);
+Vector2 get_boundary_max(Boundary bdr);
 void free_boundary(Boundary *bdr);
 Boundary combine_boundaries(Boundary bdr0, Boundary bdr1);
 void connect_boundary_ends(Boundary *bdr);

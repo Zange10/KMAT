@@ -4,6 +4,7 @@
 #include "mesh.h"
 
 typedef struct Quad Quad;
+typedef struct Boundary Boundary;
 
 typedef struct QuadErrorFunc {
 	bool (*func)(Quad *quad, void*);
@@ -99,6 +100,7 @@ Vector3 get_quad_max_values(Quad *quad, int quad_val_idx);
 double get_quad_min_value(Quad *quad, int quad_val_idx);
 double get_quad_max_value(Quad *quad, int quad_val_idx);
 int get_quad_leaves(Quad *quad, QuadList *quad_list);
+int get_quads_with_nan(Quad *quad, QuadList *quad_list, int quad_val_idx);
 void print_quadtree(Quad *quad);
 bool is_quad_crossed_by_line(Quad *quad, DataArray2 *line);
 void find_line_crossed_quads(Quad *quad, DataArray2 *line, QuadList *quad_list);
@@ -108,6 +110,7 @@ int update_quad_error_flag(Quad *quad, int min_rf_level, int max_rf_level, QuadE
 int split_quads_with_flag(Quad *quad, QuadPointFunc *point_func);
 
 int split_quad(Quad *quad, QuadPointFunc *point_func, QuadList *quad_list);
+int split_to_refinement_level(Quad *quad, QuadPointFunc *point_func, Boundary *boundary, int min_rf_level, int bdr_rf_level);
 Quad * copy_quad_skeleton(Quad *quad);
 
 Mesh2 * create_mesh_from_quads(Quad *root_quad);
