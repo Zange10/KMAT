@@ -210,7 +210,43 @@ double * step_to_array(struct ItinStep *step) {
 	return array;
 }
 
-MeshPoint2 * test_(double jd_dep, double duration, void *params_p) {
+
+
+void departure_populate(MeshPoint2 *mesh_point, void *params_p) {
+	SegmentGroup *group = params_p;
+	Body *cb = group->dep_body->orbit.cb;
+	double jd_dep = mesh_point->pos.x;
+	double duration = mesh_point->pos.y;
+
+	Vector3 r0 = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb).r;
+	OSV osv_arr = osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_dep + duration, cb);
+	Vector3 r1 = osv_arr.r;
+
+	Lambert3 lambert_sol = calc_lambert3(r0, r1, duration*86400, cb);
+
+	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+	array[MESH_VAL_DATE] = jd_dep+duration;
+	array[MESH_VAL_DUR] = duration;
+	array[MESH_VAL_DEPX] = lambert_sol.v0.x;
+	array[MESH_VAL_DEPY] = lambert_sol.v0.y;
+	array[MESH_VAL_DEPZ] = lambert_sol.v0.z;
+	array[MESH_VAL_BODY_RX] = osv_arr.r.x;
+	array[MESH_VAL_BODY_RY] = osv_arr.r.y;
+	array[MESH_VAL_BODY_RZ] = osv_arr.r.z;
+	array[MESH_VAL_BODY_VX] = osv_arr.v.x;
+	array[MESH_VAL_BODY_VY] = osv_arr.v.y;
+	array[MESH_VAL_BODY_VZ] = osv_arr.v.z;
+	array[MESH_VAL_ARRX] = lambert_sol.v1.x;
+	array[MESH_VAL_ARRY] = lambert_sol.v1.y;
+	array[MESH_VAL_ARRZ] = lambert_sol.v1.z;
+	array[MESH_VAL_VINF] = mag_vec3(subtract_vec3(lambert_sol.v1, osv_arr.v));
+	array[MESH_VAL_RPE] = 0;
+
+	mesh_point->val = array;
+	mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
+}
+
+MeshPoint2 * departure_point_func(double jd_dep, double duration, void *params_p) {
 	SegmentGroup *group = params_p;
 	Body *cb = group->dep_body->orbit.cb;
 
@@ -334,65 +370,6 @@ MeshPoint2 * test_next_dur(double jd_dep0, double duration0, void *params_p) {
 	MeshPoint2 *new_mesh_point = create_mesh_point(pos, array, NUM_PORKCHOP_MESH_VALUE_TYPES);
 
 	return new_mesh_point;
-}
-
-void test_populate(MeshPoint2 *mesh_point, void *params_p) {
-	SegmentGroup *group = params_p;
-	Body *cb = group->dep_body->orbit.cb;
-
-
-	if(is_point_inside_boundary(mesh_point->pos, group->group_bdr)) {
-		double jd_dep = mesh_point->pos.x;
-		double duration = mesh_point->pos.y;
-
-		Vector3 r0 = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb).r;
-		OSV osv_arr = osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_dep + duration, cb);
-		Vector3 r1 = osv_arr.r;
-
-		Lambert3 lambert_sol = calc_lambert3(r0, r1, duration*86400, cb);
-
-		double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
-		array[MESH_VAL_DATE] = jd_dep+duration;
-		array[MESH_VAL_DUR] = duration;
-		array[MESH_VAL_DEPX] = lambert_sol.v0.x;
-		array[MESH_VAL_DEPY] = lambert_sol.v0.y;
-		array[MESH_VAL_DEPZ] = lambert_sol.v0.z;
-		array[MESH_VAL_BODY_RX] = osv_arr.r.x;
-		array[MESH_VAL_BODY_RY] = osv_arr.r.y;
-		array[MESH_VAL_BODY_RZ] = osv_arr.r.z;
-		array[MESH_VAL_BODY_VX] = osv_arr.v.x;
-		array[MESH_VAL_BODY_VY] = osv_arr.v.y;
-		array[MESH_VAL_BODY_VZ] = osv_arr.v.z;
-		array[MESH_VAL_ARRX] = lambert_sol.v1.x;
-		array[MESH_VAL_ARRY] = lambert_sol.v1.y;
-		array[MESH_VAL_ARRZ] = lambert_sol.v1.z;
-		array[MESH_VAL_VINF] = mag_vec3(subtract_vec3(lambert_sol.v1, osv_arr.v));
-		array[MESH_VAL_RPE] = 0;
-
-		mesh_point->val = array;
-		mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
-	} else {
-		double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
-		array[MESH_VAL_DATE] = NAN;
-		array[MESH_VAL_DUR] = NAN;
-		array[MESH_VAL_DEPX] = NAN;
-		array[MESH_VAL_DEPY] = NAN;
-		array[MESH_VAL_DEPZ] = NAN;
-		array[MESH_VAL_BODY_RX] = NAN;
-		array[MESH_VAL_BODY_RY] = NAN;
-		array[MESH_VAL_BODY_RZ] = NAN;
-		array[MESH_VAL_BODY_VX] = NAN;
-		array[MESH_VAL_BODY_VY] = NAN;
-		array[MESH_VAL_BODY_VZ] = NAN;
-		array[MESH_VAL_ARRX] = NAN;
-		array[MESH_VAL_ARRY] = NAN;
-		array[MESH_VAL_ARRZ] = NAN;
-		array[MESH_VAL_VINF] = NAN;
-		array[MESH_VAL_RPE] = NAN;
-
-		mesh_point->val = array;
-		mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
-	}
 }
 
 void test_populate_next(MeshPoint2 *mesh_point, void *params_p) {
@@ -755,21 +732,6 @@ int match_to_boundary(Quad *quad, void *params_p, QuadPointFunc *point_func, int
 	if(!is_quad_inside_boundary(quad, params->soft_bdr)) {
 		free_quad(quad, true); return 0;
 	}
-	// inverse also catches NAN for interpolation if line x is too short
-	// if( !(quad->center->pos.y >= interpolate_from_sorted_data_array(params->depdv_lower_boundary, quad->center->pos.x)) ||
-	// 	!(quad->center->pos.y <= interpolate_from_sorted_data_array(params->depdv_upper_boundary, quad->center->pos.x))) {
-	//
-	// 	bool points_inside_boundary = false;
-	//
-	// 	for(int i = 0; i < 4; i++) {
-	// 		if( (quad->corner[i]->pos.y >= interpolate_from_sorted_data_array(params->depdv_lower_boundary, quad->corner[i]->pos.x)) &&
-	// 			(quad->corner[i]->pos.y <= interpolate_from_sorted_data_array(params->depdv_upper_boundary, quad->corner[i]->pos.x))) points_inside_boundary = true;
-	// 	}
-	//
-	// 	if(!points_inside_boundary && !is_quad_crossed_by_line(quad, params->depdv_lower_boundary) && !is_quad_crossed_by_line(quad, params->depdv_upper_boundary)) {
-	// 		free_quad(quad, true); return 0;
-	// 	}
-	// }
 
 	bool is_crossed_by_bounds = false;
 	int num_splits = 0;
@@ -909,21 +871,16 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	for(int i = 0; i < departure->num_next_groups; i++) {
 		SegmentGroup *group = departure->next[i];
-		Boundary dv_bdr = calc_dv_boundary(group, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, 1);
-		if(dv_bdr.num == 0) {
+		group->dv_bdr = calc_dv_boundary(group, min_dep, max_dep, max_dep+max_dur, min_dur, max_dur, dep_periapsis, max_depdv, 1);
+		if(group->dv_bdr.num == 0) {
 			free_segment_group(group);
 			i--;
 		} else {
-			free_boundary(&group->group_bdr);
-			connect_boundary_ends(&dv_bdr);
-			group->group_bdr = dv_bdr;
+			connect_boundary_ends(&group->dv_bdr);
 		}
 	}
 
 	end_time_measurement(&tm, "DV Boundary");
-
-
-
 	start_time_measurement(&tm);
 
 
@@ -941,10 +898,6 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 		int min_split = (int) log2(ratio_dur > ratio_dep ? ratio_dur : ratio_dep);
 		group->min_rf_level = min_split+3;
-
-
-		// printf("%f  %f  %f\n", max_dep-min_dep, max_dur-min_dur, abs_grad);
-		// printf("%f   %f  %f   %d\n", (max_dep-min_dep)*abs_grad, ratio_dep, ratio_dur, min_split);
 
 		if(quad_max_dur-quad_min_dur < (quad_max_dep-quad_min_dep)*abs_grad) {
 			quad_max_dur = (quad_max_dep-quad_min_dep)*abs_grad + quad_min_dur;
@@ -971,54 +924,27 @@ G_MODULE_EXPORT void on_calc_ir() {
 	end_time_measurement(&tm, "Quad Generation and Splitting");
 	start_time_measurement(&tm);
 
+
 	for(int idx = 0; idx < departure->num_next_groups; idx++) {
 		SegmentGroup *group = departure->next[idx];
-		QuadPointPopFunc point_pop_func = {test_populate, group};
+		BoundaryFuncParams bound_func_params = {.soft_bdr = group->dv_bdr, .hard_bdr = group->group_bdr};
+		match_to_boundary(group->quad, &bound_func_params, NULL, group->min_rf_level, group->max_rf_level+5, false);
+	}
+
+	end_time_measurement(&tm, "Group Boundary Matching");
+
+	for(int idx = 0; idx < departure->num_next_groups; idx++) {
+		SegmentGroup *group = departure->next[idx];
+		QuadPointPopFunc point_pop_func = {departure_populate, group};
 		populate_quad_mesh_points(group->quad, &point_pop_func);
 	}
 
 	end_time_measurement(&tm, "Populate Quads");
 	start_time_measurement(&tm);
 
-	for(int i = 0; i < departure->num_next_groups; i++) {
-		SegmentGroup *group = departure->next[i];
-		QuadList *quad_list = create_quad_list();
-		int num = get_quads_with_nan(group->quad, quad_list, 0);
-		printf("%d\n", num);
-		QuadPointFunc point_func = {test_, group};
-		for(int j = 0; j < num; j++) {
-			extrapolate_quad_points(quad_list->quad[j], &group->group_bdr, &point_func);
-		}
-		for(int j = 0; j < num; j++) {
-			extrapolate_quad_points(quad_list->quad[j], &group->group_bdr, &point_func);
-		}
-		free_quad_list(quad_list);
-	}
 
-	end_time_measurement(&tm, "Boundary matching");
-
-
-	for(int i = 0; i < departure->num_next_groups; i++) {
-		attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[i]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, MESH_VAL_VINF , false);
-	}
-
-
-
-
-
-	// clear_coordinate_system(ir_coord_sys0);
-	for(int i = 0; i < departure->num_next_groups; i++) {
-		plot_boundary(ir_coord_sys0, departure->next[i]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	}
-	print_timing_measurements(tm);
-	free_timing_measurements(&tm);
-	return;
-
-	start_time_measurement(&tm);
-
-
-	for(int idx = 0; idx < old_dep.num_next_groups; idx++) {
-		SegmentGroup *group = old_dep.segment_groups[idx];
+	for(int idx = 0; idx < departure->num_next_groups; idx++) {
+		SegmentGroup *group = departure->next[idx];
 
 		ErrorFuncParams err_func_params = {
 			.max_error = tolerance/2,
@@ -1027,7 +953,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		BoundaryFuncParams bound_func_params = {.soft_bdr = group->dv_bdr};
 		QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
 		QuadErrorFunc error_func = {quad_test_abs_error_function, &err_func_params};
-		QuadPointFunc point_func = {test_, group};
+		QuadPointFunc point_func = {departure_point_func, group};
 
 		int num_split_cycles = 0;
 
@@ -1071,6 +997,20 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 
 	end_time_measurement(&tm, "Divide & Conquer");
+
+
+	for(int i = 0; i < departure->num_next_groups; i++) {
+		attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[i]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, MESH_VAL_VINF , false);
+	}
+
+	// clear_coordinate_system(ir_coord_sys0);
+	for(int i = 0; i < departure->num_next_groups; i++) {
+		plot_boundary(ir_coord_sys0, departure->next[i]->dv_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	}
+	print_timing_measurements(tm);
+	free_timing_measurements(&tm);
+	return;
+
 	start_time_measurement(&tm);
 
 	for(int idx = 0; idx < old_dep.num_next_groups; idx++) {
@@ -1179,7 +1119,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		BoundaryFuncParams bound_func_params = {.soft_bdr = group->dv_bdr};
 		QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
 		QuadErrorFunc error_func = {quad_test_abs_error_function, &err_func_params};
-		QuadPointFunc point_func = {test_, group};
+		QuadPointFunc point_func = {departure_point_func, group};
 		int num_split_cycles = 0;
 
 		QuadList *quad_list = create_quad_list();
@@ -1270,7 +1210,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		BoundaryFuncParams bound_func_params = {.soft_bdr = new_boundary};
 		QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
 		QuadErrorFunc error_func = {quad_test_vinf_arr, &err_func_params};
-		QuadPointFunc point_func = {test_, group};
+		QuadPointFunc point_func = {departure_point_func, group};
 
 		int num_split_cycles = 0;
 
