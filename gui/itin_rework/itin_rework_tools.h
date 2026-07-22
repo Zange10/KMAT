@@ -10,7 +10,7 @@
 
 
 typedef enum PorkchopMeshValueType {
-	MESH_VAL_DATE,
+	MESH_VAL_ARRDATE,
 	MESH_VAL_DUR,
 	MESH_VAL_DEPX,
 	MESH_VAL_DEPY,
@@ -24,7 +24,7 @@ typedef enum PorkchopMeshValueType {
 	MESH_VAL_ARRX,
 	MESH_VAL_ARRY,
 	MESH_VAL_ARRZ,
-	MESH_VAL_VINF,
+	MESH_VAL_ARRVINF,
 	MESH_VAL_RPE,
 	NUM_PORKCHOP_MESH_VALUE_TYPES	// number of porkchop mesh vals
 } PorkchopMeshValueType;
@@ -59,13 +59,17 @@ void free_segment_group(SegmentGroup *group);
 
 void find_lambert_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double max_depdv, double dep_periapsis, double *left_x, double *right_x, double tol);
 
-DataArray2 * find_local_peak_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol, bool max_0_min_1);
+DataArray2 * find_local_min_vinf_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol);
+DataArray2 * find_local_max_vinf_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol);
+DataArray2 * find_local_vinf_peak_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol, bool max_0_min_1);
 Vector2 get_local_peak(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol, bool max_0_min_1);
+double find_local_opp_conj(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep, double min_dur, double max_dur);
 
 void get_prev_and_next_relative_plane_traversal(Body *body0, Body *body1, CelestSystem *system, double jd_date, double *prev_trav, double *next_trav);
 double calc_opposition_conjunction_gradient(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep);
 int get_opp_conj_min_shift(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur);
 void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, bool cut_at_durminmax);
+void set_opposition_conjunction_group_boundary2(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur);
 
 
 Boundary calc_dv_boundary(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);

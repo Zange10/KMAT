@@ -164,7 +164,87 @@ void find_lambert_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_bod
 	data_array2_free(data);
 }
 
-DataArray2 * find_local_peak_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol, bool max_0_min_1) {
+DataArray2 * find_local_min_vinf_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol) {
+	// x: dt, y: diff_vinf
+	DataArray2 *array = data_array2_create();
+
+	double t0 = jd_dep;
+	OSV osv_dep = system->prop_method == ORB_ELEMENTS ?
+			osv_from_elements(dep_body->orbit, jd_dep) :
+			osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, system->cb);
+
+	if(dt0 < 100) dt0 = 100;	// transfer duration of 100s
+	double dt = dt0;
+
+	int max_num_steps = 200;
+	int min_num_steps = 10;
+	int num = 0;
+
+	for(int i = 0; i < max_num_steps; i++) {
+		num++;
+		double t1 = t0 + dt/86400;
+
+		OSV osv_arr = system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(arr_body->orbit, t1) :
+				osv_from_ephem(arr_body->ephem, arr_body->num_ephems, t1, system->cb);
+
+		Lambert3 new_transfer = calc_lambert3(osv_dep.r, osv_arr.r, (t1-t0)*86400, system->cb);
+		double vinf = fabs(mag_vec3(subtract_vec3(new_transfer.v0, osv_dep.v)));
+
+
+		data_array2_insert_new(array, vec2(t1-t0, vinf));
+
+		if(i < min_num_steps) dt = dt0 + (dt1-dt0)/(min_num_steps-1)*i;
+		else {
+			dt = get_next_x_for_min_search(array, -1, 0.05, 1e-3/86400)*86400;
+			if(isnan(dt) || vinf-min_achievable_value_from_prev_and_next_points(array, -1, 2) < tol) break;
+		}
+	}
+
+	return array;
+}
+
+DataArray2 * find_local_max_vinf_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol) {
+	// x: dt, y: diff_vinf
+	DataArray2 *array = data_array2_create();
+
+	double t0 = jd_dep;
+	OSV osv_dep = system->prop_method == ORB_ELEMENTS ?
+			osv_from_elements(dep_body->orbit, jd_dep) :
+			osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, system->cb);
+
+	if(dt0 < 100) dt0 = 100;	// transfer duration of 100s
+	double dt = dt0;
+
+	int max_num_steps = 200;
+	int min_num_steps = 10;
+	int num = 0;
+
+	for(int i = 0; i < max_num_steps; i++) {
+		num++;
+		double t1 = t0 + dt/86400;
+
+		OSV osv_arr = system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(arr_body->orbit, t1) :
+				osv_from_ephem(arr_body->ephem, arr_body->num_ephems, t1, system->cb);
+
+		Lambert3 new_transfer = calc_lambert3(osv_dep.r, osv_arr.r, (t1-t0)*86400, system->cb);
+		double vinf = fabs(mag_vec3(subtract_vec3(new_transfer.v0, osv_dep.v)));
+
+
+		data_array2_insert_new(array, vec2(t1-t0, vinf));
+
+		if(i < min_num_steps) dt = dt0 + (dt1-dt0)/(min_num_steps-1)*i;
+		else {
+			dt = get_next_x_for_max_search(array, -1, 0.05, 1e-3/86400)*86400;
+			if(isnan(dt)) break;
+		}
+	}
+
+	return array;
+}
+
+DataArray2 * find_local_vinf_peak_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol, bool max_0_min_1) {
 	// x: dt, y: diff_vinf
 	DataArray2 *array = data_array2_create();
 
@@ -253,7 +333,7 @@ DataArray2 * find_local_peak_array(double jd_dep, Body *dep_body, Body *arr_body
 
 
 Vector2 get_local_peak(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol, bool max_0_min_1) {
-	DataArray2 *array = find_local_peak_array(jd_dep, dep_body, arr_body, system, dt0, dt1, tol, max_0_min_1);
+	DataArray2 *array = find_local_vinf_peak_array(jd_dep, dep_body, arr_body, system, dt0, dt1, tol, max_0_min_1);
 
 	Vector2 *data = data_array2_get_data(array);
 	int extr_idx = 0;
@@ -392,7 +472,7 @@ int get_opp_conj_min_shift(Body *dep_body, Body *arr_body, CelestSystem *system,
 	// for loop to be exchanged with some sort of boundary check
 	while(!min_shift_found) {
 		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, system);
-		set_opposition_conjunction_group_boundary(new_group, min_shift, jd_min_dep, jd_max_dep, min_dur, max_dur, false);
+		set_opposition_conjunction_group_boundary2(new_group, min_shift, jd_min_dep, jd_max_dep, min_dur, max_dur);
 
 		if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= min_dur &&
 			data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= max_dur) {
@@ -568,6 +648,232 @@ void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, d
 			}
 		}
 	}
+
+
+	append_to_boundary(&group->group_bdr, upper_boundary, lower_boundary);
+
+	data_array1_free(boundary_points);
+	data_array1_free(traversals);
+}
+
+
+double find_local_opp_conj(Body *dep_body, Body *arr_body, CelestSystem *system, double jd_dep, double min_dur, double max_dur) {
+	OSV osv_dep_body = system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(dep_body->orbit, jd_dep) :
+					osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, system->cb);
+	// Plane3 dep_plane = constr_plane3(vec3(0,0,0), osv_dep_body.r, osv_dep_body.v);
+	Plane3 dep_plane = constr_plane3(vec3(0,0,0), vec3(1,0,0), vec3(0,1,0));
+	double dur = min_dur;
+
+	DataArray2 *array = data_array2_create();
+
+	for(int i = 0; i < 100; i++) {
+		double jd_arr = jd_dep + dur;
+		OSV osv_arr_body = system->prop_method == ORB_ELEMENTS ?
+						osv_from_elements(arr_body->orbit, jd_arr) :
+						osv_from_ephem(arr_body->ephem, arr_body->num_ephems, jd_arr, system->cb);
+
+		Plane3 tf_plane = constr_plane3(vec3(0,0,0), osv_dep_body.r, osv_arr_body.r);
+
+		double rel_incl = angle_plane3_plane3(dep_plane, tf_plane);
+		data_array2_insert_new(array, vec2(dur, rel_incl-M_PI_2));
+		if(i == 0) dur = max_dur;
+		else dur = root_finder_monot_func_next_x(array, 0.01, 1e-3/86400);
+		if(isnan(dur)) break;
+	}
+
+	dur = get_single_root_of_line_array(array);
+	data_array2_free(array);
+
+	return dur;
+}
+
+
+void set_opposition_conjunction_group_boundary2(SegmentGroup *group, int shift, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur) {
+	DataArray2 *lower_boundary = data_array2_create();
+	DataArray2 *upper_boundary = data_array2_create();
+
+	double opp_conj_gradient = calc_opposition_conjunction_gradient(group->dep_body, group->arr_body, group->system, (jd_min_dep+jd_max_dep)/2);
+	group->boundary_gradient = opp_conj_gradient;
+	if(opp_conj_gradient > 0) shift *= -1;
+
+	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
+					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_min_dep, group->system->cb);
+
+	OSV osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(group->arr_body->orbit, jd_min_dep) :
+				   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_min_dep, group->system->cb);
+	double next_conjunction_dt, next_opposition_dt, last_conjunction_dt, last_opposition_dt;
+	calc_time_to_next_conjunction_and_opposition(osv0.r, osv_arr0, group->system->cb, &last_conjunction_dt, &last_opposition_dt);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
+	double period_arr0 = calc_orbital_period(arr0);
+	Orbit dep_orbit = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb);
+	double period_dep = calc_orbital_period(dep_orbit);
+
+	// default shift from calc_time_to_next_conjunction_and_opposition is 1 (but we want values around 0 for start)
+	if(shift % 2 == 0) {
+		if(last_conjunction_dt > last_opposition_dt) last_conjunction_dt -= period_arr0;
+		else last_opposition_dt -= period_arr0;
+		shift++;
+	}
+	shift--;
+	last_opposition_dt += period_arr0 * shift/2;
+	last_conjunction_dt += period_arr0 * shift/2;
+
+	double jd_dep = jd_min_dep;
+	double syn_period = 1.0/fabs(1.0/period_dep - 1.0/period_arr0)/86400;
+	double jd_dep_step = syn_period/100;
+
+	DataArray1 *boundary_points = data_array1_create();
+	while(jd_dep < jd_max_dep) {
+		data_array1_append_new(boundary_points, jd_dep);
+		jd_dep += jd_dep_step;
+	}
+	data_array1_append_new(boundary_points, jd_max_dep);
+
+	DataArray1 *traversals = data_array1_create();
+	double trav_search_date = jd_min_dep, prev_trav, next_trav;
+	double offsets[] = {-syn_period*0.0025, -syn_period*0.0001, syn_period*0.0001, syn_period*0.0025};
+	do {
+		get_prev_and_next_relative_plane_traversal(group->dep_body, group->arr_body, group->system, trav_search_date, &prev_trav, &next_trav);
+		data_array1_append_new(traversals, prev_trav);
+		data_array1_append_new(traversals, next_trav);
+		for(int i = 0; i < sizeof(offsets)/sizeof(double); i++) {
+			jd_dep = prev_trav + offsets[i];
+			if(jd_dep >= jd_min_dep && jd_dep <= jd_max_dep)
+				data_array1_insert_new(boundary_points, jd_dep);
+			jd_dep = next_trav + offsets[i];
+			if(jd_dep >= jd_min_dep && jd_dep <= jd_max_dep)
+				data_array1_insert_new(boundary_points, jd_dep);
+		}
+		trav_search_date += period_dep/86400;
+	} while(next_trav < jd_max_dep);
+
+	double local_peak_half_width_dt = period_arr0*0.05;
+
+	for(int i = 0; i < data_array1_size(boundary_points); i++) {
+		jd_dep = data_array1_get_data(boundary_points)[i];
+
+		osv0 = group->system->prop_method == ORB_ELEMENTS ?
+						osv_from_elements(group->dep_body->orbit, jd_dep) :
+						osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, group->system->cb);
+
+		osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
+					   osv_from_elements(group->arr_body->orbit, jd_dep) :
+					   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_dep, group->system->cb);
+		calc_time_to_next_conjunction_and_opposition(osv0.r, osv_arr0, group->system->cb, &next_conjunction_dt, &next_opposition_dt);
+
+
+		double opp_guess = last_opposition_dt + jd_dep_step*86400*opp_conj_gradient;
+		double conj_guess = last_conjunction_dt + jd_dep_step*86400*opp_conj_gradient;
+
+		while(opp_guess-next_opposition_dt   >  0.5 * period_arr0) next_opposition_dt  += period_arr0;
+		while(opp_guess-next_opposition_dt   < -0.5 * period_arr0) next_opposition_dt  -= period_arr0;
+		while(conj_guess-next_conjunction_dt >  0.5 * period_arr0) next_conjunction_dt += period_arr0;
+		while(conj_guess-next_conjunction_dt < -0.5 * period_arr0) next_conjunction_dt -= period_arr0;
+
+		if(next_opposition_dt + local_peak_half_width_dt >= min_dur*0.9*86400 && next_opposition_dt - local_peak_half_width_dt <= max_dur*1.1*86400) {
+			double neg_tol_dur = (next_opposition_dt-local_peak_half_width_dt)/86400;
+			double pos_tol_dur = (next_opposition_dt+local_peak_half_width_dt)/86400;
+			next_opposition_dt = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur)*86400;
+		}
+
+		if(next_conjunction_dt + local_peak_half_width_dt >= min_dur*0.9*86400 && next_conjunction_dt - local_peak_half_width_dt <= max_dur*1.1*86400) {
+			double neg_tol_dur = (next_conjunction_dt-local_peak_half_width_dt)/86400;
+			double pos_tol_dur = (next_conjunction_dt+local_peak_half_width_dt)/86400;
+			next_conjunction_dt = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur)*86400;
+		}
+
+		last_opposition_dt = next_opposition_dt;
+		last_conjunction_dt = next_conjunction_dt;
+
+		if(next_conjunction_dt < next_opposition_dt) {
+			data_array2_insert_new(lower_boundary, vec2(jd_dep, next_conjunction_dt/86400));
+			data_array2_insert_new(upper_boundary, vec2(jd_dep, next_opposition_dt/86400));
+		} else {
+			data_array2_insert_new(lower_boundary, vec2(jd_dep, next_opposition_dt/86400));
+			data_array2_insert_new(upper_boundary, vec2(jd_dep, next_conjunction_dt/86400));
+		}
+	}
+
+	double tolerance = period_arr0/86400*1e-5;
+
+	do {
+		data_array1_clear(boundary_points);
+
+		Vector2 *ld = data_array2_get_data(lower_boundary);
+		Vector2 *ud = data_array2_get_data(upper_boundary);
+		size_t num = data_array2_size(lower_boundary);
+
+		for(int i = 0; i < num-2; i++) {
+			int idx0 = i, idx1 = i+1;
+
+			bool valid_lower = !((ld[idx0].y < min_dur && ld[idx1].y < min_dur) || (ld[idx0].y > max_dur && ld[idx1].y > max_dur));
+			bool valid_upper = !((ud[idx0].y < min_dur && ud[idx1].y < min_dur) || (ud[idx0].y > max_dur && ud[idx1].y > max_dur));
+
+			if(!valid_lower && !valid_upper) continue;
+
+			if(idx0 > 0) {
+				if(valid_lower) {
+					double interp_v = get_y_value_from_x_value_of_line(ld[idx0-1], ld[idx0], ld[idx1].x);
+					if(fabs(interp_v-ld[idx1].y) > tolerance) {
+						data_array1_append_new(boundary_points, (ld[idx0].x+ld[idx1].x)/2);
+						continue;
+					}
+				}
+
+				if(valid_upper) {
+					double interp_v = get_y_value_from_x_value_of_line(ud[idx0-1], ud[idx0], ud[idx1].x);
+					if(fabs(interp_v-ud[idx1].y) > tolerance) {
+						data_array1_append_new(boundary_points, (ud[idx0].x+ud[idx1].x)/2);
+						continue;
+					}
+				}
+			}
+			if(idx1 < num-1) {
+				if(valid_lower) {
+					double interp_v = get_y_value_from_x_value_of_line(ld[idx1+1], ld[idx1], ld[idx0].x);
+					if(fabs(interp_v-ld[idx0].y) > tolerance) {
+						data_array1_append_new(boundary_points, (ld[idx0].x+ld[idx1].x)/2);
+						continue;
+					}
+				}
+
+				if(valid_upper) {
+					double interp_v = get_y_value_from_x_value_of_line(ud[idx1+1], ud[idx1], ud[idx0].x);
+					if(fabs(interp_v-ud[idx0].y) > tolerance) {
+						data_array1_append_new(boundary_points, (ud[idx0].x+ud[idx1].x)/2);
+					}
+				}
+			}
+		}
+
+		for(int i = 0; i < data_array1_size(boundary_points); i++) {
+			jd_dep = data_array1_get_data(boundary_points)[i];
+
+			double upper = interpolate_from_sorted_data_array2(upper_boundary, jd_dep);
+			double lower = interpolate_from_sorted_data_array2(lower_boundary, jd_dep);
+
+			if(upper - local_peak_half_width_dt/86400 >= min_dur*0.9 && upper - local_peak_half_width_dt/86400 <= max_dur*1.1) {
+				double neg_tol_dur = upper-local_peak_half_width_dt/86400;
+				double pos_tol_dur = upper+local_peak_half_width_dt/86400;
+				upper = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
+			}
+
+			if(lower - local_peak_half_width_dt/86400 >= min_dur*0.9 && lower - local_peak_half_width_dt/86400 <= max_dur*1.1) {
+				double neg_tol_dur = lower-local_peak_half_width_dt/86400;
+				double pos_tol_dur = lower+local_peak_half_width_dt/86400;
+				lower = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
+			}
+
+			data_array2_insert_new(lower_boundary, vec2(jd_dep, lower));
+			data_array2_insert_new(upper_boundary, vec2(jd_dep, upper));
+		}
+
+	} while(data_array1_size(boundary_points) > 0);
+	group->top_boundary_type = next_conjunction_dt < next_opposition_dt ?
+	DEPARTURE_GROUP_BOUNDARY_TOP_OPP : DEPARTURE_GROUP_BOUNDARY_TOP_CONJ;
 
 
 	append_to_boundary(&group->group_bdr, upper_boundary, lower_boundary);
@@ -793,11 +1099,10 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 		dt0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep) * 86400;
 		dt1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep) * 86400;
 
-		// if(dt0 < min_dt) dt0 = min_dt;
-		// if(dt1 < min_dt) continue;
 		if(isnan(dt0) || isnan(dt1)) continue;
 
-		DataArray2 *vinf_array = find_local_peak_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1, 1);
+		DataArray2 *vinf_array = find_local_min_vinf_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1);
+		// DataArray2 *vinf_array = find_local_vinf_peak_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1, 1);
 		Vector2 vinf = data_array2_get_min(vinf_array);
 
 		data_array2_insert_new(vinf_line, vec2(jd_dep, vinf.y));
@@ -827,11 +1132,10 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 		dt0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep) * 86400;
 		dt1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep) * 86400;
 
-		// if(dt0 < min_dt) dt0 = min_dt;
-		// if(dt1 < min_dt) continue;
 		if(isnan(dt0) || isnan(dt1)) continue;
 
-		DataArray2 *vinf_array = find_local_peak_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1, 1);
+		DataArray2 *vinf_array = find_local_min_vinf_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1);
+		// DataArray2 *vinf_array = find_local_vinf_peak_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1, 1);
 		Vector2 vinf = data_array2_get_min(vinf_array);
 
 		data_array2_insert_new(vinf_line, vec2(jd_dep, vinf.y));
@@ -850,7 +1154,7 @@ DataArray2 * get_vinf_array_for_departure(QuadList *quads_at_x, double jd_dep) {
 	for(int i = 0; i < quads_at_x->num; i++) {
 		Quad *quad_at_x = quads_at_x->quad[i];
 		double dur = quad_at_x->corner[QUAD_NW]->pos.y;
-		double vinf = get_quad_interpolated_value(quad_at_x, vec2(jd_dep, dur), MESH_VAL_VINF);
+		double vinf = get_quad_interpolated_value(quad_at_x, vec2(jd_dep, dur), MESH_VAL_ARRVINF);
 		data_array2_insert_new(dep_vinf_array, vec2(dur, vinf));
 
 		double jd_min = quad_at_x->corner[QUAD_NW]->pos.x;
@@ -860,7 +1164,7 @@ DataArray2 * get_vinf_array_for_departure(QuadList *quads_at_x, double jd_dep) {
 		if(neighbour) continue;
 
 		dur = quad_at_x->corner[QUAD_SW]->pos.y;
-		vinf = get_quad_interpolated_value(quad_at_x, vec2(jd_dep, dur), MESH_VAL_VINF);
+		vinf = get_quad_interpolated_value(quad_at_x, vec2(jd_dep, dur), MESH_VAL_ARRVINF);
 		data_array2_insert_new(dep_vinf_array, vec2(dur, vinf));
 	}
 
