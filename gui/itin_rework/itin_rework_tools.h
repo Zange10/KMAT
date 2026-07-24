@@ -29,6 +29,24 @@ typedef enum PorkchopMeshValueType {
 	NUM_PORKCHOP_MESH_VALUE_TYPES	// number of porkchop mesh vals
 } PorkchopMeshValueType;
 
+typedef enum LambertBranch {
+	LAMBERT_BRANCH_LEFT,
+	LAMBERT_BRANCH_RIGHT
+} LambertBranch;
+
+typedef struct VinfStruct {
+	double jd_dep;
+	DataArray2 *vinf_array;
+	int min_vinf_idx;
+} VinfStruct;
+
+typedef struct VinfStructArray {
+	VinfStruct *vinf_arr;
+	size_t num, cap;
+	DataArray2 *vinf_line;
+	DataArray2 *dur_line;
+} VinfStructArray;
+
 typedef struct DepartureGroup {
 	Body *dep_body;
 	CelestSystem *system;
@@ -43,6 +61,8 @@ typedef struct SegmentGroup {
 	double boundary_gradient;
 	Boundary group_bdr, dv_bdr, vinf_bdr, rpe_bdr;
 	DataArray2 *vinf_array;
+	VinfStructArray vinf_struct_array;
+	LambertBranch lam_branch;
 	int num_next_groups;
 	int group_cap;
 	struct SegmentGroup *prev;
@@ -58,6 +78,7 @@ void append_to_segment_group(SegmentGroup *group, SegmentGroup *new_group);
 void free_segment_group(SegmentGroup *group);
 
 void find_lambert_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double max_depdv, double dep_periapsis, double *left_x, double *right_x, double tol);
+double find_lambert_root_with_vinf_struct_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double vinf, VinfStructArray vinf_struct_array, double tol, bool left_branch);
 
 DataArray2 * find_local_min_vinf_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol);
 DataArray2 * find_local_max_vinf_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol);
@@ -75,6 +96,7 @@ void set_opposition_conjunction_group_boundary2(SegmentGroup *group, int shift, 
 Boundary calc_dv_boundary(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
 
 DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
+VinfStructArray calc_min_vinf_line2(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
 DataArray2 * get_vinf_array_for_departure(QuadList *quads_at_x, double jd_dep);
 DataArray2 * get_min_vinf_array_for_departure(QuadList *quads_at_x, double jd_dep, DataArray2 *min_vinf_array, double dv_tolerance, double min_dur, double max_dur);
 void calc_vinf_boundary(SegmentGroup *dep_group, SegmentGroup *group, Quad *quad, DataArray2 *min_vinf_array, double dv_tolerance);

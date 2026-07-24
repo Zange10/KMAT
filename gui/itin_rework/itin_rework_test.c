@@ -212,7 +212,7 @@ double * step_to_array(struct ItinStep *step) {
 
 
 
-void departure_populate(MeshPoint2 *mesh_point, void *params_p) {
+void departure_pop_func(MeshPoint2 *mesh_point, void *params_p) {
 	SegmentGroup *group = params_p;
 	Body *cb = group->dep_body->orbit.cb;
 	double jd_dep = mesh_point->pos.x;
@@ -277,6 +277,25 @@ MeshPoint2 * departure_point_func(double jd_dep, double duration, void *params_p
 	MeshPoint2 *new_mesh_point = create_mesh_point(vec2(jd_dep, duration), array, NUM_PORKCHOP_MESH_VALUE_TYPES);
 
 	return new_mesh_point;
+}
+
+void flyby_dur_pop_func(MeshPoint2 *mesh_point, void *params_p) {
+	SegmentGroup *group = params_p;
+	Body *cb = group->dep_body->orbit.cb;
+
+	Quad *quad_at_pos = get_quad_at_position(group->prev->quad, mesh_point->pos);
+
+	double jd_dep = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRDATE);
+	double vinf = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRVINF);
+
+	double duration = find_lambert_root_with_vinf_struct_array(jd_dep, group->dep_body, group->arr_body, group->system, vinf, group->vinf_struct_array, 1, group->lam_branch == LAMBERT_BRANCH_LEFT);
+
+	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+	array[MESH_VAL_ARRDATE] = duration > 0 ? jd_dep+duration : NAN;
+	array[MESH_VAL_DUR] = duration > 0 ? duration : NAN;
+
+	mesh_point->val = array;
+	mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
 }
 
 MeshPoint2 * test_next(double jd_dep0, double duration0, void *params_p) {
@@ -728,15 +747,26 @@ bool quad_test_vinf_arr(Quad *quad, void *params_p) {
 
 int match_to_boundary(Quad *quad, void *params_p, QuadPointFunc *point_func, int min_rf_level, int max_rf_level, bool rm_hard_bdr_crossed) {
 	BoundaryFuncParams *params = params_p;
+	// Datetime date = {1965, 12, 3};
+	// Datetime date = {1965, 11, 24};
+	// double jd_date = convert_date_JD(date);
+	// if(quad->corner[QUAD_NW]->pos.x > jd_date && quad->corner[QUAD_NW]->pos.y < 166 && quad->corner[QUAD_SW]->pos.y > 148) {
+	// 	for(int i = 0; i < 4; i++) {
+	// 		print_date(convert_JD_date(quad->corner[i]->pos.x, DATE_ISO), 0);
+	// 		printf("  |  %f\n", quad->corner[i]->pos.y);
+	// 	}
+	// }
 
 	if(!is_quad_inside_boundary(quad, params->soft_bdr)) {
 		free_quad(quad, true); return 0;
 	}
 
+	QuadList *quad_list = create_quad_list();
+
 	bool is_crossed_by_bounds = false;
 	int num_splits = 0;
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF) && quad->rf_level < min_rf_level) {
-		num_splits += split_quad(quad, point_func, NULL);
+		num_splits += split_quad(quad, point_func, quad_list);
 	} else {
 		for(int i = 0; i < params->hard_bdr.num; i++) {
 			if(is_quad_crossed_by_line(quad, params->hard_bdr.upper_bdrs[i]) || is_quad_crossed_by_line(quad, params->hard_bdr.lower_bdrs[i])) {
@@ -747,7 +777,7 @@ int match_to_boundary(Quad *quad, void *params_p, QuadPointFunc *point_func, int
 	}
 
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF) && is_crossed_by_bounds) {
-		if(quad->rf_level < max_rf_level) num_splits += split_quad(quad, point_func, NULL);
+		if(quad->rf_level < max_rf_level) num_splits += split_quad(quad, point_func, quad_list);
 		else if(rm_hard_bdr_crossed) free_quad(quad, true);
 	}
 
@@ -757,7 +787,17 @@ int match_to_boundary(Quad *quad, void *params_p, QuadPointFunc *point_func, int
 				num_splits += match_to_boundary(quad->subquads[i], params_p, point_func, min_rf_level, max_rf_level, rm_hard_bdr_crossed);
 			}
 		}
+		// last 4 elements in quad list are quad's subquads
+		for(int i = 0; i < (int) quad_list->num-4; i++) {
+			if(quad_list->quad[i]) {
+				if(!is_quad_inside_boundary(quad_list->quad[i], params->soft_bdr)) {
+					free_quad(quad_list->quad[i], true);
+				}
+			}
+		}
 	}
+
+	free_quad_list(quad_list);
 
 	return num_splits;
 }
@@ -887,8 +927,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	for(int i = 0; i < departure->num_next_groups; i++) {
 		SegmentGroup *group = departure->next[i];
-		Vector2 min = get_boundary_min(group->group_bdr);
-		Vector2 max = get_boundary_max(group->group_bdr);
+		Vector2 min = get_boundary_min(group->dv_bdr);
+		Vector2 max = get_boundary_max(group->dv_bdr);
 		double quad_min_dep = min.x;
 		double quad_max_dep = max.x;
 		double quad_min_dur = min.y;
@@ -933,10 +973,11 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 
 	end_time_measurement(&tm, "Group Boundary Matching");
+	start_time_measurement(&tm);
 
 	for(int idx = 0; idx < departure->num_next_groups; idx++) {
 		SegmentGroup *group = departure->next[idx];
-		QuadPointPopFunc point_pop_func = {departure_populate, group};
+		QuadPointPopFunc point_pop_func = {departure_pop_func, group};
 		populate_quad_mesh_points(group->quad, &point_pop_func);
 	}
 
@@ -998,20 +1039,6 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 
 	end_time_measurement(&tm, "Divide & Conquer");
-
-
-	for(int i = 0; i < departure->num_next_groups; i++) {
-		attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[i]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, MESH_VAL_ARRVINF, false);
-		plot_scatter_boundary(ir_coord_sys0, departure->next[i]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	}
-
-
-	print_timing_measurements(tm);
-	free_timing_measurements(&tm);
-	return;
-
-
-
 	start_time_measurement(&tm);
 
 	for(int idx = 0; idx < departure->num_next_groups; idx++) {
@@ -1030,7 +1057,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 		while(group_was_valid) {
 			SegmentGroup *new_group = new_segment_group(arr_body, body_tf, ir_system);
-			set_opposition_conjunction_group_boundary(new_group, shift, min_dep, max_dep, min_dur, max_dur, true);
+			// set_opposition_conjunction_group_boundary(new_group, shift, min_dep, max_dep, min_dur, max_dur, true);
+			set_opposition_conjunction_group_boundary2(new_group, shift, min_dep, max_dep, min_dur, max_dur);
 
 			if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= min_dur &&
 				data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= max_dur) {
@@ -1059,7 +1087,9 @@ G_MODULE_EXPORT void on_calc_ir() {
 		max_dur = 700;
 
 		for(int i = 0; i < group->num_next_groups; i++) {
-			group->next[i]->vinf_array = calc_min_vinf_line(group->next[i], min_dep, max_dep, min_dur, max_dur, dep_periapsis, max_depdv, 1);
+			// group->next[i]->vinf_array = calc_min_vinf_line(group->next[i], min_dep, max_dep, min_dur, max_dur, dep_periapsis, max_depdv, 1);
+			group->next[i]->vinf_struct_array = calc_min_vinf_line2(group->next[i], min_dep, max_dep, min_dur, max_dur, ir_dep_periapsis, max_depdv, 1);
+			group->next[i]->vinf_array = group->next[i]->vinf_struct_array.vinf_line;
 		}
 
 	}
@@ -1075,9 +1105,10 @@ G_MODULE_EXPORT void on_calc_ir() {
 	// 	plot_boundary(ir_coord_sys0, departure->next[i]->dv_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// }
 
-	plot_boundary(ir_coord_sys1, departure->next[pcgroup0]->next[pcgroup1]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true);
+	// plot_boundary(ir_coord_sys1, departure->next[pcgroup0]->next[pcgroup1]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true);
 
-	plot_scatter_data2(ir_coord_sys0, departure->next[pcgroup0]->next[pcgroup1]->vinf_array, CS_AXIS_DATE, CS_AXIS_NUMBER, true);
+	// plot_scatter_data2(ir_coord_sys0, departure->next[pcgroup0]->next[pcgroup1]->vinf_struct_array.vinf_line, CS_AXIS_DATE, CS_AXIS_NUMBER, true);
+	// plot_scatter_data2(ir_coord_sys1, departure->next[pcgroup0]->next[pcgroup1]->vinf_struct_array.dur_line, CS_AXIS_DATE, CS_AXIS_NUMBER, true);
 	print_timing_measurements(tm);
 	free_timing_measurements(&tm);
 	return;
@@ -1086,7 +1117,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	start_time_measurement(&tm);
 
 
-	SegmentGroup *group = old_dep.segment_groups[pcgroup0];
+	SegmentGroup *group = departure->next[pcgroup0];
 
 	// calc_vinf_boundary(group, group->next[pcgroup1], group->quad, group->next[pcgroup1]->vinf_array, 1);
 	//
@@ -1332,15 +1363,15 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 		BoundaryFuncParams bound_func_params2 = {.soft_bdr = new_boundary, .hard_bdr = next_group->vinf_bdr};
 		// match_to_boundary(next_group->quad, &bound_func_params2, NULL, 7,  next_group->max_rf_level-10, false);
-		match_to_boundary(next_group->quad, &bound_func_params2, NULL, 9,  10, false);
+		match_to_boundary(next_group->quad, &bound_func_params2, NULL, group->min_rf_level,  10, false);
 		printf("Num of Leaves: %d\n", get_quad_leaves(next_group->quad, NULL));
 	}
 
 	end_time_measurement(&tm, "Boundary matching next step");
 
 
-	// attach_quad_to_coordinate_system(ir_coord_sys0, departure.segment_groups[pcgroup0]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_DATE, TRUE, MESH_VAL_DATE, TRUE);
-	// attach_quad_to_coordinate_system(ir_coord_sys1, departure.segment_groups[pcgroup0]->next[pcgroup1]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_DATE, TRUE);
+	attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[pcgroup0]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_DATE, TRUE, MESH_VAL_ARRVINF, TRUE);
+	attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[pcgroup0]->next[pcgroup1]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_ARRDATE, TRUE);
 	//
 	// for(int j = 0; j < new_boundary.num; j++) {
 	// 	plot_scatter_data2(ir_coord_sys1, new_boundary.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
@@ -1356,7 +1387,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	// // 	plot_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->dv_bdr.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// // 	plot_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->dv_bdr.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// // }
-	// return;
+	return;
 
 	start_time_measurement(&tm);
 
@@ -1794,22 +1825,22 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	// Fly-By 2 (Mars): | 1960-05-21 08:08:34 |  Periapsis: 143.39km (dur = 106 days)
 	// Arrival (Earth): | 1960-11-26 18:38:42
 
-	Body *dep_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_depbody))];
-	Body *arr_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_arrbody))];
+	// Body *dep_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_depbody))];
+	// Body *arr_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_arrbody))];
 	// Body *body_tf = get_body_by_name("Mars", ir_system);
 
 
 
-	double jd_dep = min_dep;
-	// Datetime min_date = {1960, 01, 1};
-	// Datetime max_date = {1960, 9, 1};
-	// min_dur = 90;
-	// max_dur = 700;
-	// min_dep = convert_date_JD(min_date);
-	// max_dep = convert_date_JD(max_date);
+	double jd_dep = min_dep+tolerance;
+	Datetime min_date = {1960, 01, 1};
+	Datetime max_date = {1961, 1, 1};
+	min_dur = 90;
+	max_dur = 700;
+	min_dep = convert_date_JD(min_date);
+	max_dep = convert_date_JD(max_date);
 
-	// Body *dep_body = get_body_by_name("Venus", ir_system);
-	// Body *arr_body = get_body_by_name("Mars", ir_system);
+	Body *dep_body = get_body_by_name("Venus", ir_system);
+	Body *arr_body = get_body_by_name("Mars", ir_system);
 
 	SegmentGroup *departure = new_segment_group(dep_body, NULL, ir_system);
 
@@ -1819,7 +1850,6 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	while(group_was_valid) {
 		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system);
 		set_opposition_conjunction_group_boundary2(new_group, shift, min_dep, max_dep, min_dur, max_dur);
-		// set_opposition_conjunction_group_boundary(new_group, shift, min_dep, max_dep, min_dur, max_dur, false);
 
 		if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= min_dur &&
 			data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= max_dur) {
@@ -1834,31 +1864,96 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	printf("Number of Departure Groups: %d\n\n", departure->num_next_groups);
 
 	end_time_measurement(&tm, "Finding first Groups");
-	print_timing_measurements(tm);
-	free_timing_measurements(&tm);
+	// print_timing_measurements(tm);
+	// free_timing_measurements(&tm);
+	//
+	// printf("%lu\n", data_array2_size(departure->next[pcgroup0]->group_bdr.lower_bdrs[0]));
+	//
+	// plot_scatter_boundary(ir_coord_sys0, departure->next[pcgroup0]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true);
+	// return;
 
-	printf("%lu\n", data_array2_size(departure->next[pcgroup0]->group_bdr.lower_bdrs[0]));
+	//
+	// start_time_measurement(&tm);
+	// group->vinf_array = calc_min_vinf_line(group, min_dep, max_dep, min_dur, max_dur, ir_dep_periapsis, max_depdv, 1);
+	// end_time_measurement(&tm, "Vinf line");
+	// // plot_scatter_boundary(ir_coord_sys0, group->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// plot_scatter_data2(ir_coord_sys0, group->vinf_array, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// scatter_data2(ir_coord_sys1, group->vinf_array, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	//
+	// start_time_measurement(&tm);
+	// DataArray3 *all_vinf = calc_min_vinf_line2(group, min_dep, max_dep, min_dur, max_dur, ir_dep_periapsis, max_depdv, 1);
+	// end_time_measurement(&tm, "Vinf line2");
+	// scatter_data3(ir_coord_sys1, all_vinf, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
+	//
+	// print_timing_measurements(tm);
+	// free_timing_measurements(&tm);
+	// return;
 
-	plot_scatter_boundary(ir_coord_sys0, departure->next[pcgroup0]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true);
-	return;
 
+	// start_time_measurement(&tm);
+	// for(int i = 0; i < departure->num_next_groups; i++) {
+	// 	SegmentGroup *group = departure->next[i];
+	// 	group->vinf_array = calc_min_vinf_line(group, min_dep, max_dep, min_dur, max_dur, ir_dep_periapsis, max_depdv, 1);
+	// 	// plot_scatter_boundary(ir_coord_sys0, group->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// 	// plot_scatter_data2(ir_coord_sys0, group->vinf_array, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// }
+	// end_time_measurement(&tm, "Vinf line");
+	// start_time_measurement(&tm);
+	// for(int i = 0; i < departure->num_next_groups; i++) {
+	// 	SegmentGroup *group = departure->next[i];
+	// 	VinfStructArray vinf_struct_array = calc_min_vinf_line2(group, min_dep, max_dep, min_dur, max_dur, ir_dep_periapsis, max_depdv, 1);
+	// 	// scatter_data2(ir_coord_sys1, vinf_struct_array.vinf_line, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// }
+	// end_time_measurement(&tm, "Vinf line2");
+	//
+	// print_timing_measurements(tm);
+	// free_timing_measurements(&tm);
+	// return;
 	SegmentGroup *group = departure->next[pcgroup0];
 
-	min_dur = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep);
-	max_dur = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep);
-	if(min_dur < 90) min_dur = 90;
+	// plot_scatter_data2(ir_coord_sys0, group->vinf_array, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 
-	printf("%f  %f\n", min_dur, max_dur);
+	start_time_measurement(&tm);
+	group->vinf_struct_array = calc_min_vinf_line2(group, min_dep, max_dep, min_dur, max_dur, ir_dep_periapsis, max_depdv, 1);
+	end_time_measurement(&tm, "Vinf Lines");
 
-	double dt0 = (min_dur-50)*86400;
-	double dt1 = (min_dur+50)*86400;
-	DataArray2 *array_max1 = find_local_max_vinf_array(jd_dep, dep_body, arr_body, ir_system, dt0, dt1, 1);
-	dt0 = (max_dur-50)*86400;
-	dt1 = (max_dur+50)*86400;
-	DataArray2 *array_max2 = find_local_max_vinf_array(jd_dep, dep_body, arr_body, ir_system, dt0, dt1, 1);
 
-	plot_scatter_data2(ir_coord_sys1, array_max1, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true);
-	plot_scatter_data2(ir_coord_sys1, array_max2, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
+
+	// min_dur = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep);
+	// max_dur = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep);
+	// if(min_dur < 90) min_dur = 90;
+	//
+	// printf("%f  %f\n", min_dur, max_dur);
+	//
+	// double neg_tol_dur = min_dur-1;
+	// double pos_tol_dur = min_dur+1;
+	// min_dur = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
+	// neg_tol_dur = max_dur-1;
+	// pos_tol_dur = max_dur+1;
+	// max_dur = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
+	// printf("%f  %f\n", min_dur, max_dur);
+	//
+	//
+	//
+	// if(min_dur < 90) min_dur = 90;
+	// if(max_dur > 700) max_dur = 700;
+	//
+	// double dt0 = (min_dur)*86400;
+	// double dt1 = (max_dur)*86400;
+	// DataArray2 *vinf_array = find_local_min_vinf_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1);
+	// printf("%f\n", data_array2_get_min(vinf_array).y);
+	// plot_scatter_data2(ir_coord_sys1, vinf_array, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
+	// // return;
+	// //
+	// //
+	// //
+	// // DataArray2 *array_max1 = find_local_max_vinf_array(jd_dep, dep_body, arr_body, ir_system, dt0, dt1, 1);
+	// // dt0 = (max_dur-50)*86400;
+	// // dt1 = (max_dur+50)*86400;
+	// // DataArray2 *array_max2 = find_local_max_vinf_array(jd_dep, dep_body, arr_body, ir_system, dt0, dt1, 1);
+	// //
+	// // plot_scatter_data2(ir_coord_sys1, array_max1, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true);
+	// // plot_scatter_data2(ir_coord_sys1, array_max2, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
 
 	print_timing_measurements(tm);
 	free_timing_measurements(&tm);
@@ -1992,6 +2087,23 @@ G_MODULE_EXPORT void on_calc_ir2_() {
 
 
 G_MODULE_EXPORT void on_calc_ir3() {
+	DataArray3 *arr = data_array3_create();
+
+	for(int i = 0; i < 200; i++) {
+		data_array3_append_new(arr, vec3(i, i*i, i*i*i/1e3));
+	}
+
+	DataArray3 *slice = data_array3_slice(arr, 10, -1);
+	print_data_array3(slice, "x", "y", "z");
+
+	data_array3_free(arr);
+	data_array3_free(slice);
+
+
+
+
+
+	return;
 	TimingMeasurements tm = init_timing_measurements();
 	char *string;
 

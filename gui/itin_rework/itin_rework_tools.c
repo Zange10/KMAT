@@ -17,6 +17,7 @@ SegmentGroup * new_segment_group(Body *dep_body, Body *arr_body, CelestSystem *s
 	new_group->vinf_bdr = create_new_boundary();
 	new_group->rpe_bdr = create_new_boundary();
 	new_group->vinf_array = NULL;
+	LambertBranch lam_branch = LAMBERT_BRANCH_LEFT;
 	new_group->num_next_groups = 0;
 	new_group->group_cap = 0;
 	new_group->next = NULL;
@@ -164,6 +165,82 @@ void find_lambert_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_bod
 	data_array2_free(data);
 }
 
+double find_lambert_root_with_vinf_struct_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double target_vinf, VinfStructArray vinf_struct_array, double tol, bool left_branch) {
+	// x: dt, y: diff_vinf
+	DataArray2 *data = data_array2_create();
+
+	DataArray2 *dur_line = vinf_struct_array.dur_line;
+	double min_vinf_dur = interpolate_from_sorted_data_array2(vinf_struct_array.dur_line, jd_dep);
+	int dl_idx = get_idx_of_func_x(dur_line, jd_dep);
+
+	OSV osv_dep = system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(dep_body->orbit, jd_dep) :
+				   osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, system->cb);
+	OSV osv_arr0 = system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(arr_body->orbit, jd_dep) :
+				   osv_from_ephem(arr_body->ephem, arr_body->num_ephems, jd_dep, system->cb);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, system->cb);
+	double period_arr0 = calc_orbital_period(arr0);
+	double local_peak_half_width_dt = period_arr0*0.01;
+
+	double min_dur, max_dur;
+	if(left_branch) {
+		Vector2 lower0 = vec2(vinf_struct_array.vinf_arr[dl_idx  ].jd_dep, data_array2_get(vinf_struct_array.vinf_arr[dl_idx  ].vinf_array,  0).x);
+		Vector2 lower1 = vec2(vinf_struct_array.vinf_arr[dl_idx+1].jd_dep, data_array2_get(vinf_struct_array.vinf_arr[dl_idx+1].vinf_array,  0).x);
+		min_dur = get_y_value_from_x_value_of_line(lower0, lower1, jd_dep);
+		double neg_tol_dur = min_dur-local_peak_half_width_dt/86400;
+		double pos_tol_dur = min_dur+local_peak_half_width_dt/86400;
+		min_dur = find_local_opp_conj(dep_body, arr_body, system, jd_dep, neg_tol_dur, pos_tol_dur);
+
+		max_dur = min_vinf_dur;
+	} else {
+		Vector2 upper0 = vec2(vinf_struct_array.vinf_arr[dl_idx  ].jd_dep, data_array2_get(vinf_struct_array.vinf_arr[dl_idx  ].vinf_array, -1).x);
+		Vector2 upper1 = vec2(vinf_struct_array.vinf_arr[dl_idx+1].jd_dep, data_array2_get(vinf_struct_array.vinf_arr[dl_idx+1].vinf_array, -1).x);
+		min_dur = min_vinf_dur;
+		max_dur = get_y_value_from_x_value_of_line(upper0, upper1, jd_dep);
+	}
+
+	double dt0 = min_dur*86400;
+	double dt1 = max_dur*86400;
+
+	double t0 = jd_dep;
+	double last_dt = -1e20, dt, t1;
+
+	if(dt0 < 100) dt0 = 100;	// transfer duration of 100s
+	dt = dt0;
+	double dur = NAN;
+
+	for(int i = 0; i < 100; i++) {
+		t1 = t0 + dt / 86400;
+
+		OSV osv_arr = system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(arr_body->orbit, t1) :
+				osv_from_ephem(arr_body->ephem, arr_body->num_ephems, t1, system->cb);
+
+		Lambert3 new_transfer = calc_lambert3(osv_dep.r, osv_arr.r, dt, system->cb);
+		double vinf = fabs(mag_vec3(subtract_vec3(new_transfer.v0, osv_dep.v)));
+		double diff = vinf - target_vinf;
+
+		if(i > 3 && diff > 0 && diff < tol || (i > 3 && fabs(dt-last_dt) < tol)) {
+			dur = dt/86400;
+			break;
+		}
+
+		data_array2_insert_new(data, vec2(dt, diff));
+
+		if(i > 3 && dt == last_dt) break;	// step size 0 (imprecision)
+		last_dt = dt;
+		if(i == 0) dt = dt1;
+		else dt = root_finder_single_minimum_func_next_x(data, left_branch, 0.25, 1e-20);
+		if(isnan(dt) || isinf(dt)) break;
+		if(i == 1 && data_array2_get(data, 0).y < vinf == data_array2_get(data, 1).y < vinf) break;
+	}
+
+	if(isnan(dur)) dur = get_single_root_of_line_array(data);
+	data_array2_free(data);
+	return dur;
+}
+
 DataArray2 * find_local_min_vinf_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol) {
 	// x: dt, y: diff_vinf
 	DataArray2 *array = data_array2_create();
@@ -194,10 +271,63 @@ DataArray2 * find_local_min_vinf_array(double jd_dep, Body *dep_body, Body *arr_
 
 		data_array2_insert_new(array, vec2(t1-t0, vinf));
 
-		if(i < min_num_steps) dt = dt0 + (dt1-dt0)/(min_num_steps-1)*i;
+		if(i < min_num_steps-1) dt = dt0 + (dt1-dt0)/(min_num_steps-1)*(i+1);
 		else {
-			dt = get_next_x_for_min_search(array, -1, 0.05, 1e-3/86400)*86400;
+			if(i == min_num_steps + 2) {
+				int min_idx = get_idx_of_unimodal_func_minimum(array);
+				if(min_idx == 0) break;
+				if(min_idx == data_array2_size(array)-1) break;
+			}
+			dt = get_next_x_for_min_search(array, -1, 0.25, 1e-3/86400)*86400;
 			if(isnan(dt) || vinf-min_achievable_value_from_prev_and_next_points(array, -1, 2) < tol) break;
+		}
+	}
+
+	return array;
+}
+
+DataArray2 * find_local_min_vinf_array_with_guess(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol, double guess_dt) {
+	// x: dt, y: diff_vinf
+	DataArray2 *array = data_array2_create();
+
+	if(guess_dt <= dt0) guess_dt = dt0 + (dt1-dt0)*1e-9;
+	if(guess_dt >= dt1) guess_dt = dt1 - (dt1-dt0)*1e-9;
+
+	double t0 = jd_dep;
+	OSV osv_dep = system->prop_method == ORB_ELEMENTS ?
+			osv_from_elements(dep_body->orbit, jd_dep) :
+			osv_from_ephem(dep_body->ephem, dep_body->num_ephems, jd_dep, system->cb);
+
+	if(dt0 < 100) dt0 = 100;	// transfer duration of 100s
+	double dt = dt0;
+
+	int max_num_steps = 200;
+	int min_num_steps = 5;
+	int num = 0;
+
+	for(int i = 0; i < max_num_steps; i++) {
+		num++;
+		double t1 = t0 + dt/86400;
+
+		OSV osv_arr = system->prop_method == ORB_ELEMENTS ?
+				osv_from_elements(arr_body->orbit, t1) :
+				osv_from_ephem(arr_body->ephem, arr_body->num_ephems, t1, system->cb);
+
+		Lambert3 new_transfer = calc_lambert3(osv_dep.r, osv_arr.r, (t1-t0)*86400, system->cb);
+		double vinf = fabs(mag_vec3(subtract_vec3(new_transfer.v0, osv_dep.v)));
+
+
+		data_array2_insert_new(array, vec2(t1-t0, vinf));
+
+		switch(i) {
+			case 0: dt = dt1; break;
+			case 1: dt = (dt0*0.1+guess_dt*0.9); break;
+			case 2: dt = (dt1*0.1+guess_dt*0.9); break;
+			case 3: dt = (dt0*0.01+guess_dt*0.99); break;
+			case 4: dt = (dt1*0.01+guess_dt*0.99); break;
+			default:
+				dt = get_next_x_for_min_search(array, -1, 0.25, 1e-3/86400)*86400;
+				if(isnan(dt) || vinf-min_achievable_value_from_prev_and_next_points(array, -1, 2) < tol) return array;
 		}
 	}
 
@@ -1051,6 +1181,7 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 	double period_dep = calc_orbital_period(dep_orbit);
 	double syn_period = 1.0/fabs(1.0/period_dep - 1.0/period_arr0)/86400;
 	double jd_dep_step = syn_period/10;
+	double local_peak_half_width_dt = period_arr0*0.01;
 	double dt0, dt1;
 
 
@@ -1096,10 +1227,29 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 	for(int i = 0; i < data_array1_size(dep_points); i++) {
 		jd_dep = data_array1_get_data(dep_points)[i];
 
-		dt0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep) * 86400;
-		dt1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep) * 86400;
+		double dur0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep);
+		double dur1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep);
 
-		if(isnan(dt0) || isnan(dt1)) continue;
+		if(isnan(dur0) || isnan(dur1) || dur0 > max_dur || dur1 < min_dur) continue;
+
+		double neg_tol_dur = dur0-local_peak_half_width_dt/86400;
+		double pos_tol_dur = dur0+local_peak_half_width_dt/86400;
+		dur0 = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
+		neg_tol_dur = dur1-local_peak_half_width_dt/86400;
+		pos_tol_dur = dur1+local_peak_half_width_dt/86400;
+		dur1 = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
+
+		// Don't want to have exactly the peak due to jump at peak
+		dur0 += period_arr0/86400*1e-9;
+		dur1 -= period_arr0/86400*1e-9;
+
+		if(dur0 < min_dur) dur0 = min_dur;
+		if(dur1 > max_dur) dur1 = max_dur;
+
+		if(dur0 > max_dur || dur1 < min_dur) continue;
+
+		dt0 = dur0*86400;
+		dt1 = dur1*86400;
 
 		DataArray2 *vinf_array = find_local_min_vinf_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1);
 		// DataArray2 *vinf_array = find_local_vinf_peak_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1, 1);
@@ -1112,7 +1262,6 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 
 	Datetime date = {1959, 12, 10};
 	double jd_date = convert_date_JD(date);
-
 	for(int i = 0; i < data_array2_size(vinf_line)-1; i++) {
 		Vector2 *data = data_array2_get_data(vinf_line);
 
@@ -1128,9 +1277,27 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 		// 	printf("  |  ");
 		// 	print_date(convert_JD_date(data[i+1].x, DATE_ISO), 1);
 		// }
+		double dur0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep);
+		double dur1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep);
 
-		dt0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep) * 86400;
-		dt1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep) * 86400;
+		if(isnan(dur0) || isnan(dur1) || dur0 > max_dur || dur1 < min_dur) continue;
+
+		double neg_tol_dur = dur0-local_peak_half_width_dt/86400;
+		double pos_tol_dur = dur0+local_peak_half_width_dt/86400;
+		dur0 = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
+		neg_tol_dur = dur1-local_peak_half_width_dt/86400;
+		pos_tol_dur = dur1+local_peak_half_width_dt/86400;
+		dur1 = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
+
+		// Don't want to have exactly the peak due to jump at peak
+		dur0 += period_arr0/86400*1e-9;
+		dur1 -= period_arr0/86400*1e-9;
+
+		if(dur0 < min_dur) dur0 = min_dur;
+		if(dur1 > max_dur) dur1 = max_dur;
+
+		dt0 = dur0*86400;
+		dt1 = dur1*86400;
 
 		if(isnan(dt0) || isnan(dt1)) continue;
 
@@ -1141,11 +1308,212 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 		data_array2_insert_new(vinf_line, vec2(jd_dep, vinf.y));
 		data_array2_free(vinf_array);
 
-		if(data[i+1].x - data[i].x < syn_period*0.0001 || fabs(vinf.y-vinf_guess) < dv_tolerance) i++;
+		if(data[i+1].x - data[i].x < syn_period*1e-4 || fabs(vinf.y-vinf_guess) < dv_tolerance) i++;
 		else i--;
 	}
 
+	// printf("- %lu\n", data_array2_size(vinf_line));
 	return vinf_line;
+}
+
+VinfStructArray create_vinf_struct_array() {
+	return (VinfStructArray) {.num = 0, .cap = 0, .vinf_arr = NULL, .dur_line = NULL, .vinf_line = NULL};
+}
+
+void insert_to_vinf_struct(VinfStructArray *vinf_struct_array, double jd_dep, DataArray2 *vinf_array, int min_idx) {
+	if(vinf_struct_array->num == vinf_struct_array->cap) {
+		if(vinf_struct_array->cap == 0) {
+			vinf_struct_array->cap = 8;
+			vinf_struct_array->vinf_arr = malloc(vinf_struct_array->cap * sizeof(VinfStruct));
+		} else {
+			vinf_struct_array->cap *= 2;
+			VinfStruct *temp = realloc(vinf_struct_array->vinf_arr, vinf_struct_array->cap * sizeof(VinfStruct));
+			if(temp) vinf_struct_array->vinf_arr = temp;
+		}
+	}
+
+	VinfStruct vinf_struct;
+	vinf_struct.jd_dep = jd_dep;
+	vinf_struct.vinf_array = vinf_array;
+	if(min_idx < 0 || min_idx > data_array2_size(vinf_array)) min_idx = get_idx_of_unimodal_func_minimum(vinf_array);
+	vinf_struct.min_vinf_idx = min_idx;
+	vinf_struct_array->vinf_arr[vinf_struct_array->num++] = vinf_struct;
+}
+
+VinfStructArray calc_min_vinf_line2(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
+	VinfStructArray vinf_struct_array = create_vinf_struct_array();
+	DataArray2 *vinf_line = data_array2_create();
+	DataArray2 *dur_line = data_array2_create();
+
+	OSV osv0 = group->system->prop_method == ORB_ELEMENTS ?
+					osv_from_elements(group->dep_body->orbit, jd_min_dep) :
+					osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_min_dep, group->system->cb);
+
+	OSV osv_arr0 = group->system->prop_method == ORB_ELEMENTS ?
+				   osv_from_elements(group->arr_body->orbit, jd_min_dep) :
+				   osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_min_dep, group->system->cb);
+	Orbit arr0 = constr_orbit_from_osv(osv_arr0.r, osv_arr0.v, group->system->cb);
+	double period_arr0 = calc_orbital_period(arr0);
+	Orbit dep_orbit = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb);
+	double period_dep = calc_orbital_period(dep_orbit);
+	double syn_period = 1.0/fabs(1.0/period_dep - 1.0/period_arr0)/86400;
+	double jd_dep_step = syn_period/10;
+	double local_peak_half_width_dt = period_arr0*0.01;
+	double dt0, dt1;
+
+	double jd_min_dep_group_bdr;
+	double jd_max_dep_group_bdr;
+
+	// get into the corners of the group boundary and min_dur/max_dur
+	if(group->boundary_gradient > 0) {
+		jd_min_dep_group_bdr = get_single_shifted_root_of_line_array(group->group_bdr.upper_bdrs[0], min_dur);
+		jd_max_dep_group_bdr = get_single_shifted_root_of_line_array(group->group_bdr.lower_bdrs[0], max_dur);
+	} else {
+		jd_max_dep_group_bdr = get_single_shifted_root_of_line_array(group->group_bdr.upper_bdrs[0], min_dur);
+		jd_min_dep_group_bdr = get_single_shifted_root_of_line_array(group->group_bdr.lower_bdrs[0], max_dur);
+	}
+	jd_min_dep_group_bdr += syn_period*1e-3;
+	jd_max_dep_group_bdr -= syn_period*1e-3;
+	if(!isnan(jd_min_dep_group_bdr) && jd_min_dep < jd_min_dep_group_bdr) jd_min_dep = jd_min_dep_group_bdr;
+	if(!isnan(jd_max_dep_group_bdr) && jd_max_dep > jd_max_dep_group_bdr) jd_max_dep = jd_max_dep_group_bdr;
+
+
+	// double r0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb).a, r1 = arr0.a;
+	// double r_ratio =  r1/r0;
+	// Hohmann hohmann = calc_hohmann_transfer(r0, r1, group->system->cb);
+	// double hohmann_dur = hohmann.dur/86400;
+	// double min_duration = 0.4 * hohmann_dur;
+	// double max_duration = (4*(r_ratio-0.85)*(r_ratio-0.85)+1.5) * hohmann_dur; if(max_duration/hohmann_dur > 3) max_duration = hohmann_dur*3;
+	// if(max_duration < max_dur) max_dur = max_duration;
+	// if(min_duration > min_dur) min_dur = min_duration;
+
+	// double min_dt = min_dur*86400;
+	// double max_dt = max_dur*86400;
+
+	DataArray1 *dep_points = data_array1_create();
+	double jd_dep = jd_min_dep;
+	while(jd_dep < jd_max_dep) {
+		data_array1_append_new(dep_points, jd_dep);
+		jd_dep += jd_dep_step;
+	}
+	data_array1_append_new(dep_points, jd_max_dep);
+
+
+	DataArray1 *traversals = data_array1_create();
+	double trav_search_date = jd_min_dep, prev_trav, next_trav;
+	double offset_base = syn_period*0.005;
+	do {
+		get_prev_and_next_relative_plane_traversal(group->dep_body, group->arr_body, group->system, trav_search_date, &prev_trav, &next_trav);
+		data_array1_append_new(traversals, prev_trav);
+		data_array1_append_new(traversals, next_trav);
+		for(int i = -3; i <= 3; i++) {
+			jd_dep = prev_trav + offset_base*i;
+			if(jd_dep >= jd_min_dep && jd_dep <= jd_max_dep)
+				data_array1_insert_new(dep_points, jd_dep);
+			jd_dep = next_trav + offset_base*i;
+			if(jd_dep >= jd_min_dep && jd_dep <= jd_max_dep)
+				data_array1_insert_new(dep_points, jd_dep);
+		}
+		trav_search_date += period_dep/86400;
+	} while(next_trav < jd_max_dep);
+
+	for(int i = 0; i < data_array1_size(dep_points); i++) {
+		jd_dep = data_array1_get_data(dep_points)[i];
+
+		double dur0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep);
+		double dur1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep);
+
+		if(isnan(dur0) || isnan(dur1) || dur0 > max_dur || dur1 < min_dur) continue;
+
+		double neg_tol_dur = dur0-local_peak_half_width_dt/86400;
+		double pos_tol_dur = dur0+local_peak_half_width_dt/86400;
+		dur0 = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
+		neg_tol_dur = dur1-local_peak_half_width_dt/86400;
+		pos_tol_dur = dur1+local_peak_half_width_dt/86400;
+		dur1 = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
+
+		// Don't want to have exactly the peak due to jump at peak
+		dur0 += period_arr0/86400*1e-6;
+		dur1 -= period_arr0/86400*1e-6;
+
+		if(dur0 < min_dur) dur0 = min_dur;
+		if(dur1 > max_dur) dur1 = max_dur;
+
+		if(dur0 > max_dur || dur1 < min_dur) continue;
+
+		dt0 = dur0*86400;
+		dt1 = dur1*86400;
+
+		DataArray2 *vinf_array = find_local_min_vinf_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1);
+		// DataArray2 *vinf_array = find_local_vinf_peak_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1, 1);
+		int min_idx = get_idx_of_unimodal_func_minimum(vinf_array);
+		Vector2 vinf = data_array2_get_data(vinf_array)[min_idx];
+
+		data_array2_insert_new(vinf_line, vec2(jd_dep, vinf.y));
+		data_array2_insert_new(dur_line, vec2(jd_dep, vinf.x));
+		insert_to_vinf_struct(&vinf_struct_array, jd_dep, vinf_array, min_idx);
+
+		data_array2_free(vinf_array);
+	}
+	data_array1_clear(dep_points);
+
+	Datetime date = {1959, 12, 10};
+	double jd_date = convert_date_JD(date);
+	for(int i = 0; i < data_array2_size(vinf_line)-1; i++) {
+		Vector2 *data = data_array2_get_data(vinf_line);
+
+		jd_dep = (data[i].x + data[i+1].x)/2;
+		double vinf_guess = (data[i].y + data[i+1].y)/2;
+
+		double dur0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep);
+		double dur1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep);
+
+		if(isnan(dur0) || isnan(dur1) || dur0 > max_dur || dur1 < min_dur) continue;
+
+		double neg_tol_dur = dur0-local_peak_half_width_dt/86400;
+		double pos_tol_dur = dur0+local_peak_half_width_dt/86400;
+		dur0 = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
+		neg_tol_dur = dur1-local_peak_half_width_dt/86400;
+		pos_tol_dur = dur1+local_peak_half_width_dt/86400;
+		dur1 = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
+
+		// Don't want to have exactly the peak due to jump at peak
+		dur0 += period_arr0/86400*1e-6;
+		dur1 -= period_arr0/86400*1e-6;
+
+		if(dur0 < min_dur) dur0 = min_dur;
+		if(dur1 > max_dur) dur1 = max_dur;
+
+		dt0 = dur0*86400;
+		dt1 = dur1*86400;
+
+		if(isnan(dur0) || isnan(dur1) || dur0 > max_dur || dur1 < min_dur) continue;
+
+		double guess = interpolate_from_sorted_data_array2(dur_line, jd_dep);
+		double guess_dt = guess*86400;
+
+		DataArray2 *vinf_array = find_local_min_vinf_array_with_guess(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1, guess_dt);
+		// DataArray2 *vinf_array = find_local_min_vinf_array(jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, 1);
+		int min_idx = get_idx_of_unimodal_func_minimum(vinf_array);
+		Vector2 vinf = data_array2_get_data(vinf_array)[min_idx];
+
+		data_array2_insert_new(vinf_line, vec2(jd_dep, vinf.y));
+		data_array2_insert_new(dur_line, vec2(jd_dep, vinf.x));
+		insert_to_vinf_struct(&vinf_struct_array, jd_dep, vinf_array, min_idx);
+
+		data_array2_free(vinf_array);
+
+		if(data[i+1].x - data[i].x < syn_period*1e-4 || fabs(vinf.y-vinf_guess) < dv_tolerance) i++;
+		else i--;
+	}
+
+	// print_data_array2(vinf_line, "jd_dep", "vinf");
+	// print_data_array2(dur_line, "jd_dep", "dur");
+	// printf("%lu\n", data_array2_size(vinf_line));
+	vinf_struct_array.vinf_line = vinf_line;
+	vinf_struct_array.dur_line = dur_line;
+
+	return vinf_struct_array;
 }
 
 DataArray2 * get_vinf_array_for_departure(QuadList *quads_at_x, double jd_dep) {
