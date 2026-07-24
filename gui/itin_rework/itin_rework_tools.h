@@ -78,7 +78,7 @@ void append_to_segment_group(SegmentGroup *group, SegmentGroup *new_group);
 void free_segment_group(SegmentGroup *group);
 
 void find_lambert_root(OSV osv_dep, double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double max_depdv, double dep_periapsis, double *left_x, double *right_x, double tol);
-double find_lambert_root_with_vinf_struct_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double vinf, VinfStructArray vinf_struct_array, double tol, bool left_branch);
+double find_segment_group_lambert_root(double jd_dep, SegmentGroup *group, double target_vinf, double min_dur, double max_dur, double tol);
 
 DataArray2 * find_local_min_vinf_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol);
 DataArray2 * find_local_max_vinf_array(double jd_dep, Body *dep_body, Body *arr_body, CelestSystem *system, double dt0, double dt1, double tol);

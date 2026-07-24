@@ -281,14 +281,22 @@ MeshPoint2 * departure_point_func(double jd_dep, double duration, void *params_p
 
 void flyby_dur_pop_func(MeshPoint2 *mesh_point, void *params_p) {
 	SegmentGroup *group = params_p;
-	Body *cb = group->dep_body->orbit.cb;
 
 	Quad *quad_at_pos = get_quad_at_position(group->prev->quad, mesh_point->pos);
+
+	if(!quad_at_pos) {
+		double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+		array[MESH_VAL_ARRDATE] = NAN;
+		array[MESH_VAL_DUR] = NAN;
+		mesh_point->val = array;
+		mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
+		return;
+	}
 
 	double jd_dep = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRDATE);
 	double vinf = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRVINF);
 
-	double duration = find_lambert_root_with_vinf_struct_array(jd_dep, group->dep_body, group->arr_body, group->system, vinf, group->vinf_struct_array, 1, group->lam_branch == LAMBERT_BRANCH_LEFT);
+	double duration = find_segment_group_lambert_root(jd_dep, group, vinf, 0, 700, 1);
 
 	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
 	array[MESH_VAL_ARRDATE] = duration > 0 ? jd_dep+duration : NAN;
@@ -296,6 +304,32 @@ void flyby_dur_pop_func(MeshPoint2 *mesh_point, void *params_p) {
 
 	mesh_point->val = array;
 	mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
+}
+
+MeshPoint2 * flyby_dur_func(double jd_dep0, double dur0, void *params_p) {
+	SegmentGroup *group = params_p;
+	Vector2 pos = vec2(jd_dep0, dur0);
+
+	Quad *quad_at_pos = get_quad_at_position(group->prev->quad, pos);
+
+	if(!quad_at_pos) {
+		double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+		array[MESH_VAL_ARRDATE] = NAN;
+		array[MESH_VAL_DUR] = NAN;
+
+		return create_mesh_point(pos, array, NUM_PORKCHOP_MESH_VALUE_TYPES);
+	}
+
+	double jd_dep = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRDATE);
+	double vinf = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRVINF);
+
+	double duration = find_segment_group_lambert_root(jd_dep, group, vinf, 0, 700, 1);
+
+	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+	array[MESH_VAL_ARRDATE] = duration > 0 ? jd_dep+duration : NAN;
+	array[MESH_VAL_DUR] = duration > 0 ? duration : NAN;
+
+	return create_mesh_point(pos, array, NUM_PORKCHOP_MESH_VALUE_TYPES);
 }
 
 MeshPoint2 * test_next(double jd_dep0, double duration0, void *params_p) {
@@ -1089,7 +1123,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		for(int i = 0; i < group->num_next_groups; i++) {
 			// group->next[i]->vinf_array = calc_min_vinf_line(group->next[i], min_dep, max_dep, min_dur, max_dur, dep_periapsis, max_depdv, 1);
 			group->next[i]->vinf_struct_array = calc_min_vinf_line2(group->next[i], min_dep, max_dep, min_dur, max_dur, ir_dep_periapsis, max_depdv, 1);
-			group->next[i]->vinf_array = group->next[i]->vinf_struct_array.vinf_line;
+			// group->next[i]->vinf_array = group->next[i]->vinf_struct_array.vinf_line;
 		}
 
 	}
@@ -1109,9 +1143,9 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	// plot_scatter_data2(ir_coord_sys0, departure->next[pcgroup0]->next[pcgroup1]->vinf_struct_array.vinf_line, CS_AXIS_DATE, CS_AXIS_NUMBER, true);
 	// plot_scatter_data2(ir_coord_sys1, departure->next[pcgroup0]->next[pcgroup1]->vinf_struct_array.dur_line, CS_AXIS_DATE, CS_AXIS_NUMBER, true);
-	print_timing_measurements(tm);
-	free_timing_measurements(&tm);
-	return;
+	// print_timing_measurements(tm);
+	// free_timing_measurements(&tm);
+	// return;
 
 
 	start_time_measurement(&tm);
@@ -1119,7 +1153,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	SegmentGroup *group = departure->next[pcgroup0];
 
-	// calc_vinf_boundary(group, group->next[pcgroup1], group->quad, group->next[pcgroup1]->vinf_array, 1);
+	// calc_vinf_boundary(group, group->next[pcgroup1], group->quad, group->next[pcgroup1]->vinf_struct_array.vinf_line, 1);
 	//
 	// end_time_measurement(&tm, "vinf_boundary");
 	//
@@ -1142,7 +1176,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	// for(int i = 0; i < group->num_next_groups; i++) {
 	for(int i = pcgroup1; i < pcgroup1+1; i++) {
 		SegmentGroup *next_group = group->next[i];
-		calc_vinf_boundary(group, next_group, group->quad, next_group->vinf_array, 1);
+		calc_vinf_boundary(group, next_group, group->quad, next_group->vinf_struct_array.vinf_line, 1);
 
 
 		ErrorFuncParams err_func_params = {
@@ -1207,7 +1241,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 				last_was_0 = true;
 				free_boundary(&next_group->vinf_bdr);
 				next_group->vinf_bdr = create_new_boundary();
-				calc_vinf_boundary(group, next_group, group->quad, next_group->vinf_array, 1);
+				calc_vinf_boundary(group, next_group, group->quad, next_group->vinf_struct_array.vinf_line, 1);
 			} else last_was_0 = false;
 		}
 
@@ -1215,14 +1249,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		free_quad_list(quad_split_list);
 		// printf("%lu\n", group->next[i]->vinf_bdr.num);
 		if(group->next[i]->vinf_bdr.num == 0) {
-			free_boundary(&group->next[i]->group_bdr);
-			free_boundary(&group->next[i]->dv_bdr);
-			free_boundary(&group->next[i]->vinf_bdr);
-			free_boundary(&group->next[i]->rpe_bdr);
-			free(group->next[i]);
-			memmove(&group->next[i], &group->next[i+1],
-				(group->num_next_groups - (i+1)) * sizeof(SegmentGroup*));
-			group->num_next_groups--;
+			free_segment_group(group->next[i]);
 			i--;
 		}
 	}
@@ -1312,66 +1339,51 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	SegmentGroup *next_group = group->next[pcgroup1];
 
-	// if(1) {
-	// 	Vector3 min_quads = get_quad_min_values(group->quad, NAN);
-	// 	Vector3 max_quads = get_quad_max_values(group->quad, NAN);
-	//
-	// 	double quad_min_dep = min_quads.x;
-	// 	double quad_max_dep = max_quads.x;
-	// 	double quad_min_dur = min_quads.y;
-	// 	double quad_max_dur = max_quads.y;
-	// 	double abs_grad = fabs(departure.segment_groups[pcgroup0]->boundary_gradient);
-	// 	double ratio_dur = (quad_max_dep-quad_min_dep)*abs_grad / (quad_max_dur-quad_min_dur);
-	// 	double ratio_dep = 1.0/ratio_dur;
-	//
-	// 	int min_split = (int) log2(ratio_dur > ratio_dep ? ratio_dur : ratio_dep);
-	// 	next_group->min_rf_level = min_split+3;
-	//
-	//
-	// 	// printf("%f  %f  %f\n", max_dep-min_dep, max_dur-min_dur, abs_grad);
-	// 	// printf("%f   %f  %f   %d\n", (max_dep-min_dep)*abs_grad, ratio_dep, ratio_dur, min_split);
-	//
-	// 	if(quad_max_dur-quad_min_dur < (quad_max_dep-quad_min_dep)*abs_grad) {
-	// 		quad_max_dur = (quad_max_dep-quad_min_dep)*abs_grad + quad_min_dur;
-	// 	} else {
-	// 		quad_max_dep = (quad_max_dur-quad_min_dur)/abs_grad + quad_min_dep;
-	// 	}
-	// 	int max_rf_level_dep = (int) (log2((quad_max_dep-quad_min_dep)/0.001)) + 1;
-	// 	int max_rf_level_dur = (int) (log2((quad_max_dur-quad_min_dur)/0.001)) + 1;
-	// 	int max_rf_level = max_rf_level_dep > max_rf_level_dur ? max_rf_level_dep : max_rf_level_dur;
-	// 	next_group->max_rf_level = max_rf_level;
-	//
-	// 	MeshPoint2 *p00 = create_mesh_point(vec2(quad_min_dep, quad_max_dur), NULL, 0);
-	// 	MeshPoint2 *p01 = create_mesh_point(vec2(quad_max_dep, quad_max_dur), NULL, 0);
-	// 	MeshPoint2 *p10 = create_mesh_point(vec2(quad_min_dep, quad_min_dur), NULL, 0);
-	// 	MeshPoint2 *p11 = create_mesh_point(vec2(quad_max_dep, quad_min_dur), NULL, 0);
-	//
-	// 	next_group->quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, NULL);
-	// }
-	//
-	// end_time_measurement(&tm, "Quad generation next step");
 	start_time_measurement(&tm);
 
 	if(1) {
-		next_group->quad = copy_quad_skeleton(group->quad);
+		double quad_min_dep = next_group->prev->quad->corner[QUAD_NW]->pos.x;
+		double quad_max_dep = next_group->prev->quad->corner[QUAD_NE]->pos.x;
+		double quad_min_dur = next_group->prev->quad->corner[QUAD_SW]->pos.y;
+		double quad_max_dur = next_group->prev->quad->corner[QUAD_NW]->pos.y;
+
+		MeshPoint2 *p00 = create_mesh_point(vec2(quad_min_dep, quad_max_dur), NULL, 0);
+		MeshPoint2 *p01 = create_mesh_point(vec2(quad_max_dep, quad_max_dur), NULL, 0);
+		MeshPoint2 *p10 = create_mesh_point(vec2(quad_min_dep, quad_min_dur), NULL, 0);
+		MeshPoint2 *p11 = create_mesh_point(vec2(quad_max_dep, quad_min_dur), NULL, 0);
+
+		next_group->quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, NULL);
+		next_group->min_rf_level = group->min_rf_level;
+		next_group->max_rf_level = group->max_rf_level;
+
+		split_to_refinement_level(next_group->quad, NULL, &new_boundary, next_group->min_rf_level, next_group->min_rf_level+3);
 		printf("Num of Leaves: %d\n", get_quad_leaves(next_group->quad, NULL));
+	}
+
+	end_time_measurement(&tm, "Quad Generation and Splitting");
+	start_time_measurement(&tm);
+
+	if(1) {
+		// next_group->quad = copy_quad_skeleton(group->quad);
+		// printf("Num of Leaves: %d\n", get_quad_leaves(next_group->quad, NULL));
 		// BoundaryFuncParams bound_func_params = {.soft_bdr = new_boundary};
 		// QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
 		// remove_out_of_bounds_quads(next_group->quad, &bounds_func);
 		//
 		// printf("Num of Leaves: %d\n", get_quad_leaves(next_group->quad, NULL));
 
-		BoundaryFuncParams bound_func_params2 = {.soft_bdr = new_boundary, .hard_bdr = next_group->vinf_bdr};
+		BoundaryFuncParams bound_func_params2 = {.soft_bdr = new_boundary, .hard_bdr = new_boundary};
 		// match_to_boundary(next_group->quad, &bound_func_params2, NULL, 7,  next_group->max_rf_level-10, false);
-		match_to_boundary(next_group->quad, &bound_func_params2, NULL, group->min_rf_level,  10, false);
+		printf("%d %d\n", group->min_rf_level, group->max_rf_level);
+		match_to_boundary(next_group->quad, &bound_func_params2, NULL, group->min_rf_level,  group->min_rf_level+4, false);
 		printf("Num of Leaves: %d\n", get_quad_leaves(next_group->quad, NULL));
 	}
 
 	end_time_measurement(&tm, "Boundary matching next step");
 
 
-	attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[pcgroup0]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_DATE, TRUE, MESH_VAL_ARRVINF, TRUE);
-	attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[pcgroup0]->next[pcgroup1]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_ARRDATE, TRUE);
+	// attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[pcgroup0]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_DATE, TRUE, MESH_VAL_ARRVINF, TRUE);
+	// attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[pcgroup0]->next[pcgroup1]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_ARRDATE, TRUE);
 	//
 	// for(int j = 0; j < new_boundary.num; j++) {
 	// 	plot_scatter_data2(ir_coord_sys1, new_boundary.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
@@ -1387,21 +1399,90 @@ G_MODULE_EXPORT void on_calc_ir() {
 	// // 	plot_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->dv_bdr.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// // 	plot_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->dv_bdr.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// // }
-	return;
+	// print_timing_measurements(tm);
+	// free_timing_measurements(&tm);
+	// return;
 
 	start_time_measurement(&tm);
 
-	QuadPointPopFunc point_pop_func = {test_populate_next_dur, next_group};
+	// QuadPointPopFunc point_pop_func = {test_populate_next_dur, next_group};
+	QuadPointPopFunc point_pop_func = {flyby_dur_pop_func, next_group};
 	populate_quad_mesh_points(next_group->quad, &point_pop_func);
 
+	if(1) {
+		QuadList *quad_list = create_quad_list();
+		get_quads_with_nan(next_group->quad, quad_list, MESH_VAL_ARRDATE);
+		for(int i = 0; i < quad_list->num; i++) {
+			free_quad(quad_list->quad[i], true);
+		}
+		free_quad_list(quad_list);
+	}
+
 	end_time_measurement(&tm, "Populate Quads with duration");
+	start_time_measurement(&tm);
+
+
+	if(1) {
+		ErrorFuncParams err_func_params = {
+			.max_error = 0.5,
+			.val_idx = MESH_VAL_DUR
+		};
+		BoundaryFuncParams bound_func_params = {.soft_bdr = new_boundary};
+		QuadBoundsFunc bounds_func = {quad_test_is_in_bounds_function, &bound_func_params};
+		QuadErrorFunc error_func = {quad_test_abs_error_function, &err_func_params};
+		QuadPointFunc point_func = {flyby_dur_func, next_group};
+
+		int num_split_cycles = 0;
+
+		QuadList *quad_list = create_quad_list();
+		QuadList *quad_split_list = create_quad_list();
+
+		get_quad_leaves(next_group->quad, quad_list);
+
+		for(int i = 0; i < 100; i++) {
+			num_split_cycles++;
+			for(int j = 0; j < quad_list->num; j++) {
+				update_quad_error_flag(quad_list->quad[j], next_group->min_rf_level, next_group->max_rf_level, &error_func);
+				if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
+					append_to_quad_list(quad_split_list, quad_list->quad[j]);
+			}
+
+			int num_splits = 0;
+			clear_quad_list(quad_list);
+			for(int j = 0; j < quad_split_list->num; j++) {
+				num_splits += split_quad(quad_split_list->quad[j], &point_func, quad_list);
+			}
+			clear_quad_list(quad_split_list);
+
+			printf("Number of Splits during cycle %d: %d\n", num_split_cycles, num_splits);
+
+			for(int j = 0; j < quad_list->num; j++) {
+				Quad *quad = quad_list->quad[j];
+				if(!bounds_func.func(quad, bounds_func.params)) {
+					remove_from_quad_list_at_idx(quad_list, j);
+					free_quad(quad, true);
+					j--;
+				}
+			}
+			if(num_splits == 0) break;
+		}
+
+		free_quad_list(quad_list);
+		free_quad_list(quad_split_list);
+		printf("Num Split Cycles: %d\n", num_split_cycles);
+		printf("Num of Leaves: %d\n", get_quad_leaves(next_group->quad, NULL));
+	}
+
+	end_time_measurement(&tm, "Divide & Conquer");
 
 
 
 	// attach_quad_to_coordinate_system(ir_coord_sys0, departure.segment_groups[pcgroup0]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_DATE, TRUE, MESH_VAL_DATE, TRUE);
-	// attach_quad_to_coordinate_system(ir_coord_sys0, departure.segment_groups[pcgroup0]->next[pcgroup1]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_DUR, TRUE);
-	// attach_quad_to_coordinate_system(ir_coord_sys1, departure.segment_groups[pcgroup0]->next[pcgroup1]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_DATE, TRUE, MESH_VAL_DATE, TRUE);
-	//
+	// attach_quad_to_coordinate_system(ir_coord_sys0, next_group->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_DUR, TRUE);
+	// attach_quad_to_coordinate_system(ir_coord_sys1, group->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_DUR, TRUE);
+	attach_quad_to_coordinate_system(ir_coord_sys0, next_group->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_DUR, TRUE);
+	attach_quad_to_coordinate_system(ir_coord_sys1, next_group->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_DATE, FALSE, MESH_VAL_ARRDATE, TRUE);
+	plot_boundary(ir_coord_sys0, new_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// for(int j = 0; j < new_boundary.num; j++) {
 	// 	plot_scatter_data2(ir_coord_sys1, new_boundary.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// 	plot_scatter_data2(ir_coord_sys1, new_boundary.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
@@ -1416,7 +1497,9 @@ G_MODULE_EXPORT void on_calc_ir() {
 	// 	plot_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->dv_bdr.upper_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// 	plot_data2(ir_coord_sys1, departure.segment_groups[pcgroup0]->dv_bdr.lower_bdrs[j], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// }
-	// return;
+	print_timing_measurements(tm);
+	free_timing_measurements(&tm);
+	return;
 
 	start_time_measurement(&tm);
 	if(1) {
@@ -1916,6 +1999,12 @@ G_MODULE_EXPORT void on_calc_ir2() {
 	start_time_measurement(&tm);
 	group->vinf_struct_array = calc_min_vinf_line2(group, min_dep, max_dep, min_dur, max_dur, ir_dep_periapsis, max_depdv, 1);
 	end_time_measurement(&tm, "Vinf Lines");
+
+	printf("%lu %lu\n", data_array2_size(group->vinf_struct_array.dur_line), group->vinf_struct_array.num);
+
+	for(int i = 0; i < data_array2_size(group->vinf_struct_array.dur_line); i++) {
+		printf("%f\n", data_array2_get(group->vinf_struct_array.dur_line, i).x - group->vinf_struct_array.vinf_arr[i].jd_dep);
+	}
 
 
 
