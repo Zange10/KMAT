@@ -5,6 +5,8 @@
 #include "geometrylib.h"
 #include <math.h>
 
+#include "external/orbitlib/external/geometrylib/src/data_array_def.h"
+
 
 SegmentGroup * new_segment_group(Body *dep_body, Body *arr_body, CelestSystem *system) {
 	SegmentGroup *new_group = malloc(sizeof(SegmentGroup));
@@ -2044,6 +2046,12 @@ void calc_vinf_boundary(SegmentGroup *dep_group, SegmentGroup *group, Quad *quad
 	data_array1_free(analyzed_dep_dates);
 	data_array2_free(boundary_array);
 }
+
+Boundary get_rpe_boundary(SegmentGroup *group) {
+	double min_rpe = (group->dep_body->radius+group->dep_body->atmo_alt)*1.001;
+	return get_quad_mesh_value_boundary(group->quad, min_rpe, MESH_VAL_RPE, 5, true);
+}
+
 
 
 

@@ -97,6 +97,7 @@ double get_triangle_interpolated_value(Vector3 p0, Vector3 p1, Vector3 p2, Vecto
 Vector2 get_triangle_centroid(MeshTriangle2 *triangle);
 MeshTriangle2 * get_mesh_triangle_at_position(Mesh2 *mesh, Vector2 pos);
 MeshPoint2 *create_mesh_point(Vector2 pos, double *values, int num_vals);
+Vector3 meshpoint_to_vector(MeshPoint2 *point, int val_idx);
 double get_mesh_interpolated_value(Mesh2 *mesh, Vector2 p, int val_idx);
 void add_triangle_to_mesh(Mesh2 *mesh, MeshTriangle2 *triangle);
 void add_point_to_mesh(Mesh2 *mesh, MeshPoint2 *point);

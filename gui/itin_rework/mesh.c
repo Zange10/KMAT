@@ -397,6 +397,11 @@ MeshPoint2 *create_mesh_point(Vector2 pos, double *values, int num_vals) {
 	return new_point;
 }
 
+Vector3 meshpoint_to_vector(MeshPoint2 *point, int val_idx) {
+	if(val_idx < 0 || val_idx >= point->num_val) vec3(point->pos.x, point->pos.y, NAN);
+	return vec3(point->pos.x, point->pos.y, point->val[val_idx]);
+}
+
 MeshGrid2 *create_mesh_grid(DataArray2 *pos, double **values, int num_vals) {
 	MeshGrid2 *grid = malloc(sizeof(MeshGrid2));
 	int col_cap = 8;

@@ -213,7 +213,7 @@ void add_data2_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *dat
 	for(int i = 0; i < new_group->num_points; i++) {
 		new_group->points[i].x = data[i].x;
 		new_group->points[i].y = data[i].y;
-		switch(coord_sys->num_point_groups) {
+		switch(coord_sys->num_point_groups%16) {
 			case 1:
 				new_group->points[i].color = (PixelColor) {0, 0, 0.8};
 				break;
@@ -248,7 +248,7 @@ void add_data2_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *dat
 				new_group->points[i].color = (PixelColor) {0.5, 0.2, 0.8};
 				break;
 			case 12:
-				new_group->points[i].color = (PixelColor) {0, 0, 0.8};
+				new_group->points[i].color = (PixelColor) {0, 0, 0.6};
 				break;
 			case 13:
 				new_group->points[i].color = (PixelColor) {0, 0.8, 0.0};

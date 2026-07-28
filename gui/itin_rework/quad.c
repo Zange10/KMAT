@@ -89,6 +89,7 @@ bool is_inside_quad(Quad *quad, Vector2 pos) {
 
 Quad * get_quad_at_position(Quad *root_quad, Vector2 pos) {
 	if(!root_quad) return NULL;
+	if(!root_quad->parent && !is_inside_quad(root_quad, pos)) return NULL;
 	if(is_quad_flag(root_quad, QUAD_FLAG_IS_LEAF)) return root_quad;
 
 	for(int i = 0; i < 4; i++) {
@@ -127,6 +128,145 @@ double get_quad_interpolated_value(Quad *quad, Vector2 pos, int value_idx) {
 		   tx         * (1.0 - ty) * p01.z +
 		   (1.0 - tx) * ty         * p10.z +
 		   tx         * ty         * p11.z;
+}
+
+Vector2 get_quad_z_line_side_cut_wrt_neighbour_rflevel(Quad *quad, QuadEdge edge, double z, int val_idx) {
+	Quad *n0 = NULL, *n1 = NULL;
+	Vector3 p0, p1, pm = vec3(0, 0, 0);
+
+	switch(edge) {
+		case QUAD_N:
+			n0 = quad->neighbours[QUAD_NNW];
+			n1 = quad->neighbours[QUAD_NNE];
+			p0 = meshpoint_to_vector(quad->corner[QUAD_NW], val_idx);
+			p1 = meshpoint_to_vector(quad->corner[QUAD_NE], val_idx);
+			break;
+		case QUAD_W:
+			n0 = quad->neighbours[QUAD_NWW];
+			n1 = quad->neighbours[QUAD_SWW];
+			p0 = meshpoint_to_vector(quad->corner[QUAD_NW], val_idx);
+			p1 = meshpoint_to_vector(quad->corner[QUAD_SW], val_idx);
+			break;
+		case QUAD_E:
+			n0 = quad->neighbours[QUAD_NEE];
+			n1 = quad->neighbours[QUAD_SEE];
+			p0 = meshpoint_to_vector(quad->corner[QUAD_NE], val_idx);
+			p1 = meshpoint_to_vector(quad->corner[QUAD_SE], val_idx);
+			break;
+		case QUAD_S:
+			n0 = quad->neighbours[QUAD_SSW];
+			n1 = quad->neighbours[QUAD_SSE];
+			p0 = meshpoint_to_vector(quad->corner[QUAD_SW], val_idx);
+			p1 = meshpoint_to_vector(quad->corner[QUAD_SE], val_idx);
+			break;
+		default: return vec2(NAN, NAN);
+	}
+
+	bool has_middle_point = false;
+
+	if(n0 && n0->rf_level > quad->rf_level || n1 && n1->rf_level > quad->rf_level) {
+		has_middle_point = true;
+		if(n0) {
+			switch(edge) {
+				case QUAD_N:
+				case QUAD_W: pm = meshpoint_to_vector(n0->corner[QUAD_SE], val_idx); break;
+				case QUAD_E: pm = meshpoint_to_vector(n0->corner[QUAD_SW], val_idx); break;
+				case QUAD_S: pm = meshpoint_to_vector(n0->corner[QUAD_NE], val_idx); break;
+				default: return vec2(NAN, NAN);
+			}
+		} else {
+			switch(edge) {
+				case QUAD_N: pm = meshpoint_to_vector(n1->corner[QUAD_SW], val_idx); break;
+				case QUAD_W: pm = meshpoint_to_vector(n1->corner[QUAD_NE], val_idx); break;
+				case QUAD_E:
+				case QUAD_S: pm = meshpoint_to_vector(n1->corner[QUAD_NW], val_idx); break;
+				default: return vec2(NAN, NAN);
+			}
+		}
+	}
+
+	if(!has_middle_point) {
+		if(edge == QUAD_N || edge == QUAD_S) {
+			double x = get_x_value_from_y_value_of_line(vec2(p0.x, p0.z), vec2(p1.x, p1.z), z);
+			if(x >= p0.x && x <= p1.x) return vec2(x, p0.y);
+		} else {
+			double y = get_x_value_from_y_value_of_line(vec2(p0.y, p0.z), vec2(p1.y, p1.z), z);
+			if(y < p0.y && y > p1.y) return vec2(p0.x, y);
+		}
+	} else {
+		if(edge == QUAD_N || edge == QUAD_S) {
+			double x = get_x_value_from_y_value_of_line(vec2(p0.x, p0.z), vec2(pm.x, pm.z), z);
+			if(x >= p0.x && x <= pm.x) return vec2(x, p0.y);
+			x = get_x_value_from_y_value_of_line(vec2(pm.x, pm.z), vec2(p1.x, p1.z), z);
+			if(x >= pm.x && x <= p1.x) return vec2(x, p1.y);
+		} else {
+			double y = get_x_value_from_y_value_of_line(vec2(p0.y, p0.z), vec2(pm.y, pm.z), z);
+			if(y < p0.y && y > pm.y) return vec2(p0.x, y);
+			y = get_x_value_from_y_value_of_line(vec2(pm.y, pm.z), vec2(p1.y, p1.z), z);
+			if(y < pm.y && y > p1.y) return vec2(p1.x, y);
+		}
+	}
+	return vec2(NAN, NAN);
+}
+
+DataArray2 * calc_quad_z_line(Quad *quad, double z, int num, int val_idx) {
+	Vector3 p0 = meshpoint_to_vector(quad->corner[QUAD_NW], val_idx);
+	Vector3 p1 = meshpoint_to_vector(quad->corner[QUAD_NE], val_idx);
+	Vector3 p2 = meshpoint_to_vector(quad->corner[QUAD_SW], val_idx);
+	Vector3 p3 = meshpoint_to_vector(quad->corner[QUAD_SE], val_idx);
+
+	DataArray2 *array = data_array2_create();
+
+	for(int i = 0; i < 4; i++) {
+		Vector2 p = get_quad_z_line_side_cut_wrt_neighbour_rflevel(quad, i, z, val_idx);
+		if(isnan(p.x)) continue;
+		// while(data_array2_size(array) > 1 && p.x >= data_array2_get(array, 0).x && p.x <= data_array2_get(array, -1).x) {
+		// 	data_array2_remove_at_idx(array, 0);
+		// 	if(data_array2_size(array) > 0) data_array2_remove_at_idx(array, -1);
+		// }
+		data_array2_insert_new(array, p);
+	}
+
+	if(data_array2_size(array) <= 1) return array;
+
+	double tx0 = (data_array2_get(array, 0).x-p0.x)/(p1.x-p0.x);
+	double tx1 = (data_array2_get(array, 1).x-p0.x)/(p1.x-p0.x);
+	double dtx = tx1-tx0;
+
+	for(int i = 1; i < num-1; i++) {
+		double tx = tx0 + dtx/(num-1) * i;
+
+		double a = p0.z-p1.z;
+		double b = z-p0.z;
+		double c = -p0.z+p2.z;
+		double d = p0.z-p1.z-p2.z+p3.z;
+
+		double ty = (a*tx + b)/(c+d*tx);
+		if(ty > 0 && ty < 1) {
+			double x = p0.x + tx*(p1.x-p0.x);
+			double y = p0.y + ty*(p2.y-p0.y);
+			data_array2_insert_new(array, vec2(x, y));
+		}
+	}
+
+	return array;
+}
+
+double get_partial_quad_mesh_z_derivative_of_y_wrt_x(Quad *root_quad, Vector2 pos, int val_idx) {
+	Quad *quad = get_quad_at_position(root_quad, pos);
+
+	Vector3 p0 = meshpoint_to_vector(quad->corner[QUAD_NW], val_idx);
+	Vector3 p1 = meshpoint_to_vector(quad->corner[QUAD_NE], val_idx);
+	Vector3 p2 = meshpoint_to_vector(quad->corner[QUAD_SW], val_idx);
+	Vector3 p3 = meshpoint_to_vector(quad->corner[QUAD_SE], val_idx);
+
+	double tx = (pos.x - p0.x)/(p1.x - p0.x);
+	double a = -p0.z+p2.z;
+	double b = p0.z-p1.z-p2.z+p3.z;
+	double dz_dty = a+b*tx;
+	double dz_dy = dz_dty/(p2.y-p0.y);
+
+	return dz_dy;
 }
 
 Vector3 get_quad_max_values(Quad *quad, int quad_val_idx) {

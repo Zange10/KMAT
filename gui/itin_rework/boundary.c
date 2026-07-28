@@ -139,6 +139,238 @@ void free_boundary(Boundary *bdr) {
 	bdr->num = 0;
 }
 
+typedef struct DataArray2Array {
+	DataArray2 **arrs;
+	size_t num;
+	size_t cap;
+} DataArray2Array;
+
+DataArray2Array new_data_array2_array() {
+	return (DataArray2Array) {NULL, 0, 0};
+}
+
+void append_to_data_array2_array(DataArray2Array *arrs, DataArray2 *arr) {
+	if(arrs->num == arrs->cap) {
+		if(arrs->cap == 0) {
+			arrs->cap = 8;
+			arrs->arrs = malloc(arrs->cap * sizeof(DataArray2*));
+		} else {
+			arrs->cap *= 2;
+			DataArray2 **temp = realloc(arrs->arrs, arrs->cap * sizeof(DataArray2*));
+			if(temp) arrs->arrs = temp;
+		}
+	}
+
+	arrs->arrs[arrs->num++] = arr;
+}
+
+void remove_from_data_array2_array(DataArray2Array *arrs, int idx, bool free_array) {
+	if(!arrs || idx < 0 || idx >= arrs->num) return;
+	if(free_array) data_array2_free(arrs->arrs[idx]);
+	memmove(arrs->arrs+idx, arrs->arrs+idx+1, (arrs->num-idx-1) * sizeof(DataArray2*));
+	arrs->num--;
+}
+
+void free_data_array2_array(DataArray2Array *arrs) {
+	if(arrs->arrs) {
+		for(int i = 0; i < arrs->num; i++) {
+			data_array2_free(arrs->arrs[i]);
+		}
+		free(arrs->arrs);
+	}
+	arrs->num = 0;
+	arrs->cap = 0;
+}
+
+
+Boundary get_quad_mesh_value_boundary(Quad *quad, double val, int val_idx, int num_quad_points, bool enclose_higher) {
+	Boundary bdr = create_new_boundary();
+	QuadList *quad_list = create_quad_list();
+	get_quad_leaves(quad, quad_list);
+	Vector3 quad_min = get_quad_min_values(quad, -1);
+	Vector3 quad_max = get_quad_max_values(quad, -1);
+
+	int num_points = 0;
+
+	DataArray2Array arrays = new_data_array2_array();
+
+	for(int i = 0; i < quad_list->num; i++) {
+		DataArray2 *arr = calc_quad_z_line(quad_list->quad[i], val, num_quad_points, val_idx);
+		if(data_array2_size(arr) > 0) {
+			append_to_data_array2_array(&arrays, arr);
+		} else data_array2_free(arr);
+	}
+
+	free_quad_list(quad_list);
+	if(arrays.num == 0) return bdr;
+
+	for(int i = 0; i < arrays.num; i++) {
+		for(int j = 0; j < arrays.num; j++) {
+			if(j == i) continue;
+
+			Vector2 p = data_array2_get(arrays.arrs[i], -1);
+			Vector2 p_next = data_array2_get(arrays.arrs[j], 0);
+			if(p.x != p_next.x || p.y != p_next.y) {
+				continue;
+			}
+
+			if(data_array2_size(arrays.arrs[j]) > 1)
+				data_array2_append_array(arrays.arrs[i], data_array2_slice(arrays.arrs[j], 1, -1), true);
+
+			remove_from_data_array2_array(&arrays, j, true);
+			if(j < i) i--;
+			j = -1; // set to 0 before next cycle
+		}
+	}
+
+
+	DataArray2 *upper_array = data_array2_create();
+	data_array2_append_new(upper_array, vec2(quad_min.x, quad_max.y+1));
+	data_array2_append_new(upper_array, vec2(quad_max.x, quad_max.y+1));
+	DataArray2 *lower_array = data_array2_create();
+	data_array2_append_new(lower_array, vec2(quad_min.x, quad_min.y-1));
+	data_array2_append_new(lower_array, vec2(quad_max.x, quad_min.y-1));
+	append_to_data_array2_array(&arrays, upper_array);
+	append_to_data_array2_array(&arrays, lower_array);
+
+
+
+	DataArray1 *ends = data_array1_create();
+	for(int i = 0; i < arrays.num; i++) {
+		num_points += (int) data_array2_size(arrays.arrs[i]);
+		data_array1_insert_new(ends, data_array2_get(arrays.arrs[i], 0).x);
+		data_array1_insert_new(ends, data_array2_get(arrays.arrs[i], -1).x);
+		// print_data_array2(arrays.arrs[i], "dep", "dur");
+	}
+	for(int i = 0; i < data_array1_size(ends)-1; i++) {
+		if(data_array1_get(ends, i) == data_array1_get(ends, i+1)) data_array1_remove_at_idx(ends, i);
+	}
+	for(int i = 0; i < arrays.num; i++) {
+		for(int j = 0; j < data_array1_size(ends); j++) {
+			DataArray2 *array = arrays.arrs[i];
+			double end = data_array1_get(ends, j);
+			if(data_array2_get(array, 0).x >= end || data_array2_get(array, -1).x <= end) continue;
+			int idx = data_array2_idx_from_binary_search(array, vec2(end, NAN));
+			if(data_array2_get(array, 0).x != end) {
+				data_array2_insert_new(array, vec2(end, interpolate_from_sorted_data_array2(array, end)));
+			}
+
+			append_to_data_array2_array(&arrays, data_array2_slice(array, 0, idx));
+			append_to_data_array2_array(&arrays, data_array2_slice(array, idx, -1));
+			remove_from_data_array2_array(&arrays, i, true);
+			i--;
+			break;
+		}
+	}
+
+	while(arrays.num > 0) {
+		DataArray2Array x_arrs = new_data_array2_array();
+		double x0 = data_array1_get(ends, 0);
+		data_array1_remove_at_idx(ends, 0);
+
+		for(int i = 0; i < arrays.num; i++) {
+			if(data_array2_get(arrays.arrs[i], 0).x == x0) {
+				append_to_data_array2_array(&x_arrs, arrays.arrs[i]);
+				remove_from_data_array2_array(&arrays, i, false);
+				i--;
+			}
+		}
+
+		if(x_arrs.num == 0) continue;
+
+		// Selection sort
+		for(int i = 0; i < x_arrs.num-1; i++) {
+			int max_idx = i;
+			for(int j = i+1; j < x_arrs.num; j++) {
+				Vector2 *dm = data_array2_get_data(x_arrs.arrs[max_idx]);
+				Vector2 *d = data_array2_get_data(x_arrs.arrs[j]);
+				if(d[0].y > dm[0].y) {max_idx = j; continue;}
+				if(d[0].y == dm[0].y) {
+					double grad_d = (d[1].y - d[0].y)/(d[1].x-d[0].x);
+					double grad_dm = (dm[1].y - dm[0].y)/(dm[1].x-dm[0].x);
+					if(grad_d > grad_dm) {max_idx = j;}
+				}
+			}
+
+			if(max_idx != i) {
+				DataArray2 *temp = x_arrs.arrs[i];
+				x_arrs.arrs[i] = x_arrs.arrs[max_idx];
+				x_arrs.arrs[max_idx] = temp;
+			}
+		}
+
+		// printf("_____________________________\n");
+		// for(int i = 0; i < x_arrs.num; i++) {
+		// 	print_data_array2(x_arrs.arrs[i], "x", "y");
+		// }
+		// printf("###########################\n");
+
+		if(x_arrs.num == 2) {
+			double test_x = data_array2_get(x_arrs.arrs[0], (int) data_array2_size(x_arrs.arrs[0])/2).x;
+			DataArray2 *vline = data_array2_create();
+			data_array2_append_new(vline, vec2(test_x, quad_min.y));
+			data_array2_append_new(vline, vec2(test_x, quad_max.y));
+
+			QuadList *ql = create_quad_list();
+
+			find_line_crossed_quads(quad, vline, ql);
+			if(ql->num > 0) {
+				double interp_val = get_quad_interpolated_value(ql->quad[0], vec2(test_x, ql->quad[0]->center->pos.y), val_idx);
+				if(interp_val > val == enclose_higher) {
+					append_to_boundary(&bdr, x_arrs.arrs[0], x_arrs.arrs[1]);
+					remove_from_data_array2_array(&x_arrs, 0, false);
+					remove_from_data_array2_array(&x_arrs, 0, false);
+				}
+			}
+
+			free_data_array2_array(&x_arrs);
+			data_array2_free(vline);
+			free_quad_list(ql);
+			continue;
+		}
+
+		Vector2 test_p = data_array2_get(x_arrs.arrs[1], (int) data_array2_size(x_arrs.arrs[1])/2);
+		double dz_dy = get_partial_quad_mesh_z_derivative_of_y_wrt_x(quad, test_p, val_idx);
+
+		if(enclose_higher == dz_dy < 0) remove_from_data_array2_array(&x_arrs, 0, true);
+
+		while(x_arrs.num > 1) {
+			append_to_boundary(&bdr, x_arrs.arrs[0], x_arrs.arrs[1]);
+			remove_from_data_array2_array(&x_arrs, 0, false);
+			remove_from_data_array2_array(&x_arrs, 0, false);
+		}
+
+		free_data_array2_array(&x_arrs);
+
+		// printf("%lu   -----\n", arrays.num);
+		// for(int i = 0; i < x_arrs.num; i++) {
+		// 	print_data_array2(x_arrs.arrs[i], "dep", "dur");
+		// }
+	}
+	// printf("--------------------\n");
+	// printf("--------------------\n");
+	//
+	// print_data_array1(ends, "x");
+	//
+	// printf("-----\n");
+
+	// for(int i = 0; i < arrays.num; i++) {
+	// 	data_array1_insert_new(ends, data_array2_get(arrays.arrs[i], 0).x);
+	// 	data_array1_insert_new(ends, data_array2_get(arrays.arrs[i], -1).x);
+	// 	print_data_array2(arrays.arrs[i], "dep", "dur");
+	// 	append_to_boundary(&bdr, NULL, arrays.arrs[i]);
+	// }
+	// append_to_boundary(&bdr, NULL, all_arr);
+
+
+	free_data_array2_array(&arrays);
+	data_array1_free(ends);
+	printf("-----\n");
+
+
+	return bdr;
+}
+
 Boundary combine_boundaries(Boundary bdr0, Boundary bdr1) {
 	remove_boundary_end_connections(&bdr0);
 	remove_boundary_end_connections(&bdr1);
