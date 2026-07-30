@@ -1301,9 +1301,19 @@ G_MODULE_EXPORT void on_calc_ir() {
 	start_time_measurement(&tm);
 
 	Boundary new_boundary = combine_boundaries(group->dv_bdr, group->next[pcgroup1]->vinf_bdr);
-
-
+	group->rpe_bdr = new_boundary;
 	end_time_measurement(&tm, "Combine DV Vinf Boundaries");
+
+
+
+	// plot_scatter_boundary(ir_coord_sys1, &group->rpe_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+	// plot_scatter_boundary(ir_coord_sys0, &group->dv_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+	// plot_scatter_boundary(ir_coord_sys0, &group->next[pcgroup1]->vinf_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+	// plot_scatter_boundary(ir_coord_sys1, &group->rpe_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+	// print_timing_measurements(tm);
+	// free_timing_measurements(&tm);
+	// return;
+
 	start_time_measurement(&tm);
 
 	if(1) {
@@ -1724,19 +1734,23 @@ G_MODULE_EXPORT void on_calc_ir() {
 	// return;
 
 	start_time_measurement(&tm);
-	Boundary rpe_bdr = get_rpe_boundary(next_group);
+	next_group->rpe_bdr = get_rpe_boundary(next_group);
+	group->vinf_bdr = combine_boundaries(next_group->rpe_bdr, new_boundary);
 	end_time_measurement(&tm, "RPE Boundary");
 
 	// print_data_array2(rpe_bdr.lower_bdrs[0], "dep", "dur");
 
 
 	attach_quad_to_coordinate_system(ir_coord_sys0, next_group->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_DUR, TRUE);
-	attach_quad_to_coordinate_system(ir_coord_sys1, next_group->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_RPE, TRUE);
-	plot_boundary(ir_coord_sys0, new_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// attach_quad_to_coordinate_system(ir_coord_sys1, next_group->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_RPE, TRUE);
+	// plot_boundary(ir_coord_sys0, new_boundary, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// plot_boundary(ir_coord_sys0, &new_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 	// scatter_data2(ir_coord_sys0, rpe_bdr.lower_bdrs[0], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 	// scatter_data2(ir_coord_sys1, rpe_bdr.lower_bdrs[0], CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	plot_scatter_boundary(ir_coord_sys1, rpe_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
-	plot_boundary(ir_coord_sys0, rpe_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+	// plot_scatter_boundary(ir_coord_sys1, &next_group->rpe_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+	plot_scatter_boundary(ir_coord_sys1, &group->vinf_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+	plot_boundary(ir_coord_sys0, &next_group->rpe_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, false, false);
+	plot_boundary(ir_coord_sys0, &group->rpe_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, false, false);
 	print_timing_measurements(tm);
 	free_timing_measurements(&tm);
 	return;
@@ -2256,31 +2270,66 @@ MeshPoint2 * bdr_test_func(double x, double y, void *params_p) {
 
 
 G_MODULE_EXPORT void on_calc_ir3() {
-	MeshPoint2 *p00 = create_mesh_point(vec2(-100, 100), NULL, 0);
-	MeshPoint2 *p01 = create_mesh_point(vec2(100, 100), NULL, 0);
-	MeshPoint2 *p10 = create_mesh_point(vec2(-100, -100), NULL, 0);
-	MeshPoint2 *p11 = create_mesh_point(vec2(100, -100), NULL, 0);
+	DataArray2 *arr_u = data_array2_create();
+	DataArray2 *arr_l = data_array2_create();
 
-	Quad *quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, NULL);
+	data_array2_append_new(arr_u, vec2(0, 100));
+	data_array2_append_new(arr_u, vec2(10, 100));
+	data_array2_append_new(arr_u, vec2(20, 100));
+	data_array2_append_new(arr_u, vec2(30, 100));
+	data_array2_append_new(arr_u, vec2(40, 100));
+	data_array2_append_new(arr_u, vec2(50, 100));
+	data_array2_append_new(arr_u, vec2(60, 100));
+	data_array2_append_new(arr_u, vec2(70, 100));
+	data_array2_append_new(arr_u, vec2(80, 100));
+	data_array2_append_new(arr_u, vec2(90, 100));
+	data_array2_append_new(arr_u, vec2(100, 100));
 
-	split_to_refinement_level(quad, NULL, NULL, 8, 5);
-	printf("Num of Leaves: %d\n", get_quad_leaves(quad, NULL));
 
-	QuadPointPopFunc point_pop_func = {bdr_test_pop_func, NULL};
-	populate_quad_mesh_points(quad, &point_pop_func);
+	data_array2_append_new(arr_l, vec2(0, 10));
+	data_array2_append_new(arr_l, vec2(10, 10));
+	data_array2_append_new(arr_l, vec2(20, 10));
+	data_array2_append_new(arr_l, vec2(30, 10));
+	data_array2_append_new(arr_l, vec2(40, 10));
+	data_array2_append_new(arr_l, vec2(50, 10));
+	data_array2_append_new(arr_l, vec2(60, 10));
+	data_array2_append_new(arr_l, vec2(70, 10));
+	data_array2_append_new(arr_l, vec2(80, 10));
+	data_array2_append_new(arr_l, vec2(90, 10));
+	data_array2_append_new(arr_l, vec2(100, 10));
 
-	// Boundary bdr = get_quad_mesh_value_boundary(quad, 20, 0, 10, true);
-	Boundary bdr = get_quad_mesh_value_boundary(quad, 80, 0, 10, true);
-	printf("test\n");
+	Boundary *bdr0 = malloc(sizeof(Boundary));
+	*bdr0 = create_new_boundary();
+	append_to_boundary(bdr0, arr_u, arr_l);
 
-	attach_quad_to_coordinate_system(ir_coord_sys0, quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_NUMBER, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, 0, TRUE);
-	attach_quad_to_coordinate_system(ir_coord_sys1, quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_NUMBER, CS_AXIS_NUMBER, CS_AXIS_NUMBER, FALSE, 0, TRUE);
-	plot_scatter_boundary(ir_coord_sys0, bdr, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
-	plot_scatter_boundary(ir_coord_sys1, bdr, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
-	// for(int i = 0; i < bdr.num; i++) {
-	// 	plot_scatter_data2(ir_coord_sys0, bdr.lower_bdrs[i], CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
-	// 	plot_scatter_data2(ir_coord_sys1, bdr.lower_bdrs[i], CS_AXIS_NUMBER, CS_AXIS_NUMBER, false);
-	// }
+
+	arr_u = data_array2_create();
+	arr_l = data_array2_create();
+
+	data_array2_append_new(arr_u, vec2(10, 90));
+	data_array2_append_new(arr_u, vec2(12, 95));
+	data_array2_append_new(arr_u, vec2(25, 120));
+	data_array2_append_new(arr_u, vec2(62, 80));
+	data_array2_append_new(arr_u, vec2(81, 50));
+
+
+	data_array2_append_new(arr_l, vec2(10, 90));
+	data_array2_append_new(arr_l, vec2(12, 30));
+	data_array2_append_new(arr_l, vec2(25, 11));
+	data_array2_append_new(arr_l, vec2(62, -1));
+	data_array2_append_new(arr_l, vec2(81, 50));
+
+	Boundary *bdr1 = malloc(sizeof(Boundary));
+	*bdr1 = create_new_boundary();
+	append_to_boundary(bdr1, arr_u, arr_l);
+
+
+	Boundary *bdr2 = malloc(sizeof(Boundary));
+	*bdr2 = combine_boundaries(*bdr0, *bdr1);
+
+	plot_scatter_boundary(ir_coord_sys0, bdr0, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, true);
+	plot_scatter_boundary(ir_coord_sys0, bdr1, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, false);
+	plot_scatter_boundary(ir_coord_sys1, bdr2, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, false);
 
 	return;
 	TimingMeasurements tm = init_timing_measurements();

@@ -5,6 +5,7 @@
 
 #include "itin_rework_tools.h"
 #include "external/orbitlib/external/geometrylib/src/data_array_def.h"
+#include "gui/gui_tools/coordinate_system_drawing.h"
 
 
 Boundary create_new_boundary() {
@@ -182,6 +183,46 @@ void free_data_array2_array(DataArray2Array *arrs) {
 	arrs->cap = 0;
 }
 
+void split_at_boundary_ends(DataArray2Array *arrays, DataArray1 *ends_x) {
+	for(int i = 0; i < arrays->num; i++) {
+		for(int j = 0; j < data_array1_size(ends_x); j++) {
+			DataArray2 *array = arrays->arrs[i];
+			double end = data_array1_get(ends_x, j);
+			if(data_array2_get(array, 0).x >= end || data_array2_get(array, -1).x <= end) continue;
+			int idx = data_array2_idx_from_binary_search(array, vec2(end, NAN));
+			if(data_array2_get(array, idx).x != end) {
+				data_array2_insert_new(array, vec2(end, interpolate_from_sorted_data_array2(array, end)));
+			}
+
+			append_to_data_array2_array(arrays, data_array2_slice(array, 0, idx));
+			append_to_data_array2_array(arrays, data_array2_slice(array, idx, -1));
+			remove_from_data_array2_array(arrays, i, true);
+			i--;
+			break;
+		}
+	}
+}
+
+void connect_all_consecutive_boundary_arrays(DataArray2Array *arrays) {
+	for(int i = 0; i < arrays->num; i++) {
+		for(int j = 0; j < arrays->num; j++) {
+			if(j == i) continue;
+
+			Vector2 p = data_array2_get(arrays->arrs[i], -1);
+			Vector2 p_next = data_array2_get(arrays->arrs[j], 0);
+			if(p.x != p_next.x || p.y != p_next.y) {
+				continue;
+			}
+
+			if(data_array2_size(arrays->arrs[j]) > 1)
+				data_array2_append_array(arrays->arrs[i], data_array2_slice(arrays->arrs[j], 1, -1), true);
+
+			remove_from_data_array2_array(arrays, j, true);
+			if(j < i) i--;
+			j = -1; // set to 0 before next cycle
+		}
+	}
+}
 
 Boundary get_quad_mesh_value_boundary(Quad *quad, double val, int val_idx, int num_quad_points, bool enclose_higher) {
 	Boundary bdr = create_new_boundary();
@@ -189,8 +230,6 @@ Boundary get_quad_mesh_value_boundary(Quad *quad, double val, int val_idx, int n
 	get_quad_leaves(quad, quad_list);
 	Vector3 quad_min = get_quad_min_values(quad, -1);
 	Vector3 quad_max = get_quad_max_values(quad, -1);
-
-	int num_points = 0;
 
 	DataArray2Array arrays = new_data_array2_array();
 
@@ -204,25 +243,7 @@ Boundary get_quad_mesh_value_boundary(Quad *quad, double val, int val_idx, int n
 	free_quad_list(quad_list);
 	if(arrays.num == 0) return bdr;
 
-	for(int i = 0; i < arrays.num; i++) {
-		for(int j = 0; j < arrays.num; j++) {
-			if(j == i) continue;
-
-			Vector2 p = data_array2_get(arrays.arrs[i], -1);
-			Vector2 p_next = data_array2_get(arrays.arrs[j], 0);
-			if(p.x != p_next.x || p.y != p_next.y) {
-				continue;
-			}
-
-			if(data_array2_size(arrays.arrs[j]) > 1)
-				data_array2_append_array(arrays.arrs[i], data_array2_slice(arrays.arrs[j], 1, -1), true);
-
-			remove_from_data_array2_array(&arrays, j, true);
-			if(j < i) i--;
-			j = -1; // set to 0 before next cycle
-		}
-	}
-
+	connect_all_consecutive_boundary_arrays(&arrays);
 
 	DataArray2 *upper_array = data_array2_create();
 	data_array2_append_new(upper_array, vec2(quad_min.x, quad_max.y+1));
@@ -235,38 +256,20 @@ Boundary get_quad_mesh_value_boundary(Quad *quad, double val, int val_idx, int n
 
 
 
-	DataArray1 *ends = data_array1_create();
+	DataArray1 *ends_x = data_array1_create();
 	for(int i = 0; i < arrays.num; i++) {
-		num_points += (int) data_array2_size(arrays.arrs[i]);
-		data_array1_insert_new(ends, data_array2_get(arrays.arrs[i], 0).x);
-		data_array1_insert_new(ends, data_array2_get(arrays.arrs[i], -1).x);
-		// print_data_array2(arrays.arrs[i], "dep", "dur");
+		data_array1_insert_new(ends_x, data_array2_get(arrays.arrs[i], 0).x);
+		data_array1_insert_new(ends_x, data_array2_get(arrays.arrs[i], -1).x);
 	}
-	for(int i = 0; i < data_array1_size(ends)-1; i++) {
-		if(data_array1_get(ends, i) == data_array1_get(ends, i+1)) data_array1_remove_at_idx(ends, i);
+	for(int i = 0; i < data_array1_size(ends_x)-1; i++) {
+		if(data_array1_get(ends_x, i) == data_array1_get(ends_x, i+1)) data_array1_remove_at_idx(ends_x, i);
 	}
-	for(int i = 0; i < arrays.num; i++) {
-		for(int j = 0; j < data_array1_size(ends); j++) {
-			DataArray2 *array = arrays.arrs[i];
-			double end = data_array1_get(ends, j);
-			if(data_array2_get(array, 0).x >= end || data_array2_get(array, -1).x <= end) continue;
-			int idx = data_array2_idx_from_binary_search(array, vec2(end, NAN));
-			if(data_array2_get(array, 0).x != end) {
-				data_array2_insert_new(array, vec2(end, interpolate_from_sorted_data_array2(array, end)));
-			}
-
-			append_to_data_array2_array(&arrays, data_array2_slice(array, 0, idx));
-			append_to_data_array2_array(&arrays, data_array2_slice(array, idx, -1));
-			remove_from_data_array2_array(&arrays, i, true);
-			i--;
-			break;
-		}
-	}
+	split_at_boundary_ends(&arrays, ends_x);
 
 	while(arrays.num > 0) {
 		DataArray2Array x_arrs = new_data_array2_array();
-		double x0 = data_array1_get(ends, 0);
-		data_array1_remove_at_idx(ends, 0);
+		double x0 = data_array1_get(ends_x, 0);
+		data_array1_remove_at_idx(ends_x, 0);
 
 		for(int i = 0; i < arrays.num; i++) {
 			if(data_array2_get(arrays.arrs[i], 0).x == x0) {
@@ -298,12 +301,6 @@ Boundary get_quad_mesh_value_boundary(Quad *quad, double val, int val_idx, int n
 				x_arrs.arrs[max_idx] = temp;
 			}
 		}
-
-		// printf("_____________________________\n");
-		// for(int i = 0; i < x_arrs.num; i++) {
-		// 	print_data_array2(x_arrs.arrs[i], "x", "y");
-		// }
-		// printf("###########################\n");
 
 		if(x_arrs.num == 2) {
 			double test_x = data_array2_get(x_arrs.arrs[0], (int) data_array2_size(x_arrs.arrs[0])/2).x;
@@ -341,438 +338,233 @@ Boundary get_quad_mesh_value_boundary(Quad *quad, double val, int val_idx, int n
 		}
 
 		free_data_array2_array(&x_arrs);
-
-		// printf("%lu   -----\n", arrays.num);
-		// for(int i = 0; i < x_arrs.num; i++) {
-		// 	print_data_array2(x_arrs.arrs[i], "dep", "dur");
-		// }
 	}
-	// printf("--------------------\n");
-	// printf("--------------------\n");
-	//
-	// print_data_array1(ends, "x");
-	//
-	// printf("-----\n");
-
-	// for(int i = 0; i < arrays.num; i++) {
-	// 	data_array1_insert_new(ends, data_array2_get(arrays.arrs[i], 0).x);
-	// 	data_array1_insert_new(ends, data_array2_get(arrays.arrs[i], -1).x);
-	// 	print_data_array2(arrays.arrs[i], "dep", "dur");
-	// 	append_to_boundary(&bdr, NULL, arrays.arrs[i]);
-	// }
-	// append_to_boundary(&bdr, NULL, all_arr);
-
 
 	free_data_array2_array(&arrays);
-	data_array1_free(ends);
-	printf("-----\n");
-
+	data_array1_free(ends_x);
 
 	return bdr;
 }
 
+Vector2 get_line_middle_point(DataArray2 *arr) {
+	if(!arr || data_array2_size(arr) == 0) return vec2(NAN, NAN);
+	if(data_array2_size(arr) == 1) return data_array2_get(arr, 0);
+	Vector2 p;
+	if(data_array2_size(arr) == 2) {
+		Vector2 p0 = data_array2_get(arr, 0), p1 = data_array2_get(arr, 1);
+		p.x = (p0.x + p1.x) / 2;
+		p.y = get_y_value_from_x_value_of_line(p0, p1, p.x);
+	} else {
+		p = data_array2_get(arr, (int) data_array2_size(arr)/2);
+	}
+
+	return p;
+}
+
 Boundary combine_boundaries(Boundary bdr0, Boundary bdr1) {
+	Boundary new_boundary = create_new_boundary();
 	remove_boundary_end_connections(&bdr0);
 	remove_boundary_end_connections(&bdr1);
 
-	Boundary low_bdrs = create_new_boundary();
-	Boundary up_bdrs = create_new_boundary();
+	DataArray2Array low_bdrs0 = new_data_array2_array();
+	DataArray2Array low_bdrs1 = new_data_array2_array();
+	DataArray2Array up_bdrs0 = new_data_array2_array();
+	DataArray2Array up_bdrs1 = new_data_array2_array();
 
-	// find upper and lower boundaries that are inside other boundary
+	DataArray2Array *low_up_bdrs[4] = {&low_bdrs0, &low_bdrs1, &up_bdrs0, &up_bdrs1};
+
+	// collect all boundaries
 	for(int i = 0; i < bdr0.num; i++) {
-		DataArray2 *lower = data_array2_create();
-		DataArray2 *upper = data_array2_create();
-		Vector2 *l0 = data_array2_get_data(bdr0.lower_bdrs[i]);
-		Vector2 *u0 = data_array2_get_data(bdr0.upper_bdrs[i]);
-		size_t num0 = data_array2_size(bdr0.lower_bdrs[i]);
-		if(num0 == 1) continue;
-		bool prev_was_out_l = false;
-		bool prev_was_out_u = false;
-		for(int j = 0; j < num0; j++) {
-			if(is_point_inside_boundary(l0[j], bdr1)) {
-				if(prev_was_out_l) data_array2_append_new(lower, l0[j-1]);
-				data_array2_append_new(lower, l0[j]);
-				prev_was_out_l = false;
-			} else {
-				if(!prev_was_out_l && j > 0) {
-					data_array2_append_new(lower, l0[j]);
-					append_to_boundary(&low_bdrs, NULL, lower);
-					lower = data_array2_create();
-				}
-				prev_was_out_l = true;
-			}
-			if(is_point_inside_boundary(u0[j], bdr1)) {
-				if(prev_was_out_u) data_array2_append_new(upper, u0[j-1]);
-				data_array2_append_new(upper, u0[j]);
-				prev_was_out_u = false;
-			} else {
-				if(!prev_was_out_u && j > 0) {
-					data_array2_append_new(upper, u0[j]);
-					append_to_boundary(&up_bdrs, upper, NULL);
-					upper = data_array2_create();
-				}
-				prev_was_out_u = true;
-			}
-		}
-		if(data_array2_size(lower) > 0) append_to_boundary(&low_bdrs, NULL, lower);
-		else data_array2_free(lower);
-		if(data_array2_size(upper) > 0) append_to_boundary(&up_bdrs, upper, NULL);
-		else data_array2_free(upper);
+		append_to_data_array2_array(&low_bdrs0, data_array2_slice(bdr0.lower_bdrs[i], 0, -1));
+		append_to_data_array2_array(&up_bdrs0, data_array2_slice(bdr0.upper_bdrs[i], 0, -1));
 	}
-
 	for(int i = 0; i < bdr1.num; i++) {
-		DataArray2 *lower = data_array2_create();
-		DataArray2 *upper = data_array2_create();
-		Vector2 *l1 = data_array2_get_data(bdr1.lower_bdrs[i]);
-		Vector2 *u1 = data_array2_get_data(bdr1.upper_bdrs[i]);
-		size_t num1 = data_array2_size(bdr1.lower_bdrs[i]);
-		bool prev_was_out_l = false;
-		bool prev_was_out_u = false;
-		for(int j = 0; j < num1; j++) {
-			if(is_point_inside_boundary(l1[j], bdr0)) {
-				if(prev_was_out_l) data_array2_append_new(lower, l1[j-1]);
-				data_array2_append_new(lower, l1[j]);
-				prev_was_out_l = false;
-			} else {
-				if(!prev_was_out_l && j > 0) {
-					data_array2_append_new(lower, l1[j]);
-					append_to_boundary(&low_bdrs, NULL, lower);
-					lower = data_array2_create();
+		append_to_data_array2_array(&low_bdrs1, data_array2_slice(bdr1.lower_bdrs[i], 0, -1));
+		append_to_data_array2_array(&up_bdrs1, data_array2_slice(bdr1.upper_bdrs[i], 0, -1));
+	}
+
+	DataArray1 *ends_x = data_array1_create();
+	// collect all ends
+	for(int bdrs_id = 0; bdrs_id < 4; bdrs_id++) {
+		DataArray2Array *bdrs = low_up_bdrs[bdrs_id];
+		for(int i = 0; i < bdrs->num; i++) {
+			data_array1_insert_new(ends_x, data_array2_get(bdrs->arrs[i], 0).x);
+			data_array1_insert_new(ends_x, data_array2_get(bdrs->arrs[i], -1).x);
+		}
+	}
+
+	// collect all intersections and store as ends
+	for(int bdrs_id = 0; bdrs_id < 4; bdrs_id++) {
+		DataArray2Array *bdrs = low_up_bdrs[bdrs_id];
+		for(int i = 0; i < bdrs->num; i++) {
+			for(int bdrs_id2 = bdrs_id+1; bdrs_id2 < 4; bdrs_id2++) {
+				if(bdrs_id%2 == bdrs_id2%2) continue;
+				DataArray2Array *bdrs2 = low_up_bdrs[bdrs_id2];
+				for(int j = 0; j < bdrs2->num; j++) {
+					DataArray2 *arr0 = bdrs->arrs[i];
+					DataArray2 *arr1 = bdrs2->arrs[j];
+					if(data_array2_get(arr0, 0).x > data_array2_get(arr1, -1).x) continue;
+					if(data_array2_get(arr1, 0).x > data_array2_get(arr0, -1).x) continue;
+
+					DataArray2 *inters_p = get_line_intersections(arr0, arr1);
+					for(int k = 0; k < data_array2_size(inters_p); k++) {
+						if(!isnan(data_array2_get(inters_p, k).x))
+							data_array1_insert_new(ends_x, data_array2_get(inters_p, k).x);
+					}
+					data_array2_free(inters_p);
 				}
-				prev_was_out_l = true;
-			}
-			if(is_point_inside_boundary(u1[j], bdr0)) {
-				if(prev_was_out_u) data_array2_append_new(upper, u1[j-1]);
-				data_array2_append_new(upper, u1[j]);
-				prev_was_out_u = false;
-			} else {
-				if(!prev_was_out_u && j > 0) {
-					data_array2_append_new(upper, u1[j]);
-					append_to_boundary(&up_bdrs, upper, NULL);
-					upper = data_array2_create();
-				}
-				prev_was_out_u = true;
-			}
-		}
-		if(data_array2_size(lower) > 0) append_to_boundary(&low_bdrs, NULL, lower);
-		else data_array2_free(lower);
-		if(data_array2_size(upper) > 0) append_to_boundary(&up_bdrs, upper, NULL);
-		else data_array2_free(upper);
-	}
-
-	// connect boundaries that are end-to-end touching
-	for(int i = 0; i < up_bdrs.num; i++) {
-		for(int j = i+1; j < up_bdrs.num; j++) {
-			Vector2 *u = data_array2_get_data(up_bdrs.upper_bdrs[i]);
-			size_t num = data_array2_size(up_bdrs.upper_bdrs[i]);
-			Vector2 *u_n = data_array2_get_data(up_bdrs.upper_bdrs[j]);
-			size_t num_n = data_array2_size(up_bdrs.upper_bdrs[j]);
-
-			if(u[num-1].x == u_n[0].x && u[num-1].y == u_n[0].y) {
-				for(int k = 1; k < num_n; k++) {
-					data_array2_append_new(up_bdrs.upper_bdrs[i], u_n[k]);
-				}
-				data_array2_free(up_bdrs.upper_bdrs[j]);
-				memmove(&up_bdrs.upper_bdrs[j], &up_bdrs.upper_bdrs[j+1],
-				(up_bdrs.num - (j+1)) * sizeof(DataArray2*));
-				up_bdrs.num--;
-				j = i;
-			}
-		}
-	}
-	for(int i = 0; i < low_bdrs.num; i++) {
-		for(int j = i+1; j < low_bdrs.num; j++) {
-			Vector2 *u = data_array2_get_data(low_bdrs.lower_bdrs[i]);
-			size_t num = data_array2_size(low_bdrs.lower_bdrs[i]);
-			Vector2 *u_n = data_array2_get_data(low_bdrs.lower_bdrs[j]);
-			size_t num_n = data_array2_size(low_bdrs.lower_bdrs[j]);
-
-			if(u[num-1].x == u_n[0].x && u[num-1].y == u_n[0].y) {
-				for(int k = 1; k < num_n; k++) {
-					data_array2_append_new(low_bdrs.lower_bdrs[i], u_n[k]);
-				}
-				data_array2_free(low_bdrs.lower_bdrs[j]);
-				memmove(&low_bdrs.lower_bdrs[j], &low_bdrs.lower_bdrs[j+1],
-				(low_bdrs.num - (j+1)) * sizeof(DataArray2*));
-				low_bdrs.num--;
-				j = i;
 			}
 		}
 	}
 
-	// find intersections and remove intersected ends
-	for(int i = 0; i < up_bdrs.num; i++) {
-		for(int j = i+1; j < up_bdrs.num; j++) {
-			DataArray2 *inters = NULL;
-			inters = get_line_intersections(up_bdrs.upper_bdrs[i], up_bdrs.upper_bdrs[j]);
-			size_t num = data_array2_size(inters);
-			Vector2 *data = data_array2_get_data(inters);
-			for(int l = 0; l < num; l++) {
-				Vector2 *d = data_array2_get_data(up_bdrs.upper_bdrs[i]);
-				size_t num_d = data_array2_size(up_bdrs.upper_bdrs[i]);
-				if(data[l].x <= d[1].x) d[0] = data[l];
-				else d[num_d-1] = data[l];
-
-				d = data_array2_get_data(up_bdrs.upper_bdrs[j]);
-				num_d = data_array2_size(up_bdrs.upper_bdrs[j]);
-				if(data[l].x <= d[1].x) d[0] = data[l];
-				else d[num_d-1] = data[l];
-			}
-			data_array2_free(inters);
-		}
-
-		for(int j = 0; j < low_bdrs.num; j++) {
-			DataArray2 *inters = NULL;
-			inters = get_line_intersections(up_bdrs.upper_bdrs[i], low_bdrs.lower_bdrs[j]);
-			size_t num = data_array2_size(inters);
-			Vector2 *data = data_array2_get_data(inters);
-			for(int l = 0; l < num; l++) {
-				Vector2 *d = data_array2_get_data(up_bdrs.upper_bdrs[i]);
-				size_t num_d = data_array2_size(up_bdrs.upper_bdrs[i]);
-				if(data[l].x <= d[1].x) d[0] = data[l];
-				else d[num_d-1] = data[l];
-
-				d = data_array2_get_data(low_bdrs.lower_bdrs[j]);
-				num_d = data_array2_size(low_bdrs.lower_bdrs[j]);
-				if(data[l].x <= d[1].x) d[0] = data[l];
-				else d[num_d-1] = data[l];
-			}
-			data_array2_free(inters);
+	// remove double ends
+	for(int i = 0; i < data_array1_size(ends_x); i++) {
+		if(data_array1_get(ends_x, i) == data_array1_get(ends_x, i-1)) {
+			data_array1_remove_at_idx(ends_x, i); i--;
 		}
 	}
 
-	for(int i = 0; i < low_bdrs.num; i++) {
-		for(int j = i+1; j < low_bdrs.num; j++) {
-			DataArray2 *inters = NULL;
-			inters = get_line_intersections(low_bdrs.lower_bdrs[i], low_bdrs.lower_bdrs[j]);
-			size_t num = data_array2_size(inters);
-			Vector2 *data = data_array2_get_data(inters);
-			for(int l = 0; l < num; l++) {
-				Vector2 *d = data_array2_get_data(low_bdrs.lower_bdrs[i]);
-				size_t num_d = data_array2_size(low_bdrs.lower_bdrs[i]);
-				if(data[l].x <= d[1].x) d[0] = data[l];
-				else d[num_d-1] = data[l];
+	// split at ends
+	for(int bdrs_id = 0; bdrs_id < 4; bdrs_id++) {
+		DataArray2Array *bdrs = low_up_bdrs[bdrs_id];
+		split_at_boundary_ends(bdrs, ends_x);
+	}
 
-				d = data_array2_get_data(low_bdrs.lower_bdrs[j]);
-				num_d = data_array2_size(low_bdrs.lower_bdrs[j]);
-				if(data[l].x <= d[1].x) d[0] = data[l];
-				else d[num_d-1] = data[l];
+	// remove out of bounds from other boundary
+	for(int bdrs_id = 0; bdrs_id < 4; bdrs_id++) {
+		DataArray2Array *bdrs = low_up_bdrs[bdrs_id];
+		Boundary other_bdr = bdrs_id % 2 == 0 ? bdr1 : bdr0;
+		for(int i = 0; i < bdrs->num; i++) {
+			Vector2 p = get_line_middle_point(bdrs->arrs[i]);
+
+			if(data_array2_size(bdrs->arrs[i]) == 0 || !is_point_inside_boundary(p, other_bdr)) {
+				remove_from_data_array2_array(bdrs, i, true);
+				i--;
 			}
-			data_array2_free(inters);
 		}
 	}
 
-	// get x values of each boundary end
-	DataArray1 *end_x = data_array1_create();
-	for(int i = 0; i < low_bdrs.num; i++) {
-		Vector2 *d = data_array2_get_data(low_bdrs.lower_bdrs[i]);
-		size_t num_d = data_array2_size(low_bdrs.lower_bdrs[i]);
-		data_array1_insert_new(end_x, d[0].x);
-		data_array1_insert_new(end_x, d[num_d-1].x);
+	DataArray2Array low_bdrs = new_data_array2_array();
+	DataArray2Array up_bdrs = new_data_array2_array();
+
+	// Move to new arrays
+	for(int bdrs_id = 0; bdrs_id < 4; bdrs_id++) {
+		DataArray2Array *bdrs = low_up_bdrs[bdrs_id];
+		DataArray2Array *new_bdrs = bdrs_id < 2 ? &low_bdrs : &up_bdrs;
+		while(bdrs->num > 0) {
+			append_to_data_array2_array(new_bdrs, bdrs->arrs[0]);
+			remove_from_data_array2_array(bdrs, 0, false);
+		}
+		free_data_array2_array(bdrs);
 	}
-	for(int i = 0; i < up_bdrs.num; i++) {
-		Vector2 *d = data_array2_get_data(up_bdrs.upper_bdrs[i]);
-		size_t num_d = data_array2_size(up_bdrs.upper_bdrs[i]);
-		data_array1_insert_new(end_x, d[0].x);
-		data_array1_insert_new(end_x, d[num_d-1].x);
+
+	// connect boundary ends
+	for(int c = 0; c < 2; c++) {
+		DataArray2Array *bdrs = c == 0 ? &low_bdrs : &up_bdrs;
+		connect_all_consecutive_boundary_arrays(bdrs);
 	}
 
+	data_array1_clear(ends_x);
 
-	// insert boundary points at end x-values
-	double *de = data_array1_get_data(end_x);
-	size_t num_de = data_array1_size(end_x);
-	double last_x = NAN;
-	for(int i = 0; i < num_de; i++) {
-		if(de[i] == last_x) continue;
-		double x = de[i];
+	// collect all new ends
+	for(int c = 0; c < 2; c++) {
+		DataArray2Array *bdrs = c == 0 ? &low_bdrs : &up_bdrs;
+		for(int i = 0; i < bdrs->num; i++) {
+			data_array1_insert_new(ends_x, data_array2_get(bdrs->arrs[i], 0).x);
+			data_array1_insert_new(ends_x, data_array2_get(bdrs->arrs[i], -1).x);
+		}
+	}
 
-		for(int j = 0; j < low_bdrs.num; j++) {
-			Vector2 *d = data_array2_get_data(low_bdrs.lower_bdrs[j]);
-			size_t num_d = data_array2_size(low_bdrs.lower_bdrs[j]);
-			if(d[0].x < x && d[num_d-1].x > x) {
-				bool has_value_already = false;
-				for(int k = 0; k < num_d; k++) {
-					if(d[k].x == x) {
-						has_value_already = true; break;
+	// remove double ends
+	for(int i = 0; i < data_array1_size(ends_x); i++) {
+		if(data_array1_get(ends_x, i) == data_array1_get(ends_x, i-1)) {
+			data_array1_remove_at_idx(ends_x, i); i--;
+		}
+	}
+
+	// split at ends
+	for(int c = 0; c < 2; c++) {
+		DataArray2Array *bdrs = c == 0 ? &low_bdrs : &up_bdrs;
+		split_at_boundary_ends(bdrs, ends_x);
+	}
+
+	// find pairs
+	while(low_bdrs.num != 0 && up_bdrs.num != 0) {
+		DataArray2Array x_arrs_low = new_data_array2_array();
+		DataArray2Array x_arrs_up = new_data_array2_array();
+		double x0 = data_array1_get(ends_x, 0);
+		data_array1_remove_at_idx(ends_x, 0);
+
+		for(int i = 0; i < low_bdrs.num; i++) {
+			if(data_array2_get(low_bdrs.arrs[i], 0).x == x0) {
+				append_to_data_array2_array(&x_arrs_low, low_bdrs.arrs[i]);
+				remove_from_data_array2_array(&low_bdrs, i, false);
+				i--;
+			}
+		}
+		for(int i = 0; i < up_bdrs.num; i++) {
+			if(data_array2_get(up_bdrs.arrs[i], 0).x == x0) {
+				append_to_data_array2_array(&x_arrs_up, up_bdrs.arrs[i]);
+				remove_from_data_array2_array(&up_bdrs, i, false);
+				i--;
+			}
+		}
+
+		if(x_arrs_low.num == 0 || x_arrs_up.num == 0) {
+			free_data_array2_array(&x_arrs_low);
+			free_data_array2_array(&x_arrs_up);
+			continue;
+		}
+
+		// Selection sort
+		for(int c = 0; c < 2; c++) {
+			DataArray2Array *x_arrs = c == 0 ? &x_arrs_low : &x_arrs_up;
+			for(int i = 0; i < x_arrs->num-1; i++) {
+				int max_idx = i;
+				for(int j = i+1; j < x_arrs->num; j++) {
+					Vector2 *dm = data_array2_get_data(x_arrs->arrs[max_idx]);
+					Vector2 *d = data_array2_get_data(x_arrs->arrs[j]);
+					if(d[0].y > dm[0].y) {max_idx = j; continue;}
+					if(d[0].y == dm[0].y) {
+						double grad_d = (d[1].y - d[0].y)/(d[1].x-d[0].x);
+						double grad_dm = (dm[1].y - dm[0].y)/(dm[1].x-dm[0].x);
+						if(grad_d > grad_dm) {max_idx = j;}
 					}
 				}
-				if(!has_value_already) {
-					// printf("%f\n", interpolate_from_sorted_data_array2(low_bdrs.lower_bdrs[j], x));
-					data_array2_insert_new(low_bdrs.lower_bdrs[j], vec2(x, interpolate_from_sorted_data_array2(low_bdrs.lower_bdrs[j], x)));
-					d = data_array2_get_data(low_bdrs.lower_bdrs[j]);
-					num_d++;
+
+				if(max_idx != i) {
+					DataArray2 *temp = x_arrs->arrs[i];
+					x_arrs->arrs[i] = x_arrs->arrs[max_idx];
+					x_arrs->arrs[max_idx] = temp;
 				}
 			}
 		}
 
-		for(int j = 0; j < up_bdrs.num; j++) {
-			Vector2 *d = data_array2_get_data(up_bdrs.upper_bdrs[j]);
-			size_t num_d = data_array2_size(up_bdrs.upper_bdrs[j]);
-			if(d[0].x < x && d[num_d-1].x > x) {
-				bool has_value_already = false;
-				for(int k = 0; k < num_d; k++) {
-					if(d[k].x == x) {
-						has_value_already = true; break;
-					}
-				}
-				if(!has_value_already) {
-					data_array2_insert_new(up_bdrs.upper_bdrs[j], vec2(x, interpolate_from_sorted_data_array2(up_bdrs.upper_bdrs[j], x)));
-					d = data_array2_get_data(up_bdrs.upper_bdrs[j]);
-					num_d++;
+		while(x_arrs_up.num > 0 && x_arrs_low.num > 0) {
+			Vector2 pu = get_line_middle_point(x_arrs_up.arrs[0]);
+			Vector2 pl = get_line_middle_point(x_arrs_low.arrs[0]);
+			if(pl.y > pu.y) {
+				remove_from_data_array2_array(&x_arrs_low, 0, true);
+				continue;
+			}
+			if(x_arrs_up.num > 1) {
+				Vector2 pu2 = get_line_middle_point(x_arrs_up.arrs[1]);
+				if(pu2.y > pl.y) {
+					remove_from_data_array2_array(&x_arrs_up, 0, true);
+					continue;
 				}
 			}
+			append_to_boundary(&new_boundary, x_arrs_up.arrs[0], x_arrs_low.arrs[0]);
+			remove_from_data_array2_array(&x_arrs_up, 0, false);
+			remove_from_data_array2_array(&x_arrs_low, 0, false);
 		}
-
-		last_x = x;
-		// print_date(convert_JD_date(x, DATE_ISO), 1);
+		free_data_array2_array(&x_arrs_low);
+		free_data_array2_array(&x_arrs_up);
 	}
 
-
-	// split boundaries at all end x-values (create sections)
-	Boundary low_split_bdrs = create_new_boundary();
-	Boundary up_split_bdrs = create_new_boundary();
-	for(int i = 0; i < num_de; i++) {
-		if(de[i] == last_x) continue;
-		double x = de[i];
-
-		for(int j = 0; j < low_bdrs.num; j++) {
-			Vector2 *d = data_array2_get_data(low_bdrs.lower_bdrs[j]);
-			size_t num_d = data_array2_size(low_bdrs.lower_bdrs[j]);
-			if(d[0].x < x && d[num_d-1].x >= x) {
-				DataArray2 *new_split_bdr = data_array2_create();
-				for(int k = 0; k < num_d; k++) {
-					if(d[k].x < last_x) continue;
-					if(d[k].x > x) break;
-					data_array2_append_new(new_split_bdr, d[k]);
-				}
-				if(data_array2_size(new_split_bdr) > 0) {
-					append_to_boundary(&low_split_bdrs, NULL, new_split_bdr);
-				} else data_array2_free(new_split_bdr);
-			}
-		}
-
-		for(int j = 0; j < up_bdrs.num; j++) {
-			Vector2 *d = data_array2_get_data(up_bdrs.upper_bdrs[j]);
-			size_t num_d = data_array2_size(up_bdrs.upper_bdrs[j]);
-			if(d[0].x < x && d[num_d-1].x >= x) {
-				DataArray2 *new_split_bdr = data_array2_create();
-				for(int k = 0; k < num_d; k++) {
-					if(d[k].x < last_x) continue;
-					if(d[k].x > x) break;
-					data_array2_append_new(new_split_bdr, d[k]);
-				}
-				if(data_array2_size(new_split_bdr) > 0) {
-					append_to_boundary(&up_split_bdrs, new_split_bdr, NULL);
-				} else data_array2_free(new_split_bdr);
-			}
-		}
-
-		last_x = x;
-	}
-
-	data_array1_free(end_x);
-	free_boundary(&up_bdrs);
-	free_boundary(&low_bdrs);
-
-
-	Boundary new_boundary = create_new_boundary();
-	while(low_split_bdrs.num > 0) {
-		Vector2 *d = data_array2_get_data(low_split_bdrs.lower_bdrs[0]);
-		size_t num_d = data_array2_size(low_split_bdrs.lower_bdrs[0]);
-		DataArray2 *best_up = NULL;
-		int best_up_idx = -1;
-		double diff_best = NAN;
-		for(int j = 0; j < up_split_bdrs.num; j++) {
-			Vector2 *du = data_array2_get_data(up_split_bdrs.upper_bdrs[j]);
-			size_t num_du = data_array2_size(up_split_bdrs.upper_bdrs[j]);
-			if(du[0].x != d[0].x) continue;
-			if(du[0].y < d[0].y) continue;
-			if(isnan(diff_best) || du[0].y - d[0].y < diff_best) {
-				diff_best = du[0].y - d[0].y;
-				best_up = up_split_bdrs.upper_bdrs[j];
-				best_up_idx = j;
-			// if begins at same point as previous best
-			} else if(du[0].y - d[0].y == diff_best) {
-				Vector2 *dub = data_array2_get_data(best_up);
-				size_t num_dub = data_array2_size(best_up);
-
-				// is farther at end?
-				if(du[num_du-1].y - d[num_d-1].y > dub[num_dub-1].y - d[num_d-1].y) continue;
-
-				// is closer at end?
-				if(du[num_du-1].y - d[num_d-1].y < dub[num_dub-1].y - d[num_d-1].y) {
-					best_up = up_split_bdrs.upper_bdrs[j];
-					best_up_idx = j;
-				// if begins and ends at same point as previous best, check middle
-				} else {
-					double x = (d[0].x + d[num_d-1].x)/2;
-					double y = interpolate_from_sorted_data_array2(low_split_bdrs.lower_bdrs[0], x);
-					double yu = interpolate_from_sorted_data_array2(up_split_bdrs.upper_bdrs[j], x);
-					double yub = interpolate_from_sorted_data_array2(best_up, x);
-
-					if(yu-y < yub-y) {
-						best_up = up_split_bdrs.upper_bdrs[j];
-						best_up_idx = j;
-					}
-				}
-			}
-		}
-
-		// is there lower boundary that fits better
-		Vector2 *du = data_array2_get_data(up_split_bdrs.upper_bdrs[best_up_idx]);
-		size_t num_du = data_array2_size(up_split_bdrs.upper_bdrs[best_up_idx]);
-		bool found_better_lower = false;
-		for(int j = 1; j < low_split_bdrs.num; j++) {
-			Vector2 *dl = data_array2_get_data(low_split_bdrs.lower_bdrs[j]);
-			size_t num_dl = data_array2_size(low_split_bdrs.lower_bdrs[j]);
-			if(du[0].x != dl[0].x) continue;
-			if(du[0].y < dl[0].y) continue;
-			if(du[0].y - dl[0].y > du[0].y - d[0].y) continue;
-			if(du[0].y - dl[0].y < du[0].y - d[0].y){
-				found_better_lower = true;
-				break;
-			}
-
-			// is farther at end?
-			if(du[num_du-1].y - dl[num_dl-1].y > du[num_du-1].y - d[num_d-1].y) continue;
-
-			// is closer at end?
-			if(du[num_du-1].y - dl[num_dl-1].y > du[num_du-1].y - d[num_d-1].y) {
-				found_better_lower = true;
-				break;
-			}
-
-			// if begins and ends at same point as previous best, check middle
-			double x = (d[0].x + d[num_d-1].x)/2;
-			double y = interpolate_from_sorted_data_array2(low_split_bdrs.lower_bdrs[0], x);
-			double yu = interpolate_from_sorted_data_array2(up_split_bdrs.upper_bdrs[best_up_idx], x);
-			double yl = interpolate_from_sorted_data_array2(low_split_bdrs.lower_bdrs[j], x);
-
-			if(yu-yl < yu-y) {
-				found_better_lower = true;
-				break;
-			}
-		}
-
-		if(!found_better_lower) {
-			append_to_boundary(&new_boundary, up_split_bdrs.upper_bdrs[best_up_idx], low_split_bdrs.lower_bdrs[0]);
-
-			memmove(&low_split_bdrs.lower_bdrs[0], &low_split_bdrs.lower_bdrs[1],
-			(low_split_bdrs.num - 1) * sizeof(DataArray2*));
-			memmove(&up_split_bdrs.upper_bdrs[best_up_idx], &up_split_bdrs.upper_bdrs[best_up_idx+1],
-				(up_split_bdrs.num - (best_up_idx+1)) * sizeof(DataArray2*));
-			low_split_bdrs.num--;
-			up_split_bdrs.num--;
-		} else {
-			data_array2_free(low_split_bdrs.lower_bdrs[0]);
-			memmove(&low_split_bdrs.lower_bdrs[0], &low_split_bdrs.lower_bdrs[1],
-			(low_split_bdrs.num - 1) * sizeof(DataArray2*));
-			low_split_bdrs.num--;
-		}
-	}
-
-	free_boundary(&low_split_bdrs);
-	free_boundary(&up_split_bdrs);
+	free_data_array2_array(&low_bdrs);
+	free_data_array2_array(&up_bdrs);
+	data_array1_free(ends_x);
 
 	return new_boundary;
 }
@@ -840,27 +632,91 @@ void remove_boundary_end_connections(Boundary *bdr) {
 	}
 }
 
-void plot_boundary(CoordinateSystem *coord_sys, Boundary bdr, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data) {
-	if(clear_prev_data) clear_coordinate_system(coord_sys);
-	for(int j = 0; j < bdr.num; j++) {
-		plot_data2(coord_sys, bdr.upper_bdrs[j], x_axis_type, y_axis_type, false);
-		plot_data2(coord_sys, bdr.lower_bdrs[j], x_axis_type, y_axis_type, false);
+void set_bdr_color(cairo_t *cr, int group_id, double alpha) {
+	switch(group_id%8) {
+		case 1:
+			cairo_set_source_rgba(cr, 0, 0, 0.8, alpha);
+			break;
+		case 2:
+			cairo_set_source_rgba(cr, 0, 0.8, 0.0, alpha);
+			break;
+		case 3:
+			cairo_set_source_rgba(cr, 0.8, 0.8, 0.8, alpha);
+			break;
+		case 4:
+			cairo_set_source_rgba(cr, 0.8, 0, 0.3, alpha);
+			break;
+		case 5:
+			cairo_set_source_rgba(cr, 0.3, 0.3, 0.3, alpha);
+			break;
+		case 6:
+			cairo_set_source_rgba(cr, 0, 0, 0.3, alpha);
+			break;
+		case 7:
+			cairo_set_source_rgba(cr, 0.8, 0, 0.8, alpha);
+			break;
+		default:
+			cairo_set_source_rgba(cr, 0, 0.8, 0.8, alpha);
+			break;
 	}
 }
 
-void scatter_boundary(CoordinateSystem *coord_sys, Boundary bdr, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data) {
-	if(clear_prev_data) clear_coordinate_system(coord_sys);
-	for(int j = 0; j < bdr.num; j++) {
-		scatter_data2(coord_sys, bdr.upper_bdrs[j], x_axis_type, y_axis_type, false);
-		scatter_data2(coord_sys, bdr.lower_bdrs[j], x_axis_type, y_axis_type, false);
-	}
-}
+void draw_boundary_in_coordinate_system(CoordinateSystem *coord_sys, int group_id) {
+	CSDataPointGroup *group = coord_sys->groups[group_id];
+	Boundary *bdr = group->bdr;
+	cairo_t *cr = coord_sys->screen->static_layer.cr;
 
-void plot_scatter_boundary(CoordinateSystem *coord_sys, Boundary bdr, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data) {
-	if(clear_prev_data) clear_coordinate_system(coord_sys);
-	for(int j = 0; j < bdr.num; j++) {
-		plot_scatter_data2(coord_sys, bdr.upper_bdrs[j], x_axis_type, y_axis_type, false);
-		plot_scatter_data2(coord_sys, bdr.lower_bdrs[j], x_axis_type, y_axis_type, false);
+	set_bdr_color(cr, group_id, 1);
+
+	double transparency = 0.3;
+
+	int total_number_points = 0;
+	for(int i = 0; i < bdr->num; i++) {
+		total_number_points += (int) data_array2_size(bdr->lower_bdrs[i]);
+		total_number_points += (int) data_array2_size(bdr->upper_bdrs[i]);
+	}
+
+	for(int i = 0; i < bdr->num; i++) {
+		if(group->plot_type == CS_PLOT_TYPE_BDR_PLOT || group->plot_type == CS_PLOT_TYPE_BDR_PLOT_SCATTER) {
+			for(int j = 1; j < data_array2_size(bdr->lower_bdrs[i]); j++) {
+				Vector2 p0 = to_coordinate_system_space(data_array2_get(bdr->lower_bdrs[i], j-1), coord_sys);
+				Vector2 p1 = to_coordinate_system_space(data_array2_get(bdr->lower_bdrs[i], j), coord_sys);
+				draw_line_into_coordinate_system(cr, p0, p1, coord_sys->origin);
+			}
+			for(int j = 1; j < data_array2_size(bdr->upper_bdrs[i]); j++) {
+				Vector2 p0 = to_coordinate_system_space(data_array2_get(bdr->upper_bdrs[i], j-1), coord_sys);
+				Vector2 p1 = to_coordinate_system_space(data_array2_get(bdr->upper_bdrs[i], j), coord_sys);
+				draw_line_into_coordinate_system(cr, p0, p1, coord_sys->origin);
+			}
+
+			set_bdr_color(cr, group_id, transparency);
+			Vector2 p = to_coordinate_system_space(data_array2_get(bdr->lower_bdrs[i], 0), coord_sys);
+			cairo_move_to(cr, p.x, p.y);
+			for(int j = 1; j < data_array2_size(bdr->lower_bdrs[i]); j++) {
+				p = to_coordinate_system_space(data_array2_get(bdr->lower_bdrs[i], j), coord_sys);
+				cairo_line_to(cr, p.x, p.y);
+			}
+			for(int j = (int) data_array2_size(bdr->upper_bdrs[i])-1; j >= 0; j--) {
+				p = to_coordinate_system_space(data_array2_get(bdr->upper_bdrs[i], j), coord_sys);
+				cairo_line_to(cr, p.x, p.y);
+			}
+			cairo_close_path(cr);
+			cairo_fill(cr);
+			set_bdr_color(cr, group_id, 1);
+		}
+
+		if(group->plot_type == CS_PLOT_TYPE_BDR_SCATTER || group->plot_type == CS_PLOT_TYPE_BDR_PLOT_SCATTER) {
+			int radius = 2;
+			if(total_number_points < 10000) radius += 2;
+			for(int j = 0; j < data_array2_size(bdr->lower_bdrs[i]); j++) {
+				Vector2 p = to_coordinate_system_space(data_array2_get(bdr->lower_bdrs[i], j), coord_sys);
+				draw_coordinate_system_data_point(cr, p.x, p.y, radius);
+			}
+			for(int j = 0; j < data_array2_size(bdr->upper_bdrs[i]); j++) {
+				Vector2 p = to_coordinate_system_space(data_array2_get(bdr->upper_bdrs[i], j), coord_sys);
+				draw_coordinate_system_data_point(cr, p.x, p.y, radius);
+			}
+		}
 	}
 }
 

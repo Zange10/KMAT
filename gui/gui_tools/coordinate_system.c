@@ -158,6 +158,13 @@ void disable_coordinate_system_show_hover_position(GtkWidget *widget, GdkEventBu
 void clear_coordinate_system(CoordinateSystem *coord_sys) {
 	for(int i = 0; i < coord_sys->num_point_groups; i++) {
 		switch(coord_sys->groups[i]->plot_type) {
+			case CS_PLOT_TYPE_BDR_PLOT:
+			case CS_PLOT_TYPE_BDR_SCATTER:
+			case CS_PLOT_TYPE_BDR_PLOT_SCATTER:
+				if(coord_sys->groups[i]->free_mesh_on_clear) {
+					free_boundary(coord_sys->groups[i]->bdr);
+				}
+				break;
 			case CS_PLOT_TYPE_MESH_INTERPOLATION:
 			case CS_PLOT_TYPE_MESH_SKELETON:
 			case CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG:
@@ -207,6 +214,7 @@ void add_data2_to_coordinate_system(CoordinateSystem *coord_sys, DataArray2 *dat
 	new_group->points = malloc(sizeof(CSDataPoint) * new_group->num_points);
 	new_group->mesh = NULL;
 	new_group->root_quad = NULL;
+	new_group->bdr = NULL;
 
 	Vector2 *data = data_array2_get_data(data_array);
 
@@ -298,6 +306,7 @@ void add_data3_to_coordinate_system(CoordinateSystem *coord_sys, DataArray3 *dat
 	new_group->points = malloc(sizeof(CSDataPoint) * new_group->num_points);
 	new_group->mesh = NULL;
 	new_group->root_quad = NULL;
+	new_group->bdr = NULL;
 
 	Vector3 *data = data_array3_get_data(data_array);
 	double min_z = data[0].z, max_z = data[0].z;
@@ -330,6 +339,37 @@ void add_data3_to_coordinate_system(CoordinateSystem *coord_sys, DataArray3 *dat
 	coord_sys->groups[coord_sys->num_point_groups++] = new_group;
 }
 
+void add_boundary_to_coordinate_system(CoordinateSystem *coord_sys, Boundary *bdr, CSDataPlotType plot_type, bool free_boundary_on_clear) {
+	if(!bdr || bdr->num == 0) return;
+
+	if(coord_sys->num_point_groups+1 >= coord_sys->point_group_cap) {
+		if(coord_sys->point_group_cap == 0) {
+			coord_sys->point_group_cap = 1;
+			coord_sys->groups = malloc(coord_sys->point_group_cap * sizeof(CSDataPointGroup *));
+		} else {
+			coord_sys->point_group_cap *= 2;
+			CSDataPointGroup **temp = realloc(coord_sys->groups, coord_sys->point_group_cap * sizeof(CSDataPointGroup *));
+			if(temp) coord_sys->groups = temp;
+		}
+	}
+
+	CSDataPointGroup *new_group = malloc(sizeof(CSDataPointGroup));
+	new_group->plot_type = plot_type;
+	new_group->num_points = 0;
+	new_group->points = NULL;
+	new_group->root_quad = NULL;
+	new_group->mesh = NULL;
+	new_group->bdr = bdr;
+	new_group->free_mesh_on_clear = free_boundary_on_clear;
+
+	Vector2 min = get_boundary_min(*bdr);
+	Vector2 max = get_boundary_max(*bdr);
+	coord_sys->min = vec3(min.x, min.y, coord_sys->min.z);
+	coord_sys->max = vec3(max.x, max.y, coord_sys->max.z);
+
+	coord_sys->groups[coord_sys->num_point_groups++] = new_group;
+}
+
 void add_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, bool free_mesh_on_clear, int mesh_val_idx) {
 	if(coord_sys->num_point_groups+1 >= coord_sys->point_group_cap) {
 		if(coord_sys->point_group_cap == 0) {
@@ -347,6 +387,7 @@ void add_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSD
 	new_group->num_points = 0;
 	new_group->points = NULL;
 	new_group->root_quad = NULL;
+	new_group->bdr = NULL;
 	new_group->mesh = mesh;
 	new_group->free_mesh_on_clear = free_mesh_on_clear;
 	new_group->mesh_val_idx = mesh_val_idx;
@@ -374,6 +415,7 @@ void add_quad_to_coordinate_system(CoordinateSystem *coord_sys, Quad *root_quad,
 	new_group->num_points = 0;
 	new_group->points = NULL;
 	new_group->mesh = NULL;
+	new_group->bdr = NULL;
 	new_group->root_quad = root_quad;
 	new_group->free_quad_on_clear = free_quad_on_clear;
 	new_group->quad_val_idx = quad_val_idx;
@@ -413,6 +455,33 @@ void scatter_data3(CoordinateSystem *coord_sys, DataArray3 *data, CSAxisLabelTyp
 	coord_sys->x_axis_type = x_axis_type;
 	coord_sys->y_axis_type = y_axis_type;
 	coord_sys->z_axis_type = z_axis_type;
+	draw_coordinate_system_data(coord_sys);
+}
+
+void plot_boundary(CoordinateSystem *coord_sys, Boundary *bdr, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_bdr_on_clear, bool clear_prev_data) {
+	if(clear_prev_data) clear_coordinate_system(coord_sys);
+	add_boundary_to_coordinate_system(coord_sys, bdr, CS_PLOT_TYPE_BDR_PLOT, free_bdr_on_clear);
+	coord_sys->x_axis_type = x_axis_type;
+	coord_sys->y_axis_type = y_axis_type;
+
+	draw_coordinate_system_data(coord_sys);
+}
+
+void scatter_boundary(CoordinateSystem *coord_sys, Boundary *bdr, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_bdr_on_clear, bool clear_prev_data) {
+	if(clear_prev_data) clear_coordinate_system(coord_sys);
+	add_boundary_to_coordinate_system(coord_sys, bdr, CS_PLOT_TYPE_BDR_SCATTER, free_bdr_on_clear);
+	coord_sys->x_axis_type = x_axis_type;
+	coord_sys->y_axis_type = y_axis_type;
+
+	draw_coordinate_system_data(coord_sys);
+}
+
+void plot_scatter_boundary(CoordinateSystem *coord_sys, Boundary *bdr, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_bdr_on_clear, bool clear_prev_data) {
+	if(clear_prev_data) clear_coordinate_system(coord_sys);
+	add_boundary_to_coordinate_system(coord_sys, bdr, CS_PLOT_TYPE_BDR_PLOT_SCATTER, free_bdr_on_clear);
+	coord_sys->x_axis_type = x_axis_type;
+	coord_sys->y_axis_type = y_axis_type;
+
 	draw_coordinate_system_data(coord_sys);
 }
 

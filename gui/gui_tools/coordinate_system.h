@@ -2,14 +2,16 @@
 #define KMAT_COORDINATE_SYSTEM_H
 
 #include "screen.h"
-#include "gui/itin_rework/mesh.h"
-#include "gui/itin_rework/quad.h"
 
 typedef struct CoordinateSystem CoordinateSystem;
 typedef struct CSDataPointGroup CSDataPointGroup;
 typedef struct CSDataPoint CSDataPoint;
 typedef enum CSAxisLabelType CSAxisLabelType;
 typedef enum CSDataPlotType CSDataPlotType;
+
+#include "gui/itin_rework/mesh.h"
+#include "gui/itin_rework/quad.h"
+#include "gui/itin_rework/boundary.h"
 
 enum CSAxisLabelType {
 	CS_AXIS_NUMBER,
@@ -21,6 +23,9 @@ enum CSDataPlotType {
 	CS_PLOT_TYPE_PLOT,
 	CS_PLOT_TYPE_SCATTER,
 	CS_PLOT_TYPE_PLOT_SCATTER,
+	CS_PLOT_TYPE_BDR_PLOT,
+	CS_PLOT_TYPE_BDR_SCATTER,
+	CS_PLOT_TYPE_BDR_PLOT_SCATTER,
 	CS_PLOT_TYPE_MESH_INTERPOLATION,
 	CS_PLOT_TYPE_MESH_SKELETON,
 	CS_PLOT_TYPE_MESH_TRIANGLE_DEBUG,
@@ -40,6 +45,7 @@ struct CSDataPointGroup {
 	CSDataPoint *points;
 	Mesh2 *mesh;
 	Quad *root_quad;
+	Boundary *bdr;
 	int mesh_val_idx;
 	int quad_val_idx;
 	bool free_mesh_on_clear;
@@ -65,6 +71,9 @@ void plot_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x
 void scatter_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);
 void plot_scatter_data2(CoordinateSystem *coord_sys, DataArray2 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool clear_prev_data);
 void scatter_data3(CoordinateSystem *coord_sys, DataArray3 *data, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, CSAxisLabelType z_axis_type, bool clear_prev_data);
+void plot_boundary(CoordinateSystem *coord_sys, Boundary *bdr, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_bdr_on_clear, bool clear_prev_data);
+void scatter_boundary(CoordinateSystem *coord_sys, Boundary *bdr, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_bdr_on_clear, bool clear_prev_data);
+void plot_scatter_boundary(CoordinateSystem *coord_sys, Boundary *bdr, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, bool free_bdr_on_clear, bool clear_prev_data);
 void attach_mesh_to_coordinate_system(CoordinateSystem *coord_sys, Mesh2 *mesh, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, CSAxisLabelType z_axis_type, bool free_mesh_on_clear, int mesh_val_idx, bool free_prev_data);
 void attach_quad_to_coordinate_system(CoordinateSystem *coord_sys, Quad *root_quad, CSDataPlotType plot_type, CSAxisLabelType x_axis_type, CSAxisLabelType y_axis_type, CSAxisLabelType z_axis_type, bool free_mesh_on_clear, int quad_val_idx, bool free_prev_data);
 size_t get_coordinate_system_total_number_of_points(CoordinateSystem *coord_sys);

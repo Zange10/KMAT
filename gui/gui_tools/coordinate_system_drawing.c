@@ -251,6 +251,11 @@ void draw_coordinate_system_data(CoordinateSystem *coord_sys) {
 			case CS_PLOT_TYPE_PLOT_SCATTER:
 				draw_coordinate_system_data_group_plot(coord_sys, coord_sys->groups[i]);
 				break;
+			case CS_PLOT_TYPE_BDR_PLOT:
+			case CS_PLOT_TYPE_BDR_SCATTER:
+			case CS_PLOT_TYPE_BDR_PLOT_SCATTER:
+				draw_boundary_in_coordinate_system(coord_sys, i);
+				break;
 			case CS_PLOT_TYPE_MESH_SKELETON:
 				draw_mesh_skeleton(coord_sys->groups[i]->mesh, coord_sys);
 				break;
