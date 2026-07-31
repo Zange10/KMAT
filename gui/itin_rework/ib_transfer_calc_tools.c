@@ -1,4 +1,4 @@
-#include "itin_rework_tools.h"
+#include "ib_transfer_calc_tools.h"
 
 #include "gui/gui_manager.h"
 #include "gui/drawing.h"
@@ -2051,9 +2051,6 @@ Boundary get_rpe_boundary(SegmentGroup *group) {
 	double min_rpe = (group->dep_body->radius+group->dep_body->atmo_alt)*1.001;
 	return get_quad_mesh_value_boundary(group->quad, min_rpe, MESH_VAL_RPE, 5, true);
 }
-
-
-
 
 
 
