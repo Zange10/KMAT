@@ -1,6 +1,83 @@
 #include <stdio.h>
 #include "tool_funcs.h"
 
+#include <stdlib.h>
+
+
+TimingMeasurements init_timing_measurements() {
+    TimingMeasurements tm;
+    tm.first = NULL;
+    gettimeofday(&tm.start, NULL);
+    gettimeofday(&tm.end, NULL);
+    return tm;
+}
+
+void start_time_measurement(TimingMeasurements *tm) {
+    gettimeofday(&tm->start, NULL);
+}
+
+double get_total_timing_time(TimingMeasurements tm) {
+    TimingMeasurement *ptr = tm.first;
+    double total_time = 0;
+    while(ptr) {
+        total_time += ptr->elapsed_time;
+        ptr = ptr->next;
+    }
+    return total_time;
+}
+
+void print_timing_measurements(TimingMeasurements tm) {
+    double total_time = get_total_timing_time(tm);
+    TimingMeasurement *ptr = tm.first;
+    while(ptr) {
+        printf("|%50s:%10.3fms  (%.2f %%)\n", ptr->name, ptr->elapsed_time*1000, ptr->elapsed_time/total_time*100);
+        ptr = ptr->next;
+    }
+    print_separator(100);
+    printf("|%50s:  %.3fms\n", "TOTAL TIME", total_time*1000);
+    print_separator(100);
+}
+
+void end_time_measurement(TimingMeasurements *tm, char *name) {
+    gettimeofday(&tm->end, NULL);
+    TimingMeasurement *ptr = tm->first;
+    if(ptr == NULL) {
+        tm->first = malloc(sizeof(TimingMeasurement));
+        ptr = tm->first;
+    } else {
+        while(ptr->next) ptr = ptr->next;
+        ptr->next = malloc(sizeof(TimingMeasurement));
+        ptr = ptr->next;
+    }
+
+    ptr->next = NULL;
+    ptr->elapsed_time = (tm->end.tv_sec - tm->start.tv_sec) + (tm->end.tv_usec - tm->start.tv_usec) / 1000000.0;
+    sprintf(ptr->name, "%s", name);
+}
+
+TimingMeasurement *get_last_timing_measurement(TimingMeasurements tm) {
+    TimingMeasurement *ptr = tm.first;
+    while(ptr->next) {
+        ptr = ptr->next;
+    }
+    return ptr;
+}
+
+void free_timing_measurements(TimingMeasurements *tm) {
+    if(!tm) return;
+    if(tm->first) {
+        TimingMeasurement *ptr = tm->first;
+        while(ptr) {
+            TimingMeasurement *next = ptr->next;
+            free(ptr);
+            ptr = next;
+        }
+    }
+}
+
+
+
+
 int user_selection(char *title, char *options, char *question) {
     printf("\n\n%s\n", title);
     print_separator(49);

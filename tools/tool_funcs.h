@@ -1,4 +1,75 @@
+#ifndef TOOL_FUNCS
+#define TOOL_FUNCS
+
 #include <ctype.h>
+#include <sys/time.h>
+
+typedef struct TimingMeasurement {
+	struct TimingMeasurement *next;
+	double elapsed_time;
+	char name[256];
+} TimingMeasurement;
+
+typedef struct TimingMeasurements {
+	struct timeval start, end;
+	TimingMeasurement *first;
+} TimingMeasurements;
+
+/**
+ * @brief Initialise timing measurements
+ *
+ * @return Timing measurements struct
+ */
+TimingMeasurements init_timing_measurements();
+
+/**
+ * @brief Start a timing measurement
+ *
+ * @param tm The pointer to the timing measurements holder
+ */
+void start_time_measurement(TimingMeasurements *tm);
+
+/**
+ * @brief Get the total measurement time (sum of all measurements)
+ *
+ * @param tm The timing measurements holder
+ *
+ * @return The total measured time
+ */
+double get_total_timing_time(TimingMeasurements tm);
+
+/**
+ * @brief Print an overview of time measurements
+ *
+ * @param tm The timing measurements holder
+ */
+void print_timing_measurements(TimingMeasurements tm);
+
+/**
+ * @brief End a timing measurement and store it in its holder
+ *
+ * @param tm The timing measurements holder
+ * @param name Name to be displayed with measurement when printed
+ */
+void end_time_measurement(TimingMeasurements *tm, char *name);
+
+/**
+ * @brief Get the last measured time
+ *
+ * @param tm The timing measurements holder
+ *
+ * @return The last entry into the timing measurement holder
+ */
+TimingMeasurement *get_last_timing_measurement(TimingMeasurements tm);
+
+/**
+ * @brief Free all stored measurements
+ *
+ * @param tm The timing measurements holder
+ */
+void free_timing_measurements(TimingMeasurements *tm);
+
+
 
 /**
  * @brief let user select a given option by index (integer)
@@ -39,3 +110,6 @@ int strcicmp(char const *a, char const *b);
  * @param total The total progress needed for 100%
  */
 void show_progress(char *text, double progress, double total);
+
+
+#endif
