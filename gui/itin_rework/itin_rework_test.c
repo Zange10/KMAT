@@ -131,168 +131,168 @@ double * step_to_array(struct ItinStep *step) {
 
 
 
-void departure_pop_func(MeshPoint2 *mesh_point, void *params_p) {
-	SegmentGroup *group = params_p;
-	Body *cb = group->dep_body->orbit.cb;
-	double jd_dep = mesh_point->pos.x;
-	double duration = mesh_point->pos.y;
-
-	Vector3 r0 = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb).r;
-	OSV osv_arr = osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_dep + duration, cb);
-	Vector3 r1 = osv_arr.r;
-
-	Lambert3 lambert_sol = calc_lambert3(r0, r1, duration*86400, cb);
-
-	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
-	array[MESH_VAL_ARRDATE] = jd_dep+duration;
-	array[MESH_VAL_DUR] = duration;
-	array[MESH_VAL_DEPX] = lambert_sol.v0.x;
-	array[MESH_VAL_DEPY] = lambert_sol.v0.y;
-	array[MESH_VAL_DEPZ] = lambert_sol.v0.z;
-	array[MESH_VAL_BODY_RX] = osv_arr.r.x;
-	array[MESH_VAL_BODY_RY] = osv_arr.r.y;
-	array[MESH_VAL_BODY_RZ] = osv_arr.r.z;
-	array[MESH_VAL_BODY_VX] = osv_arr.v.x;
-	array[MESH_VAL_BODY_VY] = osv_arr.v.y;
-	array[MESH_VAL_BODY_VZ] = osv_arr.v.z;
-	array[MESH_VAL_ARRX] = lambert_sol.v1.x;
-	array[MESH_VAL_ARRY] = lambert_sol.v1.y;
-	array[MESH_VAL_ARRZ] = lambert_sol.v1.z;
-	array[MESH_VAL_ARRVINF] = mag_vec3(subtract_vec3(lambert_sol.v1, osv_arr.v));
-	array[MESH_VAL_RPE] = 0;
-
-	mesh_point->val = array;
-	mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
-}
-
-MeshPoint2 * departure_point_func(double jd_dep, double duration, void *params_p) {
-	SegmentGroup *group = params_p;
-	Body *cb = group->dep_body->orbit.cb;
-
-	Vector3 r0 = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb).r;
-	OSV osv_arr = osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_dep + duration, cb);
-	Vector3 r1 = osv_arr.r;
-
-	Lambert3 lambert_sol = calc_lambert3(r0, r1, duration*86400, cb);
-
-	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
-	array[MESH_VAL_ARRDATE] = jd_dep+duration;
-	array[MESH_VAL_DUR] = duration;
-	array[MESH_VAL_DEPX] = lambert_sol.v0.x;
-	array[MESH_VAL_DEPY] = lambert_sol.v0.y;
-	array[MESH_VAL_DEPZ] = lambert_sol.v0.z;
-	array[MESH_VAL_BODY_RX] = osv_arr.r.x;
-	array[MESH_VAL_BODY_RY] = osv_arr.r.y;
-	array[MESH_VAL_BODY_RZ] = osv_arr.r.z;
-	array[MESH_VAL_BODY_VX] = osv_arr.v.x;
-	array[MESH_VAL_BODY_VY] = osv_arr.v.y;
-	array[MESH_VAL_BODY_VZ] = osv_arr.v.z;
-	array[MESH_VAL_ARRX] = lambert_sol.v1.x;
-	array[MESH_VAL_ARRY] = lambert_sol.v1.y;
-	array[MESH_VAL_ARRZ] = lambert_sol.v1.z;
-	array[MESH_VAL_ARRVINF] = mag_vec3(subtract_vec3(lambert_sol.v1, osv_arr.v));
-	array[MESH_VAL_RPE] = 1e9;
-
-	MeshPoint2 *new_mesh_point = create_mesh_point(vec2(jd_dep, duration), array, NUM_PORKCHOP_MESH_VALUE_TYPES);
-
-	return new_mesh_point;
-}
-
-void flyby_dur_pop_func(MeshPoint2 *mesh_point, void *params_p) {
-	SegmentGroup *group = params_p;
-
-	Quad *quad_at_pos = get_quad_at_position(group->prev->quad, mesh_point->pos);
-
-	if(!quad_at_pos) {
-		double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
-		array[MESH_VAL_ARRDATE] = NAN;
-		array[MESH_VAL_DUR] = NAN;
-		mesh_point->val = array;
-		mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
-		return;
-	}
-
-	double jd_dep = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRDATE);
-	double vinf = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRVINF);
-
-	double duration = find_segment_group_lambert_root(jd_dep, group, vinf, 0, 700, 1);
-
-	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
-	array[MESH_VAL_ARRDATE] = duration > 0 ? jd_dep+duration : NAN;
-	array[MESH_VAL_DUR] = duration > 0 ? duration : NAN;
-
-	mesh_point->val = array;
-	mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
-}
-
-MeshPoint2 * flyby_dur_func(double jd_dep0, double dur0, void *params_p) {
-	SegmentGroup *group = params_p;
-	Vector2 pos = vec2(jd_dep0, dur0);
-
-	Quad *quad_at_pos = get_quad_at_position(group->prev->quad, pos);
-
-	if(!quad_at_pos) {
-		double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
-		array[MESH_VAL_ARRDATE] = NAN;
-		array[MESH_VAL_DUR] = NAN;
-
-		return create_mesh_point(pos, array, NUM_PORKCHOP_MESH_VALUE_TYPES);
-	}
-
-	double jd_dep = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRDATE);
-	double vinf = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRVINF);
-
-	double duration = find_segment_group_lambert_root(jd_dep, group, vinf, 0, 700, 1);
-
-	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
-	array[MESH_VAL_ARRDATE] = duration > 0 ? jd_dep+duration : NAN;
-	array[MESH_VAL_DUR] = duration > 0 ? duration : NAN;
-
-	return create_mesh_point(pos, array, NUM_PORKCHOP_MESH_VALUE_TYPES);
-}
-
-void flyby_rpe_pop_func(MeshPoint2 *mesh_point, void *params_p) {
-	SegmentGroup *group = params_p;
-	Body *cb = group->dep_body->orbit.cb;
-
-	double jd_arr = mesh_point->val[MESH_VAL_ARRDATE];
-	double duration = mesh_point->val[MESH_VAL_DUR];
-	double jd_dep = jd_arr-duration;
-
-	OSV osv_dep = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb);
-
-	OSV osv_arr = osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_arr, cb);
-	Lambert3 lambert_sol = calc_lambert3(osv_dep.r, osv_arr.r, duration*86400, cb);
-
-	double *array = mesh_point->val;
-	array[MESH_VAL_DEPX] = lambert_sol.v0.x;
-	array[MESH_VAL_DEPY] = lambert_sol.v0.y;
-	array[MESH_VAL_DEPZ] = lambert_sol.v0.z;
-	array[MESH_VAL_BODY_RX] = osv_arr.r.x;
-	array[MESH_VAL_BODY_RY] = osv_arr.r.y;
-	array[MESH_VAL_BODY_RZ] = osv_arr.r.z;
-	array[MESH_VAL_BODY_VX] = osv_arr.v.x;
-	array[MESH_VAL_BODY_VY] = osv_arr.v.y;
-	array[MESH_VAL_BODY_VZ] = osv_arr.v.z;
-	array[MESH_VAL_ARRX] = lambert_sol.v1.x;
-	array[MESH_VAL_ARRY] = lambert_sol.v1.y;
-	array[MESH_VAL_ARRZ] = lambert_sol.v1.z;
-	array[MESH_VAL_ARRVINF] = mag_vec3(subtract_vec3(lambert_sol.v1, osv_arr.v));
-
-	Quad *quad_at_pos = get_quad_at_position(group->prev->quad, mesh_point->pos);
-
-	if(quad_at_pos) {
-		Vector3 v_arr = vec3(
-			get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRX),
-			get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRY),
-			get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRZ)
-			);
-
-		array[MESH_VAL_RPE] = get_flyby_periapsis(v_arr, lambert_sol.v0, osv_dep.v, group->dep_body);
-	} else {
-		array[MESH_VAL_RPE] = -1;
-	}
-}
+// void departure_pop_func(MeshPoint2 *mesh_point, void *params_p) {
+// 	SegmentGroup *group = params_p;
+// 	Body *cb = group->dep_body->orbit.cb;
+// 	double jd_dep = mesh_point->pos.x;
+// 	double duration = mesh_point->pos.y;
+//
+// 	Vector3 r0 = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb).r;
+// 	OSV osv_arr = osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_dep + duration, cb);
+// 	Vector3 r1 = osv_arr.r;
+//
+// 	Lambert3 lambert_sol = calc_lambert3(r0, r1, duration*86400, cb);
+//
+// 	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+// 	array[MESH_VAL_ARRDATE] = jd_dep+duration;
+// 	array[MESH_VAL_DUR] = duration;
+// 	array[MESH_VAL_DEPX] = lambert_sol.v0.x;
+// 	array[MESH_VAL_DEPY] = lambert_sol.v0.y;
+// 	array[MESH_VAL_DEPZ] = lambert_sol.v0.z;
+// 	array[MESH_VAL_BODY_RX] = osv_arr.r.x;
+// 	array[MESH_VAL_BODY_RY] = osv_arr.r.y;
+// 	array[MESH_VAL_BODY_RZ] = osv_arr.r.z;
+// 	array[MESH_VAL_BODY_VX] = osv_arr.v.x;
+// 	array[MESH_VAL_BODY_VY] = osv_arr.v.y;
+// 	array[MESH_VAL_BODY_VZ] = osv_arr.v.z;
+// 	array[MESH_VAL_ARRX] = lambert_sol.v1.x;
+// 	array[MESH_VAL_ARRY] = lambert_sol.v1.y;
+// 	array[MESH_VAL_ARRZ] = lambert_sol.v1.z;
+// 	array[MESH_VAL_ARRVINF] = mag_vec3(subtract_vec3(lambert_sol.v1, osv_arr.v));
+// 	array[MESH_VAL_RPE] = 0;
+//
+// 	mesh_point->val = array;
+// 	mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
+// }
+//
+// MeshPoint2 * departure_point_func(double jd_dep, double duration, void *params_p) {
+// 	SegmentGroup *group = params_p;
+// 	Body *cb = group->dep_body->orbit.cb;
+//
+// 	Vector3 r0 = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb).r;
+// 	OSV osv_arr = osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_dep + duration, cb);
+// 	Vector3 r1 = osv_arr.r;
+//
+// 	Lambert3 lambert_sol = calc_lambert3(r0, r1, duration*86400, cb);
+//
+// 	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+// 	array[MESH_VAL_ARRDATE] = jd_dep+duration;
+// 	array[MESH_VAL_DUR] = duration;
+// 	array[MESH_VAL_DEPX] = lambert_sol.v0.x;
+// 	array[MESH_VAL_DEPY] = lambert_sol.v0.y;
+// 	array[MESH_VAL_DEPZ] = lambert_sol.v0.z;
+// 	array[MESH_VAL_BODY_RX] = osv_arr.r.x;
+// 	array[MESH_VAL_BODY_RY] = osv_arr.r.y;
+// 	array[MESH_VAL_BODY_RZ] = osv_arr.r.z;
+// 	array[MESH_VAL_BODY_VX] = osv_arr.v.x;
+// 	array[MESH_VAL_BODY_VY] = osv_arr.v.y;
+// 	array[MESH_VAL_BODY_VZ] = osv_arr.v.z;
+// 	array[MESH_VAL_ARRX] = lambert_sol.v1.x;
+// 	array[MESH_VAL_ARRY] = lambert_sol.v1.y;
+// 	array[MESH_VAL_ARRZ] = lambert_sol.v1.z;
+// 	array[MESH_VAL_ARRVINF] = mag_vec3(subtract_vec3(lambert_sol.v1, osv_arr.v));
+// 	array[MESH_VAL_RPE] = 1e9;
+//
+// 	MeshPoint2 *new_mesh_point = create_mesh_point(vec2(jd_dep, duration), array, NUM_PORKCHOP_MESH_VALUE_TYPES);
+//
+// 	return new_mesh_point;
+// }
+//
+// void flyby_dur_pop_func(MeshPoint2 *mesh_point, void *params_p) {
+// 	SegmentGroup *group = params_p;
+//
+// 	Quad *quad_at_pos = get_quad_at_position(group->prev->quad, mesh_point->pos);
+//
+// 	if(!quad_at_pos) {
+// 		double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+// 		array[MESH_VAL_ARRDATE] = NAN;
+// 		array[MESH_VAL_DUR] = NAN;
+// 		mesh_point->val = array;
+// 		mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
+// 		return;
+// 	}
+//
+// 	double jd_dep = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRDATE);
+// 	double vinf = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRVINF);
+//
+// 	double duration = find_segment_group_lambert_root(jd_dep, group, vinf, 0, 700, 1);
+//
+// 	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+// 	array[MESH_VAL_ARRDATE] = duration > 0 ? jd_dep+duration : NAN;
+// 	array[MESH_VAL_DUR] = duration > 0 ? duration : NAN;
+//
+// 	mesh_point->val = array;
+// 	mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
+// }
+//
+// MeshPoint2 * flyby_dur_func(double jd_dep0, double dur0, void *params_p) {
+// 	SegmentGroup *group = params_p;
+// 	Vector2 pos = vec2(jd_dep0, dur0);
+//
+// 	Quad *quad_at_pos = get_quad_at_position(group->prev->quad, pos);
+//
+// 	if(!quad_at_pos) {
+// 		double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+// 		array[MESH_VAL_ARRDATE] = NAN;
+// 		array[MESH_VAL_DUR] = NAN;
+//
+// 		return create_mesh_point(pos, array, NUM_PORKCHOP_MESH_VALUE_TYPES);
+// 	}
+//
+// 	double jd_dep = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRDATE);
+// 	double vinf = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRVINF);
+//
+// 	double duration = find_segment_group_lambert_root(jd_dep, group, vinf, 0, 700, 1);
+//
+// 	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+// 	array[MESH_VAL_ARRDATE] = duration > 0 ? jd_dep+duration : NAN;
+// 	array[MESH_VAL_DUR] = duration > 0 ? duration : NAN;
+//
+// 	return create_mesh_point(pos, array, NUM_PORKCHOP_MESH_VALUE_TYPES);
+// }
+//
+// void flyby_rpe_pop_func(MeshPoint2 *mesh_point, void *params_p) {
+// 	SegmentGroup *group = params_p;
+// 	Body *cb = group->dep_body->orbit.cb;
+//
+// 	double jd_arr = mesh_point->val[MESH_VAL_ARRDATE];
+// 	double duration = mesh_point->val[MESH_VAL_DUR];
+// 	double jd_dep = jd_arr-duration;
+//
+// 	OSV osv_dep = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb);
+//
+// 	OSV osv_arr = osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_arr, cb);
+// 	Lambert3 lambert_sol = calc_lambert3(osv_dep.r, osv_arr.r, duration*86400, cb);
+//
+// 	double *array = mesh_point->val;
+// 	array[MESH_VAL_DEPX] = lambert_sol.v0.x;
+// 	array[MESH_VAL_DEPY] = lambert_sol.v0.y;
+// 	array[MESH_VAL_DEPZ] = lambert_sol.v0.z;
+// 	array[MESH_VAL_BODY_RX] = osv_arr.r.x;
+// 	array[MESH_VAL_BODY_RY] = osv_arr.r.y;
+// 	array[MESH_VAL_BODY_RZ] = osv_arr.r.z;
+// 	array[MESH_VAL_BODY_VX] = osv_arr.v.x;
+// 	array[MESH_VAL_BODY_VY] = osv_arr.v.y;
+// 	array[MESH_VAL_BODY_VZ] = osv_arr.v.z;
+// 	array[MESH_VAL_ARRX] = lambert_sol.v1.x;
+// 	array[MESH_VAL_ARRY] = lambert_sol.v1.y;
+// 	array[MESH_VAL_ARRZ] = lambert_sol.v1.z;
+// 	array[MESH_VAL_ARRVINF] = mag_vec3(subtract_vec3(lambert_sol.v1, osv_arr.v));
+//
+// 	Quad *quad_at_pos = get_quad_at_position(group->prev->quad, mesh_point->pos);
+//
+// 	if(quad_at_pos) {
+// 		Vector3 v_arr = vec3(
+// 			get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRX),
+// 			get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRY),
+// 			get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRZ)
+// 			);
+//
+// 		array[MESH_VAL_RPE] = get_flyby_periapsis(v_arr, lambert_sol.v0, osv_dep.v, group->dep_body);
+// 	} else {
+// 		array[MESH_VAL_RPE] = -1;
+// 	}
+// }
 
 MeshPoint2 * test_next(double jd_dep0, double duration0, void *params_p) {
 	Vector2 pos = vec2(jd_dep0, duration0);
@@ -618,12 +618,12 @@ void extrapolate_quad_points(Quad *quad, Boundary *bdr, QuadPointFunc *point_fun
 	}
 }
 
-typedef struct ErrorFuncParams {
+typedef struct ErrorFuncParams_ {
 	double max_error;
 	int val_idx;
 } ErrorFuncParams;
 
-typedef struct BoundaryFuncParams {
+typedef struct BoundaryFuncParams_ {
 	Boundary soft_bdr, hard_bdr;
 } BoundaryFuncParams;
 
@@ -873,12 +873,6 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	double dep_periapsis = dep_body->atmo_alt + ir_dep_periapsis;
 
-	DepartureGroup old_dep;
-	old_dep.dep_body = dep_body;
-	old_dep.num_next_groups = 0;
-	old_dep.group_cap = 8;
-	old_dep.segment_groups = malloc(old_dep.group_cap * sizeof(SegmentGroup *));
-
 	SegmentGroup *departure = new_segment_group(dep_body, NULL, ir_system);
 
 	int shift = get_opp_conj_min_shift(dep_body, arr_body, ir_system, min_dep, max_dep, min_dur, max_dur);
@@ -950,7 +944,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 		group->quad = create_quad_from_four_points(NULL, p00, p01, p10, p11, NULL);
 
-		split_to_refinement_level(group->quad, NULL, &group->group_bdr, group->min_rf_level, group->min_rf_level+3);
+		// split_to_refinement_level(group->quad, NULL, &group->group_bdr, group->min_rf_level, group->min_rf_level+3);
+		split_to_refinement_level(group->quad, NULL, group->min_rf_level);
 		printf("Num of Leaves: %d\n", get_quad_leaves(group->quad, NULL));
 	}
 
@@ -1000,7 +995,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		for(int i = 0; i < 100; i++) {
 			num_split_cycles++;
 			for(int j = 0; j < quad_list->num; j++) {
-				update_quad_error_flag(quad_list->quad[j], group->min_rf_level, group->max_rf_level, &error_func);
+				update_quad_error_flag(quad_list->quad[j], &error_func);
 				if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
 					append_to_quad_list(quad_split_list, quad_list->quad[j]);
 			}
@@ -1032,6 +1027,13 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 
 	end_time_measurement(&tm, "Divide & Conquer");
+
+	attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[pcgroup0]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_DUR, TRUE);
+	attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[pcgroup0]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_RPE, TRUE);
+	print_timing_measurements(tm);
+	free_timing_measurements(&tm);
+	return;
+
 	start_time_measurement(&tm);
 
 	for(int idx = 0; idx < departure->num_next_groups; idx++) {
@@ -1131,7 +1133,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 			}
 
 			for(int j = 0; j < quad_list->num; j++) {
-				update_quad_error_flag(quad_list->quad[j], group->min_rf_level, group->max_rf_level, &error_func);
+				update_quad_error_flag(quad_list->quad[j], &error_func);
 				if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
 					append_to_quad_list(quad_split_list, quad_list->quad[j]);
 			}
@@ -1199,7 +1201,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		for(int i = 0; i < 100; i++) {
 			num_split_cycles++;
 			for(int j = 0; j < quad_list->num; j++) {
-				update_quad_error_flag(quad_list->quad[j], group->min_rf_level, group->max_rf_level, &error_func);
+				update_quad_error_flag(quad_list->quad[j], &error_func);
 				if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
 					append_to_quad_list(quad_split_list, quad_list->quad[j]);
 			}
@@ -1249,7 +1251,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 		next_group->min_rf_level = group->min_rf_level;
 		next_group->max_rf_level = group->max_rf_level;
 
-		split_to_refinement_level(next_group->quad, NULL, &new_boundary, next_group->min_rf_level, next_group->min_rf_level+3);
+		// split_to_refinement_level(next_group->quad, NULL, &new_boundary, next_group->min_rf_level, next_group->min_rf_level+3);
+		split_to_refinement_level(next_group->quad, NULL, next_group->min_rf_level);
 		printf("Num of Leaves: %d\n", get_quad_leaves(next_group->quad, NULL));
 	}
 
@@ -1302,7 +1305,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		for(int i = 0; i < 100; i++) {
 			num_split_cycles++;
 			for(int j = 0; j < quad_list->num; j++) {
-				update_quad_error_flag(quad_list->quad[j], next_group->min_rf_level, next_group->max_rf_level, &error_func);
+				update_quad_error_flag(quad_list->quad[j], &error_func);
 				if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
 					append_to_quad_list(quad_split_list, quad_list->quad[j]);
 			}
@@ -1362,7 +1365,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 	for(int i = 0; i < 100; i++) {
 		num_split_cycles++;
 		for(int j = 0; j < quad_list->num; j++) {
-			update_quad_error_flag(quad_list->quad[j], next_group->min_rf_level, next_group->max_rf_level, &error_func);
+			update_quad_error_flag(quad_list->quad[j], &error_func);
 			if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
 				append_to_quad_list(quad_split_list, quad_list->quad[j]);
 		}
@@ -1523,6 +1526,49 @@ void draw_mesh_interpolated_points_error(cairo_t *cr, double width, double heigh
 
 
 G_MODULE_EXPORT void on_calc_ir2() {
+	char *string;
+
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_mindepdate));
+	double min_dep = convert_date_JD(date_from_string(string, DATE_ISO));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdepdate));
+	double max_dep = convert_date_JD(date_from_string(string, DATE_ISO));
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_mindur));
+	double min_dur = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdur));
+	double max_dur = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_tolerance));
+	double tolerance = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_numdeps));
+	double target_numdeps = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_maxdv));
+	double max_depdv = strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup0));
+	int pcgroup0 = (int) strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup1));
+	int pcgroup1 = (int) strtod(string, NULL);
+	string = (char*) gtk_entry_get_text(GTK_ENTRY(tf_ir_pcgroup2));
+	int pcgroup2 = (int) strtod(string, NULL);
+
+	Body *body_seq[] = {
+		get_body_by_name("Earth", ir_system),
+		get_body_by_name("Venus", ir_system),
+		get_body_by_name("Mars", ir_system)
+	};
+
+	int num_bodies = sizeof(body_seq)/sizeof(Body*);
+	SegmentGroup *departure = calc_interpolation_based_itins(body_seq, num_bodies, ir_system, min_dep, max_dep, min_dur, max_dur, ir_dep_periapsis, max_depdv, ir_dep_periapsis, max_depdv);
+
+	printf("%d\n", departure->num_next_groups);
+	clear_coordinate_system(ir_coord_sys0);
+	for(int i = 0; i < departure->num_next_groups; i++) {
+		// plot_boundary(ir_coord_sys0, &departure->next[i]->dv_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+		attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[i]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, 0, false);
+		attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false, MESH_VAL_ARRVINF, false);
+	}
+}
+
+
+G_MODULE_EXPORT void on_calc_ir2__() {
 	TimingMeasurements tm = init_timing_measurements();
 	char *string;
 

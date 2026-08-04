@@ -387,9 +387,7 @@ void remove_triangle_from_mesh(Mesh2 *mesh, MeshTriangle2 *triangle, bool remove
 MeshPoint2 *create_mesh_point(Vector2 pos, double *values, int num_vals) {
 	MeshPoint2 *new_point = malloc(sizeof(MeshPoint2));
 	new_point->pos = pos;
-	// new_point->old_val = 0;
-	// new_point->old_data = data ? data : NULL;
-	new_point->val = values ? values : NULL;
+	new_point->val = values;
 	new_point->num_val = num_vals;
 	new_point->num_triangles = 0;
 	new_point->triangle_cap = 0;

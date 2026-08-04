@@ -109,11 +109,14 @@ bool is_quad_crossed_by_line(Quad *quad, DataArray2 *line);
 void find_line_crossed_quads(Quad *quad, DataArray2 *line, QuadList *quad_list);
 
 void remove_out_of_bounds_quads(Quad *quad, QuadBoundsFunc *bounds_func);
-int update_quad_error_flag(Quad *quad, int min_rf_level, int max_rf_level, QuadErrorFunc *errfunc);
+double quad_abs_center_error(Quad *quad, int val_idx);
+double quad_rel_center_error(Quad *quad, int val_idx);
+int update_quad_error_flag(Quad *quad, QuadErrorFunc *errfunc);
 int split_quads_with_flag(Quad *quad, QuadPointFunc *point_func);
 
 int split_quad(Quad *quad, QuadPointFunc *point_func, QuadList *quad_list);
-int split_to_refinement_level(Quad *quad, QuadPointFunc *point_func, Boundary *boundary, int min_rf_level, int bdr_rf_level);
+int split_to_refinement_level(Quad *quad, QuadPointFunc *point_func, int min_rf_level);
+void quad_devide_and_conquer(Quad *root_quad, int max_rf_level, QuadPointFunc *point_func, QuadErrorFunc *error_func, QuadBoundsFunc *bounds_func);
 Quad * copy_quad_skeleton(Quad *quad);
 
 Mesh2 * create_mesh_from_quads(Quad *root_quad);

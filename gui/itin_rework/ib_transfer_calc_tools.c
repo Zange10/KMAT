@@ -2052,8 +2052,127 @@ Boundary get_rpe_boundary(SegmentGroup *group) {
 	return get_quad_mesh_value_boundary(group->quad, min_rpe, MESH_VAL_RPE, 5, true);
 }
 
+void calc_mesh_point_lambert_vals(SegmentGroup *group, MeshPoint2 *mesh_point, double jd_dep, double duration, double rpe_val, bool calc_rpe) {
+	Body *cb = group->dep_body->orbit.cb;
+	double jd_arr = jd_dep+duration;
 
+	OSV osv_dep = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb);
+	OSV osv_arr = osv_from_ephem(group->arr_body->ephem, group->arr_body->num_ephems, jd_arr, cb);
+	Lambert3 lambert_sol = calc_lambert3(osv_dep.r, osv_arr.r, duration*86400, cb);
 
+	if(!mesh_point->val) {
+		mesh_point->val = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+		mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
+	}
+	double *array = mesh_point->val;
+
+	array[MESH_VAL_DEPX] = lambert_sol.v0.x;
+	array[MESH_VAL_DEPY] = lambert_sol.v0.y;
+	array[MESH_VAL_DEPZ] = lambert_sol.v0.z;
+	array[MESH_VAL_BODY_RX] = osv_arr.r.x;
+	array[MESH_VAL_BODY_RY] = osv_arr.r.y;
+	array[MESH_VAL_BODY_RZ] = osv_arr.r.z;
+	array[MESH_VAL_BODY_VX] = osv_arr.v.x;
+	array[MESH_VAL_BODY_VY] = osv_arr.v.y;
+	array[MESH_VAL_BODY_VZ] = osv_arr.v.z;
+	array[MESH_VAL_ARRX] = lambert_sol.v1.x;
+	array[MESH_VAL_ARRY] = lambert_sol.v1.y;
+	array[MESH_VAL_ARRZ] = lambert_sol.v1.z;
+	array[MESH_VAL_ARRVINF] = mag_vec3(subtract_vec3(lambert_sol.v1, osv_arr.v));
+	array[MESH_VAL_RPE] = rpe_val;
+
+	if(calc_rpe) {
+		Quad *quad_at_pos = get_quad_at_position(group->prev->quad, mesh_point->pos);
+		if(quad_at_pos) {
+			Vector3 v_arr = vec3(
+				get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRX),
+				get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRY),
+				get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRZ)
+				);
+
+			array[MESH_VAL_RPE] = get_flyby_periapsis(v_arr, lambert_sol.v0, osv_dep.v, group->dep_body);
+		}
+	}
+}
+
+void departure_pop_func(MeshPoint2 *mesh_point, void *params_p) {
+	SegmentGroup *group = params_p;
+	double jd_dep = mesh_point->pos.x;
+	double duration = mesh_point->pos.y;
+
+	calc_mesh_point_lambert_vals(group, mesh_point, jd_dep, duration, 1e20, false);
+}
+
+MeshPoint2 * departure_point_func(double jd_dep, double duration, void *params_p) {
+	SegmentGroup *group = params_p;
+
+	MeshPoint2 *new_mesh_point = create_mesh_point(vec2(jd_dep, duration), NULL, 0);
+	calc_mesh_point_lambert_vals(group, new_mesh_point, jd_dep, duration, 1e20, false);
+
+	return new_mesh_point;
+}
+
+void flyby_dur_pop_func(MeshPoint2 *mesh_point, void *params_p) {
+	SegmentGroup *group = params_p;
+
+	Quad *quad_at_pos = get_quad_at_position(group->prev->quad, mesh_point->pos);
+
+	if(!quad_at_pos) {
+		double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+		array[MESH_VAL_ARRDATE] = NAN;
+		array[MESH_VAL_DUR] = NAN;
+		mesh_point->val = array;
+		mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
+		return;
+	}
+
+	double jd_dep = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRDATE);
+	double vinf = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRVINF);
+
+	double duration = find_segment_group_lambert_root(jd_dep, group, vinf, 0, 700, 1);
+
+	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+	array[MESH_VAL_ARRDATE] = duration > 0 ? jd_dep+duration : NAN;
+	array[MESH_VAL_DUR] = duration > 0 ? duration : NAN;
+
+	mesh_point->val = array;
+	mesh_point->num_val = NUM_PORKCHOP_MESH_VALUE_TYPES;
+}
+
+MeshPoint2 * flyby_dur_func(double jd_dep0, double dur0, void *params_p) {
+	SegmentGroup *group = params_p;
+	Vector2 pos = vec2(jd_dep0, dur0);
+
+	Quad *quad_at_pos = get_quad_at_position(group->prev->quad, pos);
+
+	if(!quad_at_pos) {
+		double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+		array[MESH_VAL_ARRDATE] = NAN;
+		array[MESH_VAL_DUR] = NAN;
+
+		return create_mesh_point(pos, array, NUM_PORKCHOP_MESH_VALUE_TYPES);
+	}
+
+	double jd_dep = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRDATE);
+	double vinf = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRVINF);
+
+	double duration = find_segment_group_lambert_root(jd_dep, group, vinf, 0, 700, 1);
+
+	double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+	array[MESH_VAL_ARRDATE] = duration > 0 ? jd_dep+duration : NAN;
+	array[MESH_VAL_DUR] = duration > 0 ? duration : NAN;
+
+	return create_mesh_point(pos, array, NUM_PORKCHOP_MESH_VALUE_TYPES);
+}
+
+void flyby_rpe_pop_func(MeshPoint2 *mesh_point, void *params_p) {
+	SegmentGroup *group = params_p;
+
+	double jd_arr = mesh_point->val[MESH_VAL_ARRDATE];
+	double duration = mesh_point->val[MESH_VAL_DUR];
+	double jd_dep = jd_arr-duration;
+	calc_mesh_point_lambert_vals(group, mesh_point, jd_dep, duration, -1, true);
+}
 
 
 

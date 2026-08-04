@@ -346,6 +346,61 @@ Boundary get_quad_mesh_value_boundary(Quad *quad, double val, int val_idx, int n
 	return bdr;
 }
 
+int match_quads_to_boundary(Quad *quad, Boundary *soft_bdr, Boundary *hard_bdr, int min_bdr_rf_level, int max_rf_level, bool rm_hard_bdr_crossed) {
+	if(!soft_bdr && !hard_bdr) return 0;
+
+	bool is_inside_soft_bdr = soft_bdr ? is_quad_inside_boundary(quad, *soft_bdr) : true;
+	if(!is_inside_soft_bdr) {
+		free_quad(quad, true); return 0;
+	}
+
+	bool is_inside_hard_bdr = hard_bdr ? is_quad_inside_boundary(quad, *hard_bdr) : true;
+	if(!is_inside_hard_bdr && rm_hard_bdr_crossed) {
+		free_quad(quad, true);
+		return 0;
+	}
+
+	bool is_crossed_soft_bdr = soft_bdr ? is_quad_crossed_by_boundary(quad, *soft_bdr) : true;
+	bool is_crossed_hard_bdr = hard_bdr ? is_quad_crossed_by_boundary(quad, *hard_bdr) : true;
+
+	if(!is_crossed_soft_bdr && !is_crossed_hard_bdr) return 0;
+
+	QuadList *quad_list = create_quad_list();
+
+	int num_splits = 0;
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF) && (is_crossed_soft_bdr || is_crossed_hard_bdr) && quad->rf_level < min_bdr_rf_level) {
+		num_splits += split_quad(quad, NULL, quad_list);
+	}
+
+	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF) && is_crossed_hard_bdr) {
+		if(quad->rf_level < max_rf_level) num_splits += split_quad(quad, NULL, quad_list);
+		else if(rm_hard_bdr_crossed) {
+			free_quad(quad, true);
+			return 0;
+		}
+	}
+
+	if(!is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
+		for(int i = 0; i < 4; i++) {
+			if(quad->subquads[i]) {
+				num_splits += match_quads_to_boundary(quad->subquads[i], soft_bdr, hard_bdr, min_bdr_rf_level, max_rf_level, rm_hard_bdr_crossed);
+			}
+		}
+	}
+	// last 4 elements in quad list are quad's subquads
+	for(int i = 0; i < (int) quad_list->num-4; i++) {
+		if(quad_list->quad[i]) {
+			if(!is_quad_inside_boundary(quad_list->quad[i], *soft_bdr)) {
+				free_quad(quad_list->quad[i], true);
+			}
+		}
+	}
+
+	free_quad_list(quad_list);
+
+	return num_splits;
+}
+
 Vector2 get_line_middle_point(DataArray2 *arr) {
 	if(!arr || data_array2_size(arr) == 0) return vec2(NAN, NAN);
 	if(data_array2_size(arr) == 1) return data_array2_get(arr, 0);

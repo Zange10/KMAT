@@ -1,5 +1,4 @@
 #include "quad.h"
-#include "boundary.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -469,12 +468,21 @@ void remove_out_of_bounds_quads(Quad *quad, QuadBoundsFunc *bounds_func) {
 	}
 }
 
-int update_quad_error_flag(Quad *quad, int min_rf_level, int max_rf_level, QuadErrorFunc *errfunc) {
+double quad_abs_center_error(Quad *quad, int val_idx) {
+	double interp_val = get_quad_interpolated_value(quad, quad->center->pos, val_idx);
+	return fabs(interp_val - quad->center->val[val_idx]);
+}
+
+double quad_rel_center_error(Quad *quad, int val_idx) {
+	double interp_val = get_quad_interpolated_value(quad, quad->center->pos, val_idx);
+	return fabs(interp_val - quad->center->val[val_idx])/quad->center->val[val_idx];
+}
+
+int update_quad_error_flag(Quad *quad, QuadErrorFunc *errfunc) {
 	if(!quad) return 0;
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
-		if(quad->rf_level < min_rf_level || errfunc->func(quad, errfunc->params)) {
+		if(errfunc->func(quad, errfunc->params)) {
 			set_quad_flag(quad, QUAD_FLAG_ACC_ERR);
-			if(quad->rf_level < max_rf_level) set_quad_flag(quad, QUAD_FLAG_SPLIT);
 			return 1;
 		}
 		return 0;
@@ -482,7 +490,7 @@ int update_quad_error_flag(Quad *quad, int min_rf_level, int max_rf_level, QuadE
 	int sum = 0;
 	for(int i = 0; i < 4; i++) {
 		if(quad->subquads[i]) {
-			sum += update_quad_error_flag(quad->subquads[i], min_rf_level, max_rf_level, errfunc);
+			sum += update_quad_error_flag(quad->subquads[i], errfunc);
 		}
 	}
 	return sum;
@@ -732,24 +740,65 @@ int split_quad(Quad *quad, QuadPointFunc *point_func, QuadList *quad_list) {
 	return num_splits+1;
 }
 
-int split_to_refinement_level(Quad *quad, QuadPointFunc *point_func, Boundary *boundary, int min_rf_level, int bdr_rf_level) {
+int split_to_refinement_level(Quad *quad, QuadPointFunc *point_func, int min_rf_level) {
 	if(!quad) return 0;
-	if(boundary && !is_quad_inside_boundary(quad, *boundary)) {
-		free_quad(quad, true);
-		return 0;
-	}
 	int num_splits = 0;
 	if(is_quad_flag(quad, QUAD_FLAG_IS_LEAF)) {
-		if(quad->rf_level < min_rf_level || (boundary && quad->rf_level < bdr_rf_level && is_quad_crossed_by_boundary(quad, *boundary))) {
+		if(quad->rf_level < min_rf_level) {
 			num_splits += split_quad(quad, point_func, NULL);
 		} else return 0;
 	}
 	for(int i = 0; i < 4; i++) {
 		if(quad->subquads[i]) {
-			num_splits += split_to_refinement_level(quad->subquads[i], point_func, boundary, min_rf_level, bdr_rf_level);
+			num_splits += split_to_refinement_level(quad->subquads[i], point_func, min_rf_level);
 		}
 	}
 	return num_splits;
+}
+
+void quad_devide_and_conquer(Quad *root_quad, int max_rf_level, QuadPointFunc *point_func, QuadErrorFunc *error_func, QuadBoundsFunc *bounds_func) {
+	int num_split_cycles = 0;
+
+	QuadList *quad_list = create_quad_list();
+	QuadList *quad_split_list = create_quad_list();
+
+	get_quad_leaves(root_quad, quad_list);
+
+	for(int i = 0; i < 100; i++) {
+		num_split_cycles++;
+		for(int j = 0; j < quad_list->num; j++) {
+			update_quad_error_flag(quad_list->quad[j], error_func);
+			if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_ACC_ERR) && quad_list->quad[j]->rf_level < max_rf_level) {
+				append_to_quad_list(quad_split_list, quad_list->quad[j]);
+				set_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT);
+			}
+		}
+
+		int num_splits = 0;
+		clear_quad_list(quad_list);
+		for(int j = 0; j < quad_split_list->num; j++) {
+			num_splits += split_quad(quad_split_list->quad[j], point_func, quad_list);
+		}
+		clear_quad_list(quad_split_list);
+
+		printf("Number of Splits during cycle %d: %d\n", num_split_cycles, num_splits);
+
+		for(int j = 0; j < quad_list->num; j++) {
+			Quad *quad = quad_list->quad[j];
+			bool is_out_of_bounds = !bounds_func->func(quad, bounds_func->params);
+			if(is_out_of_bounds) {
+				remove_from_quad_list_at_idx(quad_list, j);
+				free_quad(quad, true);
+				j--;
+			}
+		}
+		if(num_splits == 0) break;
+	}
+
+	free_quad_list(quad_list);
+	free_quad_list(quad_split_list);
+	printf("Num Split Cycles: %d\n", num_split_cycles);
+	printf("Num of Leaves: %d\n", get_quad_leaves(root_quad, NULL));
 }
 
 void copy_subquad_skeleton(Quad *quad_to_copy, Quad *new_quad) {
