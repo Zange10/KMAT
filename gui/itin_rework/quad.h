@@ -116,7 +116,7 @@ int split_quads_with_flag(Quad *quad, QuadPointFunc *point_func);
 
 int split_quad(Quad *quad, QuadPointFunc *point_func, QuadList *quad_list);
 int split_to_refinement_level(Quad *quad, QuadPointFunc *point_func, int min_rf_level);
-void quad_devide_and_conquer(Quad *root_quad, int max_rf_level, QuadPointFunc *point_func, QuadErrorFunc *error_func, QuadBoundsFunc *bounds_func);
+void quad_divide_and_conquer(Quad *root_quad, int max_rf_level, QuadPointFunc *point_func, QuadErrorFunc *error_func, QuadBoundsFunc *bounds_func);
 Quad * copy_quad_skeleton(Quad *quad);
 
 Mesh2 * create_mesh_from_quads(Quad *root_quad);

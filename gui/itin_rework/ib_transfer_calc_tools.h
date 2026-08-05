@@ -59,7 +59,7 @@ typedef struct SegmentGroup {
 	Body *dep_body, *arr_body;
 	CelestSystem *system;
 	double boundary_gradient;
-	Boundary group_bdr, dv_bdr, vinf_bdr, rpe_bdr;
+	Boundary group_bdr, conj_opp_bdr, dv_bdr, vinf_bdr, rpe_bdr;
 	DataArray2 *vinf_array;
 	VinfStructArray vinf_struct_array;
 	LambertBranch lam_branch;
@@ -96,7 +96,7 @@ void set_opposition_conjunction_group_boundary2(SegmentGroup *group, int shift, 
 Boundary calc_dv_boundary(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
 
 DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
-VinfStructArray calc_min_vinf_line2(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
+VinfStructArray calc_min_vinf_line2(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, double dv_tolerance);
 DataArray2 * get_vinf_array_for_departure(QuadList *quads_at_x, double jd_dep);
 DataArray2 * get_min_vinf_array_for_departure(QuadList *quads_at_x, double jd_dep, DataArray2 *min_vinf_array, double dv_tolerance, double min_dur, double max_dur);
 void calc_vinf_boundary(SegmentGroup *dep_group, SegmentGroup *group, Quad *quad, DataArray2 *min_vinf_array, double dv_tolerance);

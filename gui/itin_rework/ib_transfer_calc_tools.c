@@ -15,6 +15,7 @@ SegmentGroup * new_segment_group(Body *dep_body, Body *arr_body, CelestSystem *s
 	new_group->system = system;
 	new_group->boundary_gradient = 0;
 	new_group->group_bdr = create_new_boundary();
+	new_group->conj_opp_bdr = create_new_boundary();
 	new_group->dv_bdr = create_new_boundary();
 	new_group->vinf_bdr = create_new_boundary();
 	new_group->rpe_bdr = create_new_boundary();
@@ -50,6 +51,7 @@ void append_to_segment_group(SegmentGroup *group, SegmentGroup *new_group) {
 void free_segment_group(SegmentGroup *group) {
 	if(!group) return;
 	free_boundary(&group->group_bdr);
+	free_boundary(&group->conj_opp_bdr);
 	free_boundary(&group->dv_bdr);
 	free_boundary(&group->vinf_bdr);
 	free_boundary(&group->rpe_bdr);
@@ -191,7 +193,7 @@ double find_segment_group_lambert_root(double jd_dep, SegmentGroup *group, doubl
 
 	double group_min_dur, group_max_dur;
 	if(left_branch) {
-		group_min_dur = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep);
+		group_min_dur = interpolate_from_sorted_data_array2(group->conj_opp_bdr.lower_bdrs[0], jd_dep);
 		double neg_tol_dur = group_min_dur-local_peak_half_width_dt/86400;
 		double pos_tol_dur = group_min_dur+local_peak_half_width_dt/86400;
 		group_min_dur = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
@@ -201,7 +203,7 @@ double find_segment_group_lambert_root(double jd_dep, SegmentGroup *group, doubl
 	} else {
 		group_min_dur = min_vinf_dur;
 
-		group_max_dur = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep);
+		group_max_dur = interpolate_from_sorted_data_array2(group->conj_opp_bdr.upper_bdrs[0], jd_dep);
 		double neg_tol_dur = group_max_dur-local_peak_half_width_dt/86400;
 		double pos_tol_dur = group_max_dur+local_peak_half_width_dt/86400;
 		group_max_dur = find_local_opp_conj(group->dep_body, group->arr_body, group->system, jd_dep, neg_tol_dur, pos_tol_dur);
@@ -639,8 +641,8 @@ int get_opp_conj_min_shift(Body *dep_body, Body *arr_body, CelestSystem *system,
 		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, system);
 		set_opposition_conjunction_group_boundary2(new_group, min_shift, jd_min_dep, jd_max_dep, min_dur, max_dur);
 
-		if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= min_dur &&
-			data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= max_dur) {
+		if(data_array2_get_max(new_group->conj_opp_bdr.upper_bdrs[0]).y >= min_dur &&
+			data_array2_get_min(new_group->conj_opp_bdr.lower_bdrs[0]).y <= max_dur) {
 			min_shift--;
 			init_search = false;
 		} else {
@@ -815,7 +817,7 @@ void set_opposition_conjunction_group_boundary(SegmentGroup *group, int shift, d
 	}
 
 
-	append_to_boundary(&group->group_bdr, upper_boundary, lower_boundary);
+	append_to_boundary(&group->conj_opp_bdr, upper_boundary, lower_boundary);
 
 	data_array1_free(boundary_points);
 	data_array1_free(traversals);
@@ -1041,7 +1043,7 @@ void set_opposition_conjunction_group_boundary2(SegmentGroup *group, int shift, 
 	DEPARTURE_GROUP_BOUNDARY_TOP_OPP : DEPARTURE_GROUP_BOUNDARY_TOP_CONJ;
 
 
-	append_to_boundary(&group->group_bdr, upper_boundary, lower_boundary);
+	append_to_boundary(&group->conj_opp_bdr, upper_boundary, lower_boundary);
 
 	data_array1_free(boundary_points);
 	data_array1_free(traversals);
@@ -1110,8 +1112,8 @@ Boundary calc_dv_boundary(SegmentGroup *group, double jd_min_dep, double jd_max_
 		for(int i = 0; i < data_array1_size(dep_points); i++) {
 			jd_dep = data_array1_get_data(dep_points)[i];
 
-			dt0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep) * 86400;
-			dt1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep) * 86400;
+			dt0 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.lower_bdrs[0], jd_dep) * 86400;
+			dt1 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.upper_bdrs[0], jd_dep) * 86400;
 
 			if(dt0 > max_dt || dt1 < min_dt) {
 				data_array2_insert_new(boundary_array, vec2(jd_dep, -1e20));
@@ -1262,8 +1264,8 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 	for(int i = 0; i < data_array1_size(dep_points); i++) {
 		jd_dep = data_array1_get_data(dep_points)[i];
 
-		double dur0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep);
-		double dur1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep);
+		double dur0 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.lower_bdrs[0], jd_dep);
+		double dur1 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.upper_bdrs[0], jd_dep);
 
 		if(isnan(dur0) || isnan(dur1) || dur0 > max_dur || dur1 < min_dur) continue;
 
@@ -1312,8 +1314,8 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 		// 	printf("  |  ");
 		// 	print_date(convert_JD_date(data[i+1].x, DATE_ISO), 1);
 		// }
-		double dur0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep);
-		double dur1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep);
+		double dur0 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.lower_bdrs[0], jd_dep);
+		double dur1 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.upper_bdrs[0], jd_dep);
 
 		if(isnan(dur0) || isnan(dur1) || dur0 > max_dur || dur1 < min_dur) continue;
 
@@ -1406,7 +1408,7 @@ void insert_to_vinf_struct(VinfStructArray *vinf_struct_array, double jd_dep, Da
 	vinf_struct_array->num++;
 }
 
-VinfStructArray calc_min_vinf_line2(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance) {
+VinfStructArray calc_min_vinf_line2(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, double dv_tolerance) {
 	VinfStructArray vinf_struct_array = create_vinf_struct_array();
 	DataArray2 *vinf_line = data_array2_create();
 	DataArray2 *dur_line = data_array2_create();
@@ -1432,11 +1434,11 @@ VinfStructArray calc_min_vinf_line2(SegmentGroup *group, double jd_min_dep, doub
 
 	// get into the corners of the group boundary and min_dur/max_dur
 	if(group->boundary_gradient > 0) {
-		jd_min_dep_group_bdr = get_single_shifted_root_of_line_array(group->group_bdr.upper_bdrs[0], min_dur);
-		jd_max_dep_group_bdr = get_single_shifted_root_of_line_array(group->group_bdr.lower_bdrs[0], max_dur);
+		jd_min_dep_group_bdr = get_single_shifted_root_of_line_array(group->conj_opp_bdr.upper_bdrs[0], min_dur);
+		jd_max_dep_group_bdr = get_single_shifted_root_of_line_array(group->conj_opp_bdr.lower_bdrs[0], max_dur);
 	} else {
-		jd_max_dep_group_bdr = get_single_shifted_root_of_line_array(group->group_bdr.upper_bdrs[0], min_dur);
-		jd_min_dep_group_bdr = get_single_shifted_root_of_line_array(group->group_bdr.lower_bdrs[0], max_dur);
+		jd_max_dep_group_bdr = get_single_shifted_root_of_line_array(group->conj_opp_bdr.upper_bdrs[0], min_dur);
+		jd_min_dep_group_bdr = get_single_shifted_root_of_line_array(group->conj_opp_bdr.lower_bdrs[0], max_dur);
 	}
 	jd_min_dep_group_bdr += syn_period*1e-3;
 	jd_max_dep_group_bdr -= syn_period*1e-3;
@@ -1486,8 +1488,8 @@ VinfStructArray calc_min_vinf_line2(SegmentGroup *group, double jd_min_dep, doub
 	for(int i = 0; i < data_array1_size(dep_points); i++) {
 		jd_dep = data_array1_get_data(dep_points)[i];
 
-		double dur0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep);
-		double dur1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep);
+		double dur0 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.lower_bdrs[0], jd_dep);
+		double dur1 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.upper_bdrs[0], jd_dep);
 
 		if(isnan(dur0) || isnan(dur1) || dur0 > max_dur || dur1 < min_dur) continue;
 
@@ -1531,8 +1533,8 @@ VinfStructArray calc_min_vinf_line2(SegmentGroup *group, double jd_min_dep, doub
 		jd_dep = (data[i].x + data[i+1].x)/2;
 		double vinf_guess = (data[i].y + data[i+1].y)/2;
 
-		double dur0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep);
-		double dur1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep);
+		double dur0 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.lower_bdrs[0], jd_dep);
+		double dur1 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.upper_bdrs[0], jd_dep);
 
 		if(isnan(dur0) || isnan(dur1) || dur0 > max_dur || dur1 < min_dur) continue;
 
@@ -2066,6 +2068,7 @@ void calc_mesh_point_lambert_vals(SegmentGroup *group, MeshPoint2 *mesh_point, d
 	}
 	double *array = mesh_point->val;
 
+	array[MESH_VAL_ARRDATE] = jd_dep+duration;
 	array[MESH_VAL_DEPX] = lambert_sol.v0.x;
 	array[MESH_VAL_DEPY] = lambert_sol.v0.y;
 	array[MESH_VAL_DEPZ] = lambert_sol.v0.z;

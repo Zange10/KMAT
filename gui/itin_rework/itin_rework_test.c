@@ -304,8 +304,8 @@ MeshPoint2 * test_next(double jd_dep0, double duration0, void *params_p) {
 	double jd_dep = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRDATE);
 	double vinf = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRVINF);
 	double left_x = 0, right_x = 0;
-	double dt0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep)*86400;
-	double dt1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep)*86400;
+	double dt0 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.lower_bdrs[0], jd_dep)*86400;
+	double dt1 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.upper_bdrs[0], jd_dep)*86400;
 
 	OSV osv_dep = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb);
 	find_lambert_root(osv_dep, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, vinf, NAN, &left_x, &right_x, 1);
@@ -370,8 +370,8 @@ MeshPoint2 * test_next_dur(double jd_dep0, double duration0, void *params_p) {
 	double jd_dep = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRDATE);
 	double vinf = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRVINF);
 	double left_x = 0, right_x = 0;
-	double dt0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep)*86400;
-	double dt1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep)*86400;
+	double dt0 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.lower_bdrs[0], jd_dep)*86400;
+	double dt1 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.upper_bdrs[0], jd_dep)*86400;
 
 	OSV osv_dep = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb);
 	find_lambert_root(osv_dep, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, vinf, NAN, &left_x, &right_x, 1);
@@ -396,8 +396,8 @@ void test_populate_next(MeshPoint2 *mesh_point, void *params_p) {
 	double jd_dep = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRDATE);
 	double vinf = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRVINF);
 	double left_x = 0, right_x = 0;
-	double dt0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep)*86400;
-	double dt1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep)*86400;
+	double dt0 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.lower_bdrs[0], jd_dep)*86400;
+	double dt1 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.upper_bdrs[0], jd_dep)*86400;
 
 	OSV osv_dep = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb);
 	find_lambert_root(osv_dep, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, vinf, NAN, &left_x, &right_x, 1);
@@ -455,8 +455,8 @@ void test_populate_next_dur(MeshPoint2 *mesh_point, void *params_p) {
 	double jd_dep = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRDATE);
 	double vinf = get_quad_interpolated_value(quad_at_pos, mesh_point->pos, MESH_VAL_ARRVINF);
 	double left_x = 0, right_x = 0;
-	double dt0 = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep)*86400;
-	double dt1 = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep)*86400;
+	double dt0 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.lower_bdrs[0], jd_dep)*86400;
+	double dt1 = interpolate_from_sorted_data_array2(group->conj_opp_bdr.upper_bdrs[0], jd_dep)*86400;
 
 	OSV osv_dep = osv_from_ephem(group->dep_body->ephem, group->dep_body->num_ephems, jd_dep, cb);
 	find_lambert_root(osv_dep, jd_dep, group->dep_body, group->arr_body, group->system, dt0, dt1, vinf, NAN, &left_x, &right_x, 1);
@@ -882,8 +882,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system);
 		set_opposition_conjunction_group_boundary2(new_group, shift, min_dep, max_dep, min_dur, max_dur);
 
-		if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= min_dur &&
-			data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= max_dur) {
+		if(data_array2_get_max(new_group->conj_opp_bdr.upper_bdrs[0]).y >= min_dur &&
+			data_array2_get_min(new_group->conj_opp_bdr.lower_bdrs[0]).y <= max_dur) {
 			append_to_segment_group(departure, new_group);
 		} else {
 			free_segment_group(new_group);
@@ -946,7 +946,6 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 		// split_to_refinement_level(group->quad, NULL, &group->group_bdr, group->min_rf_level, group->min_rf_level+3);
 		split_to_refinement_level(group->quad, NULL, group->min_rf_level);
-		printf("Num of Leaves: %d\n", get_quad_leaves(group->quad, NULL));
 	}
 
 
@@ -956,8 +955,9 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	for(int idx = 0; idx < departure->num_next_groups; idx++) {
 		SegmentGroup *group = departure->next[idx];
-		BoundaryFuncParams bound_func_params = {.soft_bdr = group->dv_bdr, .hard_bdr = group->group_bdr};
+		BoundaryFuncParams bound_func_params = {.soft_bdr = group->dv_bdr, .hard_bdr = group->conj_opp_bdr};
 		match_to_boundary(group->quad, &bound_func_params, NULL, group->min_rf_level, group->max_rf_level+5, false);
+		printf("Num of Leaves: %d\n", get_quad_leaves(group->quad, NULL));
 	}
 
 	end_time_measurement(&tm, "Group Boundary Matching");
@@ -996,8 +996,10 @@ G_MODULE_EXPORT void on_calc_ir() {
 			num_split_cycles++;
 			for(int j = 0; j < quad_list->num; j++) {
 				update_quad_error_flag(quad_list->quad[j], &error_func);
-				if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
+				if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_ACC_ERR) && quad_list->quad[j]->rf_level < group->max_rf_level) {
 					append_to_quad_list(quad_split_list, quad_list->quad[j]);
+					set_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT);
+				}
 			}
 
 			int num_splits = 0;
@@ -1027,13 +1029,6 @@ G_MODULE_EXPORT void on_calc_ir() {
 	}
 
 	end_time_measurement(&tm, "Divide & Conquer");
-
-	attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[pcgroup0]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_DUR, TRUE);
-	attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[pcgroup0]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_RPE, TRUE);
-	print_timing_measurements(tm);
-	free_timing_measurements(&tm);
-	return;
-
 	start_time_measurement(&tm);
 
 	for(int idx = 0; idx < departure->num_next_groups; idx++) {
@@ -1055,8 +1050,8 @@ G_MODULE_EXPORT void on_calc_ir() {
 			// set_opposition_conjunction_group_boundary(new_group, shift, min_dep, max_dep, min_dur, max_dur, true);
 			set_opposition_conjunction_group_boundary2(new_group, shift, min_dep, max_dep, min_dur, max_dur);
 
-			if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= min_dur &&
-				data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= max_dur) {
+			if(data_array2_get_max(new_group->conj_opp_bdr.upper_bdrs[0]).y >= min_dur &&
+				data_array2_get_min(new_group->conj_opp_bdr.lower_bdrs[0]).y <= max_dur) {
 				append_to_segment_group(group, new_group);
 			} else {
 				free_segment_group(new_group);
@@ -1082,7 +1077,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		max_dur = 700;
 
 		for(int i = 0; i < group->num_next_groups; i++) {
-			group->next[i]->vinf_struct_array = calc_min_vinf_line2(group->next[i], min_dep, max_dep, min_dur, max_dur, ir_dep_periapsis, max_depdv, 1);
+			group->next[i]->vinf_struct_array = calc_min_vinf_line2(group->next[i], min_dep, max_dep, min_dur, max_dur, 1);
 		}
 
 	}
@@ -1134,8 +1129,10 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 			for(int j = 0; j < quad_list->num; j++) {
 				update_quad_error_flag(quad_list->quad[j], &error_func);
-				if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT))
+				if(is_quad_flag(quad_list->quad[j], QUAD_FLAG_ACC_ERR) && quad_list->quad[j]->rf_level < group->max_rf_level) {
 					append_to_quad_list(quad_split_list, quad_list->quad[j]);
+					set_quad_flag(quad_list->quad[j], QUAD_FLAG_SPLIT);
+				}
 			}
 
 			int num_splits = 0;
@@ -1173,6 +1170,27 @@ G_MODULE_EXPORT void on_calc_ir() {
 		}
 	}
 	end_time_measurement(&tm, "vinf_boundary");
+
+
+
+	// attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[pcgroup0]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_DUR, TRUE);
+	// attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[0]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_ARRVINF, TRUE);
+	// attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[1]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, TRUE, MESH_VAL_ARRVINF, FALSE);
+	clear_coordinate_system(ir_coord_sys0);
+	clear_coordinate_system(ir_coord_sys1);
+	attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[pcgroup0]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, 0, false);
+	attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[pcgroup0]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false, MESH_VAL_ARRVINF, false);
+	plot_boundary(ir_coord_sys0, &departure->next[pcgroup0]->next[pcgroup1]->vinf_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+
+
+	// for(int i = 0; i < departure->num_next_groups; i++) {
+	// 	attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[i]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, 0, false);
+	// 	attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false, MESH_VAL_ARRVINF, false);
+	// 	plot_boundary(ir_coord_sys0, &departure->next[i]->dv_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+	// }
+	print_timing_measurements(tm);
+	free_timing_measurements(&tm);
+	return;
 
 	start_time_measurement(&tm);
 
@@ -1555,15 +1573,26 @@ G_MODULE_EXPORT void on_calc_ir2() {
 		get_body_by_name("Mars", ir_system)
 	};
 
+	double dep_periapsis = body_seq[0]->atmo_alt + ir_dep_periapsis;
+
 	int num_bodies = sizeof(body_seq)/sizeof(Body*);
-	SegmentGroup *departure = calc_interpolation_based_itins(body_seq, num_bodies, ir_system, min_dep, max_dep, min_dur, max_dur, ir_dep_periapsis, max_depdv, ir_dep_periapsis, max_depdv);
+	SegmentGroup *departure = calc_interpolation_based_itins(body_seq, num_bodies, ir_system, min_dep, max_dep, min_dur, max_dur, dep_periapsis, max_depdv, dep_periapsis, max_depdv);
 
 	printf("%d\n", departure->num_next_groups);
 	clear_coordinate_system(ir_coord_sys0);
+	clear_coordinate_system(ir_coord_sys1);
 	for(int i = 0; i < departure->num_next_groups; i++) {
 		// plot_boundary(ir_coord_sys0, &departure->next[i]->dv_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 		attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[i]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, 0, false);
-		attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false, MESH_VAL_ARRVINF, false);
+		// attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false, MESH_VAL_ARRVINF, false);
+		attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false, MESH_VAL_ARRDATE, false);
+		// plot_boundary(ir_coord_sys0, &departure->next[i]->dv_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+
+		for(int j = 0; j < departure->next[i]->num_next_groups; j++) {
+			// plot_boundary(ir_coord_sys0, &departure->next[i]->next[j]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+			plot_scatter_boundary(ir_coord_sys0, &departure->next[i]->next[j]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+			// plot_data2(ir_coord_sys0, departure->next[i]->next[j]->vinf_struct_array.vinf_line, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
+		}
 	}
 }
 
@@ -1629,8 +1658,8 @@ G_MODULE_EXPORT void on_calc_ir2__() {
 		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system);
 		set_opposition_conjunction_group_boundary2(new_group, shift, min_dep, max_dep, min_dur, max_dur);
 
-		if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= min_dur &&
-			data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= max_dur) {
+		if(data_array2_get_max(new_group->conj_opp_bdr.upper_bdrs[0]).y >= min_dur &&
+			data_array2_get_min(new_group->conj_opp_bdr.lower_bdrs[0]).y <= max_dur) {
 			append_to_segment_group(departure, new_group);
 		} else {
 			free_segment_group(new_group);
@@ -1692,7 +1721,7 @@ G_MODULE_EXPORT void on_calc_ir2__() {
 	// plot_scatter_data2(ir_coord_sys0, group->vinf_array, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 
 	start_time_measurement(&tm);
-	group->vinf_struct_array = calc_min_vinf_line2(group, min_dep, max_dep, min_dur, max_dur, ir_dep_periapsis, max_depdv, 1);
+	group->vinf_struct_array = calc_min_vinf_line2(group, min_dep, max_dep, min_dur, max_dur, 1);
 	end_time_measurement(&tm, "Vinf Lines");
 
 	printf("%lu %lu\n", data_array2_size(group->vinf_struct_array.dur_line), group->vinf_struct_array.num);
@@ -1807,8 +1836,8 @@ G_MODULE_EXPORT void on_calc_ir2_() {
 		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system);
 		set_opposition_conjunction_group_boundary(new_group, shift, min_dep, max_dep, min_dur, max_dur, false);
 
-		if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= min_dur &&
-			data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= max_dur) {
+		if(data_array2_get_max(new_group->conj_opp_bdr.upper_bdrs[0]).y >= min_dur &&
+			data_array2_get_min(new_group->conj_opp_bdr.lower_bdrs[0]).y <= max_dur) {
 			append_to_segment_group(departure, new_group);
 			} else {
 				free_segment_group(new_group);
@@ -1827,8 +1856,8 @@ G_MODULE_EXPORT void on_calc_ir2_() {
 	// double jd_dep = convert_date_JD(date);
 	// min_dur = 90;
 	// max_dur = 307;
-	min_dur = interpolate_from_sorted_data_array2(departure->next[pcgroup0]->group_bdr.lower_bdrs[0], jd_dep);
-	max_dur = interpolate_from_sorted_data_array2(departure->next[pcgroup0]->group_bdr.upper_bdrs[0], jd_dep);
+	min_dur = interpolate_from_sorted_data_array2(departure->next[pcgroup0]->conj_opp_bdr.lower_bdrs[0], jd_dep);
+	max_dur = interpolate_from_sorted_data_array2(departure->next[pcgroup0]->conj_opp_bdr.upper_bdrs[0], jd_dep);
 	if(min_dur < 90) min_dur = 90;
 	printf("%f  %f\n", min_dur, max_dur);
 	double dur = min_dur;
@@ -2018,8 +2047,8 @@ G_MODULE_EXPORT void on_calc_ir3() {
 		// set_opposition_conjunction_group_boundary(new_group, shift, min_dep, max_dep, min_dur, max_dur, false);
 		set_opposition_conjunction_group_boundary2(new_group, shift, min_dep, max_dep, min_dur, max_dur);
 
-		if(data_array2_get_max(new_group->group_bdr.upper_bdrs[0]).y >= min_dur &&
-			data_array2_get_min(new_group->group_bdr.lower_bdrs[0]).y <= max_dur) {
+		if(data_array2_get_max(new_group->conj_opp_bdr.upper_bdrs[0]).y >= min_dur &&
+			data_array2_get_min(new_group->conj_opp_bdr.lower_bdrs[0]).y <= max_dur) {
 			append_to_segment_group(departure, new_group);
 			} else {
 				free_segment_group(new_group);
@@ -2034,8 +2063,8 @@ G_MODULE_EXPORT void on_calc_ir3() {
 
 	SegmentGroup *group = departure->next[pcgroup0];
 
-	min_dur = interpolate_from_sorted_data_array2(group->group_bdr.lower_bdrs[0], jd_dep);
-	max_dur = interpolate_from_sorted_data_array2(group->group_bdr.upper_bdrs[0], jd_dep);
+	min_dur = interpolate_from_sorted_data_array2(group->conj_opp_bdr.lower_bdrs[0], jd_dep);
+	max_dur = interpolate_from_sorted_data_array2(group->conj_opp_bdr.upper_bdrs[0], jd_dep);
 	if(min_dur < 90) min_dur = 90;
 
 	printf("%f  %f\n", min_dur, max_dur);

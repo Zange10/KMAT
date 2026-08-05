@@ -756,7 +756,7 @@ int split_to_refinement_level(Quad *quad, QuadPointFunc *point_func, int min_rf_
 	return num_splits;
 }
 
-void quad_devide_and_conquer(Quad *root_quad, int max_rf_level, QuadPointFunc *point_func, QuadErrorFunc *error_func, QuadBoundsFunc *bounds_func) {
+void quad_divide_and_conquer(Quad *root_quad, int max_rf_level, QuadPointFunc *point_func, QuadErrorFunc *error_func, QuadBoundsFunc *bounds_func) {
 	int num_split_cycles = 0;
 
 	QuadList *quad_list = create_quad_list();
