@@ -108,6 +108,7 @@ MeshPoint2 * departure_point_func(double jd_dep, double duration, void *params_p
 void flyby_dur_pop_func(MeshPoint2 *mesh_point, void *params_p);
 MeshPoint2 * flyby_dur_func(double jd_dep0, double dur0, void *params_p);
 void flyby_rpe_pop_func(MeshPoint2 *mesh_point, void *params_p);
+MeshPoint2 * flyby_point_func(double jd_dep0, double dur0, void *params_p);
 
 
 // ###################################################################

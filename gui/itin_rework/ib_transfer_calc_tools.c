@@ -81,7 +81,6 @@ void free_segment_group(SegmentGroup *group) {
 					(prev_group->num_next_groups - (group_idx+1)) * sizeof(SegmentGroup*));
 		}
 		prev_group->num_next_groups--;
-		if(prev_group->num_next_groups == 0 && prev_group->prev) free_segment_group(prev_group);
 	}
 	free(group);
 }
@@ -2175,6 +2174,31 @@ void flyby_rpe_pop_func(MeshPoint2 *mesh_point, void *params_p) {
 	double duration = mesh_point->val[MESH_VAL_DUR];
 	double jd_dep = jd_arr-duration;
 	calc_mesh_point_lambert_vals(group, mesh_point, jd_dep, duration, -1, true);
+}
+
+MeshPoint2 * flyby_point_func(double jd_dep0, double dur0, void *params_p) {
+	SegmentGroup *group = params_p;
+	Vector2 pos = vec2(jd_dep0, dur0);
+
+	Quad *quad_at_pos = get_quad_at_position(group->prev->quad, pos);
+
+	if(!quad_at_pos) {
+		double *array = malloc(NUM_PORKCHOP_MESH_VALUE_TYPES * sizeof(double));
+		array[MESH_VAL_ARRDATE] = NAN;
+		array[MESH_VAL_DUR] = NAN;
+
+		return create_mesh_point(pos, array, NUM_PORKCHOP_MESH_VALUE_TYPES);
+	}
+
+	double jd_dep = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRDATE);
+	double vinf = get_quad_interpolated_value(quad_at_pos, pos, MESH_VAL_ARRVINF);
+
+	double duration = find_segment_group_lambert_root(jd_dep, group, vinf, 0, 700, 1);
+
+	MeshPoint2 *new_mesh_point = create_mesh_point(vec2(jd_dep0, dur0), NULL, 0);
+	calc_mesh_point_lambert_vals(group, new_mesh_point, jd_dep, duration, -1, true);
+
+	return new_mesh_point;
 }
 
 

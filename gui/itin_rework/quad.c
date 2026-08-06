@@ -764,7 +764,7 @@ void quad_divide_and_conquer(Quad *root_quad, int max_rf_level, QuadPointFunc *p
 
 	get_quad_leaves(root_quad, quad_list);
 
-	for(int i = 0; i < 100; i++) {
+	for(int i = 0; i < 20; i++) {
 		num_split_cycles++;
 		for(int j = 0; j < quad_list->num; j++) {
 			update_quad_error_flag(quad_list->quad[j], error_func);
