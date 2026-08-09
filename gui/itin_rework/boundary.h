@@ -25,6 +25,7 @@ Vector2 get_boundary_min(Boundary bdr);
 Vector2 get_boundary_max(Boundary bdr);
 void free_boundary(Boundary *bdr);
 Boundary get_quad_mesh_value_boundary(Quad *quad, double val, int val_idx, int num_quad_points, bool enclose_higher);
+Boundary get_quad_mesh_function_value_boundary(Quad *quad, DataArray2 *func_arr, int val_idx0, int val_idx1, bool enclose_higher);
 int match_quads_to_boundary(Quad *quad, Boundary *soft_bdr, Boundary *hard_bdr, int min_bdr_rf_level, int max_rf_level, bool rm_hard_bdr_crossed);
 Boundary combine_boundaries(Boundary bdr0, Boundary bdr1);
 void connect_boundary_ends(Boundary *bdr);

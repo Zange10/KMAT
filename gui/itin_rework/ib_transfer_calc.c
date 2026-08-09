@@ -272,7 +272,7 @@ void rpe_divide_and_conquer(SegmentGroup *group) {
 		QuadList *quad_split_list = create_quad_list();
 
 		get_quad_leaves(next_group->quad, quad_list);
-		printf("########  Num of Leaves: %d\n", get_quad_leaves(next_group->quad, NULL));
+		printf("Num of Leaves: %d\n", get_quad_leaves(next_group->quad, NULL));
 
 		for(int i = 0; i < 100; i++) {
 			num_split_cycles++;
@@ -329,24 +329,25 @@ void rpe_divide_and_conquer(SegmentGroup *group) {
 		free_quad_list(quad_list);
 		free_quad_list(quad_split_list);
 		printf("Num Split Cycles: %d\n", num_split_cycles);
-		printf("-------  Num of Leaves: %d\n", get_quad_leaves(next_group->quad, NULL));
+		printf("Num of Leaves: %d\n", get_quad_leaves(next_group->quad, NULL));
 	}
 }
 
 void determine_vinf_bdr_and_quad_refinement(SegmentGroup *group) {
 	for(int i = 0; i < group->num_next_groups; i++) {
 		SegmentGroup *next_group = group->next[i];
-		calc_vinf_boundary(group, next_group, group->quad, next_group->vinf_struct_array.vinf_line, 1);
+		// calc_vinf_boundary(group, next_group, group->quad, next_group->vinf_struct_array.vinf_line, 1);
+		next_group->vinf_bdr = calc_vinf_boundary2(next_group);
 
 
 		ErrorFuncParams err_func_params = {
 			.max_error = 1,
 			.val_idx = MESH_VAL_ARRVINF
 		};
-		BoundaryFuncParams bound_func_params = {.soft_bdr = group->dv_bdr};
+		BoundaryFuncParams bound_func_params = {.soft_bdr = group->prev->prev ? group->group_bdr : group->dv_bdr};
 		QuadBoundsFunc bounds_func = {is_quad_inside_soft_bdr, &bound_func_params};
 		QuadErrorFunc error_func = {has_quad_abs_error, &err_func_params};
-		QuadPointFunc point_func = {departure_point_func, group};
+		QuadPointFunc point_func = {group->prev->prev ? &flyby_point_func : &departure_point_func, group};
 		int num_split_cycles = 0;
 
 		QuadList *quad_list = create_quad_list();
@@ -360,6 +361,10 @@ void determine_vinf_bdr_and_quad_refinement(SegmentGroup *group) {
 			err_func_params.max_error = dv_tol/2;
 
 			if(c == 0 || last_was_0) {
+				if(next_group->vinf_bdr.num == 0) {
+					free_segment_group(next_group);
+					i--; break;
+				}
 				get_quad_leaves(group->quad, quad_list);
 			}
 			for(int j = 0; j < quad_list->num; j++) {
@@ -400,16 +405,13 @@ void determine_vinf_bdr_and_quad_refinement(SegmentGroup *group) {
 				last_was_0 = true;
 				free_boundary(&next_group->vinf_bdr);
 				next_group->vinf_bdr = create_new_boundary();
-				calc_vinf_boundary(group, next_group, group->quad, next_group->vinf_struct_array.vinf_line, 1);
+				// calc_vinf_boundary(group, next_group, group->quad, next_group->vinf_struct_array.vinf_line, 1);
+				next_group->vinf_bdr = calc_vinf_boundary2(next_group);
 			} else last_was_0 = false;
 		}
 
 		free_quad_list(quad_list);
 		free_quad_list(quad_split_list);
-		if(group->next[i]->vinf_bdr.num == 0) {
-			free_segment_group(group->next[i]);
-			i--;
-		}
 	}
 }
 
@@ -474,7 +476,7 @@ void calc_interpolation_based_next_step(SegmentGroup *group, Body **body_sequenc
 	Vector3 quad_max = get_quad_max_values(group->quad, MESH_VAL_ARRDATE);
 	double min_dep = quad_min.z;
 	double max_dep = quad_max.z;
-	double min_dur = 90;
+	double min_dur = 20;
 	double max_dur = 700;
 	get_next_groups(group, body_sequence[0], system, min_dep, max_dep, min_dur, max_dur);
 
@@ -483,8 +485,15 @@ void calc_interpolation_based_next_step(SegmentGroup *group, Body **body_sequenc
 		group->next[i]->vinf_struct_array = calc_min_vinf_line2(group->next[i], min_dep, max_dep, min_dur, max_dur, 1);
 	}
 
+	if(num_rem_bodies == 1) {
+		// return;
+		printf("test\n");
+	}
+
 	// Determine Vinf boundary of next groups
 	determine_vinf_bdr_and_quad_refinement(group);
+
+	// return;
 
 	// Combine prev boundary and vinf boundary
 	for(int i = 0; i < group->num_next_groups; i++) {
@@ -555,12 +564,19 @@ void calc_interpolation_based_next_step(SegmentGroup *group, Body **body_sequenc
 		group->next[i]->group_bdr = new_group_bdr;
 	}
 
-	// D&C Arr vinf
-	flyby_divide_and_conquer_vinf(group, 100.0);
-
 	// --
 
-	// For Arrival: D&C vinf and angle
+	if(num_rem_bodies == 1) {
+		// For Arrival: D&C vinf and angle
+		flyby_divide_and_conquer_vinf(group, 10.0);
+	} else {
+		// D&C Arr vinf
+		flyby_divide_and_conquer_vinf(group, 100.0);
+		// next step
+		for(int i = 0; i < group->num_next_groups; i++) {
+			calc_interpolation_based_next_step(group->next[i], &body_sequence[1], num_rem_bodies-1, system);
+		}
+	}
 }
 
 SegmentGroup * calc_interpolation_based_itins(Body **body_sequence, int num_bodies, CelestSystem *system, double min_dep, double max_dep, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double arr_periapsis, double max_arrdv) {

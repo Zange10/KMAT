@@ -100,6 +100,7 @@ VinfStructArray calc_min_vinf_line2(SegmentGroup *group, double jd_min_dep, doub
 DataArray2 * get_vinf_array_for_departure(QuadList *quads_at_x, double jd_dep);
 DataArray2 * get_min_vinf_array_for_departure(QuadList *quads_at_x, double jd_dep, DataArray2 *min_vinf_array, double dv_tolerance, double min_dur, double max_dur);
 void calc_vinf_boundary(SegmentGroup *dep_group, SegmentGroup *group, Quad *quad, DataArray2 *min_vinf_array, double dv_tolerance);
+Boundary calc_vinf_boundary2(SegmentGroup *group);
 
 Boundary get_rpe_boundary(SegmentGroup *group);
 

@@ -251,7 +251,7 @@ DataArray2 * calc_quad_z_line(Quad *quad, double z, int num, int val_idx) {
 	return array;
 }
 
-double get_partial_quad_mesh_z_derivative_of_y_wrt_x(Quad *root_quad, Vector2 pos, int val_idx) {
+Vector2 get_quad_mesh_z_gradient_at_pos(Quad *root_quad, Vector2 pos, int val_idx) {
 	Quad *quad = get_quad_at_position(root_quad, pos);
 
 	Vector3 p0 = meshpoint_to_vector(quad->corner[QUAD_NW], val_idx);
@@ -259,13 +259,17 @@ double get_partial_quad_mesh_z_derivative_of_y_wrt_x(Quad *root_quad, Vector2 po
 	Vector3 p2 = meshpoint_to_vector(quad->corner[QUAD_SW], val_idx);
 	Vector3 p3 = meshpoint_to_vector(quad->corner[QUAD_SE], val_idx);
 
+	double a = p0.z-p1.z-p2.z+p3.z;
+
 	double tx = (pos.x - p0.x)/(p1.x - p0.x);
-	double a = -p0.z+p2.z;
-	double b = p0.z-p1.z-p2.z+p3.z;
-	double dz_dty = a+b*tx;
+	double dz_dty = (-p0.z+p2.z)+a*tx;
 	double dz_dy = dz_dty/(p2.y-p0.y);
 
-	return dz_dy;
+	double ty = (pos.y - p0.y)/(p2.y - p0.y);
+	double dz_dtx = (-p0.z+p1.z)+a*ty;
+	double dz_dx = dz_dtx/(p1.x-p0.x);
+
+	return vec2(dz_dx, dz_dy);
 }
 
 Vector3 get_quad_max_values(Quad *quad, int quad_val_idx) {

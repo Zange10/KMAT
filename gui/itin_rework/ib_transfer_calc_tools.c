@@ -1822,6 +1822,14 @@ Boundary boundary_from_boundary_array(DataArray2 *boundary_array) {
 	return bdr;
 }
 
+Boundary calc_vinf_boundary2(SegmentGroup *group) {
+	SegmentGroup *prev_group = group->prev;
+	Quad *quad = prev_group->quad;
+	DataArray2 *min_vinf_array = group->vinf_struct_array.vinf_line;
+	Boundary bdr = get_quad_mesh_function_value_boundary(quad, min_vinf_array, MESH_VAL_ARRDATE, MESH_VAL_ARRVINF, true);
+	return bdr;
+}
+
 void calc_vinf_boundary(SegmentGroup *dep_group, SegmentGroup *group, Quad *quad, DataArray2 *min_vinf_array, double dv_tolerance) {
 	DataArray2 *boundary_array = data_array2_create();
 
@@ -1849,6 +1857,8 @@ void calc_vinf_boundary(SegmentGroup *dep_group, SegmentGroup *group, Quad *quad
 	double jd_dep_step = syn_period/100;
 	double min_jd_dep_step = syn_period*0.00001;
 	double dt0, dt1;
+
+	Boundary group_bdr = dep_group->prev->prev ? dep_group->group_bdr : dep_group->dv_bdr;
 
 
 	// double r0 = constr_orbit_from_osv(osv0.r, osv0.v, group->system->cb).a, r1 = arr0.a;
@@ -1928,7 +1938,7 @@ void calc_vinf_boundary(SegmentGroup *dep_group, SegmentGroup *group, Quad *quad
 			size_t num_deps = data_array2_size(arr_l);
 
 			if(num_deps == 1) {
-				if(!is_point_inside_boundary(data_array2_get_data(arr_l)[0], dep_group->dv_bdr) && !is_point_inside_boundary(data_array2_get_data(arr_u)[0], dep_group->dv_bdr)) {
+				if(!is_point_inside_boundary(data_array2_get_data(arr_l)[0], group_bdr) && !is_point_inside_boundary(data_array2_get_data(arr_u)[0], group_bdr)) {
 					data_array2_remove_by_value(boundary_array, data_array2_get_data(arr_l)[0]);
 					data_array2_remove_by_value(boundary_array, data_array2_get_data(arr_u)[0]);
 				}
@@ -1940,9 +1950,9 @@ void calc_vinf_boundary(SegmentGroup *dep_group, SegmentGroup *group, Quad *quad
 			int num_rm = 0;
 
 			for(int j = 0; j < num_deps; j++) {
-				if(is_point_inside_boundary(data_array2_get_data(arr_l)[j], dep_group->dv_bdr) || is_point_inside_boundary(data_array2_get_data(arr_u)[j], dep_group->dv_bdr)) {
+				if(is_point_inside_boundary(data_array2_get_data(arr_l)[j], group_bdr) || is_point_inside_boundary(data_array2_get_data(arr_u)[j], group_bdr)) {
 					bdr_mask[j] = true;
-				} else if(is_line_crossing_boundary(data_array2_get_data(arr_l)[j], data_array2_get_data(arr_u)[j], dep_group->dv_bdr)) {
+				} else if(is_line_crossing_boundary(data_array2_get_data(arr_l)[j], data_array2_get_data(arr_u)[j], group_bdr)) {
 					bdr_mask[j] = true;
 				} else {
 					bdr_mask[j] = false;
@@ -1979,11 +1989,11 @@ void calc_vinf_boundary(SegmentGroup *dep_group, SegmentGroup *group, Quad *quad
 				transf_arr[j].y = data_array2_get_data(arr)[j].y/group->boundary_gradient;
 			}
 
-			if(jd_dep_step > min_jd_dep_step && is_point_inside_boundary(data_array2_get_data(arr)[0], dep_group->dv_bdr)) {
+			if(jd_dep_step > min_jd_dep_step && is_point_inside_boundary(data_array2_get_data(arr)[0], group_bdr)) {
 				data_array1_insert_new(dep_points, transf_arr[0].x-jd_dep_step);
 				data_array1_insert_new(dep_temp, transf_arr[0].x-jd_dep_step - jd_min_dep);
 			}
-			if(jd_dep_step > min_jd_dep_step && is_point_inside_boundary(data_array2_get_data(arr)[num_deps-1], dep_group->dv_bdr)) {
+			if(jd_dep_step > min_jd_dep_step && is_point_inside_boundary(data_array2_get_data(arr)[num_deps-1], group_bdr)) {
 				data_array1_insert_new(dep_points, transf_arr[num_deps-1].x+jd_dep_step);
 				data_array1_insert_new(dep_temp, transf_arr[num_deps-1].x+jd_dep_step - jd_min_dep);
 			}
@@ -2068,6 +2078,7 @@ void calc_mesh_point_lambert_vals(SegmentGroup *group, MeshPoint2 *mesh_point, d
 	double *array = mesh_point->val;
 
 	array[MESH_VAL_ARRDATE] = jd_dep+duration;
+	array[MESH_VAL_DUR] = duration;
 	array[MESH_VAL_DEPX] = lambert_sol.v0.x;
 	array[MESH_VAL_DEPY] = lambert_sol.v0.y;
 	array[MESH_VAL_DEPZ] = lambert_sol.v0.z;

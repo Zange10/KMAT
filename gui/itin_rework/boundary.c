@@ -327,9 +327,235 @@ Boundary get_quad_mesh_value_boundary(Quad *quad, double val, int val_idx, int n
 		}
 
 		Vector2 test_p = data_array2_get(x_arrs.arrs[1], (int) data_array2_size(x_arrs.arrs[1])/2);
-		double dz_dy = get_partial_quad_mesh_z_derivative_of_y_wrt_x(quad, test_p, val_idx);
+		double dz_dy = get_quad_mesh_z_gradient_at_pos(quad, test_p, val_idx).y;
 
 		if(enclose_higher == dz_dy < 0) remove_from_data_array2_array(&x_arrs, 0, true);
+
+		while(x_arrs.num > 1) {
+			append_to_boundary(&bdr, x_arrs.arrs[0], x_arrs.arrs[1]);
+			remove_from_data_array2_array(&x_arrs, 0, false);
+			remove_from_data_array2_array(&x_arrs, 0, false);
+		}
+
+		free_data_array2_array(&x_arrs);
+	}
+
+	free_data_array2_array(&arrays);
+	data_array1_free(ends_x);
+
+	return bdr;
+}
+
+DataArray2 * find_edge_vinf_inters(MeshPoint2 *mp0, MeshPoint2 *mp1, DataArray2 *func_arr, int val_idx0, int val_idx1) {
+	Vector2 p0 = vec2(mp0->val[val_idx0], mp0->val[val_idx1]);
+	Vector2 p1 = vec2(mp1->val[val_idx0], mp1->val[val_idx1]);
+	DataArray2 *arr = data_array2_create();
+	data_array2_insert_new(arr, p0);
+	data_array2_insert_new(arr, p1);
+	DataArray2 *inters = get_line_intersections(arr, func_arr);
+	data_array2_free(arr);
+
+	size_t num_inters = data_array2_size(inters);
+	if(num_inters == 0) return inters;
+
+	Vector2 *di = data_array2_get_data(inters);
+	for(int i = 0; i < num_inters; i++) {
+		if(mp0->pos.y == mp1->pos.y) {
+			p0 = vec2(mp0->pos.x, mp0->val[val_idx0]);
+			p1 = vec2(mp1->pos.x, mp1->val[val_idx0]);
+			double x = get_x_value_from_y_value_of_line(p0, p1, di[i].x);
+			di[i] = vec2(x, mp0->pos.y);
+		} else {
+			p0 = vec2(mp0->pos.y, mp0->val[val_idx0]);
+			p1 = vec2(mp1->pos.y, mp1->val[val_idx0]);
+			double y = get_x_value_from_y_value_of_line(p0, p1, di[i].x);
+			di[i] = vec2(mp0->pos.x, y);
+		}
+	}
+	return inters;
+}
+
+void find_quad_vinf_inters(Quad *quad, DataArray2 *func_arr, int val_idx0, int val_idx1, DataArray2Array *arrs) {
+	DataArray2 *inters = data_array2_create();
+
+	MeshPoint2 *mp[9];
+	int num_mp = 0;
+
+	mp[num_mp++] = quad->corner[QUAD_NW];
+	if(quad->neighbours[QUAD_NNW] && quad->neighbours[QUAD_NNW]->rf_level > quad->rf_level)
+		mp[num_mp++] = quad->neighbours[QUAD_NNW]->corner[QUAD_SE];
+	else if(quad->neighbours[QUAD_NNE] && quad->neighbours[QUAD_NNE]->rf_level > quad->rf_level)
+		mp[num_mp++] = quad->neighbours[QUAD_NNE]->corner[QUAD_SW];
+
+	mp[num_mp++] = quad->corner[QUAD_NE];
+	if(quad->neighbours[QUAD_NEE] && quad->neighbours[QUAD_NEE]->rf_level > quad->rf_level)
+		mp[num_mp++] = quad->neighbours[QUAD_NEE]->corner[QUAD_SW];
+	else if(quad->neighbours[QUAD_SEE] && quad->neighbours[QUAD_SEE]->rf_level > quad->rf_level)
+		mp[num_mp++] = quad->neighbours[QUAD_SEE]->corner[QUAD_NW];
+
+	mp[num_mp++] = quad->corner[QUAD_SE];
+	if(quad->neighbours[QUAD_SSW] && quad->neighbours[QUAD_SSW]->rf_level > quad->rf_level)
+		mp[num_mp++] = quad->neighbours[QUAD_SSW]->corner[QUAD_NE];
+	else if(quad->neighbours[QUAD_SSE] && quad->neighbours[QUAD_SSE]->rf_level > quad->rf_level)
+		mp[num_mp++] = quad->neighbours[QUAD_SSE]->corner[QUAD_NW];
+
+	mp[num_mp++] = quad->corner[QUAD_SW];
+	if(quad->neighbours[QUAD_NWW] && quad->neighbours[QUAD_NWW]->rf_level > quad->rf_level)
+		mp[num_mp++] = quad->neighbours[QUAD_NWW]->corner[QUAD_SE];
+	else if(quad->neighbours[QUAD_SWW] && quad->neighbours[QUAD_SWW]->rf_level > quad->rf_level)
+		mp[num_mp++] = quad->neighbours[QUAD_SWW]->corner[QUAD_NE];
+
+	mp[num_mp++] = quad->corner[QUAD_NW];
+
+
+	for(int i = 0; i < num_mp-1; i++) {
+		DataArray2 *new_inters = find_edge_vinf_inters(mp[i], mp[i+1], func_arr, val_idx0, val_idx1);
+		for(int j = 0; j < data_array2_size(new_inters); j++) {
+			data_array2_insert_new(inters, data_array2_get(new_inters, j));
+		}
+		data_array2_free(new_inters);
+	}
+	if(data_array2_size(inters) == 0) {
+		data_array2_free(inters);
+		return;
+	}
+	if(data_array2_size(inters) <= 2) {
+		append_to_data_array2_array(arrs, inters); return;
+	}
+	for(int i = 0; i < data_array2_size(inters); i+=2) {
+		append_to_data_array2_array(arrs, data_array2_slice(inters, i, i+1));
+	}
+	data_array2_free(inters);
+}
+
+Boundary get_quad_mesh_function_value_boundary(Quad *quad, DataArray2 *func_arr, int val_idx0, int val_idx1, bool enclose_higher) {
+	Boundary bdr = create_new_boundary();
+
+	QuadList *quad_list = create_quad_list();
+	get_quad_leaves(quad, quad_list);
+	Vector3 quad_min = get_quad_min_values(quad, -1);
+	Vector3 quad_max = get_quad_max_values(quad, -1);
+
+	DataArray2Array arrays = new_data_array2_array();
+
+	for(int i = 0; i < quad_list->num; i++) {
+		find_quad_vinf_inters(quad_list->quad[i], func_arr, val_idx0, val_idx1, &arrays);
+	}
+
+	free_quad_list(quad_list);
+	connect_all_consecutive_boundary_arrays(&arrays);
+
+	DataArray2 *upper_array = data_array2_create();
+	data_array2_append_new(upper_array, vec2(quad_min.x, quad_max.y+1));
+	data_array2_append_new(upper_array, vec2(quad_max.x, quad_max.y+1));
+	DataArray2 *lower_array = data_array2_create();
+	data_array2_append_new(lower_array, vec2(quad_min.x, quad_min.y-1));
+	data_array2_append_new(lower_array, vec2(quad_max.x, quad_min.y-1));
+	append_to_data_array2_array(&arrays, upper_array);
+	append_to_data_array2_array(&arrays, lower_array);
+
+
+
+	DataArray1 *ends_x = data_array1_create();
+	for(int i = 0; i < arrays.num; i++) {
+		data_array1_insert_new(ends_x, data_array2_get(arrays.arrs[i], 0).x);
+		data_array1_insert_new(ends_x, data_array2_get(arrays.arrs[i], -1).x);
+	}
+	for(int i = 0; i < data_array1_size(ends_x)-1; i++) {
+		if(data_array1_get(ends_x, i) == data_array1_get(ends_x, i+1)) data_array1_remove_at_idx(ends_x, i);
+	}
+	split_at_boundary_ends(&arrays, ends_x);
+
+	while(arrays.num > 0) {
+		DataArray2Array x_arrs = new_data_array2_array();
+		double x0 = data_array1_get(ends_x, 0);
+		data_array1_remove_at_idx(ends_x, 0);
+
+		for(int i = 0; i < arrays.num; i++) {
+			if(data_array2_get(arrays.arrs[i], 0).x == x0) {
+				append_to_data_array2_array(&x_arrs, arrays.arrs[i]);
+				remove_from_data_array2_array(&arrays, i, false);
+				i--;
+			}
+		}
+
+		if(x_arrs.num == 0) continue;
+
+		// Selection sort
+		for(int i = 0; i < x_arrs.num-1; i++) {
+			int max_idx = i;
+			for(int j = i+1; j < x_arrs.num; j++) {
+				Vector2 *dm = data_array2_get_data(x_arrs.arrs[max_idx]);
+				Vector2 *d = data_array2_get_data(x_arrs.arrs[j]);
+				if(d[0].y > dm[0].y) {max_idx = j; continue;}
+				if(d[0].y == dm[0].y) {
+					double grad_d = (d[1].y - d[0].y)/(d[1].x-d[0].x);
+					double grad_dm = (dm[1].y - dm[0].y)/(dm[1].x-dm[0].x);
+					if(grad_d > grad_dm) {max_idx = j;}
+				}
+			}
+
+			if(max_idx != i) {
+				DataArray2 *temp = x_arrs.arrs[i];
+				x_arrs.arrs[i] = x_arrs.arrs[max_idx];
+				x_arrs.arrs[max_idx] = temp;
+			}
+		}
+
+		if(x_arrs.num == 2) {
+			double test_x = data_array2_get(x_arrs.arrs[0], (int) data_array2_size(x_arrs.arrs[0])/2).x;
+			DataArray2 *vline = data_array2_create();
+			data_array2_append_new(vline, vec2(test_x, quad_min.y));
+			data_array2_append_new(vline, vec2(test_x, quad_max.y));
+
+			QuadList *ql = create_quad_list();
+
+			find_line_crossed_quads(quad, vline, ql);
+			if(ql->num > 0) {
+				double interp_val0 = get_quad_interpolated_value(ql->quad[0], vec2(test_x, ql->quad[0]->center->pos.y), val_idx0);
+				double interp_val1 = get_quad_interpolated_value(ql->quad[0], vec2(test_x, ql->quad[0]->center->pos.y), val_idx1);
+				double val = interpolate_from_sorted_data_array2(func_arr, interp_val0);
+				if(interp_val1 > val == enclose_higher) {
+					append_to_boundary(&bdr, x_arrs.arrs[0], x_arrs.arrs[1]);
+					remove_from_data_array2_array(&x_arrs, 0, false);
+					remove_from_data_array2_array(&x_arrs, 0, false);
+				}
+			}
+
+			free_data_array2_array(&x_arrs);
+			data_array2_free(vline);
+			free_quad_list(ql);
+			continue;
+		}
+
+		int test_idx = (int) (data_array2_size(x_arrs.arrs[1])-1)/2;	// -1 for arrsize == 2 to set to 0
+		Vector2 test_p = data_array2_get(x_arrs.arrs[1], test_idx);
+		Vector2 grad0 = get_quad_mesh_z_gradient_at_pos(quad, test_p, val_idx0);
+		Vector2 d = vec2(grad0.y, -grad0.x);
+
+		// print_date(convert_JD_date(data_array2_get(x_arrs.arrs[1], test_idx).x, DATE_ISO), 0);
+		// printf("  |   %f\n", data_array2_get(x_arrs.arrs[1], test_idx).y);
+		// printf("test_idx: %d\n", test_idx);
+		// print_vec2(subtract_vec2(data_array2_get(x_arrs.arrs[1], test_idx+1), data_array2_get(x_arrs.arrs[1], test_idx)));
+		// print_vec2(norm_vec2(subtract_vec2(data_array2_get(x_arrs.arrs[1], test_idx+1), data_array2_get(x_arrs.arrs[1], test_idx))));
+		// print_vec2(norm_vec2(grad0));
+		// print_vec2(norm_vec2(d));
+
+		if(d.x < 0) scale_vec2(d, -1);
+
+		Vector2 grad1 = get_quad_mesh_z_gradient_at_pos(quad, test_p, val_idx1);
+		// print_vec2(grad1);
+		// print_vec2(norm_vec2(grad1));
+		double d_val1_val0 = dot_vec2(grad1, d);
+
+		Vector2 line_dir = subtract_vec2(data_array2_get(x_arrs.arrs[1], test_idx+1), data_array2_get(x_arrs.arrs[1], test_idx));
+
+		// printf("d_val1_val0: %f\n", d_val1_val0);
+		// printf("angle: %f\n", rad2deg(angle_ccw_vec2_vec2(d, line_dir)));
+		if(angle_ccw_vec2_vec2(d, line_dir) < 0) d_val1_val0 *= -1;
+
+
+		if(enclose_higher == d_val1_val0 < 0) remove_from_data_array2_array(&x_arrs, 0, true);
 
 		while(x_arrs.num > 1) {
 			append_to_boundary(&bdr, x_arrs.arrs[0], x_arrs.arrs[1]);

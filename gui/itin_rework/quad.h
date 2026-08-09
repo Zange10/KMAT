@@ -96,7 +96,7 @@ bool is_inside_quad(Quad *quad, Vector2 pos);
 Quad * get_quad_at_position(Quad *root_quad, Vector2 pos);
 double get_quad_interpolated_value(Quad *quad, Vector2 pos, int value_idx);
 DataArray2 * calc_quad_z_line(Quad *quad, double z, int num, int val_idx);
-double get_partial_quad_mesh_z_derivative_of_y_wrt_x(Quad *root_quad, Vector2 pos, int val_idx);
+Vector2 get_quad_mesh_z_gradient_at_pos(Quad *root_quad, Vector2 pos, int val_idx);
 
 Vector3 get_quad_min_values(Quad *quad, int quad_val_idx);
 Vector3 get_quad_max_values(Quad *quad, int quad_val_idx);
