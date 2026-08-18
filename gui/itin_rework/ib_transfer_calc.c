@@ -79,7 +79,7 @@ void get_next_groups(SegmentGroup *group, Body *next_body, CelestSystem *system,
 	bool group_was_valid = true;
 
 	while(group_was_valid) {
-		SegmentGroup *new_group = new_segment_group(group->arr_body, next_body, system);
+		SegmentGroup *new_group = new_segment_group(group->arr_body, next_body, system, LAMBERT_BRANCH_LEFT);
 		set_opposition_conjunction_group_boundary2(new_group, shift, min_dep, max_dep, min_dur, max_dur);
 
 		if(data_array2_get_max(new_group->conj_opp_bdr.upper_bdrs[0]).y >= min_dur &&
@@ -91,6 +91,15 @@ void get_next_groups(SegmentGroup *group, Body *next_body, CelestSystem *system,
 				break;
 			}
 		shift++;
+	}
+}
+
+void copy_next_groups_to_right_lambert_branch(SegmentGroup *group) {
+	int num_groups = group->num_next_groups;
+	for(int i = 0; i < num_groups; i++) {
+		SegmentGroup *new_group = copy_segment_group(group->next[i]);
+		new_group->lam_branch = LAMBERT_BRANCH_RIGHT;
+		append_to_segment_group(group, new_group);
 	}
 }
 
@@ -485,10 +494,13 @@ void calc_interpolation_based_next_step(SegmentGroup *group, Body **body_sequenc
 		group->next[i]->vinf_struct_array = calc_min_vinf_line2(group->next[i], min_dep, max_dep, min_dur, max_dur, 1);
 	}
 
-	if(num_rem_bodies == 1) {
-		// return;
-		printf("test\n");
-	}
+	// Copy groups for left-right branch
+	copy_next_groups_to_right_lambert_branch(group);
+
+	// if(num_rem_bodies == 1) {
+	// 	// return;
+	// 	printf("test\n");
+	// }
 
 	// Determine Vinf boundary of next groups
 	determine_vinf_bdr_and_quad_refinement(group);
@@ -590,7 +602,7 @@ SegmentGroup * calc_interpolation_based_itins(Body **body_sequence, int num_bodi
 
 	// define Departure group
 	start_time_measurement(&tm);
-	SegmentGroup *departure = new_segment_group(body_sequence[0], body_sequence[0], system);
+	SegmentGroup *departure = new_segment_group(body_sequence[0], body_sequence[0], system, LAMBERT_BRANCH_LEFT);
 	end_time_measurement(&tm, "Define Departure");
 
 	// --

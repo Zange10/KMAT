@@ -16,6 +16,7 @@ typedef struct Boundary {
 
 
 Boundary create_new_boundary();
+Boundary copy_boundary(Boundary bdr);
 void append_to_boundary(Boundary *bdr, DataArray2 *upper, DataArray2 *lower);
 bool is_point_inside_boundary(Vector2 p, Boundary bdr);
 bool is_line_crossing_boundary(Vector2 p0, Vector2 p1, Boundary bdr);

@@ -73,7 +73,8 @@ typedef struct SegmentGroup {
 	enum DepartureGroupBoundaryType {DEPARTURE_GROUP_BOUNDARY_TOP_OPP, DEPARTURE_GROUP_BOUNDARY_TOP_CONJ} top_boundary_type;
 } SegmentGroup;
 
-SegmentGroup * new_segment_group(Body *dep_body, Body *arr_body, CelestSystem *system);
+SegmentGroup * new_segment_group(Body *dep_body, Body *arr_body, CelestSystem *system, LambertBranch lam_branch);
+SegmentGroup * copy_segment_group(SegmentGroup *group);
 void append_to_segment_group(SegmentGroup *group, SegmentGroup *new_group);
 void free_segment_group(SegmentGroup *group);
 
@@ -94,6 +95,8 @@ void set_opposition_conjunction_group_boundary2(SegmentGroup *group, int shift, 
 
 
 Boundary calc_dv_boundary(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double jd_max_arr, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
+
+VinfStructArray copy_vinf_struct_array(VinfStructArray vinf_struct_array);
 
 DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, double dep_periapsis, double max_depdv, double dv_tolerance);
 VinfStructArray calc_min_vinf_line2(SegmentGroup *group, double jd_min_dep, double jd_max_dep, double min_dur, double max_dur, double dv_tolerance);

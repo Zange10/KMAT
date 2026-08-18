@@ -8,7 +8,7 @@
 #include "external/orbitlib/external/geometrylib/src/data_array_def.h"
 
 
-SegmentGroup * new_segment_group(Body *dep_body, Body *arr_body, CelestSystem *system) {
+SegmentGroup * new_segment_group(Body *dep_body, Body *arr_body, CelestSystem *system, LambertBranch lam_branch) {
 	SegmentGroup *new_group = malloc(sizeof(SegmentGroup));
 	new_group->dep_body = dep_body;
 	new_group->arr_body = arr_body;
@@ -20,11 +20,38 @@ SegmentGroup * new_segment_group(Body *dep_body, Body *arr_body, CelestSystem *s
 	new_group->vinf_bdr = create_new_boundary();
 	new_group->rpe_bdr = create_new_boundary();
 	new_group->vinf_array = NULL;
-	new_group->lam_branch = LAMBERT_BRANCH_LEFT;
+	new_group->lam_branch = lam_branch;
 	new_group->num_next_groups = 0;
 	new_group->group_cap = 0;
 	new_group->next = NULL;
 	new_group->prev = NULL;
+	new_group->quad = NULL;
+	new_group->mesh = NULL;
+	new_group->min_rf_level = 0;
+	new_group->max_rf_level = 0;
+
+	return new_group;
+}
+
+
+SegmentGroup * copy_segment_group(SegmentGroup *group) {
+	SegmentGroup *new_group = malloc(sizeof(SegmentGroup));
+	new_group->dep_body = group->dep_body;
+	new_group->arr_body = group->arr_body;
+	new_group->system = group->system;
+	new_group->boundary_gradient = group->boundary_gradient;
+	new_group->group_bdr = copy_boundary(group->group_bdr);
+	new_group->conj_opp_bdr = copy_boundary(group->conj_opp_bdr);
+	new_group->dv_bdr = copy_boundary(group->dv_bdr);
+	new_group->vinf_bdr = copy_boundary(group->vinf_bdr);
+	new_group->rpe_bdr = copy_boundary(group->rpe_bdr);
+	new_group->vinf_array = data_array2_slice(group->vinf_array, 0, -1);
+	new_group->vinf_struct_array = copy_vinf_struct_array(group->vinf_struct_array);
+	new_group->lam_branch = group->lam_branch;
+	new_group->num_next_groups = 0;
+	new_group->group_cap = 0;
+	new_group->next = NULL;
+	new_group->prev = group->prev;
 	new_group->quad = NULL;
 	new_group->mesh = NULL;
 	new_group->min_rf_level = 0;
@@ -637,7 +664,7 @@ int get_opp_conj_min_shift(Body *dep_body, Body *arr_body, CelestSystem *system,
 	bool init_search = true;
 	// for loop to be exchanged with some sort of boundary check
 	while(!min_shift_found) {
-		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, system);
+		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, system, LAMBERT_BRANCH_LEFT);
 		set_opposition_conjunction_group_boundary2(new_group, min_shift, jd_min_dep, jd_max_dep, min_dur, max_dur);
 
 		if(data_array2_get_max(new_group->conj_opp_bdr.upper_bdrs[0]).y >= min_dur &&
@@ -1354,6 +1381,26 @@ DataArray2 * calc_min_vinf_line(SegmentGroup *group, double jd_min_dep, double j
 
 VinfStructArray create_vinf_struct_array() {
 	return (VinfStructArray) {.num = 0, .cap = 0, .vinf_arr = NULL, .dur_line = NULL, .vinf_line = NULL};
+}
+
+VinfStructArray copy_vinf_struct_array(VinfStructArray vinf_struct_array) {
+	VinfStructArray new_vsa;
+	new_vsa.num = vinf_struct_array.num;
+	new_vsa.cap = vinf_struct_array.cap;
+	new_vsa.vinf_line = data_array2_slice(vinf_struct_array.vinf_line, 0, -1);
+	new_vsa.dur_line = data_array2_slice(vinf_struct_array.dur_line, 0, -1);
+	if(new_vsa.cap > 0) {
+		new_vsa.vinf_arr = malloc(new_vsa.cap * sizeof(VinfStruct));
+	} else {
+		new_vsa.vinf_arr = NULL;
+	}
+	for(int i = 0; i < new_vsa.num; i++) {
+		new_vsa.vinf_arr[i].jd_dep = vinf_struct_array.vinf_arr[i].jd_dep;
+		new_vsa.vinf_arr[i].min_vinf_idx = vinf_struct_array.vinf_arr[i].min_vinf_idx;
+		new_vsa.vinf_arr[i].vinf_array = data_array2_slice(vinf_struct_array.vinf_arr[i].vinf_array, 0, -1);
+	}
+
+	return new_vsa;
 }
 
 void insert_to_vinf_struct(VinfStructArray *vinf_struct_array, double jd_dep, DataArray2 *vinf_array, int min_idx) {

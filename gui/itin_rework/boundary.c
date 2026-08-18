@@ -12,6 +12,25 @@ Boundary create_new_boundary() {
 	return (Boundary) {NULL, NULL, 0, 0};
 }
 
+Boundary copy_boundary(Boundary bdr) {
+	Boundary new_bdr;
+	new_bdr.num = bdr.num;
+	new_bdr.cap = bdr.cap;
+	if(new_bdr.cap > 0) {
+		new_bdr.lower_bdrs = malloc(new_bdr.cap*sizeof(DataArray2 *));
+		new_bdr.upper_bdrs = malloc(new_bdr.cap*sizeof(DataArray2 *));
+	} else {
+		new_bdr.lower_bdrs = NULL;
+		new_bdr.upper_bdrs = NULL;
+	}
+	for(int i = 0; i < new_bdr.num; i++) {
+		new_bdr.lower_bdrs[i] = data_array2_slice(bdr.lower_bdrs[i], 0, -1);
+		new_bdr.upper_bdrs[i] = data_array2_slice(bdr.upper_bdrs[i], 0, -1);
+	}
+
+	return new_bdr;
+}
+
 void append_to_boundary(Boundary *bdr, DataArray2 *upper, DataArray2 *lower) {
 	if(bdr->num >= bdr->cap) {
 		if(bdr->cap == 0) {

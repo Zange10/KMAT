@@ -873,13 +873,13 @@ G_MODULE_EXPORT void on_calc_ir() {
 
 	double dep_periapsis = dep_body->atmo_alt + ir_dep_periapsis;
 
-	SegmentGroup *departure = new_segment_group(dep_body, NULL, ir_system);
+	SegmentGroup *departure = new_segment_group(dep_body, NULL, ir_system, LAMBERT_BRANCH_LEFT);
 
 	int shift = get_opp_conj_min_shift(dep_body, arr_body, ir_system, min_dep, max_dep, min_dur, max_dur);
 	bool group_was_valid = true;
 
 	while(group_was_valid) {
-		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system);
+		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system, LAMBERT_BRANCH_LEFT);
 		set_opposition_conjunction_group_boundary2(new_group, shift, min_dep, max_dep, min_dur, max_dur);
 
 		if(data_array2_get_max(new_group->conj_opp_bdr.upper_bdrs[0]).y >= min_dur &&
@@ -1046,7 +1046,7 @@ G_MODULE_EXPORT void on_calc_ir() {
 		group_was_valid = true;
 
 		while(group_was_valid) {
-			SegmentGroup *new_group = new_segment_group(arr_body, body_tf, ir_system);
+			SegmentGroup *new_group = new_segment_group(arr_body, body_tf, ir_system, LAMBERT_BRANCH_LEFT);
 			// set_opposition_conjunction_group_boundary(new_group, shift, min_dep, max_dep, min_dur, max_dur, true);
 			set_opposition_conjunction_group_boundary2(new_group, shift, min_dep, max_dep, min_dur, max_dur);
 
@@ -1614,7 +1614,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 		get_body_by_name("Earth", ir_system),
 		get_body_by_name("Venus", ir_system),
 		get_body_by_name("Mars", ir_system),
-		get_body_by_name("Earth", ir_system)
+		// get_body_by_name("Earth", ir_system)
 	};
 
 	double dep_periapsis = body_seq[0]->atmo_alt + ir_dep_periapsis;
@@ -1652,15 +1652,15 @@ G_MODULE_EXPORT void on_calc_ir2() {
 			// plot_scatter_boundary(ir_coord_sys1, &departure->next[i]->next[j]->vinf_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 			//
 			// plot_boundary(ir_coord_sys0, &departure->next[i]->next[j]->conj_opp_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
-			// plot_boundary(ir_coord_sys0, &departure->next[i]->next[j]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+			plot_boundary(ir_coord_sys0, &departure->next[i]->next[j]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 			// plot_boundary(ir_coord_sys0, &departure->next[i]->next[j]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 			// plot_scatter_boundary(ir_coord_sys0, &departure->next[i]->next[j]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 			// plot_data2(ir_coord_sys0, departure->next[i]->next[j]->vinf_struct_array.vinf_line, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 			for(int k = 0; k < departure->next[i]->next[j]->num_next_groups; k++) {
 				// attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[i]->next[j]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, 0, false);
 				// attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[i]->next[j]->next[k]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false, MESH_VAL_ARRVINF, false);
-				attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->next[j]->next[k]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false, MESH_VAL_RPE, false);
-				attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->next[j]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_DATE, false, MESH_VAL_DUR, false);
+				// attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->next[j]->next[k]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false, MESH_VAL_RPE, false);
+				// attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->next[j]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_DATE, false, MESH_VAL_DUR, false);
 				//
 				// plot_data2(ir_coord_sys0, departure->next[i]->next[j]->next[k]->vinf_struct_array.vinf_line, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 				// plot_data2(ir_coord_sys0, departure->next[i]->next[j]->next[k]->vinf_struct_array.dur_line, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
@@ -1727,13 +1727,13 @@ G_MODULE_EXPORT void on_calc_ir2__() {
 	Body *dep_body = get_body_by_name("Venus", ir_system);
 	Body *arr_body = get_body_by_name("Mars", ir_system);
 
-	SegmentGroup *departure = new_segment_group(dep_body, NULL, ir_system);
+	SegmentGroup *departure = new_segment_group(dep_body, NULL, ir_system, LAMBERT_BRANCH_LEFT);
 
 	int shift = get_opp_conj_min_shift(dep_body, arr_body, ir_system, min_dep, max_dep, min_dur, max_dur);
 	bool group_was_valid = true;
 
 	while(group_was_valid) {
-		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system);
+		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system, LAMBERT_BRANCH_LEFT);
 		set_opposition_conjunction_group_boundary2(new_group, shift, min_dep, max_dep, min_dur, max_dur);
 
 		if(data_array2_get_max(new_group->conj_opp_bdr.upper_bdrs[0]).y >= min_dur &&
@@ -1905,13 +1905,13 @@ G_MODULE_EXPORT void on_calc_ir2_() {
 	Body *dep_body = ir_system->bodies[gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ir_arrbody))];
 	Body *arr_body = get_body_by_name("Mars", ir_system);
 
-	SegmentGroup *departure = new_segment_group(dep_body, NULL, ir_system);
+	SegmentGroup *departure = new_segment_group(dep_body, NULL, ir_system, LAMBERT_BRANCH_LEFT);
 
 	int shift = get_opp_conj_min_shift(dep_body, arr_body, ir_system, min_dep, max_dep, min_dur, max_dur);
 	bool group_was_valid = true;
 
 	while(group_was_valid) {
-		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system);
+		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system, LAMBERT_BRANCH_LEFT);
 		set_opposition_conjunction_group_boundary(new_group, shift, min_dep, max_dep, min_dur, max_dur, false);
 
 		if(data_array2_get_max(new_group->conj_opp_bdr.upper_bdrs[0]).y >= min_dur &&
@@ -2115,13 +2115,13 @@ G_MODULE_EXPORT void on_calc_ir3() {
 	Body *dep_body = get_body_by_name("Venus", ir_system);
 	Body *arr_body = get_body_by_name("Mars", ir_system);
 
-	SegmentGroup *departure = new_segment_group(dep_body, NULL, ir_system);
+	SegmentGroup *departure = new_segment_group(dep_body, NULL, ir_system, LAMBERT_BRANCH_LEFT);
 
 	int shift = get_opp_conj_min_shift(dep_body, arr_body, ir_system, min_dep, max_dep, min_dur, max_dur);
 	bool group_was_valid = true;
 
 	while(group_was_valid) {
-		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system);
+		SegmentGroup *new_group = new_segment_group(dep_body, arr_body, ir_system, LAMBERT_BRANCH_LEFT);
 		// set_opposition_conjunction_group_boundary(new_group, shift, min_dep, max_dep, min_dur, max_dur, false);
 		set_opposition_conjunction_group_boundary2(new_group, shift, min_dep, max_dep, min_dur, max_dur);
 
