@@ -101,6 +101,10 @@ G_MODULE_EXPORT void on_capability_analyzer_disp_draw(GtkWidget *widget, cairo_t
 	}
 }
 
+void calc_payload_per_inclination(struct LV lv, double launch_lat, double *incl, double *pl_mass, int num_data_points);
+void calc_capability_for_inclination(struct LV lv, double launch_lat, double incl, double *pl_mass, double *apoapsis, double *periapsis, double *rem_dv, double *poss_apo, int num_data_points);
+
+
 G_MODULE_EXPORT void on_ca_analyze() {
 	int launcher_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ca_sel_launcher));
 	int profile_id = gtk_combo_box_get_active(GTK_COMBO_BOX(cb_ca_sel_profile));

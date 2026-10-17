@@ -91,6 +91,28 @@ add_executable(KMAT
         tools/version_tool.c
         tools/version_tool.h
         tools/celestial_systems.c
+        gui/itin_rework/itin_rework_manager.c
+        gui/itin_rework/itin_rework_manager.h
+        gui/itin_rework/itin_rework_test.c
+        gui/itin_rework/itin_rework_test.h
+        gui/itin_rework/ib_transfer_calc_tools.c
+        gui/itin_rework/ib_transfer_calc_tools.h
+        gui/itin_rework/mesh.c
+        gui/itin_rework/mesh.h
+        gui/gui_tools/coordinate_system.c
+        gui/gui_tools/coordinate_system.h
+        gui/gui_tools/coordinate_system_drawing.c
+        gui/gui_tools/coordinate_system_drawing.h
+        gui/itin_rework/mesh_drawing.c
+        gui/itin_rework/mesh_drawing.h
+        gui/itin_rework/quad.c
+        gui/itin_rework/quad.h
+        gui/itin_rework/quad_drawing.c
+        gui/itin_rework/quad_drawing.h
+        gui/itin_rework/boundary.c
+        gui/itin_rework/boundary.h
+        gui/itin_rework/ib_transfer_calc.c
+        gui/itin_rework/ib_transfer_calc.h
 )
 
 # Platform-specific setup

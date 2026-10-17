@@ -98,7 +98,7 @@ void find_viable_flybys(struct ItinStep *tf, CelestSystem *system, Body *next_bo
 			}
 
 
-			data_array2_insert_new(data, dt, diff_vinf);
+			data_array2_insert_new(data, vec2(dt, diff_vinf));
 
 			if(!can_be_negative_monot_deriv(data)) break;
 			last_dt = dt;
@@ -892,6 +892,7 @@ void itinerary_step_parameters_to_string(char *s_labels, char *s_values, enum Da
 
 void remove_step_from_itinerary(struct ItinStep *step) {
 	struct ItinStep *prev = step->prev;
+	if(prev == NULL) {free_itinerary(step); return;}
 
 	while(prev->num_next_nodes == 1 && step->prev->prev != NULL) {
 		step = prev;

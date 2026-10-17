@@ -2,6 +2,7 @@
 #include "tools/tool_funcs.h"
 #include "database/database.h"
 #include "gui/gui_manager.h"
+#include "gui/itin_rework/itin_rework_manager.h"
 #include "00_Testing/testing.h"
 #include <math.h>
 
@@ -37,7 +38,8 @@ int main() {
 //	init_db();
 
 //	test();
-	start_gui("../GUI/GUI.glade");
+	// start_gui("../GUI/GUI.glade");
+	start_graphing_gui("../GUI/itin_rework_test.glade");
 
 //    int selection;
 //    char title[] = "CHOOSE PROGRAM:";
