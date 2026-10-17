@@ -38,8 +38,8 @@ int main() {
 //	init_db();
 
 //	test();
-	// start_gui("../GUI/GUI.glade");
-	start_graphing_gui("../GUI/itin_rework_test.glade");
+	start_gui("../GUI/GUI.glade");
+	// start_graphing_gui("../GUI/itin_rework_test.glade");
 
 //    int selection;
 //    char title[] = "CHOOSE PROGRAM:";
