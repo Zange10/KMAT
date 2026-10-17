@@ -64,6 +64,12 @@ int get_incr_thread_counter(int counter_index);
  */
 void incr_thread_counter_by_amount(int counter_index, int amount);
 
+/**
+ * @brief Joins the thread pool by waiting for all threads to finish
+ *
+ * @param thread_pool The thread pool
+ */
+void join_thread_pool(struct Thread_Pool thread_pool);
 
 
 #endif //KSP_THREAD_POOL_H

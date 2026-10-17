@@ -1614,7 +1614,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 		get_body_by_name("Earth", ir_system),
 		get_body_by_name("Venus", ir_system),
 		get_body_by_name("Mars", ir_system),
-		// get_body_by_name("Earth", ir_system)
+		get_body_by_name("Earth", ir_system)
 	};
 
 	double dep_periapsis = body_seq[0]->atmo_alt + ir_dep_periapsis;
@@ -1641,6 +1641,7 @@ G_MODULE_EXPORT void on_calc_ir2() {
 		// attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false, MESH_VAL_ARRDATE, false);
 		// attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_DATE, false, MESH_VAL_ARRDATE, false);
 		// plot_boundary(ir_coord_sys0, &departure->next[i]->dv_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+		// plot_boundary(ir_coord_sys1, &departure->next[i]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 
 		for(int j = 0; j < departure->next[i]->num_next_groups; j++) {
 			// attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[i]->next[j]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, 0, false);
@@ -1652,21 +1653,26 @@ G_MODULE_EXPORT void on_calc_ir2() {
 			// plot_scatter_boundary(ir_coord_sys1, &departure->next[i]->next[j]->vinf_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 			//
 			// plot_boundary(ir_coord_sys0, &departure->next[i]->next[j]->conj_opp_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
-			plot_boundary(ir_coord_sys0, &departure->next[i]->next[j]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 			// plot_boundary(ir_coord_sys0, &departure->next[i]->next[j]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+			// plot_boundary(ir_coord_sys0, &departure->next[i]->next[j]->dv_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 			// plot_scatter_boundary(ir_coord_sys0, &departure->next[i]->next[j]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 			// plot_data2(ir_coord_sys0, departure->next[i]->next[j]->vinf_struct_array.vinf_line, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 			for(int k = 0; k < departure->next[i]->next[j]->num_next_groups; k++) {
-				// attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[i]->next[j]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, 0, false);
+				SegmentGroup *group = departure->next[i]->next[j]->next[k];
+				int num_leaves = get_quad_leaves(group->quad, NULL);
+				printf("NUM LEAVES: %d\n", num_leaves);
+				if(num_leaves == 0) continue;
+
+				// attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[i]->next[j]->next[k]->quad, CS_PLOT_TYPE_QUAD_SKELETON, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, true, -1, false);
 				// attach_quad_to_coordinate_system(ir_coord_sys0, departure->next[i]->next[j]->next[k]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false, MESH_VAL_ARRVINF, false);
 				// attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->next[j]->next[k]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_NUMBER, false, MESH_VAL_RPE, false);
-				// attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->next[j]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_DATE, false, MESH_VAL_DUR, false);
+				attach_quad_to_coordinate_system(ir_coord_sys1, departure->next[i]->next[j]->next[k]->quad, CS_PLOT_TYPE_QUAD_INTERPOLATION, CS_AXIS_DATE, CS_AXIS_NUMBER, CS_AXIS_DATE, false, MESH_VAL_ARRDATE, false);
 				//
 				// plot_data2(ir_coord_sys0, departure->next[i]->next[j]->next[k]->vinf_struct_array.vinf_line, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 				// plot_data2(ir_coord_sys0, departure->next[i]->next[j]->next[k]->vinf_struct_array.dur_line, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 				// plot_boundary(ir_coord_sys0, &departure->next[i]->next[j]->conj_opp_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 				// plot_boundary(ir_coord_sys0, &departure->next[i]->next[j]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
-				// plot_boundary(ir_coord_sys1, &departure->next[i]->next[j]->next[k]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
+				plot_boundary(ir_coord_sys1, &departure->next[i]->next[j]->next[k]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 				// plot_scatter_boundary(ir_coord_sys0, &departure->next[i]->next[j]->group_bdr, CS_AXIS_DATE, CS_AXIS_NUMBER, true, false);
 				// plot_data2(ir_coord_sys0, departure->next[i]->next[j]->vinf_struct_array.vinf_line, CS_AXIS_DATE, CS_AXIS_NUMBER, false);
 			}

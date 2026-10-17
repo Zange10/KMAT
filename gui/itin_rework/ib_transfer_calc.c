@@ -298,7 +298,7 @@ void rpe_divide_and_conquer(SegmentGroup *group) {
 			}
 			clear_quad_list(quad_split_list);
 
-			printf("Number of Splits during cycle %d: %d\n", num_split_cycles, num_splits);
+			// printf("Number of Splits during cycle %d: %d\n", num_split_cycles, num_splits);
 
 			for(int j = 0; j < quad_list->num; j++) {
 				Quad *quad = quad_list->quad[j];
@@ -398,7 +398,7 @@ void determine_vinf_bdr_and_quad_refinement(SegmentGroup *group) {
 			}
 			clear_quad_list(quad_split_list);
 
-			printf("Number of Splits during cycle %d: %d\n", num_split_cycles, num_splits);
+			// printf("Number of Splits during cycle %d: %d\n", num_split_cycles, num_splits);
 
 			for(int j = 0; j < quad_list->num; j++) {
 				Quad *quad_ = quad_list->quad[j];
@@ -490,26 +490,37 @@ void calc_interpolation_based_next_step(SegmentGroup *group, Body **body_sequenc
 	get_next_groups(group, body_sequence[0], system, min_dep, max_dep, min_dur, max_dur);
 
 	// Determine Vinf line (fb-date vs min_dv)
+	printf("Vinf Array\n");
 	for(int i = 0; i < group->num_next_groups; i++) {
 		group->next[i]->vinf_struct_array = calc_min_vinf_line2(group->next[i], min_dep, max_dep, min_dur, max_dur, 1);
 	}
 
 	// Copy groups for left-right branch
+	printf("Copy groups for right lambert branch\n");
+	printf("num rem groups: %d\n", group->num_next_groups);
 	copy_next_groups_to_right_lambert_branch(group);
+	printf("num rem groups: %d\n", group->num_next_groups);
+
+	if(num_rem_bodies == 1) {
+		// return;
+		printf("test\n");
+	}
+	printf("num rem groups: %d\n", group->num_next_groups);
+	// Determine Vinf boundary of next groups
+	printf("Vinf boundary\n");
+	printf("num rem groups: %d\n", group->num_next_groups);
+	determine_vinf_bdr_and_quad_refinement(group);
+	printf("num rem groups: %d\n", group->num_next_groups);
 
 	// if(num_rem_bodies == 1) {
-	// 	// return;
-	// 	printf("test\n");
+	// 	return;
 	// }
 
-	// Determine Vinf boundary of next groups
-	determine_vinf_bdr_and_quad_refinement(group);
-
-	// return;
-
 	// Combine prev boundary and vinf boundary
+	printf("Combine boundaries\n");
+	printf("num rem groups: %d\n", group->num_next_groups);
 	for(int i = 0; i < group->num_next_groups; i++) {
-		Boundary new_boundary = combine_boundaries(group->dv_bdr, group->next[i]->vinf_bdr);
+		Boundary new_boundary = combine_boundaries(group->group_bdr, group->next[i]->vinf_bdr);
 		if(new_boundary.num == 0) {
 			free_boundary(&new_boundary);
 			free_segment_group(group->next[i]);
@@ -518,23 +529,46 @@ void calc_interpolation_based_next_step(SegmentGroup *group, Body **body_sequenc
 		free_boundary(&group->next[i]->group_bdr);
 		group->next[i]->group_bdr = new_boundary;
 	}
+	printf("num rem groups: %d\n", group->num_next_groups);
+
+
+	// if(num_rem_bodies == 1) {
+	// 	return;
+	// }
 
 	// Refining prev group inside new boundary wrt vinf and angle
-	refine_group_wrt_next_group_bdrs(group);
+	printf("Refine wrt new group boundaries\n");
+	printf("num rem groups: %d\n", group->num_next_groups);
+	// refine_group_wrt_next_group_bdrs(group);
+	printf("num rem groups: %d\n", group->num_next_groups);
 
 	// Quad generation and splitting of next groups
+	printf("Quad generation and splitting of next groups\n");
+	printf("num rem groups: %d\n", group->num_next_groups);
 	do_nextgroups_quad_generation(group);
+	printf("num rem groups: %d\n", group->num_next_groups);
 
 	// Boundary matching of next groups
+	printf("Boundary matching of next groups\n");
+	printf("num rem groups: %d\n", group->num_next_groups);
 	do_nextgroups_boundary_matching(group);
+	printf("num rem groups: %d\n", group->num_next_groups);
 
 	// Populate Quads with duration
+	printf("Populate Quads with duration\n");
+	printf("num rem groups: %d\n", group->num_next_groups);
 	populate_fly_by_quads_dep(group);
+	printf("num rem groups: %d\n", group->num_next_groups);
 
 	// D&C wrt duration
+	printf("D&C wrt duration\n");
+	printf("num rem groups: %d\n", group->num_next_groups);
 	flyby_divide_and_conquer(group, 1);
+	printf("num rem groups: %d\n", group->num_next_groups);
 
 	// Remove Quads with invalid duration
+	printf("Remove Quads with invalid duration\n");
+	printf("num rem groups: %d\n", group->num_next_groups);
 	for(int i = 0; i < group->num_next_groups; i++) {
 		QuadList *quad_list = create_quad_list();
 		get_quads_with_nan(group->next[i]->quad, quad_list, MESH_VAL_ARRDATE);
@@ -543,33 +577,44 @@ void calc_interpolation_based_next_step(SegmentGroup *group, Body **body_sequenc
 		}
 		free_quad_list(quad_list);
 	}
+	printf("num rem groups: %d\n", group->num_next_groups);
 
 	// Remove Groups with no quads
+	printf("Remove Groups with no quads\n");
+	printf("num rem groups: %d\n", group->num_next_groups);
 	for(int i = 0; i < group->num_next_groups; i++) {
 		if(get_quad_leaves(group->next[i]->quad, NULL) == 0) {
 			free_segment_group(group->next[i]); i--;
 		}
 	}
+	printf("num rem groups: %d\n", group->num_next_groups);
 
 	// Populate Quads with RPE
+	printf("Populate Quads with RPE\n");
 	populate_fly_by_quads_rpe_from_dep(group);
 
 	// D&C wrt RPE
+	printf("D&C wrt RPE\n");
 	rpe_divide_and_conquer(group);
 
 	// Remove Groups with no quads
+	printf("Remove Groups with no quads\n");
+	printf("num rem groups: %d\n", group->num_next_groups);
 	for(int i = 0; i < group->num_next_groups; i++) {
 		if(get_quad_leaves(group->next[i]->quad, NULL) == 0) {
 			free_segment_group(group->next[i]); i--;
 		}
 	}
+	printf("num rem groups: %d\n", group->num_next_groups);
 
 	// Determine RPE Boundary
+	printf("Determine RPE Boundary\n");
 	for(int i = 0; i < group->num_next_groups; i++) {
 		group->next[i]->rpe_bdr = get_rpe_boundary(group->next[i]);
 	}
 
 	// Combine previous boundary with RPE Boundary
+	printf("Combine previous boundary with RPE Boundary\n");
 	for(int i = 0; i < group->num_next_groups; i++) {
 		Boundary new_group_bdr = combine_boundaries(group->next[i]->rpe_bdr, group->next[i]->group_bdr);
 		free_boundary(&group->next[i]->group_bdr);
@@ -578,15 +623,32 @@ void calc_interpolation_based_next_step(SegmentGroup *group, Body **body_sequenc
 
 	// --
 
+	printf("FINALIZE OR NEXT GROUPS\n");
 	if(num_rem_bodies == 1) {
 		// For Arrival: D&C vinf and angle
 		flyby_divide_and_conquer_vinf(group, 10.0);
+		for(int i = 0; i < group->num_next_groups; i++) {
+			if(get_quad_leaves(group->next[i]->quad, NULL) == 0) {
+				free_segment_group(group->next[i]); i--;
+			}
+		}
 	} else {
 		// D&C Arr vinf
 		flyby_divide_and_conquer_vinf(group, 100.0);
+		for(int i = 0; i < group->num_next_groups; i++) {
+			if(get_quad_leaves(group->next[i]->quad, NULL) == 0) {
+				free_segment_group(group->next[i]); i--;
+			}
+		}
 		// next step
 		for(int i = 0; i < group->num_next_groups; i++) {
 			calc_interpolation_based_next_step(group->next[i], &body_sequence[1], num_rem_bodies-1, system);
+		}
+
+		for(int i = 0; i < group->num_next_groups; i++) {
+			if(get_quad_leaves(group->next[i]->quad, NULL) == 0) {
+				free_segment_group(group->next[i]); i--;
+			}
 		}
 	}
 }
@@ -601,6 +663,7 @@ SegmentGroup * calc_interpolation_based_itins(Body **body_sequence, int num_bodi
 	TimingMeasurements tm = init_timing_measurements();
 
 	// define Departure group
+	printf("Define Departure\n");
 	start_time_measurement(&tm);
 	SegmentGroup *departure = new_segment_group(body_sequence[0], body_sequence[0], system, LAMBERT_BRANCH_LEFT);
 	end_time_measurement(&tm, "Define Departure");
@@ -608,37 +671,56 @@ SegmentGroup * calc_interpolation_based_itins(Body **body_sequence, int num_bodi
 	// --
 
 	// Departure groups find group boundaries wrt min_dur and max_dur
+	printf("Determine Departure Groups\n");
 	start_time_measurement(&tm);
 	get_next_groups(departure, body_sequence[1], system, min_dep, max_dep, min_dur, max_dur);
 	end_time_measurement(&tm, "Determine Departure Groups");
 
 	// Determine dv boundary for dep groups
+	printf("Departure Groups DV-Boundary\n");
 	start_time_measurement(&tm);
 	set_nextgroups_depdv_boundary(departure, min_dep, max_dep, min_dur, max_dur, dep_periapsis, max_depdv);
 	end_time_measurement(&tm, "Departure Groups DV-Boundary");
 
 	// Quad generation and splitting wrt boundary
+	printf("Departure Groups Quad Generation\n");
 	start_time_measurement(&tm);
 	do_nextgroups_quad_generation(departure);
 	end_time_measurement(&tm, "Departure Groups Quad Generation");
 
 	// Departure group boundary matching
+	printf("Group Boundary Matching\n");
 	start_time_measurement(&tm);
 	do_nextgroups_boundary_matching(departure);
 	end_time_measurement(&tm, "Group Boundary Matching");
 
 	// Populate Quads
+	printf("Populate Departure Quads\n");
 	start_time_measurement(&tm);
 	populate_departure_quads(departure);
 	end_time_measurement(&tm, "Populate Departure Quads");
 
 	// D&C wrt Arrival vinf
+	printf("Departure Divide & Conquer\n");
 	start_time_measurement(&tm);
 	departure_divide_and_conquer(departure, 100.0);
 	end_time_measurement(&tm, "Departure Divide & Conquer");
 
 	// --
 
+
+	for(int i = 0; i < departure->num_next_groups; i++) {
+		SegmentGroup *group = departure->next[i];
+		group->group_bdr = group->dv_bdr;
+	}
+
+	if(num_bodies == 2) {
+		print_timing_measurements(tm);
+		free_timing_measurements(&tm);
+		return departure;
+	}
+
+	printf("NEXT GROUPS....\n");
 	for(int i = 0; i < departure->num_next_groups; i++) {
 		printf("GROUP %d -----------------\n", i);
 		start_time_measurement(&tm);
